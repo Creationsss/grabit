@@ -57,18 +57,40 @@ static const char *zl_header_example(const struct zl_hdr *h) {
 }
 
 static const char *const ALL_KNOWN_KEYS[] = {
-	"default_action", "notifications", "also_save", "save_dir", "editor",
-	"filename", "filename_preset", "service", "format",
-	"recording.fps", "recording.crf", "recording.preset", "recording.tune",
-	"recording.pix_fmt", "recording.max_size_mb", "recording.cursor", "recording.ffmpeg",
-	"sound.enabled", "sound.player", "sound.file",
-	"edit.color", "edit.width",
-	"jpeg.quality", "webp.quality", "webp.lossless",
+	"default_action",
+	"notifications",
+	"also_save",
+	"save_dir",
+	"editor",
+	"filename",
+	"filename_preset",
+	"service",
+	"format",
+	"recording.fps",
+	"recording.crf",
+	"recording.preset",
+	"recording.tune",
+	"recording.pix_fmt",
+	"recording.max_size_mb",
+	"recording.cursor",
+	"recording.ffmpeg",
+	"sound.enabled",
+	"sound.player",
+	"sound.file",
+	"edit.color",
+	"edit.width",
+	"jpeg.quality",
+	"webp.quality",
+	"webp.lossless",
 	"ocr.tesseract",
-	"services.zipline.auth", "services.zipline.domain",
-	"services.nest.auth", "services.nest.folder",
-	"services.fakecrime.auth", "services.ez.auth",
-	"services.guns.auth", "services.pixelvault.auth",
+	"services.zipline.auth",
+	"services.zipline.domain",
+	"services.nest.auth",
+	"services.nest.folder",
+	"services.fakecrime.auth",
+	"services.ez.auth",
+	"services.guns.auth",
+	"services.pixelvault.auth",
 	NULL,
 };
 
@@ -76,7 +98,8 @@ static size_t edit_distance(const char *a, const char *b) {
 	size_t la = strlen(a), lb = strlen(b);
 	if (la > 64 || lb > 64) return 999;
 	size_t prev[66], curr[66];
-	for (size_t j = 0; j <= lb; j++) prev[j] = j;
+	for (size_t j = 0; j <= lb; j++)
+		prev[j] = j;
 	for (size_t i = 1; i <= la; i++) {
 		curr[0] = i;
 		for (size_t j = 1; j <= lb; j++) {
@@ -88,7 +111,8 @@ static size_t edit_distance(const char *a, const char *b) {
 			if (sub < m) m = sub;
 			curr[j] = m;
 		}
-		for (size_t j = 0; j <= lb; j++) prev[j] = curr[j];
+		for (size_t j = 0; j <= lb; j++)
+			prev[j] = curr[j];
 	}
 	return prev[lb];
 }

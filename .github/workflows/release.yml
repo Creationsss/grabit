@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['[0-9]*']
 
 permissions:
   contents: write
@@ -27,12 +27,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: build stripped release
         env:
-          TAG: ${{ github.ref_name }}
+          VERSION: ${{ github.ref_name }}
         run: |
-          case "$TAG" in
-            v*) VERSION="${TAG#v}" ;;
-            *)  VERSION="$TAG" ;;
-          esac
           make clean
           make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
           ./build/grabit --version

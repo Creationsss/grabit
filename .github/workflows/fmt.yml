@@ -24,6 +24,6 @@ jobs:
       - name: install deps
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends git make clang-format
+          apt-get install -qq -y --no-install-recommends ca-certificates git make clang-format
       - uses: actions/checkout@v6
       - run: make fmt-check

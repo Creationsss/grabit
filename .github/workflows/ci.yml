@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  APT_DEPS: >-
+    build-essential pkg-config
+    libwayland-dev libwayland-bin
+    libcairo2-dev libxkbcommon-dev libmagic-dev
+    libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+    steps:
+      - name: install deps
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends git $APT_DEPS
+      - uses: actions/checkout@v6
+      - name: make all
+        run: make all
+      - name: --version
+        run: ./build/grabit --version
+      - name: make test
+        run: make test
+      - uses: actions/upload-artifact@v7
+        with:
+          name: grabit
+          path: build/grabit
+          retention-days: 7

@@ -1,0 +1,63 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  APT_DEPS: >-
+    build-essential pkg-config
+    libwayland-dev libwayland-bin
+    libcairo2-dev libxkbcommon-dev libmagic-dev
+    libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+
+jobs:
+  package-linux-x86_64:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+    steps:
+      - name: install deps
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends git $APT_DEPS
+      - uses: actions/checkout@v6
+      - name: build stripped release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          case "$TAG" in
+            v*) VERSION="${TAG#v}" ;;
+            *)  VERSION="$TAG" ;;
+          esac
+          make clean
+          make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
+          ./build/grabit --version
+          mv build/grabit grabit-x86_64-linux
+          sha256sum grabit-x86_64-linux | tee grabit-x86_64-linux.sha256
+          ldd grabit-x86_64-linux
+      - uses: actions/upload-artifact@v7
+        with:
+          name: grabit-x86_64-linux
+          path: |
+            grabit-x86_64-linux
+            grabit-x86_64-linux.sha256
+          retention-days: 7
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [package-linux-x86_64]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: grabit-x86_64-linux
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            grabit-x86_64-linux
+            grabit-x86_64-linux.sha256

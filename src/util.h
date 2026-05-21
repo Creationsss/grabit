@@ -15,6 +15,7 @@ int grabit_xasprintf(char **out, const char *fmt, ...) __attribute__((format(pri
 int grabit_shm_anon(const char *tag, size_t size);
 
 bool grabit_in_path(const char *bin);
+int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 const char *grabit_basename(const char *path);
 

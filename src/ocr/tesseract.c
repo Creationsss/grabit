@@ -14,17 +14,58 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+static bool path_looks_like_game(const char *path) {
+	if (!path) return false;
+	return strstr(path, "/games/") != NULL ||
+		   strstr(path, "/Sauerbraten/") != NULL ||
+		   strstr(path, "/tesseract-engine") != NULL;
+}
+
 int grabit_ocr_check(const char *bin) {
 	if (!bin || !bin[0]) return -1;
 
+	char resolved[4096];
+	if (grabit_resolve_in_path(bin, resolved, sizeof resolved) != 0) return -1;
+	if (path_looks_like_game(resolved)) {
+		log_debug("ocr: rejecting %s (looks like Tesseract FPS game path)", resolved);
+		return -1;
+	}
+
+	int p[2];
+	if (pipe(p) != 0) return -1;
+
 	pid_t pid = fork();
-	if (pid < 0) return -1;
+	if (pid < 0) {
+		close(p[0]);
+		close(p[1]);
+		return -1;
+	}
 	if (pid == 0) {
-		grabit_redirect_stdio_devnull();
+		if (dup2(p[1], STDOUT_FILENO) < 0) _exit(126);
+		if (dup2(p[1], STDERR_FILENO) < 0) _exit(126);
+		close(p[0]);
+		close(p[1]);
 		char *argv[] = {(char *)bin, (char *)"--version", NULL};
 		execvp(bin, argv);
 		_exit(errno == ENOENT ? 127 : 126);
 	}
+	close(p[1]);
+
+	char out[1024];
+	size_t off = 0;
+	for (;;) {
+		ssize_t n = read(p[0], out + off, sizeof out - 1 - off);
+		if (n < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
+		if (n == 0) break;
+		off += (size_t)n;
+		if (off >= sizeof out - 1) break;
+	}
+	out[off] = '\0';
+	close(p[0]);
+
 	int status = 0;
 	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
 	if (!WIFEXITED(status)) {
@@ -32,9 +73,18 @@ int grabit_ocr_check(const char *bin) {
 		return -1;
 	}
 	int code = WEXITSTATUS(status);
-	log_debug("ocr: tesseract --version exit code = %d", code);
-	if (code == 127) return -1;
-	if (code == 126) return -1;
+	log_debug("ocr: %s --version exit=%d output=%.80s", bin, code, out);
+	if (code != 0) return -1;
+	if (!strstr(out, "tesseract") && !strstr(out, "Tesseract")) {
+		log_error("ocr: `%s` --version did not look like Tesseract OCR", bin);
+		return -1;
+	}
+	if (!strstr(out, "leptonica")) {
+		log_error("ocr: `%s` is not Tesseract OCR (no leptonica in --version)", bin);
+		log_error("  if this is the Tesseract FPS game, set ocr.tesseract to the OCR binary:");
+		log_error("    grabit set ocr.tesseract /usr/bin/tesseract-ocr  # or the right path");
+		return -1;
+	}
 	return 0;
 }
 

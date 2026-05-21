@@ -49,25 +49,36 @@ const char *grabit_basename(const char *path) {
 }
 
 bool grabit_in_path(const char *bin) {
-	if (!bin || !bin[0]) return false;
-	if (strchr(bin, '/')) return access(bin, X_OK) == 0;
+	char tmp[4096];
+	return grabit_resolve_in_path(bin, tmp, sizeof tmp) == 0;
+}
+
+int grabit_resolve_in_path(const char *bin, char *out, size_t cap) {
+	if (!bin || !bin[0] || !out || cap == 0) return -1;
+	if (strchr(bin, '/')) {
+		if (access(bin, X_OK) != 0) return -1;
+		size_t n = strlen(bin);
+		if (n + 1 > cap) return -1;
+		memcpy(out, bin, n + 1);
+		return 0;
+	}
 	const char *path = getenv("PATH");
-	if (!path || !path[0]) return false;
-	char buf[4096];
+	if (!path || !path[0]) return -1;
 	const char *p = path;
 	while (*p) {
 		const char *colon = strchr(p, ':');
 		size_t len = colon ? (size_t)(colon - p) : strlen(p);
-		if (len > 0 && len + 1 + strlen(bin) + 1 <= sizeof buf) {
-			int n = snprintf(buf, sizeof buf, "%.*s/%s", (int)len, p, bin);
-			if (n > 0 && (size_t)n < sizeof buf && access(buf, X_OK) == 0) {
-				return true;
+		if (len > 0) {
+			int n = snprintf(out, cap, "%.*s/%s", (int)len, p, bin);
+			if (n > 0 && (size_t)n < cap && access(out, X_OK) == 0) {
+				return 0;
 			}
 		}
 		if (!colon) break;
 		p = colon + 1;
 	}
-	return false;
+	out[0] = '\0';
+	return -1;
 }
 
 int grabit_shm_anon(const char *tag, size_t size) {

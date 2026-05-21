@@ -403,7 +403,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 	if (!bin || !bin[0]) {
-		static const char *const CANDIDATES[] = {"tesseract", "tesseract-ocr", NULL};
+		static const char *const CANDIDATES[] = {"tesseract-ocr", "tesseract", NULL};
 		for (size_t i = 0; CANDIDATES[i]; i++) {
 			if (grabit_ocr_check(CANDIDATES[i]) == 0) {
 				bin = CANDIDATES[i];

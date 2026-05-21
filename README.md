@@ -17,7 +17,7 @@ see https://aur.archlinux.org/packages/grabit
 ### NixOS
 
 ```sh
-nix run git+https://heliopolis.live/creations/grabit-c.git -- --help
+nix run git+https://heliopolis.live/creations/grabit.git -- --help
 ```
 
 ### from source
@@ -33,6 +33,11 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
 
 - [OPTIONS.md](OPTIONS.md) — usage, configuration, auth tokens, sharex uploaders, recording/pin/ocr/edit, filename templates, env vars, build targets
 - [PLUGINS.md](PLUGINS.md) — plugin cli, manifest format, helper header
+
+## source
+
+- primary: https://heliopolis.live/creations/grabit
+- github mirror: https://github.com/Creationsss/grabit
 
 ## license
 

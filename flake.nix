@@ -56,7 +56,7 @@
 
         meta = with pkgs.lib; {
           description = "screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.";
-          homepage = "https://heliopolis.live/creations/grabit-c";
+          homepage = "https://heliopolis.live/creations/grabit";
           license = licenses.agpl3Plus;
           platforms = platforms.linux;
           mainProgram = "grabit";

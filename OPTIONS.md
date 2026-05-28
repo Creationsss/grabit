@@ -19,7 +19,7 @@ first run writes a default config to `~/.config/grabit/config.toml`.
 
 ## features
 
-- region screenshots with native freeze + selector (no `slurp`/`grim` shellouts)
+- region screenshots with native freeze + selector (no `slurp`/`grim` shellouts); uses `zwlr_screencopy_v1` if advertised, else falls back to `ext_image_copy_capture_v1` (KDE Plasma 6). Note: on the ext backend, rotated outputs (90°/180°/270°) may render incorrectly - the protocol's `transform` event isn't applied yet.
 - screen recording to mp4/h.264 with live overlay + sni tray icon
 - ocr (capture → text → clipboard) via tesseract
 - in-tree annotation editor (`--edit`): pen, rect, ellipse, arrow, blur, text, eraser, hsl color picker + eyedropper, hex input

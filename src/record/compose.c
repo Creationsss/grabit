@@ -5,6 +5,7 @@
 
 #include "cairo_util.h"
 #include "capture/capture.h"
+#include "capture/pixels.h"
 #include "log.h"
 #include "region/region.h"
 #include "wl.h"
@@ -188,7 +189,7 @@ void rec_layout_free(struct rec_layout *layout) {
 	if (!layout) return;
 	if (layout->slice_caches) {
 		for (size_t i = 0; i < layout->n; i++)
-			sc_pool_destroy(&layout->slice_caches[i]);
+			pixels_pool_destroy(&layout->slice_caches[i]);
 		free(layout->slice_caches);
 	}
 	free(layout->slices);

@@ -57,9 +57,7 @@ static int output_alloc_buffer(struct ro_output *o) {
 		if (cand->bytes && cand->width > 0 && cand->height > 0) frozen = cand;
 	}
 	if (frozen) {
-		cairo_format_t fmt = (frozen->format == WL_SHM_FORMAT_ARGB8888)
-								 ? CAIRO_FORMAT_ARGB32
-								 : CAIRO_FORMAT_RGB24;
+		cairo_format_t fmt = grabit_cairo_format_for_shm(frozen->format);
 		o->cairo_frozen = grabit_cairo_image(frozen->bytes, fmt,
 											 frozen->width, frozen->height,
 											 frozen->stride);

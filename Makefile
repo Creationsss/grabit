@@ -50,7 +50,10 @@ WL_PROTOCOLS := \
 	wlr-layer-shell-unstable-v1 \
 	xdg-output-unstable-v1 \
 	xdg-shell \
-	relative-pointer-unstable-v1
+	relative-pointer-unstable-v1 \
+	ext-image-capture-source-v1 \
+	ext-image-copy-capture-v1 \
+	ext-foreign-toplevel-list-v1
 
 WL_PROTO_DIR     := $(BUILDDIR)/protocols
 WL_PROTO_HEADERS := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -client-protocol.h,$(WL_PROTOCOLS)))
@@ -84,7 +87,10 @@ GRABIT_SRCS := \
 	src/hyprland.c \
 	src/mime.c \
 	src/wl.c \
+	src/capture/capture.c \
+	src/capture/pixels.c \
 	src/capture/wlr_screencopy.c \
+	src/capture/ext_image_copy.c \
 	src/capture/save.c \
 	src/capture/jpeg.c \
 	src/capture/webp.c \

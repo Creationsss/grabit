@@ -31,8 +31,8 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
 
 ## docs
 
-- [OPTIONS.md](OPTIONS.md) — usage, configuration, auth tokens, sharex uploaders, recording/pin/ocr/edit, filename templates, env vars, build targets
-- [PLUGINS.md](PLUGINS.md) — plugin cli, manifest format, helper header
+- [OPTIONS.md](OPTIONS.md) - usage, configuration, auth tokens, sharex uploaders, recording/pin/ocr/edit, filename templates, env vars, build targets
+- [PLUGINS.md](PLUGINS.md) - plugin cli, manifest format, helper header
 
 ## source
 

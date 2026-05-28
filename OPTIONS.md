@@ -51,8 +51,8 @@ required:
 build-time only (data, no link): `wayland-protocols`, `wayland-scanner`.
 
 optional (auto-detected via pkg-config):
-- `libjpeg` (or `libjpeg-turbo`) — enables JPEG output (`format = jpeg`).
-- `libwebp` — enables WebP output (`format = webp`).
+- `libjpeg` (or `libjpeg-turbo`) - enables JPEG output (`format = jpeg`).
+- `libwebp` - enables WebP output (`format = webp`).
 
 runtime (no link-time deps, looked up via `$PATH`):
 - `ffmpeg` for `--record`
@@ -125,7 +125,7 @@ zipline supports per-upload metadata via headers. set them with `services.ziplin
 
 | header | accepted values |
 |---|---|
-| `x-zipline-format` | `random`, `date`, `uuid`, `name`, `gfycat` — **defaults to `name`** so the uploaded URL preserves grabit's filename template (e.g. `%w`, `%Y-%m-%d`). Set it explicitly to override. |
+| `x-zipline-format` | `random`, `date`, `uuid`, `name`, `gfycat` - **defaults to `name`** so the uploaded URL preserves grabit's filename template (e.g. `%w`, `%Y-%m-%d`). Set it explicitly to override. |
 | `x-zipline-image-compression-percent` | 0-100 |
 | `x-zipline-image-compression-type` | `jpg`, `png`, `webp`, `jxl` |
 | `x-zipline-password` | string |
@@ -162,7 +162,7 @@ supported sxcu fields: `RequestURL`, `RequestMethod`, `Body` (`MultipartFormData
 
 placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}`, `{select:a|b|c}`, `{prompt:label|default}` (alias `{inputbox:label|default}`). response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}`, `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
 
-auth lives inside the `.sxcu` `Headers` block — no separate `services.<name>.auth` config needed.
+auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.auth` config needed.
 
 ### default action
 
@@ -276,7 +276,7 @@ grabit -e -o                  # annotate, then save
 
 `-e`/`--edit` pairs with any action. flow: drag a region, then a flameshot-style toolbar appears. tools:
 
-- **pen, rect, ellipse, arrow, blur, text, eraser** — keyboard shortcuts `1`–`7`
+- **pen, rect, ellipse, arrow, blur, text, eraser** - keyboard shortcuts `1`–`7`
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1–12 in the toolbar; the persisted `edit.width` accepts up to 20 if you set it via the cli)

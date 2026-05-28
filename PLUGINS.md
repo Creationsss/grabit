@@ -22,7 +22,7 @@ plugin names must match `[a-z0-9_-]+`.
 grabit plugin install <git-url>          # clone + build/fetch + install
 grabit plugin list                       # alias: ls
 grabit plugin show <name>                # parsed manifest
-grabit plugin update [<name>]            # update one — or every plugin if omitted
+grabit plugin update [<name>]            # update one - or every plugin if omitted
 grabit plugin remove <name>              # alias: rm
 ```
 
@@ -35,7 +35,7 @@ grabit <name> [args]                     # exec the plugin
 grabit -p <name> [args]                  # run plugin, then pin its last stdout line as a file
 ```
 
-dispatch order: if the first non-flag arg matches an installed plugin, grabit sets the env vars below, optionally captures (`capture.auto`), and `execv`'s the plugin binary. if there's no match, you get the usual `unknown argument` from grabit's arg parser — there is no separate "plugin not found" error.
+dispatch order: if the first non-flag arg matches an installed plugin, grabit sets the env vars below, optionally captures (`capture.auto`), and `execv`'s the plugin binary. if there's no match, you get the usual `unknown argument` from grabit's arg parser - there is no separate "plugin not found" error.
 
 ### `-p <name>` semantics
 
@@ -46,7 +46,7 @@ dispatch order: if the first non-flag arg matches an installed plugin, grabit se
 
 ### capture.auto
 
-with `capture.auto = true`, grabit captures a screenshot via `grabit -o` and prepends the saved path as the plugin's first positional arg — but only when the user didn't pass a positional themselves. per-call overrides:
+with `capture.auto = true`, grabit captures a screenshot via `grabit -o` and prepends the saved path as the plugin's first positional arg - but only when the user didn't pass a positional themselves. per-call overrides:
 
 ```sh
 grabit <name> --capture                  # force capture even if user passed a positional
@@ -81,7 +81,7 @@ url = "https://example.com/myplugin-x86_64"
 sha256 = "<hex>"                         # optional but strongly recommended
 ```
 
-omitting `sha256` skips integrity verification — a hostile mirror or MitM could substitute a binary undetected. there is no GPG / signature support.
+omitting `sha256` skips integrity verification - a hostile mirror or MitM could substitute a binary undetected. there is no GPG / signature support.
 
 ### optional tables
 
@@ -100,7 +100,7 @@ auto = true                              # see capture.auto above
 description = "extra subcommand"
 ```
 
-`description`, `homepage`, and `[actions.*]` are not consumed by dispatch — they're discoverability metadata.
+`description`, `homepage`, and `[actions.*]` are not consumed by dispatch - they're discoverability metadata.
 
 ## install
 
@@ -130,7 +130,7 @@ acquires the lock blockingly. behavior depends on the source kind in `.source`:
 - **git**: `git fetch --depth 1 origin <branch>` then `git reset --hard FETCH_HEAD`. if `[build]` is set, re-runs `cmd`.
 - **prebuilt**: refetches the url with `If-Modified-Since` (using the binary's mtime). if the server says 304, logs "up to date". on 200, re-verifies sha256 and atomic-renames into place.
 
-there is no `--force` flag — `If-Modified-Since` is always honored.
+there is no `--force` flag - `If-Modified-Since` is always honored.
 
 ### auto-update
 
@@ -150,7 +150,7 @@ set `check_every_hours = 0` to disable.
 grabit plugin remove <name>
 ```
 
-`rm -rf`'s the plugin dir and removes the `grabit-<name>` symlink. **the cache dir at `~/.cache/grabit/plugins/<name>/` is not touched** — manage that yourself if your plugin caches sensitive data.
+`rm -rf`'s the plugin dir and removes the `grabit-<name>` symlink. **the cache dir at `~/.cache/grabit/plugins/<name>/` is not touched** - manage that yourself if your plugin caches sensitive data.
 
 ## environment
 
@@ -165,7 +165,7 @@ set by grabit before exec'ing the plugin:
 
 ## helper header (`include/grabit-plugin.h`)
 
-a single-file, header-only helper. POSIX + libc only — no link-time deps; vendor it into your plugin repo and `#include` it.
+a single-file, header-only helper. POSIX + libc only - no link-time deps; vendor it into your plugin repo and `#include` it.
 
 ```c
 #include "grabit-plugin.h"
@@ -174,7 +174,7 @@ int main(void) {
     char *path = grabit_plugin_capture();   // forks `grabit -o`, returns the saved path
     if (!path) return 1;
     // ... do work with path ...
-    grabit_plugin_pin(path);                // execv's `grabit --pin -f <path>` — does not return on success
+    grabit_plugin_pin(path);                // execv's `grabit --pin -f <path>` - does not return on success
     free(path);
     return 1;
 }
@@ -191,4 +191,4 @@ functions:
 | `grabit_plugin_cache_dir()` | `$GRABIT_CACHE_DIR` (or `"/tmp"` if unset). |
 | `grabit_plugin_name()` | `$GRABIT_PLUGIN_NAME` (or `"plugin"` if unset). |
 
-you don't have to use the header — plugins can be any language, since dispatch is just `execv` with env vars set. the header is a convenience for C plugins that want to call back into grabit.
+you don't have to use the header - plugins can be any language, since dispatch is just `execv` with env vars set. the header is a convenience for C plugins that want to call back into grabit.

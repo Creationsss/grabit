@@ -8,6 +8,7 @@
 #include "log.h"
 #include "region/region.h"
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -279,8 +280,24 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 		goto fail;
 	}
 	if (!s->screencopy_manager) {
-		log_error("compositor doesn't advertise zwlr_screencopy_manager_v1; "
-				  "grabit only supports wlroots-based compositors");
+		const char *de = getenv("XDG_CURRENT_DESKTOP");
+		char de_up[64] = {0};
+		if (de) {
+			for (size_t i = 0; i < sizeof de_up - 1 && de[i]; i++)
+				de_up[i] = (char)toupper((unsigned char)de[i]);
+		}
+		const char *known = NULL;
+		if (strstr(de_up, "GNOME")) known = "GNOME (Mutter)";
+		else if (strstr(de_up, "KDE")) known = "KDE Plasma (KWin)";
+		else if (strstr(de_up, "COSMIC")) known = "Cosmic";
+		log_error("compositor doesn't advertise zwlr_screencopy_manager_v1");
+		if (known) {
+			log_error("  %s isn't supported - grabit only works on wlroots compositors", known);
+		} else {
+			log_error("  grabit only supports wlroots compositors");
+		}
+		log_error("  works on: hyprland, sway, niri, river");
+		log_error("  on this desktop try: gnome-screenshot, spectacle, flameshot, or ksnip");
 		goto fail;
 	}
 

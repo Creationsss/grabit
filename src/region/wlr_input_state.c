@@ -216,6 +216,13 @@ bool region_set_hover(struct ro_state *st, int btn) {
 	return was_visible;
 }
 
+int region_snap_hit(const struct ro_state *st, int32_t x, int32_t y) {
+	for (size_t i = st->n_snap_windows; i > 0; i--) {
+		if (rect_contains(st->snap_windows[i - 1], x, y)) return (int)(i - 1);
+	}
+	return -1;
+}
+
 void region_update_selection(struct ro_state *st) {
 	if (!st->dragging) {
 		st->has_selection = false;
@@ -235,8 +242,8 @@ void region_update_selection(struct ro_state *st) {
 }
 
 bool region_inside_selection(const struct ro_state *st, int32_t x, int32_t y) {
-	return x >= st->sel_x && y >= st->sel_y &&
-		   x < st->sel_x + st->sel_w && y < st->sel_y + st->sel_h;
+	return rect_contains((struct rect){st->sel_x, st->sel_y, st->sel_w, st->sel_h},
+						 x, y);
 }
 
 void region_pen_append(struct ro_state *st, int32_t x, int32_t y) {

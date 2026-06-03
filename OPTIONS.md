@@ -19,7 +19,8 @@ first run writes a default config to `~/.config/grabit/config.toml`.
 
 ## features
 
-- region screenshots with native freeze + selector (no `slurp`/`grim` shellouts); uses `zwlr_screencopy_v1` if advertised, else falls back to `ext_image_copy_capture_v1` (KDE Plasma 6). Note: on the ext backend, rotated outputs (90°/180°/270°) may render incorrectly - the protocol's `transform` event isn't applied yet.
+- region screenshots with native freeze + selector (no `slurp`/`grim` shellouts); uses `zwlr_screencopy_v1` if advertised, else falls back to `ext_image_copy_capture_v1` (KDE Plasma 6)
+- on hyprland, the region selector highlights the window under the cursor as a snap target - click to capture it, or drag for a freeform region
 - screen recording to mp4/h.264 with live overlay + sni tray icon
 - ocr (capture → text → clipboard) via tesseract
 - in-tree annotation editor (`--edit`): pen, rect, ellipse, arrow, blur, text, eraser, hsl color picker + eyedropper, hex input
@@ -185,6 +186,18 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
 | `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
+
+### capture backend
+
+| key | default | notes |
+|---|---|---|
+| `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river) and falls back to `ext` (KDE Plasma 6). Force one with `wlr` or `ext`. |
+
+### region selector
+
+| key | default | notes |
+|---|---|---|
+| `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
 
 ### encoder options
 

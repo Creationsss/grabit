@@ -146,11 +146,31 @@ static void output_redraw(struct ro_output *o) {
 
 	int32_t sel_l = 0, sel_t = 0, sel_r = 0, sel_b = 0;
 	bool sel_visible = false;
+	int32_t draw_x = 0, draw_y = 0, draw_w = 0, draw_h = 0;
+	bool draw_any = false;
+	bool draw_is_snap = false;
 	if (o->st->has_selection) {
-		int32_t sx = (o->st->sel_x - o->go->x) * S;
-		int32_t sy = (o->st->sel_y - o->go->y) * S;
-		int32_t sw = o->st->sel_w * S;
-		int32_t sh = o->st->sel_h * S;
+		draw_x = o->st->sel_x;
+		draw_y = o->st->sel_y;
+		draw_w = o->st->sel_w;
+		draw_h = o->st->sel_h;
+		draw_any = true;
+	} else if (!o->st->region_locked && !o->st->dragging &&
+			   o->st->snap_hover >= 0 &&
+			   (size_t)o->st->snap_hover < o->st->n_snap_windows) {
+		const struct rect *w = &o->st->snap_windows[o->st->snap_hover];
+		draw_x = w->x;
+		draw_y = w->y;
+		draw_w = w->w;
+		draw_h = w->h;
+		draw_any = true;
+		draw_is_snap = true;
+	}
+	if (draw_any) {
+		int32_t sx = (draw_x - o->go->x) * S;
+		int32_t sy = (draw_y - o->go->y) * S;
+		int32_t sw = draw_w * S;
+		int32_t sh = draw_h * S;
 		sel_l = i32max(0, sx);
 		sel_t = i32max(0, sy);
 		sel_r = i32min(pw, sx + sw);
@@ -239,7 +259,7 @@ static void output_redraw(struct ro_output *o) {
 	}
 
 	if (sel_visible) {
-		cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
+		cairo_set_source_rgba(cr, 1, 1, 1, draw_is_snap ? 0.45 : 0.9);
 		cairo_set_line_width(cr, (double)S);
 		double dashes[2] = {4.0 * S, 4.0 * S};
 		cairo_set_dash(cr, dashes, 2, 0);
@@ -250,22 +270,24 @@ static void output_redraw(struct ro_output *o) {
 		cairo_stroke(cr);
 		cairo_set_dash(cr, NULL, 0, 0);
 
-		char dims[32];
-		snprintf(dims, sizeof dims, "%dx%d", o->st->sel_w, o->st->sel_h);
-		cairo_select_font_face(cr, "sans-serif",
-							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-		cairo_set_font_size(cr, 14.0 * S);
-		cairo_text_extents_t ext;
-		cairo_text_extents(cr, dims, &ext);
-		double tx = (double)sel_r - ext.width - 8.0 * S;
-		double ty = (double)sel_b - 8.0 * S;
-		cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
-		cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
-						ext.width + 8.0 * S, ext.height + 6.0 * S);
-		cairo_fill(cr);
-		cairo_set_source_rgba(cr, 1, 1, 1, 1);
-		cairo_move_to(cr, tx, ty);
-		cairo_show_text(cr, dims);
+		if (!draw_is_snap) {
+			char dims[32];
+			snprintf(dims, sizeof dims, "%dx%d", draw_w, draw_h);
+			cairo_select_font_face(cr, "sans-serif",
+								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+			cairo_set_font_size(cr, 14.0 * S);
+			cairo_text_extents_t ext;
+			cairo_text_extents(cr, dims, &ext);
+			double tx = (double)sel_r - ext.width - 8.0 * S;
+			double ty = (double)sel_b - 8.0 * S;
+			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
+			cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
+							ext.width + 8.0 * S, ext.height + 6.0 * S);
+			cairo_fill(cr);
+			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+			cairo_move_to(cr, tx, ty);
+			cairo_show_text(cr, dims);
+		}
 	}
 
 	if (o->st->annotate_mode && o->st->region_locked) {

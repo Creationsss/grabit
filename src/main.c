@@ -65,6 +65,7 @@ static void install_signal_handlers(void) {
 
 static int print_version(void) {
 	puts("grabit " GRABIT_VERSION);
+	puts("capture backends: wlr-screencopy, ext-image-copy (KDE Plasma 6)");
 	puts("Copyright (C) 2026 creations. AGPL-3.0-or-later.");
 	return 0;
 }
@@ -528,6 +529,10 @@ static int run(const struct args *a) {
 	struct config cfg;
 	if (config_load(&cfg) != 0) return 1;
 	notify_init(&cfg, a->silent);
+
+	const char *backend_pref = config_get(&cfg, "capture.backend");
+	if (backend_pref && backend_pref[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
+		setenv("GRABIT_CAPTURE_BACKEND", backend_pref, 1);
 
 	enum action eff = a->action;
 	if (eff == ACTION_NONE) {

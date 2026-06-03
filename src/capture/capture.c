@@ -4,8 +4,10 @@
 #include "capture/capture.h"
 
 #include "capture/backend.h"
+#include "log.h"
 #include "wl.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,13 +17,58 @@ void image_free(struct image *img) {
 	memset(img, 0, sizeof *img);
 }
 
+enum capture_backend {
+	CAP_NONE = 0,
+	CAP_WLR = 1,
+	CAP_EXT = 2,
+};
+
+static enum capture_backend pick_backend(struct grabit_wl_state *s) {
+	bool have_wlr = s->screencopy_manager != NULL;
+	bool have_ext = s->ext_copy_manager && s->ext_source_manager;
+	const char *pref = getenv("GRABIT_CAPTURE_BACKEND");
+	if (!pref || !pref[0]) pref = "auto";
+	if (strcmp(pref, "wlr") == 0) {
+		if (!have_wlr) {
+			log_error("capture.backend=wlr but wlr-screencopy isn't advertised");
+			return CAP_NONE;
+		}
+		return CAP_WLR;
+	}
+	if (strcmp(pref, "ext") == 0) {
+		if (!have_ext) {
+			log_error("capture.backend=ext but ext-image-copy isn't advertised");
+			return CAP_NONE;
+		}
+		return CAP_EXT;
+	}
+	if (have_wlr) return CAP_WLR;
+	if (have_ext) return CAP_EXT;
+	return CAP_NONE;
+}
+
+static enum capture_backend resolve_backend(struct grabit_wl_state *s) {
+	static bool logged;
+	enum capture_backend b = pick_backend(s);
+	if (!logged && b != CAP_NONE) {
+		logged = true;
+		log_debug("capture: using %s backend",
+				  b == CAP_WLR ? "wlr-screencopy" : "ext-image-copy");
+	}
+	return b;
+}
+
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 						struct image *out) {
 	if (!s) return -1;
-	if (s->screencopy_manager) return grabit_wlr_capture_full(s, o, out);
-	if (s->ext_copy_manager && s->ext_source_manager)
+	switch (resolve_backend(s)) {
+	case CAP_WLR:
+		return grabit_wlr_capture_full(s, o, out);
+	case CAP_EXT:
 		return grabit_ext_capture_full(s, o, out);
-	return -1;
+	default:
+		return -1;
+	}
 }
 
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,
@@ -31,11 +78,14 @@ int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *
 							   uint32_t *out_format,
 							   struct pixels_pool *cache) {
 	if (!s) return -1;
-	if (s->screencopy_manager)
+	switch (resolve_backend(s)) {
+	case CAP_WLR:
 		return grabit_wlr_capture_region(s, o, x, y, w, h, overlay_cursor,
 										 dst, dst_stride, dst_h, out_format, cache);
-	if (s->ext_copy_manager && s->ext_source_manager)
+	case CAP_EXT:
 		return grabit_ext_capture_region(s, o, x, y, w, h, overlay_cursor,
 										 dst, dst_stride, dst_h, out_format, cache);
-	return -1;
+	default:
+		return -1;
+	}
 }

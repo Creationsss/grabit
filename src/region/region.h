@@ -18,6 +18,10 @@ struct rect {
 	int32_t h;
 };
 
+static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
+	return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+}
+
 #define ANNO_DEFAULT_FONT 18
 
 enum tool_kind {

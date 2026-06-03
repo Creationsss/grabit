@@ -6,6 +6,7 @@
 #include "capture/pixels.h"
 
 #include "log.h"
+#include "notify/notify.h"
 #include "wl.h"
 
 #include <stdbool.h>
@@ -158,6 +159,20 @@ static const struct ext_image_copy_capture_frame_v1_listener frame_listener = {
 	.failed = frame_failed,
 };
 
+static void warn_rotation_once(uint32_t transform) {
+	static bool warned;
+	if (transform == 0 || warned) return;
+	warned = true;
+	log_warn("ext-image-copy: compositor applied transform=%u; "
+			 "rotated outputs may render incorrectly",
+			 transform);
+	notify_send(&(struct notify_opts){
+		.summary = "grabit: rotated output",
+		.body = "the KDE capture backend doesn't yet apply output rotation; "
+				"the screenshot may be skewed",
+	});
+}
+
 static int wait_session_done(struct grabit_wl_state *s, struct ec_state *c) {
 	while (!c->session_done && c->status >= 0) {
 		if (wl_display_dispatch(s->display) < 0) {
@@ -226,7 +241,9 @@ static int do_capture(struct grabit_wl_state *s, struct grabit_output *o,
 												  out_state->width, out_state->height);
 	ext_image_copy_capture_frame_v1_capture(out_state->frame);
 
-	return pixels_wl_wait(s->display, &out_state->status);
+	int rc = pixels_wl_wait(s->display, &out_state->status);
+	if (rc == 0) warn_rotation_once(out_state->transform);
+	return rc;
 }
 
 int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
@@ -238,11 +255,6 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, false, NULL, &c) == 0) {
-		if (c.transform != 0) {
-			log_warn("ext-image-copy: compositor applied transform=%u; "
-					 "rotated outputs may render incorrectly",
-					 c.transform);
-		}
 		out->width = c.width;
 		out->height = c.height;
 		out->stride = c.stride;

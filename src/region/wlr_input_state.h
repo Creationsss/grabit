@@ -38,6 +38,8 @@ bool region_set_hover(struct ro_state *st, int btn);
 void region_update_selection(struct ro_state *st);
 bool region_inside_selection(const struct ro_state *st, int32_t x, int32_t y);
 
+int region_snap_hit(const struct ro_state *st, int32_t x, int32_t y);
+
 void region_pen_append(struct ro_state *st, int32_t x, int32_t y);
 void region_commit_drawing(struct ro_state *st);
 void region_commit_text(struct ro_state *st);

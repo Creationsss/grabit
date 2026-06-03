@@ -83,6 +83,8 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"webp.quality",
 	"webp.lossless",
 	"ocr.tesseract",
+	"capture.backend",
+	"region.window_snap",
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.nest.auth",
@@ -263,6 +265,16 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			return 0;
 		}
 	}
+	if (strcmp(key, "capture.backend") == 0) {
+		*example_out = "auto|wlr|ext";
+		*def_out = "auto";
+		return 0;
+	}
+	if (strcmp(key, "region.window_snap") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
 	return -1;
 }
 
@@ -358,4 +370,7 @@ void cfg_help_print_all_keys(void) {
 	}
 	puts("");
 	print_key_with_default("ocr.tesseract", find_default("ocr.tesseract"));
+	puts("");
+	print_key_with_default("capture.backend", find_default("capture.backend"));
+	print_key_with_default("region.window_snap", find_default("region.window_snap"));
 }

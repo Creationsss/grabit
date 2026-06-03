@@ -158,6 +158,8 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 		}
 	} else {
 		region_update_selection(st);
+		int32_t h = st->dragging ? -1 : region_snap_hit(st, st->cursor_x, st->cursor_y);
+		if (h != st->snap_hover) st->snap_hover = h;
 	}
 
 	int hover = -1;
@@ -337,6 +339,18 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			if (st->has_selection && (st->sel_w < 8 || st->sel_h < 8)) {
 				st->has_selection = false;
 				st->sel_w = st->sel_h = 0;
+			}
+			if (!st->has_selection) {
+				int hit = region_snap_hit(st, st->cursor_x, st->cursor_y);
+				if (hit >= 0 && (size_t)hit < st->n_snap_windows) {
+					const struct rect *w = &st->snap_windows[hit];
+					st->sel_x = w->x;
+					st->sel_y = w->y;
+					st->sel_w = w->w;
+					st->sel_h = w->h;
+					st->has_selection = true;
+					st->snap_hover = -1;
+				}
 			}
 			if (st->has_selection) {
 				if (st->annotate_mode && st->out_annos) {

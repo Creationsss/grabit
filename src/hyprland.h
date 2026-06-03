@@ -4,6 +4,11 @@
 #ifndef GRABIT_HYPRLAND_H
 #define GRABIT_HYPRLAND_H
 
+#include <stddef.h>
+
 int grabit_hyprland_active_window(char **class_out, char **title_out);
+
+struct rect;
+int grabit_hyprland_clients(struct rect **out, size_t *n_out);
 
 #endif

@@ -19,6 +19,7 @@ static const char *BOOL_KEYS[] = {
 	"webp.lossless",
 	"recording.cursor",
 	"sound.enabled",
+	"region.window_snap",
 	NULL,
 };
 
@@ -144,6 +145,16 @@ static bool valid_sound_key(const char *key) {
 	const char *leaf = key + 6;
 	return strcmp(leaf, "enabled") == 0 || strcmp(leaf, "player") == 0 ||
 		   strcmp(leaf, "file") == 0;
+}
+
+static bool valid_capture_key(const char *key) {
+	if (strncmp(key, "capture.", 8) != 0) return false;
+	return strcmp(key + 8, "backend") == 0;
+}
+
+static bool valid_region_key(const char *key) {
+	if (strncmp(key, "region.", 7) != 0) return false;
+	return strcmp(key + 7, "window_snap") == 0;
 }
 
 static bool valid_recording_key(const char *key) {
@@ -300,10 +311,13 @@ static int validate_edit_color(const char *value) {
 	return 0;
 }
 
+static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
+
 int config_set(struct config *c, const char *key, const char *value) {
 	if (!valid_top_key(key) && !valid_service_key(key) && !valid_recording_key(key) &&
 		!valid_ocr_key(key) && !valid_sound_key(key) && !valid_edit_key(key) &&
-		!valid_jpeg_key(key) && !valid_webp_key(key)) {
+		!valid_jpeg_key(key) && !valid_webp_key(key) &&
+		!valid_capture_key(key) && !valid_region_key(key)) {
 		log_error("unknown config key: %s", key);
 		const char *hint = cfg_help_suggest_key(key);
 		if (hint) log_info("did you mean: %s ?", hint);
@@ -311,6 +325,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
 		log_error("format must be one of png|jpeg|webp");
+		return -1;
+	}
+	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
+		log_error("capture.backend must be one of auto|wlr|ext");
 		return -1;
 	}
 	if (strcmp(key, "jpeg.quality") == 0 &&

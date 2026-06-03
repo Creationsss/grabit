@@ -4,7 +4,9 @@
 #define _XOPEN_SOURCE 700
 #include "region/region.h"
 
+#include "config.h"
 #include "cursor.h"
+#include "hyprland.h"
 #include "log.h"
 #include "region/annotate.h"
 #include "region/wlr_state.h"
@@ -13,6 +15,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
@@ -53,10 +56,25 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 	if (!st.outs) return -1;
 	st.n_outs = s->n_outputs;
 
+	st.snap_hover = -1;
+	struct config snap_cfg;
+	bool snap_enabled = true;
+	if (config_load(&snap_cfg) == 0) {
+		const char *v = config_get(&snap_cfg, "region.window_snap");
+		if (v && strcmp(v, "false") == 0) snap_enabled = false;
+		config_free(&snap_cfg);
+	}
+	if (snap_enabled) {
+		if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
+			log_debug("region: window snap disabled (no hyprland ipc)");
+		}
+	}
+
 	st.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!st.xkb_ctx) {
 		log_error("xkb_context_new failed");
 		free(st.outs);
+		free(st.snap_windows);
 		return -1;
 	}
 
@@ -288,6 +306,7 @@ loop_done:;
 		if (o->surface) wl_surface_destroy(o->surface);
 	}
 	free(st.outs);
+	free(st.snap_windows);
 
 	region_color_picker_release_cache(&st);
 

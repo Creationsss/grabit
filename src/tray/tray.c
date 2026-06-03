@@ -43,8 +43,8 @@ struct tray_state *tray_start(void) {
 	if (pid < 0) {
 		log_warn("tray: fork failed: %s", strerror(errno));
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: setup needed",
-			.body = "tray unavailable; see terminal for details",
+			.summary = "grabit: tray icon unavailable",
+			.body = "could not spawn the tray process (transient); recording continues without it",
 		});
 		free(t);
 		return NULL;

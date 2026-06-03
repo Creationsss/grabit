@@ -197,6 +197,18 @@ static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 int record_toggle(struct config *cfg, const struct args *a) {
 	if (stop_running_recording() == 0) return 0;
 
+	const char *ffmpeg_bin = read_ffmpeg(cfg);
+	if (!grabit_in_path(ffmpeg_bin)) {
+		log_error("recording: `%s` not found in $PATH (install ffmpeg or set recording.ffmpeg)",
+				  ffmpeg_bin);
+		notify_send(&(struct notify_opts){
+			.summary = "Recording failed",
+			.body = "ffmpeg not found; install ffmpeg or set recording.ffmpeg",
+			.force = true,
+		});
+		return 1;
+	}
+
 	const char *upload_service = NULL;
 	if (!a->no_upload) {
 		const char *def_action = config_get(cfg, "default_action");
@@ -283,7 +295,6 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	int fps = read_fps(cfg);
 	int crf = read_crf(cfg);
 	bool cursor = read_cursor(cfg);
-	const char *ffmpeg_bin = read_ffmpeg(cfg);
 	const char *preset = read_preset(cfg);
 	const char *tune = read_tune(cfg);
 	const char *pix_fmt = read_pix_fmt(cfg);

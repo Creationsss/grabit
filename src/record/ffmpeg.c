@@ -155,6 +155,7 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 
 	char *tmp_path = NULL;
 	if (grabit_xasprintf(&tmp_path, "%s.compressing.mp4", path) != 0) return -1;
+	(void)unlink(tmp_path);
 
 	pid_t pid = fork();
 	if (pid < 0) {

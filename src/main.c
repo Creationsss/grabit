@@ -89,10 +89,14 @@ static int print_help(void) {
 		"  --no-upload       Skip auto-upload after --record\n"
 		"  --no-tray         Skip SNI tray during recording\n"
 		"  --pin             Capture and pin to desktop (click-through; stack any number)\n"
-		"  --grab            Make all pinned screenshots clickable (click closes that one)\n"
+		"  --grab            Make pinned screenshots clickable (click closes one; drag to move)\n"
+		"                    Pair with a hold-bind, e.g. hyprland:\n"
+		"                      bindrn = SUPER SHIFT, mouse:272, exec, grabit --grab\n"
+		"                      bindrn = SUPER SHIFT, mouse:272, release, exec, grabit --release\n"
 		"  --release         Restore pinned screenshots to click-through\n"
 		"  --close-all       Dismiss every pinned screenshot\n"
-		"  -e, --edit        Open the captured file in an editor first\n"
+		"  -e, --edit        Open the in-tree annotation editor before the action\n"
+		"                    Set as default with: grabit set edit.default true\n"
 		"  --silent, -q, --quiet  Suppress notifications and sound\n"
 		"  -d, --debug       Enable debug logging to stderr\n"
 		"  --filename <tpl>  Per-run filename template\n"
@@ -130,8 +134,10 @@ static int print_help(void) {
 		"  %t                active window title (hyprland)\n"
 		"  %o                output name where the capture happened\n"
 		"\n"
-		"With no action and no `default_action` set, grabit prints this help.\n"
-		"Set one with: grabit set default_action upload|copy|save|pin\n"
+		"First run seeds `default_action=copy` so a bare `grabit` opens the region selector\n"
+		"and copies to the clipboard. Change with: grabit set default_action upload|copy|save|pin\n",
+		stdout);
+	fputs(
 		"\n"
 		"Examples:\n"
 		"  grabit -c                       region screenshot to clipboard\n"
@@ -304,21 +310,19 @@ static int run_upload(struct config *cfg, const struct args *a) {
 		puts(r.url);
 		fflush(stdout);
 	} else {
-		char body_short[1024];
-		const char *body = r.body;
-		if (body && strlen(body) >= sizeof body_short) {
-			static const char trail[] = "… (full response in terminal)";
-			size_t keep = sizeof body_short - sizeof trail;
-			memcpy(body_short, body, keep);
-			memcpy(body_short + keep, trail, sizeof trail);
-			body = body_short;
+		char body[256];
+		upload_friendly_error(&r, body, sizeof body);
+		if (is_temp) {
+			log_info("upload failed; capture kept at %s", path);
+			log_info("retry with: grabit -f %s --%s", path, service);
+			is_temp = false;
+			clear_tmpfile();
 		}
-		struct notify_opts opts = {
+		notify_send(&(struct notify_opts){
 			.summary = "Upload failed",
 			.body = body,
 			.force = true,
-		};
-		notify_send(&opts);
+		});
 	}
 
 	upload_result_free(&r);
@@ -414,9 +418,22 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 	}
 	if (!bin) {
 		log_error("ocr: tesseract not found in $PATH (install tesseract)");
+		log_error("  also need the english training data: tesseract-data-eng (arch), "
+				  "tesseract-ocr-eng (debian/ubuntu)");
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: setup needed",
-			.body = "tesseract not installed",
+			.body = "install tesseract + the english training data",
+		});
+		return 1;
+	}
+	if (grabit_ocr_has_lang(bin, "eng") != 0) {
+		log_error("ocr: tesseract is installed but the english language data isn't");
+		log_error("  install: tesseract-data-eng (arch), tesseract-ocr-eng (debian/ubuntu)");
+		log_error("  or set TESSDATA_PREFIX to the dir containing eng.traineddata");
+		notify_send(&(struct notify_opts){
+			.summary = "grabit: setup needed",
+			.body = "tesseract eng.traineddata missing; install the language pack",
+			.force = true,
 		});
 		return 1;
 	}
@@ -546,6 +563,15 @@ static int run(const struct args *a) {
 		else if (def && strcmp(def, "pin") == 0)
 			eff = ACTION_PIN;
 	}
+
+	struct args eff_a = *a;
+	if (!eff_a.edit && !a->file &&
+		(eff == ACTION_UPLOAD || eff == ACTION_COPY ||
+		 eff == ACTION_OUTPUT || eff == ACTION_PIN)) {
+		const char *v = config_get(&cfg, "edit.default");
+		if (v && strcmp(v, "true") == 0) eff_a.edit = true;
+	}
+	a = &eff_a;
 
 	int rc;
 	switch (eff) {

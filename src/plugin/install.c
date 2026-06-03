@@ -13,6 +13,7 @@
 #include "util.h"
 #include "vendor/sha256/sha256.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -56,6 +57,26 @@ static int symlink_force(const char *target, const char *link_path) {
 	return symlink(target, link_path);
 }
 
+static void gc_stale_tmp(const char *root) {
+	DIR *d = opendir(root);
+	if (!d) return;
+	struct dirent *e;
+	while ((e = readdir(d)) != NULL) {
+		if (strncmp(e->d_name, ".tmp.", 5) != 0) continue;
+		const char *pid_str = strrchr(e->d_name, '.');
+		if (!pid_str || pid_str == e->d_name + 4) continue;
+		pid_t pid = (pid_t)strtol(pid_str + 1, NULL, 10);
+		if (pid > 0 && grabit_process_alive(pid)) continue;
+		char *path = NULL;
+		if (grabit_xasprintf(&path, "%s/%s", root, e->d_name) != 0) continue;
+		log_debug("plugin: gc stale %s", path);
+		char *const argv[] = {"rm", "-rf", path, NULL};
+		(void)plugin_run_in(NULL, argv);
+		free(path);
+	}
+	closedir(d);
+}
+
 static int verify_sha256(const char *path, const char *expect_hex) {
 	if (!expect_hex || !*expect_hex) return 0;
 	char actual[SHA256_HEX_SIZE];
@@ -93,6 +114,8 @@ int plugin_install_git(const char *url) {
 		plugin_lock_release(lock_fd);
 		return -1;
 	}
+
+	gc_stale_tmp(root);
 
 	char *plugin_dir = NULL;
 	int ret = -1;

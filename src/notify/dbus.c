@@ -70,8 +70,7 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 
 void notify_send(const struct notify_opts *o) {
 	if (!o || !o->summary) return;
-	if (g_silent) return;
-	if (!g_show && !o->force) return;
+	if ((g_silent || !g_show) && !o->force) return;
 
 	DBusError err;
 	dbus_error_init(&err);

@@ -176,6 +176,11 @@ int args_parse(int argc, char **argv, struct args *out) {
 				if (out->action == ACTION_NONE) out->action = ACTION_UPLOAD;
 				continue;
 			}
+			char suggest[64];
+			if (upload_suggest_service(name, suggest, sizeof suggest) == 0) {
+				log_error("unknown flag `--%s` (did you mean `--%s`?)", name, suggest);
+				return -1;
+			}
 		}
 
 		log_error("unknown argument: %s (try `grabit --help`)", arg);

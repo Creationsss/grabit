@@ -59,6 +59,65 @@ bool upload_service_known(const char *name) {
 	return find_service(name) != NULL || sxcu_dir_has(name);
 }
 
+static size_t edit_distance(const char *a, const char *b) {
+	size_t la = strlen(a), lb = strlen(b);
+	if (la > 64 || lb > 64) return 999;
+	size_t prev[66], curr[66];
+	for (size_t j = 0; j <= lb; j++)
+		prev[j] = j;
+	for (size_t i = 1; i <= la; i++) {
+		curr[0] = i;
+		for (size_t j = 1; j <= lb; j++) {
+			size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+			size_t del = prev[j] + 1;
+			size_t ins = curr[j - 1] + 1;
+			size_t sub = prev[j - 1] + cost;
+			size_t m = del < ins ? del : ins;
+			if (sub < m) m = sub;
+			curr[j] = m;
+		}
+		for (size_t j = 0; j <= lb; j++)
+			prev[j] = curr[j];
+	}
+	return prev[lb];
+}
+
+int upload_suggest_service(const char *input, char *out, size_t cap) {
+	if (!input || !out || cap == 0) return -1;
+	const char *best = NULL;
+	size_t best_dist = (size_t)-1;
+	for (size_t i = 0; i < N_SERVICES; i++) {
+		size_t d = edit_distance(input, SERVICES[i].name);
+		if (d < best_dist) {
+			best_dist = d;
+			best = SERVICES[i].name;
+		}
+	}
+	char **names = NULL;
+	size_t n = 0;
+	int rc = -1;
+	if (sxcu_dir_list(&names, &n) == 0) {
+		for (size_t i = 0; i < n; i++) {
+			size_t d = edit_distance(input, names[i]);
+			if (d < best_dist) {
+				best_dist = d;
+				best = names[i];
+			}
+		}
+	}
+	size_t in_len = strlen(input);
+	size_t max_allowed = in_len / 3 + 1;
+	if (max_allowed < 2) max_allowed = 2;
+	if (best && best_dist <= max_allowed) {
+		snprintf(out, cap, "%s", best);
+		rc = 0;
+	}
+	for (size_t i = 0; i < n; i++)
+		free(names[i]);
+	free(names);
+	return rc;
+}
+
 int upload_preflight(struct config *cfg, const struct args *a, const char **service_out) {
 	const char *service = a->service;
 	if (!service) service = config_get(cfg, "service");
@@ -165,31 +224,76 @@ static void log_response_body(const char *body) {
 	log_error("response (truncated, %zu bytes): %.*s…", len, (int)BODY_MAX, body);
 }
 
-static void log_http_failure(long code, const char *body) {
+static const char *http_friendly(long code) {
 	switch (code) {
 	case 401:
-		log_error("upload failed (401): authentication failed; check your auth token");
-		break;
+		return "authentication failed - check your auth token";
+	case 403:
+		return "forbidden - check permissions on the upload endpoint";
+	case 404:
+		return "endpoint not found - check the upload URL";
 	case 413:
-		log_error("upload failed (413): file too large; try compressing");
-		break;
+		return "file too large - try compressing";
 	case 422:
-		log_error("upload failed (422): file rejected; invalid format or validation failure");
-		break;
+		return "file rejected (invalid format or validation failure)";
 	case 429:
-		log_error("upload failed (429): rate limited; wait a bit before retrying");
-		break;
+		return "rate limited - try again in a bit";
 	case 500:
-		log_error("upload failed (500): server error; try again later");
-		break;
+	case 502:
+	case 503:
+	case 504:
+		return "server error - try again later";
+	case 0:
+		return "no response from server";
 	default:
-		if (code == 0)
-			log_error("upload failed: no response from server");
-		else
-			log_error("upload failed (HTTP %ld)", code);
-		log_response_body(body);
-		break;
+		return NULL;
 	}
+}
+
+static const char *curl_friendly(int code) {
+	switch (code) {
+	case CURLE_COULDNT_RESOLVE_HOST:
+		return "couldn't resolve host - check your network";
+	case CURLE_COULDNT_CONNECT:
+		return "couldn't connect to server";
+	case CURLE_OPERATION_TIMEDOUT:
+		return "upload timed out";
+	case CURLE_RECV_ERROR:
+	case CURLE_SEND_ERROR:
+		return "connection dropped mid-upload";
+	case CURLE_SSL_CONNECT_ERROR:
+	case CURLE_PEER_FAILED_VERIFICATION:
+		return "TLS connection failed";
+	default:
+		return NULL;
+	}
+}
+
+static void log_http_failure(long code, const char *body) {
+	const char *summary = http_friendly(code);
+	if (summary)
+		log_error("upload failed (HTTP %ld): %s", code, summary);
+	else
+		log_error("upload failed (HTTP %ld)", code);
+	if (!summary || code == 0) log_response_body(body);
+}
+
+void upload_friendly_error(const struct upload_result *r, char *out, size_t cap) {
+	if (!out || cap == 0) return;
+	if (!r) {
+		snprintf(out, cap, "upload failed");
+		return;
+	}
+	if (r->curl_code != 0) {
+		const char *s = curl_friendly(r->curl_code);
+		snprintf(out, cap, "%s", s ? s : curl_easy_strerror((CURLcode)r->curl_code));
+		return;
+	}
+	const char *s = http_friendly(r->http_code);
+	if (s)
+		snprintf(out, cap, "%s", s);
+	else
+		snprintf(out, cap, "upload failed (HTTP %ld)", r->http_code);
 }
 
 void upload_result_free(struct upload_result *r) {
@@ -198,6 +302,7 @@ void upload_result_free(struct upload_result *r) {
 	free(r->body);
 	r->url = r->body = NULL;
 	r->http_code = 0;
+	r->curl_code = 0;
 }
 
 int upload_perform(const char *service_name, const char *file_path,
@@ -321,7 +426,12 @@ int upload_perform(const char *service_name, const char *file_path,
 	curl_easy_cleanup(curl);
 
 	if (rc != CURLE_OK) {
-		log_error("curl: %s", curl_easy_strerror(rc));
+		out->curl_code = (int)rc;
+		const char *friendly = curl_friendly((int)rc);
+		if (friendly)
+			log_error("upload: %s (%s)", friendly, curl_easy_strerror(rc));
+		else
+			log_error("curl: %s", curl_easy_strerror(rc));
 		return -1;
 	}
 	if (http_code != 200) {

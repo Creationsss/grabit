@@ -6,6 +6,7 @@
 
 #include "config_internal.h"
 #include "log.h"
+#include "upload/upload.h"
 #include "util.h"
 
 #include <stdbool.h>
@@ -20,6 +21,7 @@ static const char *BOOL_KEYS[] = {
 	"recording.cursor",
 	"sound.enabled",
 	"region.window_snap",
+	"edit.default",
 	NULL,
 };
 
@@ -126,7 +128,8 @@ static bool valid_ocr_key(const char *key) {
 static bool valid_edit_key(const char *key) {
 	if (strncmp(key, "edit.", 5) != 0) return false;
 	const char *leaf = key + 5;
-	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0;
+	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
+		   strcmp(leaf, "default") == 0;
 }
 
 static bool valid_jpeg_key(const char *key) {
@@ -363,8 +366,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("filename_preset must be one of date|random|uuid|timestamp");
 		return -1;
 	}
-	if (strcmp(key, "service") == 0 && !cfg_is_known_service(value)) {
-		log_error("service must be one of zipline|nest|fakecrime|ez|guns|pixelvault");
+	if (strcmp(key, "service") == 0 && !upload_service_known(value)) {
+		log_error("service `%s` is not a built-in or a registered sxcu uploader", value);
+		log_error("  built-ins: zipline|nest|fakecrime|ez|guns|pixelvault");
+		log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
 		return -1;
 	}
 	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;

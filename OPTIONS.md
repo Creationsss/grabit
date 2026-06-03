@@ -302,7 +302,8 @@ last-picked color and width persist via:
 | key | default | notes |
 |---|---|---|
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
-| `edit.width` | `4` | integer 1–20 |
+| `edit.width` | `4` | integer 1-20 |
+| `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
 
 ## filename templates
 

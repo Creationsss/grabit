@@ -167,8 +167,24 @@ int config_load(struct config *c) {
 	toml_table_t *root = toml_parse_file(f, errbuf, sizeof errbuf);
 	fclose(f);
 	if (!root) {
-		log_error("parse %s: %s", file, errbuf);
-		return -1;
+		char *broken = NULL;
+		if (grabit_xasprintf(&broken, "%s.broken", file) != 0 ||
+			rename(file, broken) != 0) {
+			log_error("parse %s: %s", file, errbuf);
+			if (broken) log_error("  (and could not move it aside: %s)", strerror(errno));
+			free(broken);
+			return -1;
+		}
+		log_warn("config %s could not be parsed (%s)", file, errbuf);
+		log_warn("  moved aside to %s; seeding defaults", broken);
+		free(broken);
+		seed_defaults(c);
+		if (config_save(c) != 0) {
+			log_error("could not write default config to %s: %s", file, strerror(errno));
+			config_free(c);
+			return -1;
+		}
+		return 0;
 	}
 
 	int rc = flatten_table(root, "", c);

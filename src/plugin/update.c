@@ -192,6 +192,7 @@ out:
 
 	grabit_double_fork_detach();
 	signal(SIGHUP, SIG_IGN);
+	alarm(300);
 
 	char log_path[1024];
 	snprintf(log_path, sizeof log_path, "%s/%s/.update.log", plugin_dir_path(), name);

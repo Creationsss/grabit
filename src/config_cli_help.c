@@ -18,7 +18,7 @@ struct example {
 static const struct example TOP_EXAMPLES[] = {
 	{"default_action", "upload|copy|save|pin", "copy"},
 	{"notifications", "true|false", "true"},
-	{"also_save", "true|false", "false"},
+	{"also_save", "true|false (alias: save_captures)", "false"},
 	{"save_dir", "~/Pictures", NULL},
 	{"editor", "satty | swappy | gimp | krita | kolourpaint", NULL},
 	{"filename", "%Y-%m-%d-%H-%M-%S", NULL},
@@ -225,6 +225,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			*def_out = "4";
 			return 0;
 		}
+		if (strcmp(leaf, "default") == 0) {
+			*example_out = "true|false";
+			*def_out = "false";
+			return 0;
+		}
 	}
 	if (strncmp(key, "sound.", 6) == 0) {
 		const char *leaf = key + 6;
@@ -320,6 +325,8 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	for (size_t i = 0; i < TOP_EXAMPLES_N; i++) {
 		print_key_with_default(TOP_EXAMPLES[i].key, TOP_EXAMPLES[i].def);
+		if (strcmp(TOP_EXAMPLES[i].key, "also_save") == 0)
+			puts("    (legacy alias: save_captures)");
 	}
 	puts("");
 	puts("  services.<svc>.auth     (svc: zipline|nest|fakecrime|ez|guns|pixelvault)");
@@ -358,6 +365,7 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	print_key_with_default("edit.color", find_default("edit.color"));
 	print_key_with_default("edit.width", find_default("edit.width"));
+	print_key_with_default("edit.default", find_default("edit.default"));
 	puts("");
 	static const char *const ENCODER_KEYS[] = {
 		"jpeg.quality",

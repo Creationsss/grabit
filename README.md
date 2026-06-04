@@ -29,6 +29,19 @@ sudo make install
 
 deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon libdbus-1`. runtime: `ffmpeg` (for `--record`), `tesseract` (for `--tesseract`).
 
+## demo
+
+<p>
+  <a href="https://atums.world/u/08a4b8bb-e855-4905-a2c5-39f35497ff33.png"><img src="https://atums.world/u/08a4b8bb-e855-4905-a2c5-39f35497ff33.png" width="280" alt="region selector"></a>
+  <a href="https://atums.world/u/502cfb19-7d8c-4115-bc38-8be272e31b23.png"><img src="https://atums.world/u/502cfb19-7d8c-4115-bc38-8be272e31b23.png" width="280" alt="annotator"></a>
+  <a href="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png"><img src="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png" width="280" alt="color picker"></a>
+</p>
+
+- **region selector** with live freeze (drag, or click a window on hyprland to snap)
+- **annotator** opened with `-e` - pen, rect, ellipse, arrow, blur, text, eraser
+- **color picker** with hex input + eyedropper that samples from the freeze
+- **`--record`** toggles region recording with a live overlay + tray icon ([mp4](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
+
 ## docs
 
 - [OPTIONS.md](OPTIONS.md) - usage, configuration, auth tokens, sharex uploaders, recording/pin/ocr/edit, filename templates, env vars, build targets

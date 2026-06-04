@@ -121,8 +121,16 @@ static int64_t now_ns(void) {
 	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-static char *build_record_path(struct config *cfg, const struct args *a) {
-	return paths_build_output(cfg, a->filename_tpl, ".mp4", PATHS_DEST_VIDEOS);
+static char *build_record_path(struct config *cfg, const struct args *a,
+							   bool keep_locally) {
+	enum paths_dest dest = keep_locally ? PATHS_DEST_VIDEOS : PATHS_DEST_TEMP;
+	return paths_build_output(cfg, a->filename_tpl, ".mp4", dest);
+}
+
+static bool resolve_also_save(struct config *cfg) {
+	const char *v = config_get(cfg, "also_save");
+	if (!v) v = config_get(cfg, "save_captures");
+	return v && strcmp(v, "true") == 0;
 }
 
 static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
@@ -279,7 +287,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	char *output_path = build_record_path(cfg, a);
+	bool keep_locally = !upload_service || resolve_also_save(cfg);
+	char *output_path = build_record_path(cfg, a, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
 		rec_layout_free(&layout);
@@ -430,7 +439,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				log_warn("recording: compression failed; original kept");
 			}
 		}
-		log_info("saved: %s", output_path);
+		if (keep_locally) log_info("saved: %s", output_path);
 		if (!upload_service) {
 			notify_send(&(struct notify_opts){
 				.summary = "Recording saved",
@@ -453,11 +462,15 @@ int record_toggle(struct config *cfg, const struct args *a) {
 					.summary = "Recording uploaded",
 					.body = "link copied to clipboard",
 				});
+				if (!keep_locally) unlink(output_path);
 			} else {
+				char body[256];
+				upload_friendly_error(&ur, body, sizeof body);
 				log_error("recording upload failed; file kept at %s", output_path);
+				log_error("  retry with: grabit -f %s --%s", output_path, upload_service);
 				notify_send(&(struct notify_opts){
 					.summary = "Upload failed",
-					.body = grabit_basename(output_path),
+					.body = body,
 					.force = true,
 				});
 			}

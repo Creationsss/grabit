@@ -226,6 +226,8 @@ per-recording overrides:
 - `grabit --record --no-upload`: skip auto-upload even if `default_action=upload`
 - `grabit --record --zipline`: upload to a specific service after recording
 
+when uploading, the recording follows the same `also_save` rule as screenshots: if `also_save = false` (the default) the mp4 is written to a temp file and deleted after a successful upload. set `also_save = true` to keep a local copy in your videos dir.
+
 config keys (all optional):
 
 | key | default | notes |

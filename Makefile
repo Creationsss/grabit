@@ -136,6 +136,7 @@ GRABIT_SRCS := \
 	src/plugin/cli.c \
 	src/plugin/dispatch.c \
 	src/ocr/tesseract.c \
+	src/ocr/translate.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
 	src/pin/pin_render.c \

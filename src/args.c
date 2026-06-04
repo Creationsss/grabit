@@ -144,6 +144,20 @@ int args_parse(int argc, char **argv, struct args *out) {
 			continue;
 		}
 
+		if (strcmp(arg, "--translate") == 0) {
+			out->translate = true;
+			continue;
+		}
+		if (strncmp(arg, "--translate=", 12) == 0) {
+			out->translate = true;
+			out->translate_to = arg + 12;
+			if (!*out->translate_to) {
+				log_error("--translate=<lang> requires a non-empty target");
+				return -1;
+			}
+			continue;
+		}
+
 		if (strcmp(arg, "--format") == 0) {
 			if (++i >= argc) {
 				log_error("--format requires a value (png|jpeg|webp)");
@@ -214,6 +228,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 	}
 	if (out->file && out->filename_tpl) {
 		log_warn("--filename is ignored when -f is used");
+	}
+	if (out->translate && out->action != ACTION_OCR) {
+		log_warn("--translate only applies to --tesseract; ignoring");
+		out->translate = false;
 	}
 
 	return 0;

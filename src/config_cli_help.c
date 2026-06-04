@@ -85,6 +85,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"ocr.tesseract",
 	"capture.backend",
 	"region.window_snap",
+	"translate.target",
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.nest.auth",
@@ -280,6 +281,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "translate.target") == 0) {
+		*example_out = "<iso-639-1 code, e.g. en|ja|de|es>";
+		*def_out = "en";
+		return 0;
+	}
 	return -1;
 }
 
@@ -381,4 +387,5 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	print_key_with_default("capture.backend", find_default("capture.backend"));
 	print_key_with_default("region.window_snap", find_default("region.window_snap"));
+	print_key_with_default("translate.target", find_default("translate.target"));
 }

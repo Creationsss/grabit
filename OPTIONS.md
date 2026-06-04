@@ -281,6 +281,18 @@ grabit --tesseract            # select a region; text lands in clipboard
 
 requires `tesseract` on `$PATH` and `eng.traineddata` (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`.
 
+### translate
+
+```sh
+grabit --tesseract --translate            # uses `translate.target` (default en)
+grabit --tesseract --translate=ja         # per-run target override
+grabit set translate.target de            # set a default target
+```
+
+`--translate` pipes the OCR result through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`, source auto-detected) and copies the translation to the clipboard instead of the raw OCR text. install `translate-shell` from your distro to enable it. if `trans` is missing or the translate call fails/times out (20s cap), grabit falls back to copying the raw OCR text and fires a notification.
+
+note: tesseract is currently invoked with `-l eng`, so non-latin source scripts (japanese, chinese, cyrillic, etc.) won't OCR cleanly and the translation will reflect that. results are best when the source is a latin-script language that `tesseract-data-eng` can still read passably (spanish, french, german, etc.).
+
 ## edit
 
 ```sh
@@ -343,6 +355,7 @@ action flags:
 | `--pin` | pin a region to the desktop |
 | `--grab` / `--release` / `--close-all` | manage existing pins |
 | `--tesseract` | ocr a region into the clipboard |
+| `--translate[=<lang>]` | with `--tesseract`: translate the ocr text and copy that instead (see ocr/translate section) |
 | `-e` / `--edit` | annotate before the action |
 
 modifiers:

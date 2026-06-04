@@ -150,6 +150,11 @@ static bool valid_sound_key(const char *key) {
 		   strcmp(leaf, "file") == 0;
 }
 
+static bool valid_translate_key(const char *key) {
+	if (strncmp(key, "translate.", 10) != 0) return false;
+	return strcmp(key + 10, "target") == 0;
+}
+
 static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
 	return strcmp(key + 8, "backend") == 0;
@@ -320,7 +325,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (!valid_top_key(key) && !valid_service_key(key) && !valid_recording_key(key) &&
 		!valid_ocr_key(key) && !valid_sound_key(key) && !valid_edit_key(key) &&
 		!valid_jpeg_key(key) && !valid_webp_key(key) &&
-		!valid_capture_key(key) && !valid_region_key(key)) {
+		!valid_capture_key(key) && !valid_region_key(key) &&
+		!valid_translate_key(key)) {
 		log_error("unknown config key: %s", key);
 		const char *hint = cfg_help_suggest_key(key);
 		if (hint) log_info("did you mean: %s ?", hint);

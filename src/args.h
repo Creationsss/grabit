@@ -26,10 +26,12 @@ struct args {
 	bool edit;
 	bool no_tray;
 	bool no_upload;
+	bool translate;
 	const char *file;
 	const char *service;
 	const char *filename_tpl;
 	const char *format;
+	const char *translate_to;
 };
 
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);

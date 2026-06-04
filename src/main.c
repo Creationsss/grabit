@@ -83,6 +83,11 @@ static int print_help(void) {
 		"                    Capture and print path to stdout\n"
 		"  -f <file>         Use <file> instead of taking a screenshot\n"
 		"  --tesseract       Capture, OCR, copy text to clipboard\n"
+		"  --translate[=<target-lang>]\n"
+		"                    With --tesseract: pipe OCR through `trans` and copy the\n"
+		"                    translation. <target-lang> is where to translate TO (source is\n"
+		"                    auto-detected). Falls back to raw OCR if `trans` is missing or\n"
+		"                    the translate call fails. Needs translate-shell installed.\n"
 		"  --record          Toggle screen recording (re-run to stop)\n"
 		"                    With --no-upload: skip auto-upload even if default_action=upload\n"
 		"                    With --<service>: upload to that service after recording\n"
@@ -476,6 +481,35 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
+	bool translated = false;
+	if (a->translate) {
+		const char *target = a->translate_to;
+		if (!target || !target[0]) target = config_get(cfg, "translate.target");
+		if (!target || !target[0]) target = "en";
+		if (!grabit_in_path("trans")) {
+			log_warn("translate: `trans` not in $PATH; copying raw OCR text");
+			notify_send(&(struct notify_opts){
+				.summary = "Translate skipped",
+				.body = "translate-shell not installed; raw OCR copied",
+				.force = true,
+			});
+		} else {
+			char *translated_text = grabit_translate(text, target);
+			if (!translated_text) {
+				log_warn("translate: failed; copying raw OCR text");
+				notify_send(&(struct notify_opts){
+					.summary = "Translate failed",
+					.body = "see terminal for details; raw OCR copied",
+					.force = true,
+				});
+			} else {
+				free(text);
+				text = translated_text;
+				translated = true;
+			}
+		}
+	}
+
 	if (clipboard_set_text(text) != 0) {
 		log_error("ocr: clipboard write failed");
 		notify_send(&(struct notify_opts){
@@ -489,18 +523,36 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 
 	size_t tlen = strlen(text);
 	char preview[160];
-	if (tlen > 100) {
+	char flat[120];
+	size_t fi = 0;
+	bool prev_space = false;
+	for (size_t i = 0; text[i] && fi < sizeof flat - 1; i++) {
+		unsigned char ch = (unsigned char)text[i];
+		bool is_ws = (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r');
+		if (is_ws) {
+			if (!prev_space && fi > 0) flat[fi++] = ' ';
+			prev_space = true;
+		} else {
+			flat[fi++] = (char)ch;
+			prev_space = false;
+		}
+	}
+	while (fi > 0 && flat[fi - 1] == ' ')
+		fi--;
+	flat[fi] = '\0';
+	if (fi > 100) {
 		size_t n = 100;
-		while (n > 0 && ((unsigned char)text[n] & 0xC0) == 0x80)
+		while (n > 0 && ((unsigned char)flat[n] & 0xC0) == 0x80)
 			n--;
-		snprintf(preview, sizeof preview, "%.*s…", (int)n, text);
+		snprintf(preview, sizeof preview, "%.*s…", (int)n, flat);
 	} else {
-		snprintf(preview, sizeof preview, "%s", text);
+		snprintf(preview, sizeof preview, "%s", flat);
 	}
 
-	log_info("ocr: %zu chars copied to clipboard", tlen);
+	log_info("ocr: %zu chars copied to clipboard%s", tlen,
+			 translated ? " (translated)" : "");
 	notify_send(&(struct notify_opts){
-		.summary = "OCR Complete",
+		.summary = translated ? "OCR + Translate" : "OCR Complete",
 		.body = preview,
 	});
 	grabit_sound_play(cfg);

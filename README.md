@@ -41,6 +41,7 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
 - **annotator** opened with `-e` - pen, rect, ellipse, arrow, blur, text, eraser
 - **color picker** with hex input + eyedropper that samples from the freeze
 - **`--record`** toggles region recording with a live overlay + tray icon ([mp4](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
+- **`--tesseract --translate[=<lang>]`** OCRs the region and pipes through translate-shell before copying
 
 ## docs
 

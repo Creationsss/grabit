@@ -32,9 +32,9 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
 ## demo
 
 <p>
-  <a href="https://atums.world/u/08a4b8bb-e855-4905-a2c5-39f35497ff33.png"><img src="https://atums.world/u/08a4b8bb-e855-4905-a2c5-39f35497ff33.png" width="280" alt="region selector"></a>
-  <a href="https://atums.world/u/502cfb19-7d8c-4115-bc38-8be272e31b23.png"><img src="https://atums.world/u/502cfb19-7d8c-4115-bc38-8be272e31b23.png" width="280" alt="annotator"></a>
-  <a href="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png"><img src="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png" width="280" alt="color picker"></a>
+  <img src="https://atums.world/u/08a4b8bb-e855-4905-a2c5-39f35497ff33.png" width="220" alt="region selector">
+  <img src="https://atums.world/u/502cfb19-7d8c-4115-bc38-8be272e31b23.png" width="220" alt="annotator">
+  <img src="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png" width="220" alt="color picker">
 </p>
 
 - **region selector** with live freeze (drag, or click a window on hyprland to snap)

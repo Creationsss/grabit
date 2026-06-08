@@ -111,38 +111,57 @@ int grabit_ocr_has_lang(const char *bin, const char *lang) {
 	}
 	close(p[1]);
 
-	char out[4096];
-	size_t off = 0;
+	struct grabit_buf buf = {0};
+	char chunk[4096];
 	for (;;) {
-		ssize_t n = read(p[0], out + off, sizeof out - 1 - off);
+		ssize_t n = read(p[0], chunk, sizeof chunk);
 		if (n < 0) {
 			if (errno == EINTR) continue;
 			break;
 		}
 		if (n == 0) break;
-		off += (size_t)n;
-		if (off >= sizeof out - 1) break;
+		if (grabit_buf_putn(&buf, chunk, (size_t)n) != 0) {
+			grabit_buf_free(&buf);
+			close(p[0]);
+			(void)grabit_waitpid_intr(pid, NULL);
+			return -1;
+		}
+		if (buf.len > 1 << 16) break;
 	}
-	out[off] = '\0';
 	close(p[0]);
 
 	int status = 0;
-	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) return -1;
+	if (grabit_waitpid_intr(pid, &status) != 0) {
+		grabit_buf_free(&buf);
+		return -1;
+	}
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0 || !buf.data) {
+		grabit_buf_free(&buf);
+		return -1;
+	}
+	if (grabit_buf_putc(&buf, '\0') != 0) {
+		grabit_buf_free(&buf);
+		return -1;
+	}
 
+	int found = -1;
 	size_t lang_len = strlen(lang);
-	char *p_line = out;
+	char *p_line = buf.data;
 	while (p_line && *p_line) {
 		char *nl = strchr(p_line, '\n');
 		size_t len = nl ? (size_t)(nl - p_line) : strlen(p_line);
 		while (len > 0 && (p_line[len - 1] == '\r' || p_line[len - 1] == ' ' ||
 						   p_line[len - 1] == '\t'))
 			len--;
-		if (len == lang_len && strncmp(p_line, lang, lang_len) == 0) return 0;
+		if (len == lang_len && strncmp(p_line, lang, lang_len) == 0) {
+			found = 0;
+			break;
+		}
 		if (!nl) break;
 		p_line = nl + 1;
 	}
-	return -1;
+	grabit_buf_free(&buf);
+	return found;
 }
 
 char *grabit_ocr_run(const char *bin, const char *path) {

@@ -148,6 +148,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->translate = true;
 			continue;
 		}
+		if (strcmp(arg, "--show") == 0) {
+			out->show = true;
+			continue;
+		}
 		if (strncmp(arg, "--translate=", 12) == 0) {
 			out->translate = true;
 			out->translate_to = arg + 12;
@@ -232,6 +236,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 	if (out->translate && out->action != ACTION_OCR) {
 		log_warn("--translate only applies to --tesseract; ignoring");
 		out->translate = false;
+	}
+	if (out->show && out->action != ACTION_OCR) {
+		log_warn("--show only applies to --tesseract; ignoring");
+		out->show = false;
 	}
 
 	return 0;

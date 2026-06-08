@@ -220,6 +220,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			st->finished = true;
 			return;
 		}
+		if (st->transient) return;
 		st->dragging = true;
 		st->pending_dx_fixed = 0;
 		st->pending_dy_fixed = 0;

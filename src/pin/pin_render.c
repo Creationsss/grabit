@@ -99,7 +99,7 @@ static void render_paint(struct pin_state *st, const struct pin_dmg *clip) {
 	cairo_paint(cr);
 	cairo_restore(cr);
 
-	if (st->input_grabbed && st->width > 0) {
+	if (st->input_grabbed && !st->transient && st->width > 0) {
 		cairo_save(cr);
 		cairo_scale(cr, (double)s, (double)s);
 		draw_close_button(cr, st->width);

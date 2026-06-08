@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -32,6 +33,48 @@ static volatile sig_atomic_t g_term = 0;
 static void on_term(int sig) {
 	(void)sig;
 	g_term = 1;
+}
+
+static void show_pid_path(char *out, size_t cap) {
+	char dir[512];
+	if (grabit_runtime_dir(dir, sizeof dir) != 0) {
+		snprintf(out, cap, "/tmp/grabit-show.pid");
+		return;
+	}
+	snprintf(out, cap, "%s/grabit-show.pid", dir);
+}
+
+static void kill_previous_show(void) {
+	char path[1024];
+	show_pid_path(path, sizeof path);
+	FILE *f = fopen(path, "r");
+	if (!f) return;
+	long pid = 0;
+	if (fscanf(f, "%ld", &pid) == 1 && pid > 1 && grabit_is_grabit_process((pid_t)pid)) {
+		kill((pid_t)pid, SIGTERM);
+	}
+	fclose(f);
+	unlink(path);
+}
+
+static void write_show_pid_self(void) {
+	char path[1024];
+	show_pid_path(path, sizeof path);
+	FILE *f = fopen(path, "w");
+	if (!f) return;
+	fprintf(f, "%ld\n", (long)getpid());
+	fclose(f);
+}
+
+static void clear_show_pid_self(void) {
+	char path[1024];
+	show_pid_path(path, sizeof path);
+	FILE *f = fopen(path, "r");
+	if (!f) return;
+	long pid = 0;
+	bool mine = (fscanf(f, "%ld", &pid) == 1 && (pid_t)pid == getpid());
+	fclose(f);
+	if (mine) unlink(path);
 }
 
 static void compute_centered_jitter(int32_t img_w, int32_t img_h,
@@ -50,10 +93,40 @@ static void compute_centered_jitter(int32_t img_w, int32_t img_h,
 	*my_out = my;
 }
 
-static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
+struct transient_extras {
+	const char *position;
+	const char *output_name;
+};
+
+static struct grabit_output *find_output_by_name(struct grabit_wl_state *s, const char *name) {
+	if (!name || !name[0]) return NULL;
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		struct grabit_output *o = s->outputs[i];
+		if (o->name && strcmp(o->name, name) == 0) return o;
+	}
+	return NULL;
+}
+
+static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
+					bool transient, int dismiss_secs,
+					const struct transient_extras *te) {
+	grabit_install_signal_handler(SIGTERM, on_term);
+	grabit_install_signal_handler(SIGINT, on_term);
+	grabit_install_signal_handler(SIGHUP, on_term);
+
 	struct grabit_wl_state wls;
 	if (grabit_wl_init(&wls) != 0) return 1;
 	if (!wls.layer_shell || !wls.compositor) {
+		grabit_wl_finish(&wls);
+		return 1;
+	}
+	if (wls.n_outputs == 0) {
+		log_error("pin: no outputs available; cannot show card");
+		notify_send(&(struct notify_opts){
+			.summary = "grabit: show failed",
+			.body = "no monitor is connected",
+			.force = true,
+		});
 		grabit_wl_finish(&wls);
 		return 1;
 	}
@@ -65,10 +138,19 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 	st.img_h = cairo_image_surface_get_height(img);
 	st.scale = 1;
 	st.ipc_fd = -1;
+	st.dismiss_timer_fd = -1;
+	st.transient = transient;
 
 	struct grabit_output *target = NULL;
 	if (have_rect) {
 		target = grabit_wl_output_at(&wls, r.x, r.y);
+	}
+	if (!target && transient && te && te->output_name && te->output_name[0]) {
+		target = find_output_by_name(&wls, te->output_name);
+		if (!target) {
+			log_warn("show: output `%s` not found; falling back to primary",
+					 te->output_name);
+		}
 	}
 	if (!target) target = grabit_wl_primary_output(&wls);
 
@@ -89,6 +171,9 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 		st.margin_y = r.y - target->y;
 		if (st.margin_x < 0) st.margin_x = 0;
 		if (st.margin_y < 0) st.margin_y = 0;
+	} else if (transient) {
+		st.margin_x = PIN_TRANSIENT_MARGIN;
+		st.margin_y = PIN_TRANSIENT_MARGIN;
 	} else {
 		int32_t out_w = target ? target->logical_width : 1920;
 		int32_t out_h = target ? target->logical_height : 1080;
@@ -108,11 +193,32 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 
 	zwlr_layer_surface_v1_set_size(st.layer_surface,
 								   (uint32_t)st.width, (uint32_t)st.height);
-	zwlr_layer_surface_v1_set_anchor(st.layer_surface,
-									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
-	zwlr_layer_surface_v1_set_margin(st.layer_surface,
-									 st.margin_y, 0, 0, st.margin_x);
+	uint32_t anchor;
+	int32_t mt = 0, mr = 0, mb = 0, ml = 0;
+	if (!transient) {
+		anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+				 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
+		mt = st.margin_y;
+		ml = st.margin_x;
+	} else {
+		const char *pos = (te && te->position) ? te->position : "top-right";
+		bool is_top = strncmp(pos, "top", 3) == 0;
+		bool is_bottom = strncmp(pos, "bottom", 6) == 0;
+		bool is_left = strstr(pos, "left") != NULL;
+		bool is_right = strstr(pos, "right") != NULL;
+		anchor = 0;
+		if (is_top) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
+		if (is_bottom) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+		if (is_left) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
+		if (is_right) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+		if (anchor == 0) anchor = 0; /* "center": no anchor */
+		mt = is_top ? PIN_TRANSIENT_MARGIN : 0;
+		mb = is_bottom ? PIN_TRANSIENT_MARGIN : 0;
+		ml = is_left ? PIN_TRANSIENT_MARGIN : 0;
+		mr = is_right ? PIN_TRANSIENT_MARGIN : 0;
+	}
+	zwlr_layer_surface_v1_set_anchor(st.layer_surface, anchor);
+	zwlr_layer_surface_v1_set_margin(st.layer_surface, mt, mr, mb, ml);
 	zwlr_layer_surface_v1_set_exclusive_zone(st.layer_surface, -1);
 	zwlr_layer_surface_v1_set_keyboard_interactivity(
 		st.layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
@@ -121,13 +227,22 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 
 	wl_surface_commit(st.surface);
 
-	if (pin_ipc_open(&st) != 0) {
-		log_warn("pin: ipc disabled (grab/release won't reach this pin)");
+	if (!transient) {
+		if (pin_ipc_open(&st) != 0) {
+			log_warn("pin: ipc disabled (grab/release won't reach this pin)");
+		}
+	} else if (dismiss_secs > 0) {
+		st.dismiss_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+		if (st.dismiss_timer_fd < 0) {
+			log_warn("pin: timerfd_create failed (%s); card will stay until replaced",
+					 strerror(errno));
+		} else {
+			struct itimerspec it = {
+				.it_value = {.tv_sec = dismiss_secs, .tv_nsec = 0},
+			};
+			timerfd_settime(st.dismiss_timer_fd, 0, &it, NULL);
+		}
 	}
-
-	grabit_install_signal_handler(SIGTERM, on_term);
-	grabit_install_signal_handler(SIGINT, on_term);
-	grabit_install_signal_handler(SIGHUP, on_term);
 
 	while (!st.finished && !g_term) {
 		while (wl_display_prepare_read(wls.display) != 0) {
@@ -138,15 +253,21 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 			goto out;
 		}
 
-		struct pollfd pfds[2];
+		struct pollfd pfds[3];
 		int nfds = 0;
 		pfds[nfds].fd = wl_display_get_fd(wls.display);
 		pfds[nfds].events = POLLIN;
 		nfds++;
+		int ipc_idx = -1, timer_idx = -1;
 		if (st.ipc_fd >= 0) {
 			pfds[nfds].fd = st.ipc_fd;
 			pfds[nfds].events = POLLIN;
-			nfds++;
+			ipc_idx = nfds++;
+		}
+		if (st.dismiss_timer_fd >= 0) {
+			pfds[nfds].fd = st.dismiss_timer_fd;
+			pfds[nfds].events = POLLIN;
+			timer_idx = nfds++;
 		}
 
 		int pr = poll(pfds, (nfds_t)nfds, -1);
@@ -169,12 +290,19 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r) {
 		}
 		if (wl_display_dispatch_pending(wls.display) < 0) goto out;
 
-		if (st.ipc_fd >= 0 && nfds > 1 && (pfds[1].revents & POLLIN)) {
+		if (ipc_idx >= 0 && (pfds[ipc_idx].revents & POLLIN)) {
 			pin_ipc_handle(&st);
+		}
+		if (timer_idx >= 0 && (pfds[timer_idx].revents & POLLIN)) {
+			uint64_t expirations = 0;
+			ssize_t rn = read(st.dismiss_timer_fd, &expirations, sizeof expirations);
+			(void)rn;
+			st.finished = true;
 		}
 	}
 
 out:
+	if (st.dismiss_timer_fd >= 0) close(st.dismiss_timer_fd);
 	pin_ipc_close(&st);
 	grabit_wl_callback_drop(&st.drag_frame_cb);
 	pin_render_free_buffer(&st);
@@ -209,8 +337,9 @@ static int probe_layer_shell(void) {
 	return 0;
 }
 
-int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
-	(void)cfg;
+static int pin_spawn_common(const char *path, const struct rect *r,
+							bool transient, int dismiss_secs,
+							const struct transient_extras *te) {
 	if (!path) return -1;
 
 	if (probe_layer_shell() != 0) {
@@ -228,7 +357,7 @@ int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
 		cairo_surface_destroy(img);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: pin failed",
-			.body = "could not load captured image",
+			.body = "could not load image",
 			.force = true,
 		});
 		return -1;
@@ -247,6 +376,7 @@ int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
 	}
 	if (pid == 0) {
 		grabit_double_fork_detach();
+		if (transient) write_show_pid_self();
 		int devnull = open("/dev/null", O_RDWR | O_CLOEXEC);
 		if (devnull >= 0) {
 			dup2(devnull, STDIN_FILENO);
@@ -254,7 +384,9 @@ int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
 			if (devnull > STDERR_FILENO) close(devnull);
 		}
 		struct rect rcopy = r ? *r : (struct rect){0};
-		_exit(pin_main(img, r != NULL, rcopy));
+		int prc = pin_main(img, r != NULL, rcopy, transient, dismiss_secs, te);
+		if (transient) clear_show_pid_self();
+		_exit(prc);
 	}
 	int status = 0;
 	while (waitpid(pid, &status, 0) < 0) {
@@ -271,4 +403,22 @@ int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
 		return -1;
 	}
 	return 0;
+}
+
+int pin_spawn(struct config *cfg, const char *path, const struct rect *r) {
+	(void)cfg;
+	return pin_spawn_common(path, r, false, 0, NULL);
+}
+
+int pin_spawn_show(struct config *cfg, const char *path, const struct pin_show_opts *opts) {
+	(void)cfg;
+	kill_previous_show();
+	struct transient_extras te = {0};
+	int dismiss_secs = 0;
+	if (opts) {
+		dismiss_secs = opts->dismiss_secs;
+		te.position = opts->position;
+		te.output_name = opts->output_name;
+	}
+	return pin_spawn_common(path, NULL, true, dismiss_secs, &te);
 }

@@ -291,6 +291,24 @@ grabit set translate.target de            # set a default target
 
 `--translate` pipes the OCR result through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`, source auto-detected) and copies the translation to the clipboard instead of the raw OCR text. install `translate-shell` from your distro to enable it. if `trans` is missing or the translate call fails/times out (20s cap), grabit falls back to copying the raw OCR text and fires a notification.
 
+### show on screen
+
+combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped) instead of copying:
+
+```sh
+grabit --tesseract --show                 # show the raw OCR
+grabit --tesseract --translate --show     # show the translation
+grabit set show.dismiss_secs 12           # auto-dismiss after 12s (default 8, 0 = stay until clicked)
+```
+
+| key | default | notes |
+|---|---|---|
+| `show.dismiss_secs` | `8` | auto-dismiss after N seconds (0-600; 0 = stay until replaced) |
+| `show.position` | `top-right` | `top-left`/`top-center`/`top-right`/`bottom-left`/`bottom-center`/`bottom-right`/`center` |
+| `show.output` | (primary) | output name (e.g. `DP-1`, `HDMI-A-1`). if the named output isn't connected, falls back to the primary output |
+
+the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen. if no monitor is connected at all, grabit fires a "show failed: no monitor is connected" notification and exits.
+
 note: tesseract is currently invoked with `-l eng`, so non-latin source scripts (japanese, chinese, cyrillic, etc.) won't OCR cleanly and the translation will reflect that. results are best when the source is a latin-script language that `tesseract-data-eng` can still read passably (spanish, french, german, etc.).
 
 ## edit

@@ -27,6 +27,7 @@ struct args {
 	bool no_tray;
 	bool no_upload;
 	bool translate;
+	bool show;
 	const char *file;
 	const char *service;
 	const char *filename_tpl;

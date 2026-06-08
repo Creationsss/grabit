@@ -65,10 +65,17 @@ struct pin_state {
 
 	int ipc_fd;
 	char ipc_path[256];
+
+	bool transient;
+	int dismiss_timer_fd;
+
+	const char *transient_position;
+	const char *transient_output_name;
 };
 
 #define PIN_CLOSE_BTN_SIZE 24
 #define PIN_CLOSE_BTN_INSET 4
+#define PIN_TRANSIENT_MARGIN 20
 
 int pin_render_alloc_buffer(struct pin_state *st);
 void pin_render_free_buffer(struct pin_state *st);

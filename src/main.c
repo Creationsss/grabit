@@ -23,6 +23,7 @@
 #include "ocr/ocr.h"
 #include "paths.h"
 #include "pin/pin.h"
+#include "pin/text_card.h"
 #include "plugin/dispatch.h"
 #include "plugin/plugin.h"
 #include "record/record.h"
@@ -94,6 +95,10 @@ static int print_help(void) {
 		"  --no-upload       Skip auto-upload after --record\n"
 		"  --no-tray         Skip SNI tray during recording\n"
 		"  --pin             Capture and pin to desktop (click-through; stack any number)\n"
+		"  --show            With --tesseract: show the OCR/translate result on screen as\n"
+		"                    a click-through text card instead of copying. Auto-dismisses\n"
+		"                    after `show.dismiss_secs` (default 8s); a second --show\n"
+		"                    replaces the previous card.\n"
 		"  --grab            Make pinned screenshots clickable (click closes one; drag to move)\n"
 		"                    Pair with a hold-bind, e.g. hyprland:\n"
 		"                      bindrn = SUPER SHIFT, mouse:272, exec, grabit --grab\n"
@@ -355,17 +360,19 @@ static int run_copy(struct config *cfg, const struct args *a) {
 
 	int rc = clipboard_set_image_file(path);
 
+	const char *base = grabit_basename(path);
+	if (!base || !base[0]) base = path;
 	if (rc == 0) {
 		notify_send(&(struct notify_opts){
 			.summary = "Copied to clipboard",
-			.body = grabit_basename(path),
+			.body = base,
 			.icon_path = path,
 		});
 		grabit_sound_play(cfg);
 	} else {
 		notify_send(&(struct notify_opts){
 			.summary = "Clipboard write failed",
-			.body = grabit_basename(path),
+			.body = "wayland clipboard rejected the image; see terminal for details",
 			.force = true,
 		});
 	}
@@ -510,6 +517,38 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		}
 	}
 
+	if (a->show) {
+		char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+		if (!png_path || pin_text_card_render_png(text, png_path) != 0) {
+			log_error("ocr: text card render failed");
+			notify_send(&(struct notify_opts){
+				.summary = "Show failed",
+				.body = "could not render OCR text card; see terminal for details",
+				.force = true,
+			});
+			free(png_path);
+			free(text);
+			return 1;
+		}
+		struct pin_show_opts opts = {
+			.dismiss_secs = read_int_cfg_clamp(cfg, "show.dismiss_secs", 8, 0, 600),
+			.position = config_get(cfg, "show.position"),
+			.output_name = config_get(cfg, "show.output"),
+		};
+		int rc = pin_spawn_show(cfg, png_path, &opts);
+		(void)unlink(png_path);
+		free(png_path);
+		if (rc != 0) {
+			free(text);
+			return 1;
+		}
+		log_info("ocr: %zu chars shown on screen%s",
+				 strlen(text), translated ? " (translated)" : "");
+		grabit_sound_play(cfg);
+		free(text);
+		return 0;
+	}
+
 	if (clipboard_set_text(text) != 0) {
 		log_error("ocr: clipboard write failed");
 		notify_send(&(struct notify_opts){
@@ -522,13 +561,19 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	size_t tlen = strlen(text);
-	char preview[160];
-	char flat[120];
+	enum { PREVIEW_MAX = 800 };
+	char preview[PREVIEW_MAX + 8];
+	char flat[PREVIEW_MAX + 1];
 	size_t fi = 0;
 	bool prev_space = false;
-	for (size_t i = 0; text[i] && fi < sizeof flat - 1; i++) {
+	bool overflowed = false;
+	for (size_t i = 0; text[i]; i++) {
 		unsigned char ch = (unsigned char)text[i];
 		bool is_ws = (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r');
+		if (fi >= sizeof flat - 1) {
+			overflowed = true;
+			break;
+		}
 		if (is_ws) {
 			if (!prev_space && fi > 0) flat[fi++] = ' ';
 			prev_space = true;
@@ -537,14 +582,14 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 			prev_space = false;
 		}
 	}
+	while (fi > 0 && ((unsigned char)flat[fi - 1] & 0xC0) == 0x80)
+		fi--;
 	while (fi > 0 && flat[fi - 1] == ' ')
 		fi--;
 	flat[fi] = '\0';
-	if (fi > 100) {
-		size_t n = 100;
-		while (n > 0 && ((unsigned char)flat[n] & 0xC0) == 0x80)
-			n--;
-		snprintf(preview, sizeof preview, "%.*s…", (int)n, flat);
+	bool truncated = overflowed || tlen > fi + 16;
+	if (truncated) {
+		snprintf(preview, sizeof preview, "%s…", flat);
 	} else {
 		snprintf(preview, sizeof preview, "%s", flat);
 	}

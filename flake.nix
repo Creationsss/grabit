@@ -16,7 +16,7 @@
     in {
       packages.default = pkgs.stdenv.mkDerivation rec {
         pname = "grabit";
-        version = "0.2.0";
+        version = "0.3.0";
 
         src = ./.;
 
@@ -34,12 +34,16 @@
           wayland-protocols
           cairo
           libxkbcommon
-          systemd.dev
+          dbus
+          libjpeg
+          libwebp
         ];
 
         runtimeDeps = with pkgs; [
           ffmpeg
           tesseract
+          translate-shell
+          xdg-utils
         ];
 
         installPhase = ''

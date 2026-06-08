@@ -339,9 +339,14 @@ static int validate_edit_color(const char *value) {
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
 
 static const char *VALS_show_position[] = {
-	"top-left", "top-center", "top-right",
-	"bottom-left", "bottom-center", "bottom-right",
-	"center", NULL,
+	"top-left",
+	"top-center",
+	"top-right",
+	"bottom-left",
+	"bottom-center",
+	"bottom-right",
+	"center",
+	NULL,
 };
 
 int config_set(struct config *c, const char *key, const char *value) {

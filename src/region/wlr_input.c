@@ -208,6 +208,21 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		return;
 	}
 
+	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
+		(st->drawing || st->moving_region || st->handle_dragging != HANDLE_NONE)) {
+		if (st->moving_region) {
+			st->moving_region = false;
+			refresh_cursor(st, p);
+		} else if (st->handle_dragging != HANDLE_NONE) {
+			st->handle_dragging = HANDLE_NONE;
+			refresh_cursor(st, p);
+		} else if (st->drawing) {
+			region_commit_drawing(st);
+		}
+		region_render_request_redraw_all(st);
+		return;
+	}
+
 	if (st->color_picker_open && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		int32_t px, py, pw, ph;
 		region_color_picker_rect(st, &px, &py, &pw, &ph);

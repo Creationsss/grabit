@@ -11,8 +11,10 @@ int pin_spawn(struct config *cfg, const char *path, const struct rect *r);
 
 struct pin_show_opts {
 	int dismiss_secs;
-	const char *position;	 /* "top-right" (default) | "top-left" | ... | "center" */
-	const char *output_name; /* NULL or "" = primary, otherwise output name */
+	const char *position;	   /* "top-right" (default) | "top-left" | ... | "center" */
+	const char *output_name;   /* NULL or "" = primary, otherwise output name */
+	const char *hover_caption; /* if set, card captures input: hover shows caption */
+	const char *click_open;	   /* if set, click runs xdg-open on this URL or path before dismissing */
 };
 
 int pin_spawn_show(struct config *cfg, const char *path, const struct pin_show_opts *opts);

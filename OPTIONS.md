@@ -301,11 +301,31 @@ grabit --tesseract --translate --show     # show the translation
 grabit set show.dismiss_secs 12           # auto-dismiss after 12s (default 8, 0 = stay until clicked)
 ```
 
+**`text_card.*`** (configures the text card shown by `--tesseract --show`):
+
 | key | default | notes |
 |---|---|---|
-| `show.dismiss_secs` | `8` | auto-dismiss after N seconds (0-600; 0 = stay until replaced) |
-| `show.position` | `top-right` | `top-left`/`top-center`/`top-right`/`bottom-left`/`bottom-center`/`bottom-right`/`center` |
-| `show.output` | (primary) | output name (e.g. `DP-1`, `HDMI-A-1`). if the named output isn't connected, falls back to the primary output |
+| `text_card.dismiss_secs` | `8` | auto-dismiss after N seconds (0-600; 0 = stay until replaced) |
+| `text_card.position` | `top-right` | `top-left`/`top-center`/`top-right`/`bottom-left`/`bottom-center`/`bottom-right`/`center` |
+| `text_card.output` | (primary) | output name (e.g. `DP-1`, `HDMI-A-1`). if the named output isn't connected, falls back to the primary output |
+
+**`preview.*`** (post-capture thumbnail, independent of `text_card.*`):
+
+| key | default | notes |
+|---|---|---|
+| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a sharex-style preview card |
+| `preview.size` | `300` | thumbnail width in pixels (100-800); the height keeps the screenshot's aspect ratio (no padding, no boxy frame) |
+| `preview.position` | `bottom-right` | same value set as `show.position` |
+| `preview.output` | (primary) | same semantics as `show.output` |
+| `preview.dismiss_secs` | `5` | auto-dismiss after N seconds (0-600; 0 = stay until next capture) |
+
+the preview is the scaled screenshot with a thin dark border. hovering over it overlays a translucent centered caption bar at the bottom (`Copied`, `Uploaded`, or the bare filename for saves), and re-arms the auto-dismiss timer (so the card stays as long as you keep mousing over it). clicking the preview:
+
+- after `-u`: runs `xdg-open <url>` (opens the upload link in your browser)
+- after `-o`: runs `xdg-open <dir>` (opens the containing folder in your file manager)
+- after `-c`: just dismisses (the file may already be gone if it was a temp)
+
+only one preview card is on screen at a time.
 
 the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen. if no monitor is connected at all, grabit fires a "show failed: no monitor is connected" notification and exits.
 

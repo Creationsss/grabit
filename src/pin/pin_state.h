@@ -68,9 +68,14 @@ struct pin_state {
 
 	bool transient;
 	int dismiss_timer_fd;
+	int dismiss_secs;
 
 	const char *transient_position;
 	const char *transient_output_name;
+
+	const char *hover_caption;
+	bool hover_active;
+	const char *click_open;
 };
 
 #define PIN_CLOSE_BTN_SIZE 24

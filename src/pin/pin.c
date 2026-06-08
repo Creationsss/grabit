@@ -96,6 +96,8 @@ static void compute_centered_jitter(int32_t img_w, int32_t img_h,
 struct transient_extras {
 	const char *position;
 	const char *output_name;
+	const char *hover_caption;
+	const char *click_open;
 };
 
 static struct grabit_output *find_output_by_name(struct grabit_wl_state *s, const char *name) {
@@ -139,7 +141,16 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	st.scale = 1;
 	st.ipc_fd = -1;
 	st.dismiss_timer_fd = -1;
+	st.dismiss_secs = dismiss_secs;
 	st.transient = transient;
+	if (transient && te && te->hover_caption && te->hover_caption[0]) {
+		st.hover_caption = te->hover_caption;
+		st.input_grabbed = true;
+	}
+	if (transient && te && te->click_open && te->click_open[0]) {
+		st.click_open = te->click_open;
+		st.input_grabbed = true;
+	}
 
 	struct grabit_output *target = NULL;
 	if (have_rect) {
@@ -419,6 +430,8 @@ int pin_spawn_show(struct config *cfg, const char *path, const struct pin_show_o
 		dismiss_secs = opts->dismiss_secs;
 		te.position = opts->position;
 		te.output_name = opts->output_name;
+		te.hover_caption = opts->hover_caption;
+		te.click_open = opts->click_open;
 	}
 	return pin_spawn_common(path, NULL, true, dismiss_secs, &te);
 }

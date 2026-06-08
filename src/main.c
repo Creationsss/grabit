@@ -23,6 +23,7 @@
 #include "ocr/ocr.h"
 #include "paths.h"
 #include "pin/pin.h"
+#include "pin/preview.h"
 #include "pin/text_card.h"
 #include "plugin/dispatch.h"
 #include "plugin/plugin.h"
@@ -97,7 +98,7 @@ static int print_help(void) {
 		"  --pin             Capture and pin to desktop (click-through; stack any number)\n"
 		"  --show            With --tesseract: show the OCR/translate result on screen as\n"
 		"                    a click-through text card instead of copying. Auto-dismisses\n"
-		"                    after `show.dismiss_secs` (default 8s); a second --show\n"
+		"                    after `text_card.dismiss_secs` (default 8s); a second --show\n"
 		"                    replaces the previous card.\n"
 		"  --grab            Make pinned screenshots clickable (click closes one; drag to move)\n"
 		"                    Pair with a hold-bind, e.g. hyprland:\n"
@@ -186,6 +187,33 @@ static int read_int_cfg_clamp(struct config *cfg, const char *key,
 	if (n < lo) return lo;
 	if (n > hi) return hi;
 	return (int)n;
+}
+
+static void maybe_show_preview(struct config *cfg, const char *image_path,
+							   const char *caption, const char *click_open) {
+	if (!image_path) return;
+	const char *en = config_get(cfg, "preview.enabled");
+	if (!en || strcmp(en, "true") != 0) return;
+
+	char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+	if (!png_path) return;
+
+	int width = read_int_cfg_clamp(cfg, "preview.size", 300, 100, 800);
+	const char *pos = config_get(cfg, "preview.position");
+	if (!pos || !pos[0]) pos = "bottom-right";
+
+	if (pin_preview_render_png(image_path, width, png_path) == 0) {
+		struct pin_show_opts opts = {
+			.dismiss_secs = read_int_cfg_clamp(cfg, "preview.dismiss_secs", 5, 0, 600),
+			.position = pos,
+			.output_name = config_get(cfg, "preview.output"),
+			.hover_caption = caption,
+			.click_open = click_open,
+		};
+		pin_spawn_show(cfg, png_path, &opts);
+	}
+	(void)unlink(png_path);
+	free(png_path);
 }
 
 static int resolve_save_opts(const struct args *a, struct config *cfg,
@@ -316,6 +344,9 @@ static int run_upload(struct config *cfg, const struct args *a) {
 		};
 		notify_send(&opts);
 		grabit_sound_play(cfg);
+		if (mime_is_image(m)) {
+			maybe_show_preview(cfg, path, "Uploaded", r.url);
+		}
 		free(m);
 		puts(r.url);
 		fflush(stdout);
@@ -369,6 +400,7 @@ static int run_copy(struct config *cfg, const struct args *a) {
 			.icon_path = path,
 		});
 		grabit_sound_play(cfg);
+		maybe_show_preview(cfg, path, "Copied", NULL);
 	} else {
 		notify_send(&(struct notify_opts){
 			.summary = "Clipboard write failed",
@@ -403,6 +435,11 @@ static int run_output(struct config *cfg, const struct args *a) {
 		});
 		grabit_sound_play(cfg);
 	}
+	char dir[4096];
+	snprintf(dir, sizeof dir, "%s", path);
+	char *slash = strrchr(dir, '/');
+	if (slash && slash != dir) *slash = '\0';
+	maybe_show_preview(cfg, path, grabit_basename(path), dir);
 	free(path);
 	return 0;
 }
@@ -531,9 +568,9 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 			return 1;
 		}
 		struct pin_show_opts opts = {
-			.dismiss_secs = read_int_cfg_clamp(cfg, "show.dismiss_secs", 8, 0, 600),
-			.position = config_get(cfg, "show.position"),
-			.output_name = config_get(cfg, "show.output"),
+			.dismiss_secs = read_int_cfg_clamp(cfg, "text_card.dismiss_secs", 8, 0, 600),
+			.position = config_get(cfg, "text_card.position"),
+			.output_name = config_get(cfg, "text_card.output"),
 		};
 		int rc = pin_spawn_show(cfg, png_path, &opts);
 		(void)unlink(png_path);

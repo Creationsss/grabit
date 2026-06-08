@@ -22,6 +22,7 @@ static const char *BOOL_KEYS[] = {
 	"sound.enabled",
 	"region.window_snap",
 	"edit.default",
+	"preview.enabled",
 	NULL,
 };
 
@@ -155,12 +156,20 @@ static bool valid_translate_key(const char *key) {
 	return strcmp(key + 10, "target") == 0;
 }
 
-static bool valid_show_key(const char *key) {
-	if (strncmp(key, "show.", 5) != 0) return false;
-	const char *leaf = key + 5;
+static bool valid_text_card_key(const char *key) {
+	if (strncmp(key, "text_card.", 10) != 0) return false;
+	const char *leaf = key + 10;
 	return strcmp(leaf, "dismiss_secs") == 0 ||
 		   strcmp(leaf, "position") == 0 ||
 		   strcmp(leaf, "output") == 0;
+}
+
+static bool valid_preview_key(const char *key) {
+	if (strncmp(key, "preview.", 8) != 0) return false;
+	const char *leaf = key + 8;
+	return strcmp(leaf, "enabled") == 0 || strcmp(leaf, "size") == 0 ||
+		   strcmp(leaf, "position") == 0 || strcmp(leaf, "output") == 0 ||
+		   strcmp(leaf, "dismiss_secs") == 0;
 }
 
 static bool valid_capture_key(const char *key) {
@@ -329,12 +338,18 @@ static int validate_edit_color(const char *value) {
 
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
 
+static const char *VALS_show_position[] = {
+	"top-left", "top-center", "top-right",
+	"bottom-left", "bottom-center", "bottom-right",
+	"center", NULL,
+};
+
 int config_set(struct config *c, const char *key, const char *value) {
 	if (!valid_top_key(key) && !valid_service_key(key) && !valid_recording_key(key) &&
 		!valid_ocr_key(key) && !valid_sound_key(key) && !valid_edit_key(key) &&
 		!valid_jpeg_key(key) && !valid_webp_key(key) &&
 		!valid_capture_key(key) && !valid_region_key(key) &&
-		!valid_translate_key(key) && !valid_show_key(key)) {
+		!valid_translate_key(key) && !valid_text_card_key(key) && !valid_preview_key(key)) {
 		log_error("unknown config key: %s", key);
 		const char *hint = cfg_help_suggest_key(key);
 		if (hint) log_info("did you mean: %s ?", hint);
@@ -356,11 +371,15 @@ int config_set(struct config *c, const char *key, const char *value) {
 		validate_int_in_range(key, value, 1, 120) != 0) return -1;
 	if (strcmp(key, "show.dismiss_secs") == 0 &&
 		validate_int_in_range(key, value, 0, 600) != 0) return -1;
-	static const char *VALS_show_position[] = {
-		"top-left", "top-center", "top-right",
-		"bottom-left", "bottom-center", "bottom-right",
-		"center", NULL,
-	};
+	if (strcmp(key, "preview.size") == 0 &&
+		validate_int_in_range(key, value, 100, 800) != 0) return -1;
+	if (strcmp(key, "preview.dismiss_secs") == 0 &&
+		validate_int_in_range(key, value, 0, 600) != 0) return -1;
+	if (strcmp(key, "preview.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
+		log_error("preview.position must be one of "
+				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
+		return -1;
+	}
 	if (strcmp(key, "show.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
 		log_error("show.position must be one of "
 				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");

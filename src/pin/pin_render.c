@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "pin/pin_state.h"
 
+#include <string.h>
+
 #include "cairo_util.h"
 #include "util.h"
 #include "wl.h"
@@ -103,6 +105,51 @@ static void render_paint(struct pin_state *st, const struct pin_dmg *clip) {
 		cairo_save(cr);
 		cairo_scale(cr, (double)s, (double)s);
 		draw_close_button(cr, st->width);
+		cairo_restore(cr);
+	}
+
+	if (st->transient && st->hover_caption && st->hover_active && st->width > 0) {
+		cairo_save(cr);
+		cairo_scale(cr, (double)s, (double)s);
+		double font = 14.0;
+		double pad = 8.0;
+		cairo_select_font_face(cr, "sans-serif",
+							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+		cairo_set_font_size(cr, font);
+		cairo_text_extents_t ext;
+		cairo_text_extents(cr, st->hover_caption, &ext);
+		double max_w = (double)st->width - 2 * pad;
+		const char *text = st->hover_caption;
+		char trimmed[256];
+		if (ext.x_advance > max_w) {
+			size_t len = strlen(text);
+			size_t fit = 0;
+			for (size_t i = 1; i < len && i < sizeof trimmed - 5; i++) {
+				if (((unsigned char)text[i] & 0xC0) == 0x80) continue;
+				memcpy(trimmed, text, i);
+				memcpy(trimmed + i, "…", 4);
+				cairo_text_extents(cr, trimmed, &ext);
+				if (ext.x_advance > max_w) break;
+				fit = i;
+			}
+			if (fit == 0) fit = 1;
+			memcpy(trimmed, text, fit);
+			memcpy(trimmed + fit, "…", 4);
+			trimmed[fit + 3] = '\0';
+			text = trimmed;
+			cairo_text_extents(cr, text, &ext);
+		}
+		cairo_text_extents(cr, text, &ext);
+		double bar_h = font + 2 * pad;
+		double bar_y = (double)st->height - bar_h;
+		cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
+		cairo_rectangle(cr, 0, bar_y, st->width, bar_h);
+		cairo_fill(cr);
+		cairo_set_source_rgba(cr, 1, 1, 1, 1);
+		double tx = ((double)st->width - ext.x_advance) / 2.0;
+		if (tx < pad) tx = pad;
+		cairo_move_to(cr, tx, bar_y + pad + font * 0.85);
+		cairo_show_text(cr, text);
 		cairo_restore(cr);
 	}
 

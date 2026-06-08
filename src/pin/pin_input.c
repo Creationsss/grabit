@@ -9,6 +9,8 @@
 #include "wl.h"
 
 #include <stdlib.h>
+#include <sys/timerfd.h>
+#include <unistd.h>
 
 #include <linux/input-event-codes.h>
 
@@ -180,6 +182,14 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	st->cursor_sy = wl_fixed_to_int(sy);
 	st->last_pointer_serial = serial;
 	st->pointer_in_surface = true;
+	if (st->hover_caption && !st->hover_active) {
+		st->hover_active = true;
+		pin_render_paint(st);
+	}
+	if (st->transient && st->dismiss_timer_fd >= 0 && st->dismiss_secs > 0) {
+		struct itimerspec it = {.it_value = {.tv_sec = st->dismiss_secs}};
+		timerfd_settime(st->dismiss_timer_fd, 0, &it, NULL);
+	}
 	st->current_cursor = NULL;
 	update_cursor(st);
 }
@@ -194,6 +204,10 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	st->dragging = false;
 	st->pending_dx_fixed = 0;
 	st->pending_dy_fixed = 0;
+	if (st->hover_caption && st->hover_active) {
+		st->hover_active = false;
+		pin_render_paint(st);
+	}
 	st->current_cursor = NULL;
 }
 
@@ -216,6 +230,18 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	if (button != BTN_LEFT) return;
 
 	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		if (st->transient && (st->hover_caption || st->click_open)) {
+			if (st->click_open && st->click_open[0]) {
+				pid_t cpid = fork();
+				if (cpid == 0) {
+					setsid();
+					execlp("xdg-open", "xdg-open", st->click_open, (char *)NULL);
+					_exit(127);
+				}
+			}
+			st->finished = true;
+			return;
+		}
 		if (in_close_button(st, st->cursor_sx, st->cursor_sy)) {
 			st->finished = true;
 			return;

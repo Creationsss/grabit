@@ -86,9 +86,14 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"capture.backend",
 	"region.window_snap",
 	"translate.target",
-	"show.dismiss_secs",
-	"show.position",
-	"show.output",
+	"text_card.dismiss_secs",
+	"text_card.position",
+	"text_card.output",
+	"preview.enabled",
+	"preview.size",
+	"preview.position",
+	"preview.output",
+	"preview.dismiss_secs",
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.nest.auth",
@@ -289,18 +294,42 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "en";
 		return 0;
 	}
-	if (strcmp(key, "show.dismiss_secs") == 0) {
+	if (strcmp(key, "text_card.dismiss_secs") == 0) {
 		*example_out = "0-600 (0 = stay until replaced)";
 		*def_out = "8";
 		return 0;
 	}
-	if (strcmp(key, "show.position") == 0) {
+	if (strcmp(key, "text_card.position") == 0) {
 		*example_out = "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center";
 		*def_out = "top-right";
 		return 0;
 	}
-	if (strcmp(key, "show.output") == 0) {
+	if (strcmp(key, "text_card.output") == 0) {
 		*example_out = "<output name, e.g. DP-1, HDMI-A-1; empty = primary>";
+		return 0;
+	}
+	if (strcmp(key, "preview.enabled") == 0) {
+		*example_out = "true|false";
+		*def_out = "false";
+		return 0;
+	}
+	if (strcmp(key, "preview.size") == 0) {
+		*example_out = "100-800";
+		*def_out = "300";
+		return 0;
+	}
+	if (strcmp(key, "preview.position") == 0) {
+		*example_out = "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center";
+		*def_out = "bottom-right";
+		return 0;
+	}
+	if (strcmp(key, "preview.output") == 0) {
+		*example_out = "<output name, e.g. DP-1; empty = primary>";
+		return 0;
+	}
+	if (strcmp(key, "preview.dismiss_secs") == 0) {
+		*example_out = "0-600 (0 = stay until next capture)";
+		*def_out = "5";
 		return 0;
 	}
 	return -1;
@@ -405,7 +434,13 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("capture.backend", find_default("capture.backend"));
 	print_key_with_default("region.window_snap", find_default("region.window_snap"));
 	print_key_with_default("translate.target", find_default("translate.target"));
-	print_key_with_default("show.dismiss_secs", find_default("show.dismiss_secs"));
-	print_key_with_default("show.position", find_default("show.position"));
-	print_key_with_default("show.output", find_default("show.output"));
+	print_key_with_default("text_card.dismiss_secs", find_default("text_card.dismiss_secs"));
+	print_key_with_default("text_card.position", find_default("text_card.position"));
+	print_key_with_default("text_card.output", find_default("text_card.output"));
+	puts("");
+	print_key_with_default("preview.enabled", find_default("preview.enabled"));
+	print_key_with_default("preview.size", find_default("preview.size"));
+	print_key_with_default("preview.position", find_default("preview.position"));
+	print_key_with_default("preview.output", find_default("preview.output"));
+	print_key_with_default("preview.dismiss_secs", find_default("preview.dismiss_secs"));
 }

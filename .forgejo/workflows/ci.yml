@@ -37,8 +37,3 @@ jobs:
         run: ./build/grabit --version
       - name: make test
         run: make test
-      - uses: actions/upload-artifact@v4
-        with:
-          name: grabit
-          path: build/grabit
-          retention-days: 7

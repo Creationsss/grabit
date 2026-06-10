@@ -1,0 +1,58 @@
+name: release
+
+on:
+  push:
+    tags: ['[0-9]*']
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  APT_DEPS: >-
+    build-essential pkg-config
+    libwayland-dev libwayland-bin
+    libcairo2-dev libxkbcommon-dev libmagic-dev
+    libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+
+jobs:
+  package-linux-x86_64:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+    steps:
+      - name: install deps
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends ca-certificates git jq curl $APT_DEPS
+      - uses: actions/checkout@v6
+      - name: build stripped release
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          make clean
+          make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
+          ./build/grabit --version
+          mv build/grabit grabit-x86_64-linux
+          sha256sum grabit-x86_64-linux | tee grabit-x86_64-linux.sha256
+          ldd grabit-x86_64-linux
+      - name: create forgejo release + upload assets
+        env:
+          TAG: ${{ github.ref_name }}
+          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -sS -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"$TAG\"}" \
+            "$SERVER/api/v1/repos/$REPO/releases")
+          RELEASE_ID=$(echo "$RESPONSE" | jq -r .id)
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "release create failed: $RESPONSE" >&2
+            exit 1
+          fi
+          for f in grabit-x86_64-linux grabit-x86_64-linux.sha256; do
+            curl -sS -X POST \
+              -H "Authorization: token $TOKEN" \
+              -F "attachment=@$f" \
+              "$SERVER/api/v1/repos/$REPO/releases/$RELEASE_ID/assets?name=$f"
+          done

@@ -1,0 +1,37 @@
+name: sanitize
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanitize-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  APT_DEPS: >-
+    build-essential pkg-config
+    libwayland-dev libwayland-bin
+    libcairo2-dev libxkbcommon-dev libmagic-dev
+    libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+
+jobs:
+  sanitize:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+    steps:
+      - name: install deps
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
+      - uses: actions/checkout@v6
+      - name: make sanitize
+        run: make sanitize
+      - name: --version
+        run: ./build-san/grabit --version

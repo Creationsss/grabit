@@ -20,7 +20,7 @@ jobs:
       - name: install deps
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates git jq curl $APT_DEPS
+          apt-get install -qq -y --no-install-recommends ca-certificates git nodejs jq curl $APT_DEPS
       - uses: actions/checkout@v4
       - name: build stripped release
         env:

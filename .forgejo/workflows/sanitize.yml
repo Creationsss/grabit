@@ -29,7 +29,7 @@ jobs:
       - name: install deps
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
+          apt-get install -qq -y --no-install-recommends ca-certificates git nodejs $APT_DEPS
       - uses: actions/checkout@v4
       - name: make sanitize
         run: make sanitize

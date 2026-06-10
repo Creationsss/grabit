@@ -30,14 +30,14 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: make all
         run: make all
       - name: --version
         run: ./build/grabit --version
       - name: make test
         run: make test
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: grabit
           path: build/grabit

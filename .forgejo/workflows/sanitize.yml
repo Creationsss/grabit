@@ -30,7 +30,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: make sanitize
         run: make sanitize
       - name: --version

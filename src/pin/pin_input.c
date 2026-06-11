@@ -8,7 +8,8 @@
 #include "log.h"
 #include "wl.h"
 
-#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
@@ -233,7 +234,9 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (st->transient && (st->hover_caption || st->click_open)) {
 			if (st->click_open && st->click_open[0]) {
 				pid_t cpid = fork();
-				if (cpid == 0) {
+				if (cpid < 0) {
+					log_warn("pin: fork for xdg-open failed (%s)", strerror(errno));
+				} else if (cpid == 0) {
 					setsid();
 					execlp("xdg-open", "xdg-open", st->click_open, (char *)NULL);
 					_exit(127);

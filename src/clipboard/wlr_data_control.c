@@ -73,7 +73,10 @@ __attribute__((noreturn)) static void clip_child(const void *bytes, size_t size,
 	}
 
 	struct grabit_wl_state s;
-	if (grabit_wl_init(&s) != 0) _exit(1);
+	if (grabit_wl_init(&s) != 0) {
+		log_error("clipboard: child wayland init failed");
+		_exit(1);
+	}
 	if (!s.data_control_manager || !s.seat) {
 		log_error("clipboard: compositor lacks zwlr_data_control_manager_v1 or wl_seat");
 		grabit_wl_finish(&s);

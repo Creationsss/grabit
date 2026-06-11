@@ -8,6 +8,7 @@
 #include "util.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -111,12 +112,32 @@ char *grabit_translate(const char *text, const char *target) {
 	close(in_p[0]);
 	close(out_p[1]);
 
+	int64_t deadline = now_ms() + TRANSLATE_TIMEOUT_MS;
+	bool timed_out = false;
+
+	int flags = fcntl(in_p[1], F_GETFL, 0);
+	if (flags >= 0) fcntl(in_p[1], F_SETFL, flags | O_NONBLOCK);
 	size_t tlen = strlen(text);
 	const char *p = text;
 	while (tlen > 0) {
+		int64_t remaining = deadline - now_ms();
+		if (remaining <= 0) {
+			timed_out = true;
+			break;
+		}
+		struct pollfd pfd = {.fd = in_p[1], .events = POLLOUT};
+		int pr = poll(&pfd, 1, (int)remaining);
+		if (pr < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
+		if (pr == 0) {
+			timed_out = true;
+			break;
+		}
 		ssize_t w = write(in_p[1], p, tlen);
 		if (w < 0) {
-			if (errno == EINTR) continue;
+			if (errno == EINTR || errno == EAGAIN) continue;
 			break;
 		}
 		p += w;
@@ -126,8 +147,6 @@ char *grabit_translate(const char *text, const char *target) {
 
 	struct grabit_buf buf = {0};
 	char chunk[4096];
-	int64_t deadline = now_ms() + TRANSLATE_TIMEOUT_MS;
-	bool timed_out = false;
 	for (;;) {
 		int64_t remaining = deadline - now_ms();
 		if (remaining <= 0) {

@@ -10,10 +10,13 @@
 #include "util/json_path.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <json-c/json.h>
@@ -45,11 +48,29 @@ static int connect_socket(void) {
 	return fd;
 }
 
-static int write_all(int fd, const char *buf, size_t len) {
+#define HYPR_IPC_TIMEOUT_MS 2000
+
+static int64_t now_ms(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static int wait_fd(int fd, short events, int64_t deadline) {
+	int64_t remaining = deadline - now_ms();
+	if (remaining <= 0) return -1;
+	struct pollfd pfd = {.fd = fd, .events = events};
+	int pr = poll(&pfd, 1, (int)remaining);
+	if (pr <= 0) return -1;
+	return 0;
+}
+
+static int write_all(int fd, const char *buf, size_t len, int64_t deadline) {
 	while (len > 0) {
+		if (wait_fd(fd, POLLOUT, deadline) != 0) return -1;
 		ssize_t w = write(fd, buf, len);
 		if (w < 0) {
-			if (errno == EINTR) continue;
+			if (errno == EINTR || errno == EAGAIN) continue;
 			return -1;
 		}
 		buf += w;
@@ -58,13 +79,14 @@ static int write_all(int fd, const char *buf, size_t len) {
 	return 0;
 }
 
-static int read_all(int fd, struct grabit_buf *out) {
+static int read_all(int fd, struct grabit_buf *out, int64_t deadline) {
 	char tmp[4096];
 	for (;;) {
+		if (wait_fd(fd, POLLIN, deadline) != 0) return -1;
 		ssize_t r = read(fd, tmp, sizeof tmp);
 		if (r == 0) return 0;
 		if (r < 0) {
-			if (errno == EINTR) continue;
+			if (errno == EINTR || errno == EAGAIN) continue;
 			return -1;
 		}
 		if (grabit_buf_putn(out, tmp, (size_t)r) != 0) return -1;
@@ -76,14 +98,17 @@ static int ipc_query(const char *cmd, struct json_object **root_out) {
 	*root_out = NULL;
 	int fd = connect_socket();
 	if (fd < 0) return -1;
-	if (write_all(fd, cmd, strlen(cmd)) != 0) {
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags >= 0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+	int64_t deadline = now_ms() + HYPR_IPC_TIMEOUT_MS;
+	if (write_all(fd, cmd, strlen(cmd), deadline) != 0) {
 		close(fd);
 		return -1;
 	}
 	shutdown(fd, SHUT_WR);
 
 	struct grabit_buf body = {0};
-	int rc = read_all(fd, &body);
+	int rc = read_all(fd, &body, deadline);
 	close(fd);
 	if (rc != 0 || !body.data) {
 		grabit_buf_free(&body);

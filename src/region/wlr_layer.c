@@ -173,6 +173,12 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 			s->layer_shell, o->surface, o->go->wl_output,
 			ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
 			"grabit-region");
+		if (!o->layer_surface) {
+			log_error("region: layer_surface creation failed for output %zu", i);
+			st.cancelled = true;
+			st.finished = true;
+			break;
+		}
 		region_render_attach_layer(o);
 
 		zwlr_layer_surface_v1_set_anchor(o->layer_surface,

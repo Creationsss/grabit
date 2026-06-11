@@ -374,9 +374,17 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		return -1;
 	}
 
+	int sync_p[2] = {-1, -1};
+	if (transient && pipe(sync_p) != 0) {
+		log_warn("pin: sync pipe failed (%s); pid file may race", strerror(errno));
+		sync_p[0] = sync_p[1] = -1;
+	}
+
 	pid_t pid = fork();
 	if (pid < 0) {
 		log_error("pin: fork: %s", strerror(errno));
+		if (sync_p[0] >= 0) close(sync_p[0]);
+		if (sync_p[1] >= 0) close(sync_p[1]);
 		cairo_surface_destroy(img);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: pin failed",
@@ -386,8 +394,17 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		return -1;
 	}
 	if (pid == 0) {
+		if (sync_p[0] >= 0) close(sync_p[0]);
 		grabit_double_fork_detach();
-		if (transient) write_show_pid_self();
+		if (transient) {
+			write_show_pid_self();
+			if (sync_p[1] >= 0) {
+				char b = '1';
+				ssize_t _w = write(sync_p[1], &b, 1);
+				(void)_w;
+			}
+		}
+		if (sync_p[1] >= 0) close(sync_p[1]);
 		int devnull = open("/dev/null", O_RDWR | O_CLOEXEC);
 		if (devnull >= 0) {
 			dup2(devnull, STDIN_FILENO);
@@ -399,9 +416,16 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		if (transient) clear_show_pid_self();
 		_exit(prc);
 	}
+	if (sync_p[1] >= 0) close(sync_p[1]);
 	int status = 0;
 	while (waitpid(pid, &status, 0) < 0) {
 		if (errno != EINTR) break;
+	}
+	if (sync_p[0] >= 0) {
+		char b;
+		ssize_t _r = read(sync_p[0], &b, 1);
+		(void)_r;
+		close(sync_p[0]);
 	}
 	cairo_surface_destroy(img);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {

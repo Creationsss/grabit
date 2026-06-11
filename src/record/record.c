@@ -345,7 +345,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	g_stop = 0;
+	atomic_store_explicit(&g_stop, 0, memory_order_relaxed);
 	struct prev_sigs prev = {0};
 	install_signal_handlers(&prev);
 

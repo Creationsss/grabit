@@ -113,14 +113,12 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 							   bool cursor, void *dst_buf) {
 	if (!s || !layout || !dst_buf) return -1;
 
-	bool fully_tiled = false;
-	if (layout->n == 1) {
-		const struct rec_slice *sl = &layout->slices[0];
-		if (sl->dst_x == 0 && sl->dst_y == 0 &&
-			sl->dst_w == layout->dst_w && sl->dst_h == layout->dst_h) {
-			fully_tiled = true;
-		}
+	uint64_t covered = 0;
+	for (size_t i = 0; i < layout->n; i++) {
+		const struct rec_slice *sl = &layout->slices[i];
+		covered += (uint64_t)sl->dst_w * (uint64_t)sl->dst_h;
 	}
+	bool fully_tiled = covered == (uint64_t)layout->dst_w * (uint64_t)layout->dst_h;
 	if (!fully_tiled)
 		memset(dst_buf, 0, (size_t)layout->dst_stride * (size_t)layout->dst_h);
 

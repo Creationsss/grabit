@@ -176,7 +176,6 @@ void plugin_maybe_auto_update(const char *name) {
 	if (m.update_check_hours <= 0) goto out;
 	if (grabit_xasprintf(&check_path, "%s/.last_check", plugin_dir) != 0) goto out;
 	if (!stale(check_path, m.update_check_hours)) goto out;
-	plugin_touch_check(plugin_dir);
 	should_spawn = true;
 out:
 	plugin_manifest_free(&m);

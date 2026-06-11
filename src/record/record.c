@@ -141,7 +141,7 @@ static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 	int consec_fail = 0;
 	bool direct = rec_layout_is_direct(layout);
 
-	while (!g_stop) {
+	while (!atomic_load_explicit(&g_stop, memory_order_relaxed)) {
 		int64_t deadline = start_ns + frame_idx * period_ns;
 		int64_t cur = now_ns();
 		if (deadline > cur) {
@@ -150,7 +150,7 @@ static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 				.tv_nsec = deadline % 1000000000,
 			};
 			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
-			if (g_stop) break;
+			if (atomic_load_explicit(&g_stop, memory_order_relaxed)) break;
 		} else if (cur - deadline > period_ns * 4) {
 			frame_idx = (cur - start_ns) / period_ns;
 		}
@@ -179,7 +179,7 @@ static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 			if (++consec_fail == 1) log_warn("recording: frame capture failed");
 			if (consec_fail > 30) {
 				log_error("recording: too many consecutive capture failures; stopping");
-				g_stop = 1;
+				atomic_store_explicit(&g_stop, 1, memory_order_relaxed);
 				break;
 			}
 			frame_idx++;

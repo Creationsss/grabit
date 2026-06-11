@@ -83,7 +83,6 @@ int image_apply_transform(struct image *img, int32_t transform) {
 		log_error("transform: oom (%zu bytes)", new_size);
 		return -1;
 	}
-	memset(new_bytes, 0, new_size);
 
 	cairo_surface_t *dst = grabit_cairo_image(new_bytes, fmt, new_w, new_h, new_stride);
 	cairo_surface_t *src = grabit_cairo_image(img->bytes, fmt, img->width,

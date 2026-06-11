@@ -174,16 +174,32 @@ static char *extract_url(struct json_object *root, const char *paths) {
 	return NULL;
 }
 
+static size_t value_clean_len(const char *value) {
+	size_t n = strlen(value);
+	while (n > 0 && (value[n - 1] == '\r' || value[n - 1] == '\n' ||
+					 value[n - 1] == ' ' || value[n - 1] == '\t'))
+		n--;
+	for (size_t i = 0; i < n; i++) {
+		if (value[i] == '\r' || value[i] == '\n') return 0;
+	}
+	return n;
+}
+
 static struct curl_slist *append_header(struct curl_slist *list,
 										const char *name, const char *value,
 										bool *oom) {
-	size_t n = strlen(name) + strlen(value) + 3;
+	size_t vlen = value_clean_len(value);
+	if (vlen == 0) {
+		log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
+		return list;
+	}
+	size_t n = strlen(name) + vlen + 3;
 	char *line = malloc(n);
 	if (!line) {
 		*oom = true;
 		return list;
 	}
-	snprintf(line, n, "%s: %s", name, value);
+	snprintf(line, n, "%s: %.*s", name, (int)vlen, value);
 	struct curl_slist *next = curl_slist_append(list, line);
 	free(line);
 	if (!next) *oom = true;

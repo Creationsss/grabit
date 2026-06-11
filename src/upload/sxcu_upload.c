@@ -188,6 +188,10 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 	curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, on_header);
 	curl_easy_setopt(c, CURLOPT_HEADERDATA, &w);
 	curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(c, CURLOPT_MAXREDIRS, 8L);
+	curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+	curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 30L);
+	curl_easy_setopt(c, CURLOPT_TIMEOUT, 300L);
 	curl_easy_setopt(c, CURLOPT_USERAGENT, "grabit/" GRABIT_VERSION);
 
 	CURLcode rc = curl_easy_perform(c);
@@ -210,8 +214,15 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 			free(out_url);
 			out_url = trim_right(strdup(body_data));
 		}
-		result->url = out_url;
-		ret = 0;
+		if (!out_url || !*out_url) {
+			free(out_url);
+			result->url = NULL;
+			result->body = strdup(body_data);
+			log_error("sxcu: server returned no usable url");
+		} else {
+			result->url = out_url;
+			ret = 0;
+		}
 	} else {
 		char *err = u->err_expr
 						? sxcu_expand_response(u->err_expr, body_data,

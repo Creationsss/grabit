@@ -66,10 +66,20 @@ static int update_prebuilt(const char *plugin_dir, const char *name,
 		}
 	}
 	chmod(tmp_path, 0755);
+	int sync_fd = open(tmp_path, O_RDONLY | O_CLOEXEC);
+	if (sync_fd >= 0) {
+		fsync(sync_fd);
+		close(sync_fd);
+	}
 	if (rename(tmp_path, binary_path) != 0) {
 		log_error("plugin: rename %s -> %s: %s", tmp_path, binary_path, strerror(errno));
 		unlink(tmp_path);
 		goto out;
+	}
+	int dir_fd = open(plugin_dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY);
+	if (dir_fd >= 0) {
+		fsync(dir_fd);
+		close(dir_fd);
 	}
 	log_info("plugin: %s updated", name);
 	rc = 0;
@@ -176,6 +186,7 @@ void plugin_maybe_auto_update(const char *name) {
 	if (m.update_check_hours <= 0) goto out;
 	if (grabit_xasprintf(&check_path, "%s/.last_check", plugin_dir) != 0) goto out;
 	if (!stale(check_path, m.update_check_hours)) goto out;
+	plugin_touch_check(plugin_dir);
 	should_spawn = true;
 out:
 	plugin_manifest_free(&m);

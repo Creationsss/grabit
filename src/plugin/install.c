@@ -65,7 +65,17 @@ static void gc_stale_tmp(const char *root) {
 		if (strncmp(e->d_name, ".tmp.", 5) != 0) continue;
 		const char *pid_str = strrchr(e->d_name, '.');
 		if (!pid_str || pid_str == e->d_name + 4) continue;
-		pid_t pid = (pid_t)strtol(pid_str + 1, NULL, 10);
+		const char *p = pid_str + 1;
+		if (!*p) continue;
+		bool all_digits = true;
+		for (const char *q = p; *q; q++) {
+			if (*q < '0' || *q > '9') {
+				all_digits = false;
+				break;
+			}
+		}
+		if (!all_digits) continue;
+		pid_t pid = (pid_t)strtol(p, NULL, 10);
 		if (pid > 0 && grabit_process_alive(pid)) continue;
 		char *path = NULL;
 		if (grabit_xasprintf(&path, "%s/%s", root, e->d_name) != 0) continue;

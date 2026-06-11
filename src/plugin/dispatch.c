@@ -10,6 +10,7 @@
 #include "util.h"
 
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -97,10 +98,18 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	struct grabit_buf out = {0};
 	char chunk[4096];
 	ssize_t r;
+	enum { PLUGIN_OUTPUT_CAP = 16u << 20 };
+	bool capped = false;
 	while ((r = read(pipefd[0], chunk, sizeof chunk)) > 0) {
+		if (out.len + (size_t)r > PLUGIN_OUTPUT_CAP) {
+			capped = true;
+			break;
+		}
 		if (grabit_buf_putn(&out, chunk, (size_t)r) != 0) break;
 	}
 	close(pipefd[0]);
+	if (capped) log_warn("plugin: %s stdout exceeded %d MiB; truncating",
+						 name, PLUGIN_OUTPUT_CAP >> 20);
 	int status = 0;
 	(void)grabit_waitpid_intr(pid, &status);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {

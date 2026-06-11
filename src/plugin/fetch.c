@@ -31,10 +31,24 @@ enum plugin_fetch_result plugin_fetch_url(const char *url, const char *dst,
 	}
 	curl_easy_setopt(c, CURLOPT_URL, url);
 	curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(c, CURLOPT_MAXREDIRS, 8L);
 	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, curl_to_file);
 	curl_easy_setopt(c, CURLOPT_WRITEDATA, f);
 	curl_easy_setopt(c, CURLOPT_FAILONERROR, 1L);
 	curl_easy_setopt(c, CURLOPT_FILETIME, 1L);
+	curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+	curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 30L);
+	curl_easy_setopt(c, CURLOPT_TIMEOUT, 300L);
+	curl_easy_setopt(c, CURLOPT_USERAGENT, "grabit-plugin-fetch/1");
+#if LIBCURL_VERSION_NUM >= 0x075500
+	curl_easy_setopt(c, CURLOPT_PROTOCOLS_STR, "http,https");
+	curl_easy_setopt(c, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+	curl_easy_setopt(c, CURLOPT_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+	curl_easy_setopt(c, CURLOPT_REDIR_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
 	if (if_modified_since > 0) {
 		curl_easy_setopt(c, CURLOPT_TIMECONDITION, (long)CURL_TIMECOND_IFMODSINCE);
 		curl_easy_setopt(c, CURLOPT_TIMEVALUE, (long)if_modified_since);

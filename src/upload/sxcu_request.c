@@ -62,13 +62,32 @@ char *sxcu_build_url(CURL *c, const struct sxcu_uploader *u, const char *file_pa
 	return b.data;
 }
 
+static void clean_header_value(char *v) {
+	if (!v) return;
+	size_t n = strlen(v);
+	while (n > 0 && (v[n - 1] == '\r' || v[n - 1] == '\n' ||
+					 v[n - 1] == ' ' || v[n - 1] == '\t'))
+		v[--n] = '\0';
+	for (size_t i = 0; i < n; i++) {
+		if (v[i] == '\r' || v[i] == '\n') {
+			v[0] = '\0';
+			return;
+		}
+	}
+}
+
 struct curl_slist *sxcu_build_headers(const struct sxcu_uploader *u, const char *file_path,
 									  const char *content_type) {
 	struct curl_slist *list = NULL;
 	for (size_t i = 0; i < u->n_headers; i++) {
 		char *v = sxcu_expand_input(u->headers[i].v, file_path);
+		clean_header_value(v);
+		if (!v || !v[0]) {
+			free(v);
+			continue;
+		}
 		char *line = NULL;
-		grabit_xasprintf(&line, "%s: %s", u->headers[i].k, v ? v : "");
+		grabit_xasprintf(&line, "%s: %s", u->headers[i].k, v);
 		if (line) list = curl_slist_append(list, line);
 		free(v);
 		free(line);

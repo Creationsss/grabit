@@ -76,6 +76,10 @@ struct pin_state {
 	const char *hover_caption;
 	bool hover_active;
 	const char *click_open;
+
+	char caption_fit[256];
+	double caption_fit_x_advance;
+	int32_t caption_fit_width;
 };
 
 #define PIN_CLOSE_BTN_SIZE 24

@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "pin/pin_state.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "cairo_util.h"
@@ -116,40 +117,44 @@ static void render_paint(struct pin_state *st, const struct pin_dmg *clip) {
 		cairo_select_font_face(cr, "sans-serif",
 							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 		cairo_set_font_size(cr, font);
-		cairo_text_extents_t ext;
-		cairo_text_extents(cr, st->hover_caption, &ext);
-		double max_w = (double)st->width - 2 * pad;
-		const char *text = st->hover_caption;
-		char trimmed[256];
-		if (ext.x_advance > max_w) {
-			size_t len = strlen(text);
-			size_t fit = 0;
-			for (size_t i = 1; i < len && i < sizeof trimmed - 5; i++) {
-				if (((unsigned char)text[i] & 0xC0) == 0x80) continue;
-				memcpy(trimmed, text, i);
-				memcpy(trimmed + i, "…", 4);
-				cairo_text_extents(cr, trimmed, &ext);
-				if (ext.x_advance > max_w) break;
-				fit = i;
+		if (st->caption_fit_width != st->width || !st->caption_fit[0]) {
+			cairo_text_extents_t ext;
+			cairo_text_extents(cr, st->hover_caption, &ext);
+			double max_w = (double)st->width - 2 * pad;
+			const char *src = st->hover_caption;
+			if (ext.x_advance <= max_w) {
+				snprintf(st->caption_fit, sizeof st->caption_fit, "%s", src);
+				st->caption_fit_x_advance = ext.x_advance;
+			} else {
+				size_t len = strlen(src);
+				size_t fit = 0;
+				for (size_t i = 1; i < len && i < sizeof st->caption_fit - 5; i++) {
+					if (((unsigned char)src[i] & 0xC0) == 0x80) continue;
+					memcpy(st->caption_fit, src, i);
+					memcpy(st->caption_fit + i, "…", 4);
+					cairo_text_extents(cr, st->caption_fit, &ext);
+					if (ext.x_advance > max_w) break;
+					fit = i;
+				}
+				if (fit == 0) fit = 1;
+				memcpy(st->caption_fit, src, fit);
+				memcpy(st->caption_fit + fit, "…", 4);
+				st->caption_fit[fit + 3] = '\0';
+				cairo_text_extents(cr, st->caption_fit, &ext);
+				st->caption_fit_x_advance = ext.x_advance;
 			}
-			if (fit == 0) fit = 1;
-			memcpy(trimmed, text, fit);
-			memcpy(trimmed + fit, "…", 4);
-			trimmed[fit + 3] = '\0';
-			text = trimmed;
-			cairo_text_extents(cr, text, &ext);
+			st->caption_fit_width = st->width;
 		}
-		cairo_text_extents(cr, text, &ext);
 		double bar_h = font + 2 * pad;
 		double bar_y = (double)st->height - bar_h;
 		cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
 		cairo_rectangle(cr, 0, bar_y, st->width, bar_h);
 		cairo_fill(cr);
 		cairo_set_source_rgba(cr, 1, 1, 1, 1);
-		double tx = ((double)st->width - ext.x_advance) / 2.0;
+		double tx = ((double)st->width - st->caption_fit_x_advance) / 2.0;
 		if (tx < pad) tx = pad;
 		cairo_move_to(cr, tx, bar_y + pad + font * 0.85);
-		cairo_show_text(cr, text);
+		cairo_show_text(cr, st->caption_fit);
 		cairo_restore(cr);
 	}
 

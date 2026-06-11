@@ -17,7 +17,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,

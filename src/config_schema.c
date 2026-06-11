@@ -191,6 +191,16 @@ static bool valid_recording_key(const char *key) {
 		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0;
 }
 
+bool cfg_key_is_known(const char *key) {
+	return valid_top_key(key) || valid_service_key(key) ||
+		   valid_recording_key(key) || valid_ocr_key(key) ||
+		   valid_sound_key(key) || valid_edit_key(key) ||
+		   valid_jpeg_key(key) || valid_webp_key(key) ||
+		   valid_capture_key(key) || valid_region_key(key) ||
+		   valid_translate_key(key) || valid_text_card_key(key) ||
+		   valid_preview_key(key);
+}
+
 static const char *VALS_x264_tune[] = {
 	"film",
 	"animation",

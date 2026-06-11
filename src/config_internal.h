@@ -29,6 +29,7 @@ int cfg_kv_upsert(struct config *c, const char *key, const char *val);
 bool cfg_is_bool_key(const char *key);
 bool cfg_in_list(const char *needle, const char **list);
 bool cfg_is_known_service(const char *s);
+bool cfg_key_is_known(const char *key);
 
 void cfg_help_print_all_keys(void);
 int cfg_help_example_for_key(const char *key, const char **example_out, const char **def_out);

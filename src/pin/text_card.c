@@ -63,6 +63,42 @@ static double measure(cairo_t *cr, const char *s, size_t n) {
 	return ext.x_advance;
 }
 
+static int push_with_break(cairo_t *cr, const char *src, size_t start, size_t end,
+						   struct line_buf *out, double max_w) {
+	if (end <= start) return 0;
+	double w = measure(cr, src + start, end - start);
+	if (w <= max_w) {
+		return lb_push(out, src + start, end - start, w);
+	}
+	size_t s = start;
+	while (s < end) {
+		size_t lo = s + 1, hi = end, best = s + 1;
+		while (lo <= hi) {
+			size_t mid = (lo + hi) / 2;
+			if (measure(cr, src + s, mid - s) <= max_w) {
+				best = mid;
+				lo = mid + 1;
+			} else {
+				if (mid == 0) break;
+				hi = mid - 1;
+			}
+		}
+		while (best > s + 1 && ((unsigned char)src[best] & 0xC0) == 0x80)
+			best--;
+		if (best < end && ((unsigned char)src[best] & 0xC0) == 0x80) {
+			best = s + 1;
+			while (best < end && ((unsigned char)src[best] & 0xC0) == 0x80)
+				best++;
+		}
+		if (best <= s) best = s + 1;
+		if (lb_push(out, src + s, best - s,
+					measure(cr, src + s, best - s)) != 0)
+			return -1;
+		s = best;
+	}
+	return 0;
+}
+
 static int wrap_hard_line(cairo_t *cr, const char *src, size_t srclen,
 						  struct line_buf *out, double max_w) {
 	if (srclen == 0) {
@@ -91,47 +127,13 @@ static int wrap_hard_line(cairo_t *cr, const char *src, size_t srclen,
 			continue;
 		}
 
-		if (lb_push(out, src + cur_start, cur_end - cur_start,
-					measure(cr, src + cur_start, cur_end - cur_start)) != 0)
+		if (push_with_break(cr, src, cur_start, cur_end, out, max_w) != 0)
 			return -1;
 		cur_start = word_start;
 		cur_end = word_end;
 	}
 
-	if (cur_end > cur_start) {
-		double w = measure(cr, src + cur_start, cur_end - cur_start);
-		if (w > max_w) {
-			size_t s = cur_start;
-			while (s < cur_end) {
-				size_t lo = s + 1, hi = cur_end, best = s + 1;
-				while (lo <= hi) {
-					size_t mid = (lo + hi) / 2;
-					if (measure(cr, src + s, mid - s) <= max_w) {
-						best = mid;
-						lo = mid + 1;
-					} else {
-						if (mid == 0) break;
-						hi = mid - 1;
-					}
-				}
-				while (best > s + 1 && ((unsigned char)src[best] & 0xC0) == 0x80)
-					best--;
-				if (best <= s) {
-					best = s + 1;
-					while (best < cur_end && ((unsigned char)src[best] & 0xC0) == 0x80)
-						best++;
-				}
-				if (lb_push(out, src + s, best - s,
-							measure(cr, src + s, best - s)) != 0)
-					return -1;
-				s = best;
-			}
-		} else {
-			if (lb_push(out, src + cur_start, cur_end - cur_start, w) != 0)
-				return -1;
-		}
-	}
-	return 0;
+	return push_with_break(cr, src, cur_start, cur_end, out, max_w);
 }
 
 static int wrap_text(cairo_t *cr, const char *text, struct line_buf *out) {

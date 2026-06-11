@@ -89,6 +89,8 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t s = toml_string_in(t, k);
 		if (s.ok) {
+			if (!cfg_key_is_known(full))
+				log_warn("config: unknown key `%s` (kept; may be stale)", full);
 			int rc = cfg_kv_upsert(c, full, s.u.s);
 			free(s.u.s);
 			free(full);
@@ -98,6 +100,8 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t b = toml_bool_in(t, k);
 		if (b.ok) {
+			if (!cfg_key_is_known(full))
+				log_warn("config: unknown key `%s` (kept; may be stale)", full);
 			int rc = cfg_kv_upsert(c, full, b.u.b ? "true" : "false");
 			free(full);
 			if (rc != 0) return -1;
@@ -106,6 +110,8 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t n = toml_int_in(t, k);
 		if (n.ok) {
+			if (!cfg_key_is_known(full))
+				log_warn("config: unknown key `%s` (kept; may be stale)", full);
 			char buf[32];
 			snprintf(buf, sizeof buf, "%lld", (long long)n.u.i);
 			int rc = cfg_kv_upsert(c, full, buf);
@@ -128,10 +134,11 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 	return 0;
 }
 
-static void seed_defaults(struct config *c) {
-	cfg_kv_upsert(c, "default_action", "copy");
-	cfg_kv_upsert(c, "notifications", "true");
-	cfg_kv_upsert(c, "also_save", "false");
+static int seed_defaults(struct config *c) {
+	if (cfg_kv_upsert(c, "default_action", "copy") != 0) return -1;
+	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
+	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
+	return 0;
 }
 
 int config_load(struct config *c) {
@@ -147,7 +154,11 @@ int config_load(struct config *c) {
 	struct stat st;
 	bool first_run = stat(file, &st) != 0 || st.st_size == 0;
 	if (first_run) {
-		seed_defaults(c);
+		if (seed_defaults(c) != 0) {
+			log_error("could not seed default config (out of memory)");
+			config_free(c);
+			return -1;
+		}
 		if (config_save(c) != 0) {
 			log_error("could not write default config to %s: %s", file, strerror(errno));
 			config_free(c);
@@ -178,7 +189,11 @@ int config_load(struct config *c) {
 		log_warn("config %s could not be parsed (%s)", file, errbuf);
 		log_warn("  moved aside to %s; seeding defaults", broken);
 		free(broken);
-		seed_defaults(c);
+		if (seed_defaults(c) != 0) {
+			log_error("could not seed default config (out of memory)");
+			config_free(c);
+			return -1;
+		}
 		if (config_save(c) != 0) {
 			log_error("could not write default config to %s: %s", file, strerror(errno));
 			config_free(c);

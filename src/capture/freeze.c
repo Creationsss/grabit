@@ -33,8 +33,9 @@ int grabit_freeze_capture(struct grabit_wl_state *s, const char *path,
 		}
 		captured = i + 1;
 		if (image_apply_transform(&frozen[i], s->outputs[i]->transform) != 0) {
-			log_warn("freeze: transform of %s failed; output may look skewed",
-					 s->outputs[i]->name ? s->outputs[i]->name : "?");
+			log_error("freeze: transform of %s failed; aborting capture",
+					  s->outputs[i]->name ? s->outputs[i]->name : "?");
+			goto cleanup;
 		}
 	}
 

@@ -121,7 +121,7 @@ int config_save(struct config *c) {
 		emit_bare_or_quoted_key(&out, short_key);
 		grabit_buf_puts(&out, " = ");
 		const char *val = c->kvs[i].val;
-		if (cfg_is_bool_key(short_key) && (strcmp(val, "true") == 0 || strcmp(val, "false") == 0)) {
+		if (cfg_is_bool_key(key) && (strcmp(val, "true") == 0 || strcmp(val, "false") == 0)) {
 			grabit_buf_puts(&out, val);
 		} else {
 			emit_string_value(&out, val);

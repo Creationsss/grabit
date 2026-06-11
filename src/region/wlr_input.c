@@ -6,6 +6,7 @@
 
 #include "capture/capture.h"
 #include "region/annotate.h"
+#include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "wl.h"
 
@@ -19,15 +20,6 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
-
-static const uint32_t TB_COLORS[6] = {
-	0xff3030u,
-	0xfff030u,
-	0x40ff40u,
-	0x4080ffu,
-	0x000000u,
-	0xffffffu,
-};
 
 static void apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
 						 struct ro_output *o, struct wl_cursor *c);
@@ -224,21 +216,16 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	}
 
 	if (st->color_picker_open && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-		int32_t px, py, pw, ph;
-		region_color_picker_rect(st, &px, &py, &pw, &ph);
-		bool inside_grid = pw > 0 && ph > 0 &&
-						   st->cursor_x >= px && st->cursor_x < px + pw &&
-						   st->cursor_y >= py && st->cursor_y < py + ph;
-		int32_t ix, iy, iw, ih;
-		region_color_input_rect(st, &ix, &iy, &iw, &ih);
-		bool inside_input = iw > 0 && ih > 0 &&
-							st->cursor_x >= ix && st->cursor_x < ix + iw &&
-							st->cursor_y >= iy && st->cursor_y < iy + ih;
-		int32_t ex, ey, ew, eh;
-		region_color_eyedropper_rect(st, &ex, &ey, &ew, &eh);
-		bool inside_eyedropper = ew > 0 && eh > 0 &&
-								 st->cursor_x >= ex && st->cursor_x < ex + ew &&
-								 st->cursor_y >= ey && st->cursor_y < ey + eh;
+		struct rect pr, ir, er;
+		region_color_picker_rect(st, &pr.x, &pr.y, &pr.w, &pr.h);
+		region_color_input_rect(st, &ir.x, &ir.y, &ir.w, &ir.h);
+		region_color_eyedropper_rect(st, &er.x, &er.y, &er.w, &er.h);
+		bool inside_grid = pr.w > 0 && pr.h > 0 &&
+						   rect_contains(pr, st->cursor_x, st->cursor_y);
+		bool inside_input = ir.w > 0 && ir.h > 0 &&
+							rect_contains(ir, st->cursor_x, st->cursor_y);
+		bool inside_eyedropper = er.w > 0 && er.h > 0 &&
+								 rect_contains(er, st->cursor_x, st->cursor_y);
 		if (inside_eyedropper) {
 			st->eyedropper_mode = !st->eyedropper_mode;
 			st->color_input_active = false;
@@ -304,7 +291,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 					st->current_tool = ACT_TO_TOOL[act];
 					refresh_cursor(st, p);
 				} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
-					st->current_color = TB_COLORS[act - TB_COLOR_RED];
+					st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];
 					st->edit_choices_dirty = true;
 					st->eyedropper_mode = false;
 					st->color_picker_open = false;

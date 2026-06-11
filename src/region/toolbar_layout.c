@@ -216,7 +216,7 @@ bool region_toolbar_contains(const struct ro_state *st, int32_t abs_x, int32_t a
 	const struct grabit_output *o;
 	region_toolbar_rect(st, &o, &tx, &ty, &tw, &th);
 	if (!o) return false;
-	return abs_x >= tx && abs_x < tx + tw && abs_y >= ty && abs_y < ty + th;
+	return rect_contains((struct rect){tx, ty, tw, th}, abs_x, abs_y);
 }
 
 static int32_t btn_rect_cache[TB_BTN_COUNT][4];
@@ -241,10 +241,9 @@ enum tb_action region_toolbar_hit(const struct ro_state *st,
 	int32_t local_y = abs_y - ty;
 	if (tw != btn_rect_cache_tw) btn_rect_cache_build(tw);
 	for (int i = 0; i < TB_BTN_COUNT; i++) {
-		int32_t bx = btn_rect_cache[i][0], by = btn_rect_cache[i][1];
-		int32_t bw = btn_rect_cache[i][2], bh = btn_rect_cache[i][3];
-		if (local_x >= bx && local_x < bx + bw &&
-			local_y >= by && local_y < by + bh) return (enum tb_action)i;
+		struct rect br = {btn_rect_cache[i][0], btn_rect_cache[i][1],
+						  btn_rect_cache[i][2], btn_rect_cache[i][3]};
+		if (rect_contains(br, local_x, local_y)) return (enum tb_action)i;
 	}
 	return TB_NONE;
 }

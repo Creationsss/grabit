@@ -5,6 +5,7 @@
 #include "region/edit_persist.h"
 
 #include "config.h"
+#include "util.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -28,31 +29,10 @@ static const struct {
 	{"white", 0xffffffu},
 };
 
-static int hex_nybble(char c) {
-	if (c >= '0' && c <= '9') return c - '0';
-	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-	return -1;
-}
-
 uint32_t edit_color_from_str(const char *s) {
 	if (!s || !*s) return EDIT_DEFAULT_COLOR;
-	const char *p = (*s == '#') ? s + 1 : s;
-	size_t len = strlen(p);
-	if (len == 6 || len == 3) {
-		uint32_t v = 0;
-		for (size_t i = 0; i < len; i++) {
-			int d = hex_nybble(p[i]);
-			if (d < 0) goto try_name;
-			v = (v << 4) | (uint32_t)d;
-		}
-		if (len == 3) {
-			uint32_t r = (v >> 8) & 0xf, g = (v >> 4) & 0xf, b = v & 0xf;
-			v = (r << 20) | (r << 16) | (g << 12) | (g << 8) | (b << 4) | b;
-		}
-		return v & 0xFFFFFFu;
-	}
-try_name:
+	uint32_t parsed = 0;
+	if (grabit_parse_hex_color(s, &parsed)) return parsed;
 	for (size_t i = 0; i < sizeof EDIT_COLORS / sizeof EDIT_COLORS[0]; i++) {
 		if (strcmp(EDIT_COLORS[i].name, s) == 0) return EDIT_COLORS[i].hex;
 	}

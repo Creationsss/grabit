@@ -258,6 +258,78 @@ int grabit_waitpid_intr(pid_t pid, int *status) {
 	return 0;
 }
 
+int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop) {
+	bool sent_stop = false;
+	while (waitpid(pid, status, 0) < 0) {
+		if (errno == EINTR) {
+			if (!sent_stop && stop && atomic_load(stop)) {
+				kill(pid, SIGINT);
+				sent_stop = true;
+			}
+			continue;
+		}
+		return -1;
+	}
+	return 0;
+}
+
+static int hex_nybble(char c) {
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+bool grabit_parse_hex_color(const char *s, uint32_t *out) {
+	if (!s || !*s) return false;
+	if (*s == '#') s++;
+	size_t len = strlen(s);
+	uint32_t v = 0;
+	if (len == 6) {
+		for (int i = 0; i < 6; i++) {
+			int d = hex_nybble(s[i]);
+			if (d < 0) return false;
+			v = (v << 4) | (uint32_t)d;
+		}
+		*out = v & 0xFFFFFFu;
+		return true;
+	}
+	if (len == 3) {
+		for (int i = 0; i < 3; i++) {
+			int d = hex_nybble(s[i]);
+			if (d < 0) return false;
+			uint32_t dd = ((uint32_t)d << 4) | (uint32_t)d;
+			v = (v << 8) | dd;
+		}
+		*out = v & 0xFFFFFFu;
+		return true;
+	}
+	return false;
+}
+
+size_t grabit_edit_distance(const char *a, const char *b) {
+	size_t la = strlen(a), lb = strlen(b);
+	if (la > 64 || lb > 64) return 999;
+	size_t prev[66], curr[66];
+	for (size_t j = 0; j <= lb; j++)
+		prev[j] = j;
+	for (size_t i = 1; i <= la; i++) {
+		curr[0] = i;
+		for (size_t j = 1; j <= lb; j++) {
+			size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+			size_t del = prev[j] + 1;
+			size_t ins = curr[j - 1] + 1;
+			size_t sub = prev[j - 1] + cost;
+			size_t m = del < ins ? del : ins;
+			if (sub < m) m = sub;
+			curr[j] = m;
+		}
+		for (size_t j = 0; j <= lb; j++)
+			prev[j] = curr[j];
+	}
+	return prev[lb];
+}
+
 bool grabit_is_grabit_process(pid_t pid) {
 	if (pid <= 0) return false;
 	char path[64];

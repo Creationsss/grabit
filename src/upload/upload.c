@@ -59,35 +59,12 @@ bool upload_service_known(const char *name) {
 	return find_service(name) != NULL || sxcu_dir_has(name);
 }
 
-static size_t edit_distance(const char *a, const char *b) {
-	size_t la = strlen(a), lb = strlen(b);
-	if (la > 64 || lb > 64) return 999;
-	size_t prev[66], curr[66];
-	for (size_t j = 0; j <= lb; j++)
-		prev[j] = j;
-	for (size_t i = 1; i <= la; i++) {
-		curr[0] = i;
-		for (size_t j = 1; j <= lb; j++) {
-			size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
-			size_t del = prev[j] + 1;
-			size_t ins = curr[j - 1] + 1;
-			size_t sub = prev[j - 1] + cost;
-			size_t m = del < ins ? del : ins;
-			if (sub < m) m = sub;
-			curr[j] = m;
-		}
-		for (size_t j = 0; j <= lb; j++)
-			prev[j] = curr[j];
-	}
-	return prev[lb];
-}
-
 int upload_suggest_service(const char *input, char *out, size_t cap) {
 	if (!input || !out || cap == 0) return -1;
 	const char *best = NULL;
 	size_t best_dist = (size_t)-1;
 	for (size_t i = 0; i < N_SERVICES; i++) {
-		size_t d = edit_distance(input, SERVICES[i].name);
+		size_t d = grabit_edit_distance(input, SERVICES[i].name);
 		if (d < best_dist) {
 			best_dist = d;
 			best = SERVICES[i].name;
@@ -98,7 +75,7 @@ int upload_suggest_service(const char *input, char *out, size_t cap) {
 	int rc = -1;
 	if (sxcu_dir_list(&names, &n) == 0) {
 		for (size_t i = 0; i < n; i++) {
-			size_t d = edit_distance(input, names[i]);
+			size_t d = grabit_edit_distance(input, names[i]);
 			if (d < best_dist) {
 				best_dist = d;
 				best = names[i];

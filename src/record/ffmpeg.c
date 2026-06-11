@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
-#define _XOPEN_SOURCE 700
+#define _GNU_SOURCE
 #include "record/ffmpeg.h"
 
 #include "log.h"
 #include "util.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,21 +17,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static int waitpid_intr(pid_t pid, int *status, const char *what, atomic_int *stop) {
-	bool sent_stop = false;
-	while (waitpid(pid, status, 0) < 0) {
-		if (errno == EINTR) {
-			if (!sent_stop && stop && atomic_load(stop)) {
-				kill(pid, SIGINT);
-				sent_stop = true;
-			}
-			continue;
-		}
-		log_error("waitpid(%s): %s", what, strerror(errno));
-		return -1;
-	}
-	return 0;
-}
 
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 				 const char *tune, const char *pix_fmt,
@@ -116,6 +102,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 	(void)setpgid(pid, pid);
 
 	close(p[0]);
+	(void)fcntl(p[1], F_SETPIPE_SZ, 1 << 20);
 	*child_pid = pid;
 	*write_fd = p[1];
 	return 0;
@@ -123,7 +110,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 
 int wait_ffmpeg(pid_t pid) {
 	int status = 0;
-	if (waitpid_intr(pid, &status, "ffmpeg", NULL) != 0) return -1;
+	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
 	if (WIFEXITED(status)) {
 		int code = WEXITSTATUS(status);
 		if (code == 0) return 0;
@@ -197,7 +184,7 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 	(void)setpgid(pid, pid);
 
 	int status = 0;
-	if (waitpid_intr(pid, &status, "ffmpeg compress", stop) != 0) {
+	if (grabit_waitpid_intr_stop(pid, &status, stop) != 0) {
 		unlink(tmp_path);
 		free(tmp_path);
 		return -1;

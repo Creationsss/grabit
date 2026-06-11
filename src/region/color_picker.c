@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 #include "region/wlr_state.h"
+#include "util.h"
 
 #include "cairo_util.h"
 
@@ -90,38 +91,8 @@ void region_color_eyedropper_rect(const struct ro_state *st,
 	*out_h = COLOR_PICKER_INPUT_H;
 }
 
-static int hex_digit(char c) {
-	if (c >= '0' && c <= '9') return c - '0';
-	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-	return -1;
-}
-
 bool region_parse_hex_color(const char *s, uint32_t *out) {
-	if (!s || !*s) return false;
-	if (*s == '#') s++;
-	size_t len = strlen(s);
-	uint32_t v = 0;
-	if (len == 6) {
-		for (int i = 0; i < 6; i++) {
-			int d = hex_digit(s[i]);
-			if (d < 0) return false;
-			v = (v << 4) | (uint32_t)d;
-		}
-		*out = v & 0xFFFFFFu;
-		return true;
-	}
-	if (len == 3) {
-		for (int i = 0; i < 3; i++) {
-			int d = hex_digit(s[i]);
-			if (d < 0) return false;
-			uint32_t dd = ((uint32_t)d << 4) | (uint32_t)d;
-			v = (v << 8) | dd;
-		}
-		*out = v & 0xFFFFFFu;
-		return true;
-	}
-	return false;
+	return grabit_parse_hex_color(s, out);
 }
 
 static void hsl_to_rgb(double h, double s, double l, double *r, double *g, double *b) {

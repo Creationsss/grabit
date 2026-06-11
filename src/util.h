@@ -25,6 +25,14 @@ bool grabit_is_grabit_process(pid_t pid);
 
 int grabit_waitpid_intr(pid_t pid, int *status);
 
+#include <stdatomic.h>
+int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
+
+size_t grabit_edit_distance(const char *a, const char *b);
+
+#include <stdint.h>
+bool grabit_parse_hex_color(const char *s, uint32_t *out);
+
 struct wl_shm;
 struct wl_buffer;
 struct grabit_shm_buf {

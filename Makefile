@@ -5,6 +5,7 @@ NAME       := grabit
 
 BUILDDIR   := build
 PREFIX     ?= /usr/local
+MANDIR     ?= $(PREFIX)/share/man
 DESTDIR    ?=
 CC              ?= cc
 PKG_CONFIG      ?= pkg-config
@@ -233,6 +234,7 @@ sanitize: $(SAN_BIN)
 .PHONY: install
 install: $(GRABIT_BIN)
 	install -Dm755 $(GRABIT_BIN) $(DESTDIR)$(PREFIX)/bin/$(NAME)
+	install -Dm644 man/$(NAME).1 $(DESTDIR)$(MANDIR)/man1/$(NAME).1
 
 .PHONY: clean
 clean:

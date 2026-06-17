@@ -1,0 +1,406 @@
+.\" SPDX-License-Identifier: AGPL-3.0-or-later
+.\" Copyright (C) 2026 creations
+.TH GRABIT 1 "2026-06-17" "grabit 0.3.0" "User Commands"
+.SH NAME
+grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland compositors
+.SH SYNOPSIS
+.B grabit
+.RI [ options ]
+.br
+.B grabit
+.BR set | get | unset
+.RI [ key "] [" value ]
+.br
+.B grabit
+.B sxcu
+.RB { add | list | show | remove }
+.RI [ arg ]
+.br
+.B grabit
+.B plugin
+.RB { install | list | show | update | remove }
+.RI [ arg ]
+.br
+.B grabit
+.B help
+.RI [ subcommand ]
+.SH DESCRIPTION
+.B grabit
+captures region screenshots, records the screen, performs OCR, and uploads the
+result, with a native freeze + region selector (no
+.BR slurp / grim
+shellouts). It uses
+.B zwlr_screencopy_v1
+when advertised, otherwise falls back to
+.B ext_image_copy_capture_v1
+(KDE Plasma 6).
+.PP
+Supported compositors: Hyprland, sway, niri, river, KDE Plasma 6. X11 and GNOME
+are not supported.
+.PP
+With no action flag, grabit performs the configured
+.B default_action
+(seeded to
+.B copy
+on first run, which also writes a default config to
+.IR ~/.config/grabit/config.toml ).
+.SH ACTIONS
+.TP
+.BR \-c ", " \-\-copy
+Copy the screenshot to the clipboard.
+.TP
+.BR \-u ", " \-\-upload
+Upload the screenshot to the default service (the
+.B service
+config key).
+.TP
+.BI \-\- service
+Upload to a specific built-in service
+.RB ( zipline ,
+.BR nest ,
+.BR fakecrime ,
+.BR ez ,
+.BR guns ,
+.BR pixelvault )
+or a registered
+.B .sxcu
+uploader.
+.TP
+.BR \-o ", " \-\-output ", " \-\-save
+Capture, save to disk, and print the path to standard output.
+.TP
+.B \-\-record
+Toggle screen recording (run again to stop). Records a region to MP4/H.264 with
+a live border overlay and an SNI tray icon.
+.TP
+.B \-\-pin
+Capture a region and pin it to the desktop as a click-through overlay. Pins
+stack and persist as long-lived processes.
+.TP
+.BR \-\-grab ", " \-\-release ", " \-\-close\-all
+Make existing pins interactive (clickable close button + draggable), restore
+them to click-through, or dismiss every pin. Intended to be wired to a
+compositor hold-bind.
+.TP
+.B \-\-tesseract
+Capture a region, OCR it via
+.BR tesseract ,
+and copy the text to the clipboard. Requires
+.B tesseract
+on
+.B $PATH
+plus
+.IR eng.traineddata .
+.TP
+.BI \-\-translate [=lang]
+With
+.BR \-\-tesseract :
+pipe the OCR text through translate-shell's
+.B trans
+binary and copy the translation instead.
+.I lang
+is the target language (default
+.BR en ;
+source auto-detected). Falls back to raw OCR if
+.B trans
+is missing or the call fails (20s cap).
+.TP
+.B \-\-show
+With
+.BR \-\-tesseract :
+render the OCR/translate result on screen as a transient click-through text card
+instead of copying. Auto-dismisses after
+.B text_card.dismiss_secs
+(default 8s).
+.TP
+.BR \-e ", " \-\-edit
+Open the in-tree annotation editor before the action (pen, rect, ellipse,
+arrow, blur, text, eraser, HSL color picker + eyedropper). Pairs with any
+action. Make it the default with
+.BR "grabit set edit.default true" .
+.SH MODIFIERS
+.TP
+.BI \-f " file"
+Use an existing
+.I file
+instead of capturing.
+.TP
+.BI \-\-filename " tpl"
+Per-run filename template (overrides the
+.B filename
+config key). See
+.BR "FILENAME TEMPLATES" .
+.TP
+.BI \-\-format " fmt"
+Per-run output format:
+.BR png ,
+.BR jpeg ,
+or
+.B webp
+(default
+.BR png ).
+JPEG/WebP must have been compiled in.
+.TP
+.B \-\-no\-upload
+With
+.BR \-\-record :
+skip the auto-upload after recording even if
+.BR default_action=upload .
+.TP
+.B \-\-no\-tray
+Suppress the SNI tray icon during recording.
+.TP
+.BR \-\-silent ", " \-q ", " \-\-quiet
+Suppress notifications and sound (errors still print).
+.TP
+.BR \-d ", " \-\-debug
+Enable debug logging to standard error (same as
+.BR GRABIT_DEBUG=1 ).
+.TP
+.B \-\-
+End of options; the following argument is treated as
+.BI \-f " file" .
+.TP
+.BR \-V ", " \-\-version
+Print version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print help and exit.
+.SH SUBCOMMANDS
+.SS Configuration
+.TP
+.BI "set " "key value"
+Write a config key (schema-validated).
+.TP
+.BI "set " key
+Print the example/default value for that key.
+.TP
+.B set
+List all settable keys.
+.TP
+.BI "get " [key]
+Print one config key, or dump every set key.
+.TP
+.BI "unset " key
+Remove a config key.
+.TP
+.BI "help " [subcommand]
+Print help for a subcommand
+.RB ( set ,
+.BR get ,
+.BR unset ,
+.BR sxcu ,
+.BR plugin ).
+.SS Custom uploaders (ShareX .sxcu)
+.TP
+.BI "sxcu add " file
+Parse, sanitize, and register a
+.B .sxcu
+uploader; use it as
+.BI \-\- name .
+.TP
+.B sxcu list
+Show registered uploaders (alias:
+.BR ls ).
+.TP
+.BI "sxcu show " name
+Print parsed fields.
+.TP
+.BI "sxcu remove " name
+Remove an uploader (alias:
+.BR rm ).
+.SS Plugins
+.TP
+.BI "plugin install " git\-url
+Clone, build, and install a plugin.
+.TP
+.B plugin list
+List installed plugins.
+.TP
+.BI "plugin show " name
+Print the parsed manifest.
+.TP
+.BI "plugin update " [name]
+Update one plugin, or all of them.
+.TP
+.BI "plugin remove " name
+Uninstall a plugin.
+.TP
+.BI name " ..."
+Run the installed plugin
+.BI grabit\- name
+(auto-updates in the background per its manifest).
+.SH FILENAME TEMPLATES
+Tokens accepted by
+.B \-\-filename
+and the
+.B filename
+config key:
+.TP
+.B %Y %m %d %H %M %S
+strftime date/time fields.
+.TP
+.B %s
+Unix timestamp.
+.TP
+.BR %r [ N ]
+Random alphanumeric,
+.I N
+characters (default 12).
+.TP
+.B %u
+UUID v4.
+.TP
+.B %w
+Active window class (Hyprland IPC; empty elsewhere).
+.TP
+.B %t
+Active window title (Hyprland IPC; empty elsewhere).
+.TP
+.B %o
+Output name where the capture happened.
+.TP
+.B %%
+Literal
+.BR % .
+.PP
+Presets via the
+.B filename_preset
+key:
+.B date
+.RB ( %Y\-%m\-%d\-%H\-%M\-%S ,
+default),
+.B random
+.RB ( %r12 ),
+.B uuid
+.RB ( %u ),
+.B timestamp
+.RB ( %s ).
+.SH CONFIGURATION
+The config lives at
+.B $XDG_CONFIG_HOME/grabit/config.toml
+(else
+.IR ~/.config/grabit/config.toml ),
+written with mode 0600. Manage it with
+.B grabit set/get/unset
+or edit the TOML directly. Notable top-level keys:
+.B default_action
+.RB ( copy / upload / save / pin ),
+.BR service ,
+.BR notifications ,
+.BR also_save ,
+.BR save_dir ,
+.BR editor ,
+.BR filename ,
+.BR filename_preset ,
+.BR format .
+Per-service auth tokens go under
+.BI services. name .auth
+or, preferred, the
+.BI GRABIT_ SERVICE _AUTH
+environment variable.
+.PP
+See
+.B OPTIONS.md
+for the full key reference (capture backend, region snap, encoder quality,
+recording, sound, pin, OCR/translate, preview/text card, edit defaults).
+.SH ENVIRONMENT
+.TP
+.B GRABIT_DEBUG
+If set to
+.BR 1 ,
+enable debug logging (same as
+.BR \-d ).
+.TP
+.BI GRABIT_ SERVICE _AUTH
+Per-service auth token, overriding config.
+.I SERVICE
+is one of
+.BR ZIPLINE ,
+.BR NEST ,
+.BR FAKECRIME ,
+.BR EZ ,
+.BR GUNS ,
+.BR PIXELVAULT .
+.TP
+.B GRABIT_BIN
+Set by plugin dispatch; absolute path to the grabit binary.
+.TP
+.B XDG_RUNTIME_DIR
+Holds the recording pid file and per-pin IPC sockets (falls back to
+.IR /tmp ).
+.TP
+.B XDG_VIDEOS_DIR
+Recording save directory. The
+.B save_dir
+config key takes precedence; otherwise this variable is used, falling back to
+.IR ~/Videos .
+Screenshots use
+.B save_dir
+else
+.IR ~/Pictures .
+.TP
+.B TESSDATA_PREFIX
+Tesseract language-data directory.
+.TP
+.B NO_COLOR
+Disable color in logs (https://no-color.org).
+.SH FILES
+.TP
+.I ~/.config/grabit/config.toml
+User configuration (TOML).
+.TP
+.I ~/.config/grabit/uploaders/<name>.sxcu
+Registered ShareX uploaders.
+.TP
+.I $XDG_RUNTIME_DIR/grabit-show.pid
+PID file for the on-screen text/preview card.
+.SH EXAMPLES
+.TP
+.B grabit \-c
+Region screenshot to the clipboard.
+.TP
+.B grabit \-u
+Upload using the
+.B service
+config key.
+.TP
+.B grabit \-\-zipline
+Upload to a specific service.
+.TP
+.B grabit \-o > shot.txt
+Save and capture the path.
+.TP
+.B grabit \-e \-u
+Annotate, then upload.
+.TP
+.B grabit \-\-record
+Start recording (re-run to stop).
+.TP
+.B grabit \-\-pin
+Pin a region to the desktop.
+.TP
+.B grabit \-f shot.png \-\-zipline
+Upload an existing file.
+.TP
+.B grabit \-\-tesseract \-\-translate=ja
+OCR a region and copy the Japanese translation.
+.SH EXIT STATUS
+Returns 0 on success and non-zero on error.
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR tesseract (1),
+.BR trans (1)
+.PP
+Project documentation:
+.B OPTIONS.md
+and
+.B PLUGINS.md
+in the source tree.
+.SH BUGS
+Report issues at https://heliopolis.live/creations/grabit (GitHub mirror:
+https://github.com/Creationsss/grabit).
+.SH LICENSE
+AGPL-3.0-or-later.
+.SH AUTHOR
+creations <creations@creations.works>

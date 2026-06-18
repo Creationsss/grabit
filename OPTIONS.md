@@ -181,7 +181,7 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
 | `notifications` | bool | enable desktop notifications (default `true`) |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_dir` | string | save dir for screenshots and recordings (overrides `XDG_PICTURES_DIR`/`XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `~/Videos` for videos) |
+| `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
 | `editor` | string | external editor binary for `-e` text tool (optional) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
@@ -298,7 +298,7 @@ combine `--tesseract` with `--show` to render the result on screen as a transien
 ```sh
 grabit --tesseract --show                 # show the raw OCR
 grabit --tesseract --translate --show     # show the translation
-grabit set show.dismiss_secs 12           # auto-dismiss after 12s (default 8, 0 = stay until clicked)
+grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until clicked)
 ```
 
 **`text_card.*`** (configures the text card shown by `--tesseract --show`):
@@ -315,8 +315,8 @@ grabit set show.dismiss_secs 12           # auto-dismiss after 12s (default 8, 0
 |---|---|---|
 | `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a sharex-style preview card |
 | `preview.size` | `300` | thumbnail width in pixels (100-800); the height keeps the screenshot's aspect ratio (no padding, no boxy frame) |
-| `preview.position` | `bottom-right` | same value set as `show.position` |
-| `preview.output` | (primary) | same semantics as `show.output` |
+| `preview.position` | `bottom-right` | same value set as `text_card.position` |
+| `preview.output` | (primary) | same semantics as `text_card.output` |
 | `preview.dismiss_secs` | `5` | auto-dismiss after N seconds (0-600; 0 = stay until next capture) |
 
 the preview is the scaled screenshot with a thin dark border. hovering over it overlays a translucent centered caption bar at the bottom (`Copied`, `Uploaded`, or the bare filename for saves), and re-arms the auto-dismiss timer (so the card stays as long as you keep mousing over it). clicking the preview:
@@ -415,6 +415,5 @@ modifiers:
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
 | `XDG_RUNTIME_DIR` | recording pid file + per-pin ipc sockets live here if set, else `/tmp` |
-| `XDG_PICTURES_DIR` | screenshot save dir (overridden by `save_dir` config; else `~/Pictures`) |
-| `XDG_VIDEOS_DIR` | recording save dir (overridden by `save_dir` config; else `~/Videos`) |
+| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
 | `TESSDATA_PREFIX` | tesseract language-data dir |

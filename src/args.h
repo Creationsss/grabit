@@ -28,11 +28,13 @@ struct args {
 	bool no_upload;
 	bool translate;
 	bool show;
+	bool fullscreen;
 	const char *file;
 	const char *service;
 	const char *filename_tpl;
 	const char *format;
 	const char *translate_to;
+	const char *fullscreen_target;
 };
 
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);

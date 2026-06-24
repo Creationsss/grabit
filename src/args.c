@@ -94,6 +94,19 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->edit = true;
 			continue;
 		}
+		if (strcmp(arg, "-F") == 0 || strcmp(arg, "--fullscreen") == 0) {
+			out->fullscreen = true;
+			continue;
+		}
+		if (strncmp(arg, "--fullscreen=", 13) == 0) {
+			out->fullscreen = true;
+			out->fullscreen_target = arg + 13;
+			if (!*out->fullscreen_target) {
+				log_error("--fullscreen=<monitor> requires a number or name");
+				return -1;
+			}
+			continue;
+		}
 		if (strcmp(arg, "--no-tray") == 0) {
 			out->no_tray = true;
 			continue;
@@ -213,6 +226,11 @@ int args_parse(int argc, char **argv, struct args *out) {
 
 	if (out->action == ACTION_RECORD && out->file) {
 		log_error("--record cannot be combined with -f");
+		return -1;
+	}
+
+	if (out->fullscreen && out->file) {
+		log_error("--fullscreen cannot be combined with -f");
 		return -1;
 	}
 

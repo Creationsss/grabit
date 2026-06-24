@@ -47,6 +47,7 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
 </p>
 
 - **region selector** with live freeze (drag, or click a window on hyprland to snap)
+- **`--fullscreen`** / `-F` grabs a whole monitor - one monitor grabs directly, multiple opens a monitor picker (`--fullscreen=<n|name>` skips it); works with `--record` too
 - **annotator** opened with `-e` - pen, rect, ellipse, arrow, blur, text, eraser
 - **color picker** with hex input + eyedropper that samples from the freeze
 - **`--record`** toggles region recording with a live overlay + tray icon ([mp4](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))

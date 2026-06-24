@@ -404,6 +404,70 @@ struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s) {
 	return s->n_outputs > 0 ? s->outputs[0] : NULL;
 }
 
+struct grabit_output *grabit_wl_output_by_name(struct grabit_wl_state *s, const char *name) {
+	if (!name) return NULL;
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		if (s->outputs[i]->name && strcmp(s->outputs[i]->name, name) == 0)
+			return s->outputs[i];
+	}
+	return NULL;
+}
+
+void grabit_output_rect(const struct grabit_output *o, struct rect *r) {
+	r->x = o->x;
+	r->y = o->y;
+	r->w = o->logical_width;
+	r->h = o->logical_height;
+}
+
+static void grabit_wl_log_monitors(const struct grabit_wl_state *s) {
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		const struct grabit_output *o = s->outputs[i];
+		log_info("  %zu: %s (%dx%d)", i + 1,
+				 o->name ? o->name : "?", o->logical_width, o->logical_height);
+	}
+}
+
+void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out) {
+	*out = NULL;
+	*n_out = 0;
+	if (s->n_outputs == 0) return;
+	struct rect *r = malloc(s->n_outputs * sizeof *r);
+	if (!r) return;
+	for (size_t i = 0; i < s->n_outputs; i++)
+		grabit_output_rect(s->outputs[i], &r[i]);
+	*out = r;
+	*n_out = s->n_outputs;
+}
+
+int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out) {
+	if (s->n_outputs == 0) {
+		log_error("fullscreen: no outputs");
+		return -1;
+	}
+	if (spec && spec[0]) {
+		struct grabit_output *target = NULL;
+		char *end = NULL;
+		long n = strtol(spec, &end, 10);
+		if (end && *end == '\0' && n >= 1 && (size_t)n <= s->n_outputs)
+			target = s->outputs[n - 1];
+		else
+			target = grabit_wl_output_by_name(s, spec);
+		if (!target) {
+			log_error("fullscreen: no monitor matches `%s`; available:", spec);
+			grabit_wl_log_monitors(s);
+			return -1;
+		}
+		grabit_output_rect(target, out);
+		return 0;
+	}
+	if (s->n_outputs == 1) {
+		grabit_output_rect(grabit_wl_primary_output(s), out);
+		return 0;
+	}
+	return 1;
+}
+
 struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, int32_t y) {
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];

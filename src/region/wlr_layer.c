@@ -29,7 +29,8 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
-				  bool *out_choices_dirty) {
+				  bool *out_choices_dirty, const struct rect *preset,
+				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
 		log_error("region: compositor lacks zwlr_layer_shell_v1");
 		return -1;
@@ -57,16 +58,24 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 	st.n_outs = s->n_outputs;
 
 	st.snap_hover = -1;
-	struct config snap_cfg;
-	bool snap_enabled = true;
-	if (config_load(&snap_cfg) == 0) {
-		const char *v = config_get(&snap_cfg, "region.window_snap");
-		if (v && strcmp(v, "false") == 0) snap_enabled = false;
-		config_free(&snap_cfg);
-	}
-	if (snap_enabled) {
-		if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
-			log_debug("region: window snap disabled (no hyprland ipc)");
+	if (snap_rects && n_snap_rects > 0) {
+		st.snap_windows = malloc(n_snap_rects * sizeof *st.snap_windows);
+		if (st.snap_windows) {
+			memcpy(st.snap_windows, snap_rects, n_snap_rects * sizeof *st.snap_windows);
+			st.n_snap_windows = n_snap_rects;
+		}
+	} else {
+		struct config snap_cfg;
+		bool snap_enabled = true;
+		if (config_load(&snap_cfg) == 0) {
+			const char *v = config_get(&snap_cfg, "region.window_snap");
+			if (v && strcmp(v, "false") == 0) snap_enabled = false;
+			config_free(&snap_cfg);
+		}
+		if (snap_enabled) {
+			if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
+				log_debug("region: window snap disabled (no hyprland ipc)");
+			}
 		}
 	}
 
@@ -193,6 +202,16 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE);
 
 		wl_surface_commit(o->surface);
+	}
+
+	if (preset && preset->w > 0 && preset->h > 0) {
+		st.sel_x = preset->x;
+		st.sel_y = preset->y;
+		st.sel_w = preset->w;
+		st.sel_h = preset->h;
+		st.has_selection = true;
+		st.snap_hover = -1;
+		if (annotate_mode) st.region_locked = true;
 	}
 
 	while (!st.finished) {

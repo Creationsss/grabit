@@ -331,6 +331,29 @@ the card is click-through (no input region). running `--show` again kills any pr
 
 note: tesseract is currently invoked with `-l eng`, so non-latin source scripts (japanese, chinese, cyrillic, etc.) won't OCR cleanly and the translation will reflect that. results are best when the source is a latin-script language that `tesseract-data-eng` can still read passably (spanish, french, german, etc.).
 
+## fullscreen
+
+```sh
+grabit -F -o                  # whole-monitor screenshot (picker if multi-monitor)
+grabit --fullscreen -c        # copy a whole monitor to the clipboard
+grabit --fullscreen=2 -u      # upload monitor 2 directly (no picker)
+grabit --fullscreen=DP-1 -e -o   # annotate the whole monitor, then save
+grabit --record -F            # record a whole monitor
+```
+
+`-F`/`--fullscreen` captures a whole monitor instead of dragging a region. it pairs with any capture action (`-c`, `-u`, `-o`, `--<service>`, `--pin`, `--tesseract`, `--record`) and with `-e`; it cannot be combined with `-f`.
+
+monitor selection:
+
+- one monitor connected: that monitor is grabbed directly, no UI.
+- multiple monitors, no target: the region selector opens dimmed and snaps to whole monitors — hover a monitor to highlight it, click to grab it (same as window-snapping, but for monitors). dragging still works if you want a custom region.
+- `--fullscreen=<n>`: pick by 1-based number directly, no picker (the order shown in the printed monitor list).
+- `--fullscreen=<name>`: pick by output name directly, e.g. `--fullscreen=DP-1`.
+
+an unknown number or name prints the available monitors and exits.
+
+with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
+
 ## edit
 
 ```sh
@@ -400,6 +423,8 @@ modifiers:
 
 | flag | meaning |
 |---|---|
+| `-F` / `--fullscreen` | capture a whole monitor; multi-monitor opens a monitor picker (see fullscreen section). works with `--record` too |
+| `--fullscreen=<n\|name>` | capture a specific monitor directly by 1-based number or output name (e.g. `--fullscreen=DP-1`), no picker |
 | `-f <file>` | use an existing file instead of capturing |
 | `--filename <tpl>` (or `--filename=<tpl>`) | per-run filename template |
 | `--format <png\|jpeg\|webp>` (or `--format=<name>`) | per-run output format |

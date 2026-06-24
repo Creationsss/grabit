@@ -108,6 +108,14 @@ static int print_help(void) {
 		"  --close-all       Dismiss every pinned screenshot\n"
 		"  -e, --edit        Open the in-tree annotation editor before the action\n"
 		"                    Set as default with: grabit set edit.default true\n"
+		"  -F, --fullscreen  Capture a whole monitor instead of dragging a region.\n",
+		stdout);
+	fputs(
+		"                    One monitor: grabs it directly. Multiple: hover a monitor\n"
+		"                    and click to pick it (drag still works for a custom region).\n"
+		"                    Skip the picker with --fullscreen=<n> (1-based) or\n"
+		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1). Works with\n"
+		"                    -c/-u/-o/--pin/--tesseract/--record and pairs with -e.\n"
 		"  --silent, -q, --quiet  Suppress notifications and sound\n"
 		"  -d, --debug       Enable debug logging to stderr\n"
 		"  --filename <tpl>  Per-run filename template\n"
@@ -258,8 +266,36 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 	*is_temp = false;
 	struct grabit_save_opts opts;
 	if (resolve_save_opts(a, cfg, &opts) != 0) return NULL;
+
+	struct grabit_wl_state s;
+	if (grabit_wl_init(&s) != 0) {
+		notify_send(&(struct notify_opts){
+			.summary = "grabit",
+			.body = "could not connect to wayland compositor",
+			.force = true,
+		});
+		return NULL;
+	}
+
+	struct rect fs_rect;
+	const struct rect *forced = NULL;
+	if (a->fullscreen) {
+		int plan = grabit_wl_fullscreen_plan(&s, a->fullscreen_target, &fs_rect);
+		if (plan < 0) {
+			grabit_wl_finish(&s);
+			notify_send(&(struct notify_opts){
+				.summary = "grabit: fullscreen failed",
+				.body = "no matching monitor; see terminal for details",
+				.force = true,
+			});
+			return NULL;
+		}
+		if (plan == 0) forced = &fs_rect;
+	}
+
 	char *path = build_capture_path(a, cfg, eff, is_temp, &opts);
 	if (!path) {
+		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: capture failed",
 			.body = "could not build output path; see terminal for details",
@@ -270,17 +306,10 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 
 	if (*is_temp) register_tmpfile(path);
 
-	struct grabit_wl_state s;
-	if (grabit_wl_init(&s) != 0) {
-		notify_send(&(struct notify_opts){
-			.summary = "grabit",
-			.body = "could not connect to wayland compositor",
-			.force = true,
-		});
-		free(path);
-		clear_tmpfile();
-		return NULL;
-	}
+	struct rect *mon_rects = NULL;
+	size_t n_mon = 0;
+	if (a->fullscreen && !forced)
+		grabit_wl_monitor_rects(&s, &mon_rects, &n_mon);
 
 	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
 	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
@@ -289,8 +318,9 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 	int rc = grabit_freeze_capture(&s, path, &opts, out_rect, a->edit,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
-								   a->edit ? &edit_dirty : NULL);
+								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
 	grabit_wl_finish(&s);
+	free(mon_rects);
 
 	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width);
 

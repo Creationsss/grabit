@@ -261,7 +261,35 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	struct rect r;
-	int rc = region_select(&s, frozen, false, &r, NULL, NULL, NULL, NULL);
+	int rc;
+	if (a->fullscreen) {
+		struct rect fs_rect;
+		int plan = grabit_wl_fullscreen_plan(&s, a->fullscreen_target, &fs_rect);
+		if (plan < 0) {
+			for (size_t i = 0; i < s.n_outputs; i++)
+				image_free(&frozen[i]);
+			free(frozen);
+			grabit_wl_finish(&s);
+			notify_send(&(struct notify_opts){
+				.summary = "Recording failed",
+				.body = "no matching monitor; see terminal for details",
+				.force = true,
+			});
+			return 1;
+		}
+		if (plan == 0) {
+			r = fs_rect;
+			rc = 0;
+		} else {
+			struct rect *mon = NULL;
+			size_t n_mon = 0;
+			grabit_wl_monitor_rects(&s, &mon, &n_mon);
+			rc = region_select(&s, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, mon, n_mon);
+			free(mon);
+		}
+	} else {
+		rc = region_select(&s, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, NULL, 0);
+	}
 	for (size_t i = 0; i < s.n_outputs; i++)
 		image_free(&frozen[i]);
 	free(frozen);

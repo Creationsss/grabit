@@ -58,6 +58,7 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen_per_outp
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
-				  bool *out_choices_dirty);
+				  bool *out_choices_dirty, const struct rect *preset,
+				  const struct rect *snap_rects, size_t n_snap_rects);
 
 #endif

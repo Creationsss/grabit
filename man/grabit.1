@@ -120,6 +120,24 @@ action. Make it the default with
 .BR "grabit set edit.default true" .
 .SH MODIFIERS
 .TP
+.BR \-F ", " \-\-fullscreen
+Capture a whole monitor instead of dragging a region. With one monitor it is
+grabbed directly. With several, the selector opens dimmed and snaps to whole
+monitors \(em hover a monitor to highlight it and click to grab it (dragging
+still works for a custom region). Pairs with any capture action, including
+.BR \-\-record ,
+and with
+.BR \-e ;
+cannot be combined with
+.BR \-f .
+.TP
+.BI \-\-fullscreen= monitor
+As above, but capture a specific monitor directly (no picker).
+.I monitor
+is a 1-based number or an output name (e.g.
+.BR \-\-fullscreen=DP\-1 ).
+An unknown value lists the available monitors and exits.
+.TP
 .BI \-f " file"
 Use an existing
 .I file
@@ -370,6 +388,12 @@ Upload to a specific service.
 .TP
 .B grabit \-o > shot.txt
 Save and capture the path.
+.TP
+.B grabit \-F \-o
+Save a whole-monitor screenshot.
+.TP
+.B grabit \-\-fullscreen=DP\-1 \-c
+Copy monitor DP-1 to the clipboard.
 .TP
 .B grabit \-e \-u
 Annotate, then upload.

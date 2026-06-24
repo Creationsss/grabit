@@ -65,6 +65,12 @@ void grabit_wl_finish(struct grabit_wl_state *s);
 
 struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s);
 struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, int32_t y);
+struct grabit_output *grabit_wl_output_by_name(struct grabit_wl_state *s, const char *name);
+
+struct rect;
+void grabit_output_rect(const struct grabit_output *o, struct rect *r);
+void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out);
+int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out);
 
 struct rect;
 bool grabit_output_rect_intersect(const struct grabit_output *o, const struct rect *r,

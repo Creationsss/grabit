@@ -49,7 +49,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 
 		const char *out_pix_fmt = (pix_fmt && pix_fmt[0]) ? pix_fmt : "yuv420p";
 
-		char *argv[40];
+		char *argv[48];
 		size_t i = 0;
 		argv[i++] = (char *)ffmpeg_bin;
 		argv[i++] = (char *)"-loglevel";
@@ -63,8 +63,12 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 		argv[i++] = size;
 		argv[i++] = (char *)"-framerate";
 		argv[i++] = rate;
+		argv[i++] = (char *)"-use_wallclock_as_timestamps";
+		argv[i++] = (char *)"1";
 		argv[i++] = (char *)"-i";
 		argv[i++] = (char *)"-";
+		argv[i++] = (char *)"-vsync";
+		argv[i++] = (char *)"vfr";
 		argv[i++] = (char *)"-vf";
 		argv[i++] = (char *)"crop=trunc(iw/2)*2:trunc(ih/2)*2,"
 							"scale=in_range=full:out_range=full:"

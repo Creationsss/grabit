@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 int pool_init(struct buf_pool *p, size_t n, size_t buf_size) {
@@ -141,8 +142,17 @@ static int write_all(int fd, const uint8_t *p, size_t n) {
 
 void *encoder_thread(void *arg) {
 	struct enc_state *e = arg;
+	// GRABIT_RECORD_ENC_DELAY_US throttles the drain rate to reproduce slow-encode.
+	long throttle_us = 0;
+	const char *t = getenv("GRABIT_RECORD_ENC_DELAY_US");
+	if (t && t[0]) throttle_us = strtol(t, NULL, 10);
 	struct frame f;
 	while (ring_pop(e->ring, &f) == 0) {
+		if (throttle_us > 0) {
+			struct timespec ts = {.tv_sec = throttle_us / 1000000,
+								  .tv_nsec = (throttle_us % 1000000) * 1000};
+			nanosleep(&ts, NULL);
+		}
 		if (!e->write_failed && e->write_fd >= 0 && f.data) {
 			size_t row_bytes = (size_t)f.width * 4;
 			if ((size_t)f.stride == row_bytes) {

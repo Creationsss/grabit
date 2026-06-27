@@ -58,44 +58,7 @@ static const char *zl_header_example(const struct zl_hdr *h) {
 	return "";
 }
 
-static const char *const ALL_KNOWN_KEYS[] = {
-	"default_action",
-	"notifications",
-	"also_save",
-	"save_dir",
-	"editor",
-	"filename",
-	"filename_preset",
-	"service",
-	"format",
-	"recording.fps",
-	"recording.crf",
-	"recording.preset",
-	"recording.tune",
-	"recording.pix_fmt",
-	"recording.max_size_mb",
-	"recording.cursor",
-	"recording.ffmpeg",
-	"sound.enabled",
-	"sound.player",
-	"sound.file",
-	"edit.color",
-	"edit.width",
-	"jpeg.quality",
-	"webp.quality",
-	"webp.lossless",
-	"ocr.tesseract",
-	"capture.backend",
-	"region.window_snap",
-	"translate.target",
-	"text_card.dismiss_secs",
-	"text_card.position",
-	"text_card.output",
-	"preview.enabled",
-	"preview.size",
-	"preview.position",
-	"preview.output",
-	"preview.dismiss_secs",
+static const char *const SERVICE_KEYS[] = {
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.nest.auth",
@@ -109,21 +72,15 @@ static const char *const ALL_KNOWN_KEYS[] = {
 
 const char *cfg_help_suggest_key(const char *input) {
 	if (!input || !*input) return NULL;
-	size_t in_len = strlen(input);
 	const char *best = NULL;
 	size_t best_dist = (size_t)-1;
-	for (size_t i = 0; ALL_KNOWN_KEYS[i]; i++) {
-		const char *k = ALL_KNOWN_KEYS[i];
-		size_t d = grabit_edit_distance(input, k);
-		if (d < best_dist) {
-			best_dist = d;
-			best = k;
-		}
-	}
-	if (!best) return NULL;
-	size_t max_allowed = in_len / 3 + 1;
-	if (max_allowed < 2) max_allowed = 2;
-	return best_dist <= max_allowed ? best : NULL;
+	size_t n_desc = 0;
+	const struct cfg_key_desc *descs = cfg_key_descs(&n_desc);
+	for (size_t i = 0; i < n_desc; i++)
+		grabit_suggest_update(input, descs[i].key, &best, &best_dist);
+	for (size_t i = 0; SERVICE_KEYS[i]; i++)
+		grabit_suggest_update(input, SERVICE_KEYS[i], &best, &best_dist);
+	return grabit_suggest_within(input, best_dist) ? best : NULL;
 }
 
 int cfg_help_example_for_key(const char *key, const char **example_out, const char **def_out) {

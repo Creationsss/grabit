@@ -24,10 +24,34 @@ extern const size_t gcfg_zl_headers_n;
 const struct zl_hdr *gcfg_zl_find(const char *name);
 int gcfg_cmp_kv(const void *a, const void *b);
 
+enum cfg_kind {
+	CFG_BOOL,
+	CFG_ENUM,
+	CFG_INT,
+	CFG_STRING,
+};
+
+struct cfg_key_desc {
+	const char *key;
+	const char *label;
+	enum cfg_kind kind;
+	const char *const *vals;
+	long lo, hi;
+	const char *def;
+	bool allow_empty;
+	bool is_path;
+	bool is_dir;
+	bool is_monitor;
+	int (*validate)(const char *value);
+};
+
+const struct cfg_key_desc *cfg_key_descs(size_t *n_out);
+const struct cfg_key_desc *cfg_key_desc_find(const char *key);
+
 struct config;
 int cfg_kv_upsert(struct config *c, const char *key, const char *val);
 bool cfg_is_bool_key(const char *key);
-bool cfg_in_list(const char *needle, const char **list);
+bool cfg_in_list(const char *needle, const char *const *list);
 bool cfg_is_known_service(const char *s);
 bool cfg_key_is_known(const char *key);
 

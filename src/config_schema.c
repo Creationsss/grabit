@@ -13,33 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *BOOL_KEYS[] = {
-	"notifications",
-	"save_captures",
-	"also_save",
-	"webp.lossless",
-	"recording.cursor",
-	"sound.enabled",
-	"region.window_snap",
-	"edit.default",
-	"preview.enabled",
-	NULL,
-};
-
-static const char *KNOWN_TOP[] = {
-	"default_action",
-	"notifications",
-	"save_captures",
-	"also_save",
-	"save_dir",
-	"editor",
-	"filename",
-	"filename_preset",
-	"service",
-	"format",
-	NULL,
-};
-
 static const char *KNOWN_SERVICES[] = {
 	"zipline",
 	"nest",
@@ -54,6 +27,41 @@ static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NUL
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_edit_color[] = {"red", "yellow", "green", "blue", "black", "white", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
+static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
+static const char *VALS_position[] = {
+	"top-left",
+	"top-center",
+	"top-right",
+	"bottom-left",
+	"bottom-center",
+	"bottom-right",
+	"center",
+	NULL,
+};
+static const char *VALS_x264_preset[] = {
+	"ultrafast",
+	"superfast",
+	"veryfast",
+	"faster",
+	"fast",
+	"medium",
+	"slow",
+	"slower",
+	"veryslow",
+	NULL,
+};
+static const char *VALS_x264_tune[] = {
+	"film",
+	"animation",
+	"grain",
+	"stillimage",
+	"psnr",
+	"ssim",
+	"fastdecode",
+	"zerolatency",
+	NULL,
+};
+static const char *VALS_pix_fmt[] = {"yuv420p", "yuv422p", "yuv444p", "yuv420p10le", NULL};
 
 static const char *VALS_zl_format[] = {"random", "date", "uuid", "name", "gfycat", NULL};
 static const char *VALS_zl_compress[] = {"jpg", "png", "webp", "jxl", NULL};
@@ -82,23 +90,15 @@ const struct zl_hdr *gcfg_zl_find(const char *name) {
 	return NULL;
 }
 
-bool cfg_in_list(const char *needle, const char **list) {
+bool cfg_in_list(const char *needle, const char *const *list) {
 	for (size_t i = 0; list[i]; i++) {
 		if (strcmp(list[i], needle) == 0) return true;
 	}
 	return false;
 }
 
-bool cfg_is_bool_key(const char *key) {
-	return cfg_in_list(key, BOOL_KEYS);
-}
-
 bool cfg_is_known_service(const char *s) {
 	return cfg_in_list(s, KNOWN_SERVICES);
-}
-
-static bool valid_top_key(const char *key) {
-	return cfg_in_list(key, KNOWN_TOP);
 }
 
 static bool valid_service_key(const char *key) {
@@ -120,119 +120,6 @@ static bool valid_service_key(const char *key) {
 	if (strncmp(leaf, "headers.", 8) == 0) return strcmp(svc, "zipline") == 0 && leaf[8] != '\0';
 	return false;
 }
-
-static bool valid_ocr_key(const char *key) {
-	if (strncmp(key, "ocr.", 4) != 0) return false;
-	return strcmp(key + 4, "tesseract") == 0;
-}
-
-static bool valid_edit_key(const char *key) {
-	if (strncmp(key, "edit.", 5) != 0) return false;
-	const char *leaf = key + 5;
-	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
-		   strcmp(leaf, "default") == 0;
-}
-
-static bool valid_jpeg_key(const char *key) {
-	if (strncmp(key, "jpeg.", 5) != 0) return false;
-	return strcmp(key + 5, "quality") == 0;
-}
-
-static bool valid_webp_key(const char *key) {
-	if (strncmp(key, "webp.", 5) != 0) return false;
-	const char *leaf = key + 5;
-	return strcmp(leaf, "quality") == 0 || strcmp(leaf, "lossless") == 0;
-}
-
-static bool valid_sound_key(const char *key) {
-	if (strncmp(key, "sound.", 6) != 0) return false;
-	const char *leaf = key + 6;
-	return strcmp(leaf, "enabled") == 0 || strcmp(leaf, "player") == 0 ||
-		   strcmp(leaf, "file") == 0;
-}
-
-static bool valid_translate_key(const char *key) {
-	if (strncmp(key, "translate.", 10) != 0) return false;
-	return strcmp(key + 10, "target") == 0;
-}
-
-static bool valid_text_card_key(const char *key) {
-	if (strncmp(key, "text_card.", 10) != 0) return false;
-	const char *leaf = key + 10;
-	return strcmp(leaf, "dismiss_secs") == 0 ||
-		   strcmp(leaf, "position") == 0 ||
-		   strcmp(leaf, "output") == 0;
-}
-
-static bool valid_preview_key(const char *key) {
-	if (strncmp(key, "preview.", 8) != 0) return false;
-	const char *leaf = key + 8;
-	return strcmp(leaf, "enabled") == 0 || strcmp(leaf, "size") == 0 ||
-		   strcmp(leaf, "position") == 0 || strcmp(leaf, "output") == 0 ||
-		   strcmp(leaf, "dismiss_secs") == 0;
-}
-
-static bool valid_capture_key(const char *key) {
-	if (strncmp(key, "capture.", 8) != 0) return false;
-	return strcmp(key + 8, "backend") == 0;
-}
-
-static bool valid_region_key(const char *key) {
-	if (strncmp(key, "region.", 7) != 0) return false;
-	return strcmp(key + 7, "window_snap") == 0;
-}
-
-static bool valid_recording_key(const char *key) {
-	if (strncmp(key, "recording.", 10) != 0) return false;
-	const char *leaf = key + 10;
-	return strcmp(leaf, "fps") == 0 || strcmp(leaf, "crf") == 0 ||
-		   strcmp(leaf, "max_size_mb") == 0 || strcmp(leaf, "cursor") == 0 ||
-		   strcmp(leaf, "ffmpeg") == 0 || strcmp(leaf, "preset") == 0 ||
-		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0;
-}
-
-bool cfg_key_is_known(const char *key) {
-	return valid_top_key(key) || valid_service_key(key) ||
-		   valid_recording_key(key) || valid_ocr_key(key) ||
-		   valid_sound_key(key) || valid_edit_key(key) ||
-		   valid_jpeg_key(key) || valid_webp_key(key) ||
-		   valid_capture_key(key) || valid_region_key(key) ||
-		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key);
-}
-
-static const char *VALS_x264_tune[] = {
-	"film",
-	"animation",
-	"grain",
-	"stillimage",
-	"psnr",
-	"ssim",
-	"fastdecode",
-	"zerolatency",
-	NULL,
-};
-
-static const char *VALS_pix_fmt[] = {
-	"yuv420p",
-	"yuv422p",
-	"yuv444p",
-	"yuv420p10le",
-	NULL,
-};
-
-static const char *VALS_x264_preset[] = {
-	"ultrafast",
-	"superfast",
-	"veryfast",
-	"faster",
-	"fast",
-	"medium",
-	"slow",
-	"slower",
-	"veryslow",
-	NULL,
-};
 
 static int validate_int_in_range(const char *key, const char *value, long lo, long hi) {
 	if (!*value) {
@@ -264,8 +151,7 @@ static int validate_zl_header(const char *hdr, const char *value) {
 	case ZL_ENUM:
 		if (cfg_in_list(value, spec->allowed)) return 0;
 		if (spec->allowed[0] && !spec->allowed[1]) {
-			log_error("%s must be \"%s\" (omit the header to disable)",
-					  hdr, spec->allowed[0]);
+			log_error("%s must be \"%s\" (omit the header to disable)", hdr, spec->allowed[0]);
 		} else {
 			struct grabit_buf b = {0};
 			for (size_t i = 0; spec->allowed[i]; i++) {
@@ -304,8 +190,7 @@ static int validate_zl_header(const char *hdr, const char *value) {
 
 static char *normalize_zipline_domain(const char *value) {
 	if (!value || !*value) return NULL;
-	bool has_scheme = strncmp(value, "http://", 7) == 0 ||
-					  strncmp(value, "https://", 8) == 0;
+	bool has_scheme = strncmp(value, "http://", 7) == 0 || strncmp(value, "https://", 8) == 0;
 	size_t vlen = strlen(value);
 	while (vlen > 0 && value[vlen - 1] == '/')
 		vlen--;
@@ -346,104 +231,119 @@ static int validate_edit_color(const char *value) {
 	return 0;
 }
 
-static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
+static int validate_service(const char *value) {
+	if (upload_service_known(value)) return 0;
+	log_error("service `%s` is not a built-in or a registered sxcu uploader", value);
+	log_error("  built-ins: zipline|nest|fakecrime|ez|guns|pixelvault");
+	log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
+	return -1;
+}
 
-static const char *VALS_show_position[] = {
-	"top-left",
-	"top-center",
-	"top-right",
-	"bottom-left",
-	"bottom-center",
-	"bottom-right",
-	"center",
-	NULL,
+static const struct cfg_key_desc CFG_KEYS[] = {
+	{.key = "default_action", .label = "Default action", .kind = CFG_ENUM, .vals = VALS_default_action, .def = "copy"},
+	{.key = "notifications", .label = "Desktop notifications", .kind = CFG_BOOL, .def = "true"},
+	{.key = "save_captures", .label = "Always save captures", .kind = CFG_BOOL, .def = "false"},
+	{.key = "also_save", .label = "Also keep a local copy", .kind = CFG_BOOL, .def = "false"},
+	{.key = "save_dir", .label = "Save folder", .kind = CFG_STRING, .is_path = true, .is_dir = true},
+	{.key = "editor", .label = "External editor", .kind = CFG_STRING, .is_path = true},
+	{.key = "filename", .label = "Filename template", .kind = CFG_STRING},
+	{.key = "filename_preset", .label = "Filename preset", .kind = CFG_ENUM, .vals = VALS_filename_preset},
+	{.key = "service", .label = "Upload service", .kind = CFG_STRING, .validate = validate_service},
+	{.key = "format", .label = "Image format", .kind = CFG_ENUM, .vals = VALS_format, .def = "png"},
+	{.key = "recording.fps", .label = "Frame rate (fps)", .kind = CFG_INT, .lo = 1, .hi = 120, .def = "30"},
+	{.key = "recording.crf", .label = "Quality (CRF, lower=better)", .kind = CFG_INT, .lo = 0, .hi = 51, .def = "23"},
+	{.key = "recording.max_size_mb", .label = "Max size (MB, 0=off)", .kind = CFG_INT, .lo = 0, .hi = 100000, .def = "0"},
+	{.key = "recording.cursor", .label = "Record the cursor", .kind = CFG_BOOL, .def = "true"},
+	{.key = "recording.ffmpeg", .label = "ffmpeg binary", .kind = CFG_STRING, .def = "ffmpeg", .is_path = true},
+	{.key = "recording.preset", .label = "Encoder preset", .kind = CFG_ENUM, .vals = VALS_x264_preset, .def = "fast"},
+	{.key = "recording.tune", .label = "Encoder tune", .kind = CFG_ENUM, .vals = VALS_x264_tune, .allow_empty = true},
+	{.key = "recording.pix_fmt", .label = "Pixel format", .kind = CFG_ENUM, .vals = VALS_pix_fmt, .def = "yuv420p"},
+	{.key = "ocr.tesseract", .label = "tesseract binary", .kind = CFG_STRING, .is_path = true},
+	{.key = "sound.enabled", .label = "Play a shutter sound", .kind = CFG_BOOL, .def = "false"},
+	{.key = "sound.player", .label = "Sound player", .kind = CFG_STRING, .is_path = true},
+	{.key = "sound.file", .label = "Sound file", .kind = CFG_STRING, .is_path = true},
+	{.key = "edit.color", .label = "Annotation color", .kind = CFG_STRING, .validate = validate_edit_color, .def = "red"},
+	{.key = "edit.width", .label = "Stroke width", .kind = CFG_INT, .lo = 1, .hi = 20, .def = "4"},
+	{.key = "edit.default", .label = "Annotate every capture", .kind = CFG_BOOL, .def = "false"},
+	{.key = "jpeg.quality", .label = "JPEG quality", .kind = CFG_INT, .lo = 1, .hi = 100, .def = "90"},
+	{.key = "webp.quality", .label = "WebP quality", .kind = CFG_INT, .lo = 0, .hi = 100, .def = "85"},
+	{.key = "webp.lossless", .label = "WebP lossless", .kind = CFG_BOOL, .def = "false"},
+	{.key = "capture.backend", .label = "Capture backend", .kind = CFG_ENUM, .vals = VALS_capture_backend, .def = "auto"},
+	{.key = "region.window_snap", .label = "Snap to windows", .kind = CFG_BOOL, .def = "true"},
+	{.key = "translate.target", .label = "Translate to (language)", .kind = CFG_STRING},
+	{.key = "text_card.dismiss_secs", .label = "OCR card timeout (s)", .kind = CFG_INT, .lo = 0, .hi = 600, .def = "8"},
+	{.key = "text_card.position", .label = "OCR card position", .kind = CFG_ENUM, .vals = VALS_position, .def = "bottom-right"},
+	{.key = "text_card.output", .label = "OCR card monitor", .kind = CFG_STRING, .is_monitor = true},
+	{.key = "preview.enabled", .label = "Show preview card", .kind = CFG_BOOL, .def = "false"},
+	{.key = "preview.size", .label = "Preview width (px)", .kind = CFG_INT, .lo = 100, .hi = 800, .def = "300"},
+	{.key = "preview.position", .label = "Preview position", .kind = CFG_ENUM, .vals = VALS_position, .def = "bottom-right"},
+	{.key = "preview.output", .label = "Preview monitor", .kind = CFG_STRING, .is_monitor = true},
+	{.key = "preview.dismiss_secs", .label = "Preview timeout (s)", .kind = CFG_INT, .lo = 0, .hi = 600, .def = "5"},
 };
+static const size_t CFG_KEYS_N = sizeof CFG_KEYS / sizeof CFG_KEYS[0];
+
+const struct cfg_key_desc *cfg_key_descs(size_t *n_out) {
+	if (n_out) *n_out = CFG_KEYS_N;
+	return CFG_KEYS;
+}
+
+const struct cfg_key_desc *cfg_key_desc_find(const char *key) {
+	for (size_t i = 0; i < CFG_KEYS_N; i++) {
+		if (strcmp(CFG_KEYS[i].key, key) == 0) return &CFG_KEYS[i];
+	}
+	return NULL;
+}
+
+bool cfg_is_bool_key(const char *key) {
+	const struct cfg_key_desc *d = cfg_key_desc_find(key);
+	return d && d->kind == CFG_BOOL;
+}
+
+bool cfg_key_is_known(const char *key) {
+	return cfg_key_desc_find(key) != NULL || valid_service_key(key);
+}
+
+static int validate_enum(const char *key, const struct cfg_key_desc *d, const char *value) {
+	if (d->allow_empty && !*value) return 0;
+	if (cfg_in_list(value, d->vals)) return 0;
+	struct grabit_buf b = {0};
+	for (size_t i = 0; d->vals[i]; i++) {
+		if (i) grabit_buf_putc(&b, '|');
+		grabit_buf_puts(&b, d->vals[i]);
+	}
+	log_error("%s must be one of %s", key, b.data ? b.data : "(none)");
+	grabit_buf_free(&b);
+	return -1;
+}
 
 int config_set(struct config *c, const char *key, const char *value) {
-	if (!valid_top_key(key) && !valid_service_key(key) && !valid_recording_key(key) &&
-		!valid_ocr_key(key) && !valid_sound_key(key) && !valid_edit_key(key) &&
-		!valid_jpeg_key(key) && !valid_webp_key(key) &&
-		!valid_capture_key(key) && !valid_region_key(key) &&
-		!valid_translate_key(key) && !valid_text_card_key(key) && !valid_preview_key(key)) {
+	const struct cfg_key_desc *d = cfg_key_desc_find(key);
+	if (!d && !valid_service_key(key)) {
 		log_error("unknown config key: %s", key);
 		const char *hint = cfg_help_suggest_key(key);
 		if (hint) log_info("did you mean: %s ?", hint);
 		return -1;
 	}
-	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
-		log_error("format must be one of png|jpeg|webp");
-		return -1;
-	}
-	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
-		log_error("capture.backend must be one of auto|wlr|ext");
-		return -1;
-	}
-	if (strcmp(key, "jpeg.quality") == 0 &&
-		validate_int_in_range(key, value, 1, 100) != 0) return -1;
-	if (strcmp(key, "webp.quality") == 0 &&
-		validate_int_in_range(key, value, 0, 100) != 0) return -1;
-	if (strcmp(key, "recording.fps") == 0 &&
-		validate_int_in_range(key, value, 1, 120) != 0) return -1;
-	if (strcmp(key, "show.dismiss_secs") == 0 &&
-		validate_int_in_range(key, value, 0, 600) != 0) return -1;
-	if (strcmp(key, "preview.size") == 0 &&
-		validate_int_in_range(key, value, 100, 800) != 0) return -1;
-	if (strcmp(key, "preview.dismiss_secs") == 0 &&
-		validate_int_in_range(key, value, 0, 600) != 0) return -1;
-	if (strcmp(key, "preview.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
-		log_error("preview.position must be one of "
-				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
-		return -1;
-	}
-	if (strcmp(key, "show.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
-		log_error("show.position must be one of "
-				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
-		return -1;
-	}
-	if (strcmp(key, "recording.crf") == 0 &&
-		validate_int_in_range(key, value, 0, 51) != 0) return -1;
-	if (strcmp(key, "recording.max_size_mb") == 0 &&
-		validate_int_in_range(key, value, 0, 100000) != 0) return -1;
-	if (strcmp(key, "recording.preset") == 0 && !cfg_in_list(value, VALS_x264_preset)) {
-		log_error("recording.preset must be one of "
-				  "ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow");
-		return -1;
-	}
-	if (strcmp(key, "recording.tune") == 0 && value[0] && !cfg_in_list(value, VALS_x264_tune)) {
-		log_error("recording.tune must be one of "
-				  "film|animation|grain|stillimage|psnr|ssim|fastdecode|zerolatency");
-		return -1;
-	}
-	if (strcmp(key, "recording.pix_fmt") == 0 && !cfg_in_list(value, VALS_pix_fmt)) {
-		log_error("recording.pix_fmt must be one of yuv420p|yuv422p|yuv444p|yuv420p10le");
-		return -1;
-	}
-	if (strcmp(key, "default_action") == 0 && !cfg_in_list(value, VALS_default_action)) {
-		log_error("default_action must be one of upload|copy|save|pin");
-		return -1;
-	}
-	if (strcmp(key, "filename_preset") == 0 && !cfg_in_list(value, VALS_filename_preset)) {
-		log_error("filename_preset must be one of date|random|uuid|timestamp");
-		return -1;
-	}
-	if (strcmp(key, "service") == 0 && !upload_service_known(value)) {
-		log_error("service `%s` is not a built-in or a registered sxcu uploader", value);
-		log_error("  built-ins: zipline|nest|fakecrime|ez|guns|pixelvault");
-		log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
-		return -1;
-	}
-	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;
-	if (strcmp(key, "edit.width") == 0) {
-		char *end = NULL;
-		long v = strtol(value, &end, 10);
-		if (!*value || end == value || *end || v < 1 || v > 20) {
-			log_error("edit.width must be an integer between 1 and 20");
-			return -1;
+
+	if (d && d->validate) {
+		if (d->validate(value) != 0) return -1;
+	} else if (d) {
+		switch (d->kind) {
+		case CFG_BOOL:
+			if (strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
+				log_error("%s must be true or false", key);
+				return -1;
+			}
+			break;
+		case CFG_ENUM:
+			if (validate_enum(key, d, value) != 0) return -1;
+			break;
+		case CFG_INT:
+			if (validate_int_in_range(key, value, d->lo, d->hi) != 0) return -1;
+			break;
+		case CFG_STRING:
+			break;
 		}
-	}
-	if (cfg_is_bool_key(key) && strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
-		log_error("%s must be true or false", key);
-		return -1;
 	}
 
 	const char *zl_prefix = "services.zipline.headers.";

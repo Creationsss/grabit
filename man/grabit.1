@@ -187,6 +187,31 @@ Print help and exit.
 .SH SUBCOMMANDS
 .SS Configuration
 .TP
+.B config
+Open the on-screen settings window: a floating toplevel with the keys grouped
+into tabs (general, recording, editor, image, ocr, notify). Each key gets a
+widget for its type \(em a toggle for bools,
+.RB \(lq< value >\(rq
+steppers for enums and numbers, an editable text field for strings, a
+.RB \(lq ... \(rq
+file/folder picker for path keys (needs
+.B zenity
+or
+.BR kdialog ),
+and a dropdown of connected monitors for the monitor keys. Arrow keys (or
+.BR hjkl )
+move and change,
+.B Tab
+switches tab,
+.B Enter
+edits or opens the focused row, and the mouse works throughout. Changes apply
+live \(em every edit is written immediately and the previous config is backed
+up to
+.I $XDG_RUNTIME_DIR/grabit-config.bak.toml
+so it can be restored.
+.B Esc
+closes.
+.TP
 .BI "set " "key value"
 Write a config key (schema-validated).
 .TP
@@ -373,6 +398,11 @@ Registered ShareX uploaders.
 .TP
 .I $XDG_RUNTIME_DIR/grabit-show.pid
 PID file for the on-screen text/preview card.
+.TP
+.I $XDG_RUNTIME_DIR/grabit-config.bak.toml
+Backup of the configuration taken when
+.B config
+opens, for reverting live edits.
 .SH EXAMPLES
 .TP
 .B grabit \-c
@@ -414,7 +444,9 @@ Returns 0 on success and non-zero on error.
 .SH SEE ALSO
 .BR ffmpeg (1),
 .BR tesseract (1),
-.BR trans (1)
+.BR trans (1),
+.BR zenity (1),
+.BR kdialog (1)
 .PP
 Project documentation:
 .B OPTIONS.md

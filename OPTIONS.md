@@ -28,7 +28,7 @@ first run writes a default config to `~/.config/grabit/config.toml`.
 - six built-in uploaders: zipline, nest, fakecrime, ez, guns, pixelvault
 - import any sharex `.sxcu` uploader
 - filename templates
-- toml config + `grabit set/get/unset` schema-validated cli
+- toml config + `grabit set/get/unset` schema-validated cli, plus `grabit config` — a tabbed on-screen settings window
 - plugin system (`grabit plugin install <git-url>`)
 
 ## build
@@ -58,6 +58,7 @@ optional (auto-detected via pkg-config):
 runtime (no link-time deps, looked up via `$PATH`):
 - `ffmpeg` for `--record`
 - `tesseract` + the english training data for `--tesseract`
+- `zenity` or `kdialog` for the file/folder picker in `grabit config` (optional; without one, type the path by hand)
 
 config parser (`tomlc99`) is vendored under `src/vendor/`.
 
@@ -87,6 +88,7 @@ re-run after adding/removing source files.
 ## configuration
 
 ```sh
+grabit config                 # on-screen settings window (tabbed, changes apply live)
 grabit set                    # list all settable keys
 grabit set <key>              # show example/default for that key
 grabit set <key> <value>      # write (validated)
@@ -94,6 +96,8 @@ grabit get                    # dump current config
 grabit get <key>              # one key
 grabit unset <key>
 ```
+
+`grabit config` opens a real window — a floating toplevel with the keys grouped into tabs (general, recording, editor, image, ocr, notify). each key gets a widget for its type: a toggle for bools, `< value >` steppers for enums and numbers, an editable text field for strings, a `…` file/folder picker for path keys (save dir, editor, sound, ffmpeg, tesseract — needs `zenity` or `kdialog`), and a dropdown of connected monitors for the monitor keys. arrow keys (or `hjkl`) move and change, `tab` switches tab, `enter` edits or opens the focused row, the mouse/wheel work throughout. **changes apply live** — every edit is written immediately, and the pre-edit config is backed up to `$XDG_RUNTIME_DIR/grabit-config.bak.toml` so you can revert by copying it back. `esc` closes.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
 

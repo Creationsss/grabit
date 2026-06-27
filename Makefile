@@ -99,6 +99,9 @@ GRABIT_SRCS := \
 	src/capture/webp.c \
 	src/capture/transform.c \
 	src/capture/freeze.c \
+	src/ui/window.c \
+	src/ui/window_render.c \
+	src/ui/window_input.c \
 	src/region/annotate.c \
 	src/region/toolbar.c \
 	src/region/toolbar_layout.c \

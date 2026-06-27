@@ -31,6 +31,7 @@
 #include "region/edit_persist.h"
 #include "region/region.h"
 #include "sound/sound.h"
+#include "ui/config_ui.h"
 #include "upload/upload.h"
 #include "util.h"
 #include "wl.h"
@@ -123,6 +124,7 @@ static int print_help(void) {
 		"  --                End-of-options; following arg is treated as -f <file>\n"
 		"\n"
 		"Config (run `grabit set --help` for details):\n"
+		"  config            Open the on-screen config editor (toggles/steppers)\n"
 		"  set <key> <val>   Write a config key (validated)\n"
 		"  set <key>         Print example value for that key\n"
 		"  set               List all available keys\n"
@@ -897,6 +899,7 @@ int main(int argc, char **argv) {
 			log_error("no help topic for `%s`", sub);
 			return 1;
 		}
+		if (strcmp(first, "config") == 0) return grabit_config_ui();
 		if (strcmp(first, "set") == 0) return cmd_set(argc - 2, argv + 2);
 		if (strcmp(first, "get") == 0) return cmd_get(argc - 2, argv + 2);
 		if (strcmp(first, "unset") == 0) return cmd_unset(argc - 2, argv + 2);

@@ -102,6 +102,9 @@ GRABIT_SRCS := \
 	src/ui/window.c \
 	src/ui/window_render.c \
 	src/ui/window_input.c \
+	src/ui/config_ui.c \
+	src/ui/config_ui_input.c \
+	src/ui/config_ui_render.c \
 	src/region/annotate.c \
 	src/region/toolbar.c \
 	src/region/toolbar_layout.c \

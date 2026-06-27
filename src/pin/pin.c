@@ -256,14 +256,6 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	}
 
 	while (!st.finished && !g_term) {
-		while (wl_display_prepare_read(wls.display) != 0) {
-			if (wl_display_dispatch_pending(wls.display) < 0) goto out;
-		}
-		if (wl_display_flush(wls.display) < 0 && errno != EAGAIN) {
-			wl_display_cancel_read(wls.display);
-			goto out;
-		}
-
 		struct pollfd pfds[3];
 		int nfds = 0;
 		pfds[nfds].fd = wl_display_get_fd(wls.display);
@@ -281,25 +273,12 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 			timer_idx = nfds++;
 		}
 
-		int pr = poll(pfds, (nfds_t)nfds, -1);
-		if (pr < 0) {
-			wl_display_cancel_read(wls.display);
-			if (errno == EINTR) continue;
-			break;
-		}
-
-		if (pfds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-			wl_display_cancel_read(wls.display);
+		enum grabit_wl_pump pr = grabit_wl_pump(wls.display, pfds, (size_t)nfds, &st.finished);
+		if (pr == GRABIT_WL_PUMP_FATAL) {
 			log_warn("pin: lost wayland connection");
 			goto out;
 		}
-
-		if (pfds[0].revents & POLLIN) {
-			if (wl_display_read_events(wls.display) < 0) goto out;
-		} else {
-			wl_display_cancel_read(wls.display);
-		}
-		if (wl_display_dispatch_pending(wls.display) < 0) goto out;
+		if (pr != GRABIT_WL_PUMP_OK) continue;
 
 		if (ipc_idx >= 0 && (pfds[ipc_idx].revents & POLLIN)) {
 			pin_ipc_handle(&st);

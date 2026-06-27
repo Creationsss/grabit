@@ -12,7 +12,6 @@
 #include "region/wlr_state.h"
 #include "wl.h"
 
-#include <errno.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
@@ -215,22 +214,6 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 	}
 
 	while (!st.finished) {
-		while (wl_display_prepare_read(s->display) != 0) {
-			if (wl_display_dispatch_pending(s->display) < 0) {
-				st.cancelled = true;
-				goto loop_done;
-			}
-		}
-		if (st.finished) {
-			wl_display_cancel_read(s->display);
-			break;
-		}
-		if (wl_display_flush(s->display) < 0 && errno != EAGAIN) {
-			wl_display_cancel_read(s->display);
-			st.cancelled = true;
-			break;
-		}
-
 		struct pollfd pfds[3];
 		pfds[0].fd = wl_display_get_fd(s->display);
 		pfds[0].events = POLLIN;
@@ -247,32 +230,13 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 			tip_idx = nfds++;
 		}
 
-		if (poll(pfds, (nfds_t)nfds, -1) < 0) {
-			wl_display_cancel_read(s->display);
-			if (errno == EINTR) continue;
-			st.cancelled = true;
-			break;
-		}
-
-		if (pfds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-			wl_display_cancel_read(s->display);
+		enum grabit_wl_pump pr = grabit_wl_pump(s->display, pfds, (size_t)nfds, &st.finished);
+		if (pr == GRABIT_WL_PUMP_FATAL) {
 			log_error("region: lost wayland connection");
 			st.cancelled = true;
 			break;
 		}
-
-		if (pfds[0].revents & POLLIN) {
-			if (wl_display_read_events(s->display) < 0) {
-				st.cancelled = true;
-				break;
-			}
-		} else {
-			wl_display_cancel_read(s->display);
-		}
-		if (wl_display_dispatch_pending(s->display) < 0) {
-			st.cancelled = true;
-			break;
-		}
+		if (pr != GRABIT_WL_PUMP_OK) continue;
 
 		if (undo_idx >= 0 && (pfds[undo_idx].revents & POLLIN)) {
 			uint64_t expirations = 0;
@@ -293,7 +257,6 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 			}
 		}
 	}
-loop_done:;
 
 	int rc = -1;
 	if (!st.cancelled && st.has_selection) {

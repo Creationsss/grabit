@@ -18,6 +18,7 @@ struct zxdg_output_v1;
 struct zwp_relative_pointer_manager_v1;
 struct ext_image_copy_capture_manager_v1;
 struct ext_output_image_capture_source_manager_v1;
+struct xdg_wm_base;
 struct wl_compositor;
 
 struct grabit_wl_state;
@@ -49,6 +50,7 @@ struct grabit_wl_state {
 	struct zwlr_screencopy_manager_v1 *screencopy_manager;
 	struct zwlr_data_control_manager_v1 *data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
+	struct xdg_wm_base *xdg_wm_base;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
 	struct zwp_relative_pointer_manager_v1 *relative_pointer_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
@@ -83,5 +85,17 @@ void grabit_wl_clear_input_region(struct wl_compositor *c, struct wl_surface *s)
 
 struct wl_callback;
 void grabit_wl_callback_drop(struct wl_callback **cb);
+
+struct pollfd;
+
+enum grabit_wl_pump {
+	GRABIT_WL_PUMP_OK,
+	GRABIT_WL_PUMP_RETRY,
+	GRABIT_WL_PUMP_STOP,
+	GRABIT_WL_PUMP_FATAL,
+};
+
+enum grabit_wl_pump grabit_wl_pump(struct wl_display *dpy, struct pollfd *pfds, size_t nfds,
+								   const bool *stop);
 
 #endif

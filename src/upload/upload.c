@@ -63,29 +63,16 @@ int upload_suggest_service(const char *input, char *out, size_t cap) {
 	if (!input || !out || cap == 0) return -1;
 	const char *best = NULL;
 	size_t best_dist = (size_t)-1;
-	for (size_t i = 0; i < N_SERVICES; i++) {
-		size_t d = grabit_edit_distance(input, SERVICES[i].name);
-		if (d < best_dist) {
-			best_dist = d;
-			best = SERVICES[i].name;
-		}
-	}
+	for (size_t i = 0; i < N_SERVICES; i++)
+		grabit_suggest_update(input, SERVICES[i].name, &best, &best_dist);
 	char **names = NULL;
 	size_t n = 0;
 	int rc = -1;
 	if (sxcu_dir_list(&names, &n) == 0) {
-		for (size_t i = 0; i < n; i++) {
-			size_t d = grabit_edit_distance(input, names[i]);
-			if (d < best_dist) {
-				best_dist = d;
-				best = names[i];
-			}
-		}
+		for (size_t i = 0; i < n; i++)
+			grabit_suggest_update(input, names[i], &best, &best_dist);
 	}
-	size_t in_len = strlen(input);
-	size_t max_allowed = in_len / 3 + 1;
-	if (max_allowed < 2) max_allowed = 2;
-	if (best && best_dist <= max_allowed) {
+	if (best && grabit_suggest_within(input, best_dist)) {
 		snprintf(out, cap, "%s", best);
 		rc = 0;
 	}

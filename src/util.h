@@ -30,6 +30,10 @@ int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
 
 size_t grabit_edit_distance(const char *a, const char *b);
 
+void grabit_suggest_update(const char *input, const char *cand, const char **best,
+						   size_t *best_dist);
+bool grabit_suggest_within(const char *input, size_t best_dist);
+
 #include <stdint.h>
 bool grabit_parse_hex_color(const char *s, uint32_t *out);
 

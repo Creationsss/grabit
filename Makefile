@@ -78,6 +78,7 @@ GRABIT_SRCS := \
 	src/log.c \
 	src/paths.c \
 	src/util.c \
+	src/xkb_util.c \
 	src/cursor.c \
 	src/config.c \
 	src/config_save.c \

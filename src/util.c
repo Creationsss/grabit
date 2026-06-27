@@ -307,6 +307,21 @@ bool grabit_parse_hex_color(const char *s, uint32_t *out) {
 	return false;
 }
 
+void grabit_suggest_update(const char *input, const char *cand, const char **best,
+						   size_t *best_dist) {
+	size_t d = grabit_edit_distance(input, cand);
+	if (d < *best_dist) {
+		*best_dist = d;
+		*best = cand;
+	}
+}
+
+bool grabit_suggest_within(const char *input, size_t best_dist) {
+	size_t max_allowed = strlen(input) / 3 + 1;
+	if (max_allowed < 2) max_allowed = 2;
+	return best_dist <= max_allowed;
+}
+
 size_t grabit_edit_distance(const char *a, const char *b) {
 	size_t la = strlen(a), lb = strlen(b);
 	if (la > 64 || lb > 64) return 999;

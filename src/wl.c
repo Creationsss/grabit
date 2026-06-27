@@ -9,6 +9,8 @@
 #include "region/region.h"
 
 #include <ctype.h>
+#include <errno.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +24,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+#include "xdg-shell-client-protocol.h"
 
 static void output_geometry(void *data, struct wl_output *wo, int32_t x, int32_t y,
 							int32_t pw, int32_t ph, int32_t subpixel,
@@ -154,6 +157,15 @@ static int outputs_push(struct grabit_wl_state *s, struct grabit_output *o) {
 	return 0;
 }
 
+static void xdg_wm_base_ping(void *data, struct xdg_wm_base *base, uint32_t serial) {
+	(void)data;
+	xdg_wm_base_pong(base, serial);
+}
+
+static const struct xdg_wm_base_listener xdg_wm_base_listener_g = {
+	.ping = xdg_wm_base_ping,
+};
+
 static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 							const char *interface, uint32_t version) {
 	struct grabit_wl_state *s = data;
@@ -228,6 +240,13 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		uint32_t v = version > 4 ? 4 : version;
 		s->layer_shell = wl_registry_bind(
 			reg, name, &zwlr_layer_shell_v1_interface, v);
+		return;
+	}
+
+	if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+		uint32_t v = version > 4 ? 4 : version;
+		s->xdg_wm_base = wl_registry_bind(reg, name, &xdg_wm_base_interface, v);
+		xdg_wm_base_add_listener(s->xdg_wm_base, &xdg_wm_base_listener_g, NULL);
 		return;
 	}
 
@@ -384,6 +403,7 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	s->outputs = NULL;
 	s->n_outputs = s->cap_outputs = 0;
 
+	if (s->xdg_wm_base) xdg_wm_base_destroy(s->xdg_wm_base);
 	if (s->relative_pointer_manager) zwp_relative_pointer_manager_v1_destroy(s->relative_pointer_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
@@ -511,4 +531,34 @@ void grabit_wl_callback_drop(struct wl_callback **cb) {
 	if (!cb || !*cb) return;
 	wl_callback_destroy(*cb);
 	*cb = NULL;
+}
+
+enum grabit_wl_pump grabit_wl_pump(struct wl_display *dpy, struct pollfd *pfds, size_t nfds,
+								   const bool *stop) {
+	while (wl_display_prepare_read(dpy) != 0) {
+		if (wl_display_dispatch_pending(dpy) < 0) return GRABIT_WL_PUMP_FATAL;
+	}
+	if (stop && *stop) {
+		wl_display_cancel_read(dpy);
+		return GRABIT_WL_PUMP_STOP;
+	}
+	if (wl_display_flush(dpy) < 0 && errno != EAGAIN) {
+		wl_display_cancel_read(dpy);
+		return GRABIT_WL_PUMP_FATAL;
+	}
+	if (poll(pfds, (nfds_t)nfds, -1) < 0) {
+		wl_display_cancel_read(dpy);
+		return errno == EINTR ? GRABIT_WL_PUMP_RETRY : GRABIT_WL_PUMP_FATAL;
+	}
+	if (pfds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		wl_display_cancel_read(dpy);
+		return GRABIT_WL_PUMP_FATAL;
+	}
+	if (pfds[0].revents & POLLIN) {
+		if (wl_display_read_events(dpy) < 0) return GRABIT_WL_PUMP_FATAL;
+	} else {
+		wl_display_cancel_read(dpy);
+	}
+	if (wl_display_dispatch_pending(dpy) < 0) return GRABIT_WL_PUMP_FATAL;
+	return GRABIT_WL_PUMP_OK;
 }

@@ -9,11 +9,10 @@
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "wl.h"
+#include "xkb_util.h"
 
 #include <stdint.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <unistd.h>
 
 #include <linux/input-event-codes.h>
 
@@ -454,22 +453,7 @@ static void keyboard_keymap(void *data, struct wl_keyboard *kb,
 							uint32_t format, int32_t fd, uint32_t size) {
 	(void)kb;
 	struct ro_state *st = data;
-	if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
-		close(fd);
-		return;
-	}
-	void *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-	close(fd);
-	if (map_str == MAP_FAILED) return;
-
-	if (st->xkb_state) xkb_state_unref(st->xkb_state);
-	if (st->xkb_keymap) xkb_keymap_unref(st->xkb_keymap);
-
-	size_t klen = size > 0 ? size - 1 : 0;
-	st->xkb_keymap = xkb_keymap_new_from_buffer(
-		st->xkb_ctx, map_str, klen, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
-	munmap(map_str, size);
-	st->xkb_state = st->xkb_keymap ? xkb_state_new(st->xkb_keymap) : NULL;
+	grabit_xkb_load(st->xkb_ctx, format, fd, size, &st->xkb_keymap, &st->xkb_state);
 }
 
 static void keyboard_enter(void *data, struct wl_keyboard *kb, uint32_t serial,

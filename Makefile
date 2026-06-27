@@ -88,6 +88,7 @@ GRABIT_SRCS := \
 	src/template.c \
 	src/hyprland.c \
 	src/mime.c \
+	src/picker.c \
 	src/wl.c \
 	src/capture/capture.c \
 	src/capture/pixels.c \

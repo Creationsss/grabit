@@ -21,6 +21,7 @@ static const char *BOOL_KEYS[] = {
 	"recording.cursor",
 	"sound.enabled",
 	"region.window_snap",
+	"region.confirm",
 	"edit.default",
 	"preview.enabled",
 	NULL,
@@ -179,7 +180,8 @@ static bool valid_capture_key(const char *key) {
 
 static bool valid_region_key(const char *key) {
 	if (strncmp(key, "region.", 7) != 0) return false;
-	return strcmp(key + 7, "window_snap") == 0;
+	const char *leaf = key + 7;
+	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0;
 }
 
 static bool valid_recording_key(const char *key) {

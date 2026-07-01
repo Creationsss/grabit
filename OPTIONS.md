@@ -198,6 +198,7 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | key | default | notes |
 |---|---|---|
 | `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
+| `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles, drag inside to move, drag outside to start over, then press Enter or Ctrl+C to capture; Esc cancels |
 
 ### encoder options
 

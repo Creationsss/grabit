@@ -87,6 +87,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"ocr.tesseract",
 	"capture.backend",
 	"region.window_snap",
+	"region.confirm",
 	"translate.target",
 	"text_card.dismiss_secs",
 	"text_card.position",
@@ -268,6 +269,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "region.confirm") == 0) {
+		*example_out = "true|false";
+		*def_out = "false";
+		return 0;
+	}
 	if (strcmp(key, "translate.target") == 0) {
 		*example_out = "<iso-639-1 code, e.g. en|ja|de|es>";
 		*def_out = "en";
@@ -412,6 +418,7 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	print_key_with_default("capture.backend", find_default("capture.backend"));
 	print_key_with_default("region.window_snap", find_default("region.window_snap"));
+	print_key_with_default("region.confirm", find_default("region.confirm"));
 	print_key_with_default("translate.target", find_default("translate.target"));
 	print_key_with_default("text_card.dismiss_secs", find_default("text_card.dismiss_secs"));
 	print_key_with_default("text_card.position", find_default("text_card.position"));

@@ -318,10 +318,25 @@ or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
 .PP
+Set
+.B region.confirm
+to
+.B true
+to keep the selection adjustable after releasing the drag (flameshot-style):
+resize it with the handles, drag inside it to move it, drag outside it to
+start over, then press
+.B Enter
+or
+.B Ctrl+C
+to capture;
+.B Esc
+cancels.
+.PP
 See
 .B OPTIONS.md
-for the full key reference (capture backend, region snap, encoder quality,
-recording, sound, pin, OCR/translate, preview/text card, edit defaults).
+for the full key reference (capture backend, region snap/confirm, encoder
+quality, recording, sound, pin, OCR/translate, preview/text card, edit
+defaults).
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG

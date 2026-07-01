@@ -58,24 +58,24 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 	st.n_outs = s->n_outputs;
 
 	st.snap_hover = -1;
+	bool snap_enabled = true;
+	struct config region_cfg;
+	if (config_load(&region_cfg) == 0) {
+		const char *v = config_get(&region_cfg, "region.window_snap");
+		if (v && strcmp(v, "false") == 0) snap_enabled = false;
+		v = config_get(&region_cfg, "region.confirm");
+		if (v && strcmp(v, "true") == 0) st.confirm_mode = true;
+		config_free(&region_cfg);
+	}
 	if (snap_rects && n_snap_rects > 0) {
 		st.snap_windows = malloc(n_snap_rects * sizeof *st.snap_windows);
 		if (st.snap_windows) {
 			memcpy(st.snap_windows, snap_rects, n_snap_rects * sizeof *st.snap_windows);
 			st.n_snap_windows = n_snap_rects;
 		}
-	} else {
-		struct config snap_cfg;
-		bool snap_enabled = true;
-		if (config_load(&snap_cfg) == 0) {
-			const char *v = config_get(&snap_cfg, "region.window_snap");
-			if (v && strcmp(v, "false") == 0) snap_enabled = false;
-			config_free(&snap_cfg);
-		}
-		if (snap_enabled) {
-			if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
-				log_debug("region: window snap disabled (no hyprland ipc)");
-			}
+	} else if (snap_enabled) {
+		if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
+			log_debug("region: window snap disabled (no hyprland ipc)");
 		}
 	}
 

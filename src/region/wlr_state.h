@@ -99,6 +99,7 @@ struct ro_state {
 	const struct image *frozen;
 
 	bool annotate_mode;
+	bool confirm_mode;
 	bool region_locked;
 	enum tool_kind current_tool;
 

@@ -278,8 +278,8 @@ static void output_redraw(struct ro_output *o) {
 			cairo_set_font_size(cr, 14.0 * S);
 			cairo_text_extents_t ext;
 			cairo_text_extents(cr, dims, &ext);
-			double tx = (double)sel_r - ext.width - 8.0 * S;
-			double ty = (double)sel_b - 8.0 * S;
+			double tx = (double)sel_r - ext.width - 14.0 * S;
+			double ty = (double)sel_b - 14.0 * S;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
 			cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
 							ext.width + 8.0 * S, ext.height + 6.0 * S);

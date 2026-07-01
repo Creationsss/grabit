@@ -547,7 +547,9 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (!st->xkb_state) return;
 	xkb_keysym_t sym = xkb_state_key_get_one_sym(st->xkb_state, key + 8);
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-		if (sym == XKB_KEY_u || sym == XKB_KEY_U) region_undo_disarm(st);
+		if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
+			sym == XKB_KEY_z || sym == XKB_KEY_Z)
+			region_undo_disarm(st);
 		return;
 	}
 
@@ -658,7 +660,8 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (!st->region_locked || !st->annotate_mode) return;
 
-	if (sym == XKB_KEY_u || sym == XKB_KEY_U) {
+	if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
+		(st->ctrl_held && (sym == XKB_KEY_z || sym == XKB_KEY_Z))) {
 		if (region_drag_active(st)) return;
 		if (st->out_annos) annotation_list_pop(st->out_annos);
 		region_undo_arm(st);

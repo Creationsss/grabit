@@ -369,7 +369,7 @@ grabit -e -o                  # annotate, then save
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1–12 in the toolbar; the persisted `edit.width` accepts up to 20 if you set it via the cli)
-- **undo** (`u`, hold to repeat) / **save** (`enter`) / **cancel** (`esc` or right-click)
+- **undo** (`u` or `ctrl+z`, hold to repeat) / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows to 45° angles
 

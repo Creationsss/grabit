@@ -619,6 +619,43 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 
+	if (st->region_locked && !region_drag_active(st)) {
+		int32_t dx = 0, dy = 0;
+		switch (sym) {
+		case XKB_KEY_Left:
+		case XKB_KEY_KP_Left:
+			dx = -1;
+			break;
+		case XKB_KEY_Right:
+		case XKB_KEY_KP_Right:
+			dx = 1;
+			break;
+		case XKB_KEY_Up:
+		case XKB_KEY_KP_Up:
+			dy = -1;
+			break;
+		case XKB_KEY_Down:
+		case XKB_KEY_KP_Down:
+			dy = 1;
+			break;
+		default:
+			break;
+		}
+		if (dx != 0 || dy != 0) {
+			if (st->shift_held) {
+				st->sel_w += dx;
+				st->sel_h += dy;
+				if (st->sel_w < 1) st->sel_w = 1;
+				if (st->sel_h < 1) st->sel_h = 1;
+			} else {
+				st->sel_x += dx;
+				st->sel_y += dy;
+			}
+			region_render_request_redraw_all(st);
+			return;
+		}
+	}
+
 	if (!st->region_locked || !st->annotate_mode) return;
 
 	if (sym == XKB_KEY_u || sym == XKB_KEY_U) {

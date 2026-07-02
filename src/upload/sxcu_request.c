@@ -148,10 +148,3 @@ char *sxcu_build_json_body(const struct sxcu_uploader *u, const char *file_path)
 	json_object_put(o);
 	return out;
 }
-
-int sxcu_read_binary_body(const char *file_path, char **out, long *out_len) {
-	size_t sz = 0;
-	if (grabit_read_file(file_path, 0, out, &sz) != 0) return -1;
-	*out_len = (long)sz;
-	return 0;
-}

@@ -10,8 +10,11 @@
 #include "upload/upload.h"
 #include "util.h"
 
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <curl/curl.h>
 
@@ -70,6 +73,11 @@ static size_t on_header(char *buf, size_t sz, size_t nm, void *ud) {
 	return total;
 }
 
+static int on_seek(void *arg, curl_off_t offset, int origin) {
+	return fseeko(arg, (off_t)offset, origin) == 0 ? CURL_SEEKFUNC_OK
+												   : CURL_SEEKFUNC_FAIL;
+}
+
 static void apply_method(CURL *c, enum sxcu_method m) {
 	switch (m) {
 	case SXCU_GET:
@@ -100,12 +108,14 @@ static char *trim_right(char *s) {
 
 static int build_body(CURL *c, const struct sxcu_uploader *u, const char *file_path,
 					  curl_mime **mime_out, char **body_out, long *body_len_out,
-					  const char **forced_ct_out, char **binary_ct_out) {
+					  const char **forced_ct_out, char **binary_ct_out,
+					  FILE **body_file_out) {
 	*mime_out = NULL;
 	*body_out = NULL;
 	*body_len_out = 0;
 	*forced_ct_out = NULL;
 	*binary_ct_out = NULL;
+	*body_file_out = NULL;
 
 	if (u->body_type == SXCU_BODY_NONE) return 0;
 
@@ -140,11 +150,28 @@ static int build_body(CURL *c, const struct sxcu_uploader *u, const char *file_p
 		*body_len_out = (long)strlen(*body_out);
 		*forced_ct_out = "application/xml";
 		break;
-	case SXCU_BODY_BINARY:
-		if (sxcu_read_binary_body(file_path, body_out, body_len_out) != 0) return -1;
+	case SXCU_BODY_BINARY: {
+		FILE *f = fopen(file_path, "rb");
+		if (!f) {
+			log_error("sxcu: open %s: %s", file_path, strerror(errno));
+			return -1;
+		}
+		struct stat sb;
+		if (fstat(fileno(f), &sb) != 0 || !S_ISREG(sb.st_mode)) {
+			log_error("sxcu: stat %s failed", file_path);
+			fclose(f);
+			return -1;
+		}
+		*body_file_out = f;
 		*binary_ct_out = mime_for_file(file_path);
 		*forced_ct_out = *binary_ct_out ? *binary_ct_out : "application/octet-stream";
-		break;
+		curl_easy_setopt(c, CURLOPT_POST, 1L);
+		curl_easy_setopt(c, CURLOPT_READDATA, f);
+		curl_easy_setopt(c, CURLOPT_SEEKFUNCTION, on_seek);
+		curl_easy_setopt(c, CURLOPT_SEEKDATA, f);
+		curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)sb.st_size);
+		return 0;
+	}
 	}
 	curl_easy_setopt(c, CURLOPT_POSTFIELDS, *body_out);
 	curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, *body_len_out);
@@ -172,11 +199,13 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 	long body_len = 0;
 	const char *forced_ct = NULL;
 	char *binary_ct = NULL;
+	FILE *body_file = NULL;
 	struct curl_slist *hdrs = NULL;
 	struct write_ctx w = {0};
 	int ret = -1;
 
-	if (build_body(c, u, file_path, &mime, &body_str, &body_len, &forced_ct, &binary_ct) != 0) {
+	if (build_body(c, u, file_path, &mime, &body_str, &body_len, &forced_ct,
+				   &binary_ct, &body_file) != 0) {
 		goto cleanup;
 	}
 
@@ -237,6 +266,7 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 cleanup:
 	if (mime) curl_mime_free(mime);
 	if (hdrs) curl_slist_free_all(hdrs);
+	if (body_file) fclose(body_file);
 	free(body_str);
 	free(binary_ct);
 	free(url);

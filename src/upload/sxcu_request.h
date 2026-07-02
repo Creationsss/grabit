@@ -14,6 +14,5 @@ struct curl_slist *sxcu_build_headers(const struct sxcu_uploader *u, const char 
 curl_mime *sxcu_build_multipart(CURL *c, const struct sxcu_uploader *u, const char *file_path);
 char *sxcu_build_form_url(CURL *c, const struct sxcu_uploader *u, const char *file_path);
 char *sxcu_build_json_body(const struct sxcu_uploader *u, const char *file_path);
-int sxcu_read_binary_body(const char *file_path, char **out, long *out_len);
 
 #endif

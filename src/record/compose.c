@@ -113,15 +113,6 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 							   bool cursor, void *dst_buf) {
 	if (!s || !layout || !dst_buf) return -1;
 
-	uint64_t covered = 0;
-	for (size_t i = 0; i < layout->n; i++) {
-		const struct rec_slice *sl = &layout->slices[i];
-		covered += (uint64_t)sl->dst_w * (uint64_t)sl->dst_h;
-	}
-	bool fully_tiled = covered == (uint64_t)layout->dst_w * (uint64_t)layout->dst_h;
-	if (!fully_tiled)
-		memset(dst_buf, 0, (size_t)layout->dst_stride * (size_t)layout->dst_h);
-
 	cairo_surface_t *dst = grabit_cairo_image_argb(dst_buf, layout->dst_w,
 												   layout->dst_h, layout->dst_stride);
 	if (!dst) {

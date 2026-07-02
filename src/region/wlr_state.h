@@ -91,6 +91,7 @@ struct ro_state {
 	int32_t sel_y;
 	int32_t sel_w;
 	int32_t sel_h;
+	struct rect bounds;
 
 	struct rect *snap_windows;
 	size_t n_snap_windows;

@@ -46,6 +46,7 @@ void region_drag_abort(struct ro_state *st);
 
 bool region_set_hover(struct ro_state *st, int btn);
 
+void region_clamp_move(struct ro_state *st);
 void region_update_selection(struct ro_state *st);
 bool region_inside_selection(const struct ro_state *st, int32_t x, int32_t y);
 

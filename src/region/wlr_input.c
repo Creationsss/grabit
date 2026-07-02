@@ -158,6 +158,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 		} else if (st->moving_region) {
 			st->sel_x = st->cursor_x - st->move_grab_dx;
 			st->sel_y = st->cursor_y - st->move_grab_dy;
+			region_clamp_move(st);
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			region_apply_handle_drag(st);
 		} else if (st->drawing && tool_uses_points(st->current_tool)) {

@@ -94,10 +94,26 @@ static int flip_handle_y(int h) {
 	}
 }
 
+void region_clamp_move(struct ro_state *st) {
+	if (st->bounds.w <= 0 || st->bounds.h <= 0) return;
+	if (st->sel_x < st->bounds.x) st->sel_x = st->bounds.x;
+	if (st->sel_y < st->bounds.y) st->sel_y = st->bounds.y;
+	if (st->sel_x + st->sel_w > st->bounds.x + st->bounds.w)
+		st->sel_x = st->bounds.x + st->bounds.w - st->sel_w;
+	if (st->sel_y + st->sel_h > st->bounds.y + st->bounds.h)
+		st->sel_y = st->bounds.y + st->bounds.h - st->sel_h;
+}
+
 void region_apply_handle_drag(struct ro_state *st) {
 	int32_t l = st->sel_x, r = st->sel_x + st->sel_w;
 	int32_t t = st->sel_y, b = st->sel_y + st->sel_h;
 	int32_t cx = st->cursor_x, cy = st->cursor_y;
+	if (st->bounds.w > 0 && st->bounds.h > 0) {
+		if (cx < st->bounds.x) cx = st->bounds.x;
+		if (cy < st->bounds.y) cy = st->bounds.y;
+		if (cx > st->bounds.x + st->bounds.w) cx = st->bounds.x + st->bounds.w;
+		if (cy > st->bounds.y + st->bounds.h) cy = st->bounds.y + st->bounds.h;
+	}
 	switch (st->handle_dragging) {
 	case HANDLE_NW:
 		l = cx;
@@ -173,9 +189,16 @@ static void nudge_apply(struct ro_state *st, int32_t dx, int32_t dy) {
 		st->sel_h += dy;
 		if (st->sel_w < 1) st->sel_w = 1;
 		if (st->sel_h < 1) st->sel_h = 1;
+		if (st->bounds.w > 0 && st->bounds.h > 0) {
+			if (st->sel_x + st->sel_w > st->bounds.x + st->bounds.w)
+				st->sel_w = st->bounds.x + st->bounds.w - st->sel_x;
+			if (st->sel_y + st->sel_h > st->bounds.y + st->bounds.h)
+				st->sel_h = st->bounds.y + st->bounds.h - st->sel_y;
+		}
 	} else {
 		st->sel_x += dx;
 		st->sel_y += dy;
+		region_clamp_move(st);
 	}
 }
 

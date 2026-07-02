@@ -59,6 +59,23 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	if (!st.outs) return -1;
 	st.n_outs = s->n_outputs;
 
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		struct rect orect;
+		grabit_output_rect(s->outputs[i], &orect);
+		if (i == 0) {
+			st.bounds = orect;
+			continue;
+		}
+		int32_t rx = st.bounds.x + st.bounds.w;
+		int32_t by = st.bounds.y + st.bounds.h;
+		if (orect.x < st.bounds.x) st.bounds.x = orect.x;
+		if (orect.y < st.bounds.y) st.bounds.y = orect.y;
+		if (orect.x + orect.w > rx) rx = orect.x + orect.w;
+		if (orect.y + orect.h > by) by = orect.y + orect.h;
+		st.bounds.w = rx - st.bounds.x;
+		st.bounds.h = by - st.bounds.y;
+	}
+
 	st.snap_hover = -1;
 	bool snap_enabled = true;
 	if (cfg) {

@@ -43,6 +43,8 @@ struct pixels_pool {
 	size_t map_size;
 	int32_t width, height, stride;
 	uint32_t format;
+	void *backend_priv;
+	void (*backend_priv_destroy)(void *priv);
 };
 
 void pixels_pool_destroy(struct pixels_pool *p);

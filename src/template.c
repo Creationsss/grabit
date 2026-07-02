@@ -207,3 +207,14 @@ const char *template_for_preset(const char *preset) {
 	if (strcmp(preset, "timestamp") == 0) return "%s";
 	return "%Y-%m-%d-%H-%M-%S";
 }
+
+bool template_uses_window(const char *tpl) {
+	if (!tpl) return false;
+	for (const char *p = tpl; *p; p++) {
+		if (*p != '%') continue;
+		p++;
+		if (!*p) break;
+		if (*p == 'w' || *p == 't') return true;
+	}
+	return false;
+}

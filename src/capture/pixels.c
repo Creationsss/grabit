@@ -139,6 +139,8 @@ void pixels_shm_buf_destroy(struct pixels_shm_buf *b) {
 
 void pixels_pool_destroy(struct pixels_pool *p) {
 	if (!p) return;
+	if (p->backend_priv && p->backend_priv_destroy)
+		p->backend_priv_destroy(p->backend_priv);
 	if (p->buffer) wl_buffer_destroy(p->buffer);
 	if (p->map) munmap(p->map, p->map_size);
 	memset(p, 0, sizeof *p);

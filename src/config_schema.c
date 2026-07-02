@@ -472,5 +472,5 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("out of memory");
 		return -1;
 	}
-	return config_save(c);
+	return 0;
 }

@@ -171,7 +171,8 @@ char *paths_build_output(struct config *cfg, const char *cli_template,
 	}
 
 	char *win_class = NULL, *win_title = NULL;
-	(void)grabit_hyprland_active_window(&win_class, &win_title);
+	if (template_uses_window(tpl))
+		(void)grabit_hyprland_active_window(&win_class, &win_title);
 	struct template_ctx ctx = {
 		.window_class = win_class,
 		.window_title = win_title,

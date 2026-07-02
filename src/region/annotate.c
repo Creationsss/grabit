@@ -51,14 +51,14 @@ static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 }
 
 static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
-					   double scale) {
+					   double scale, cairo_surface_t *backdrop) {
 	double cell = 12.0 * scale;
 	if (cell < 6.0) cell = 6.0;
 	cairo_save(cr);
 	cairo_rectangle(cr, x, y, w, h);
 	cairo_clip(cr);
 
-	cairo_surface_t *target = cairo_get_target(cr);
+	cairo_surface_t *target = backdrop ? backdrop : cairo_get_target(cr);
 	cairo_surface_flush(target);
 	int32_t tw = cairo_image_surface_get_width(target);
 	int32_t th = cairo_image_surface_get_height(target);
@@ -147,7 +147,8 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 	cairo_restore(cr);
 }
 
-void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
+void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double scale,
+							   cairo_surface_t *backdrop) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 	double w = (a->width > 0 ? a->width : 3) * scale;
@@ -224,7 +225,7 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
 		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
 		if (rw < 2.0 || rh < 2.0) break;
-		paint_blur(cr, x, y, rw, rh, scale);
+		paint_blur(cr, x, y, rw, rh, scale, backdrop);
 		break;
 	}
 	case TOOL_TEXT: {
@@ -242,6 +243,10 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 		break;
 	}
 	cairo_restore(cr);
+}
+
+void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
+	annotation_paint_backdrop(cr, a, scale, NULL);
 }
 
 void annotation_list_paint(cairo_t *cr, const struct annotation_list *list,
@@ -268,6 +273,7 @@ int annotation_list_push(struct annotation_list *list, const struct annotation *
 		list->cap = cap;
 	}
 	list->items[list->n++] = *a;
+	list->gen++;
 	return 0;
 }
 
@@ -275,6 +281,7 @@ void annotation_list_pop(struct annotation_list *list) {
 	if (list->n == 0) return;
 	struct annotation *a = &list->items[--list->n];
 	annotation_free(a);
+	list->gen++;
 }
 
 void annotation_free(struct annotation *a) {

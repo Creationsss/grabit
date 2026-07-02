@@ -85,6 +85,10 @@ static int output_alloc_buffer(struct ro_output *o) {
 
 void region_render_free_buffer(struct ro_output *o) {
 	grabit_wl_callback_drop(&o->frame_cb);
+	if (o->anno_cache) {
+		cairo_surface_destroy(o->anno_cache);
+		o->anno_cache = NULL;
+	}
 	if (o->cairo_frozen_pat) {
 		cairo_pattern_destroy(o->cairo_frozen_pat);
 		o->cairo_frozen_pat = NULL;
@@ -98,6 +102,50 @@ void region_render_free_buffer(struct ro_output *o) {
 		o->cairo_dst = NULL;
 	}
 	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+}
+
+static void anno_cache_ensure(struct ro_output *o) {
+	const struct annotation_list *annos = o->st->out_annos;
+	int32_t S = o->scale;
+	struct rect sel = {o->st->sel_x, o->st->sel_y, o->st->sel_w, o->st->sel_h};
+	if (o->anno_cache &&
+		(cairo_image_surface_get_width(o->anno_cache) != o->pixel_width ||
+		 cairo_image_surface_get_height(o->anno_cache) != o->pixel_height)) {
+		cairo_surface_destroy(o->anno_cache);
+		o->anno_cache = NULL;
+	}
+	if (o->anno_cache && o->anno_cache_gen == annos->gen &&
+		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
+		return;
+	if (!o->anno_cache) {
+		o->anno_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+												   o->pixel_width, o->pixel_height);
+		if (cairo_surface_status(o->anno_cache) != CAIRO_STATUS_SUCCESS) {
+			cairo_surface_destroy(o->anno_cache);
+			o->anno_cache = NULL;
+			return;
+		}
+	}
+	cairo_t *cc = cairo_create(o->anno_cache);
+	cairo_set_operator(cc, CAIRO_OPERATOR_CLEAR);
+	cairo_paint(cc);
+	cairo_set_operator(cc, CAIRO_OPERATOR_OVER);
+	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
+	cairo_scale(cc, S, S);
+	for (size_t i = 0; i < annos->n; i++)
+		annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
+	cairo_destroy(cc);
+	cairo_surface_flush(o->anno_cache);
+	o->anno_cache_gen = annos->gen;
+	o->anno_cache_sel = sel;
+}
+
+static void anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {
+	cairo_save(cr);
+	cairo_identity_matrix(cr);
+	cairo_set_source_surface(cr, cache, 0, 0);
+	cairo_paint(cr);
+	cairo_restore(cr);
 }
 
 static void hint_text_extents(cairo_t *cr, double S, const char *hint,
@@ -218,32 +266,39 @@ static void output_redraw(struct ro_output *o) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		cairo_push_group(cr);
-		if (o->st->out_annos) {
-			for (size_t i = 0; i < o->st->out_annos->n; i++) {
-				annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
+		anno_cache_ensure(o);
+		if (!o->anno_cache || o->st->drawing) {
+			cairo_push_group(cr);
+			if (o->anno_cache) {
+				anno_cache_paint(cr, o->anno_cache);
+			} else {
+				for (size_t i = 0; i < o->st->out_annos->n; i++) {
+					annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
+				}
 			}
+			if (o->st->drawing) {
+				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
+				region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
+										o->st->draw_x0, o->st->draw_y0, &px1, &py1);
+				struct annotation preview = {
+					.tool = o->st->current_tool,
+					.x0 = o->st->draw_x0,
+					.y0 = o->st->draw_y0,
+					.x1 = px1,
+					.y1 = py1,
+					.color = o->st->current_color,
+					.width = o->st->current_width,
+					.font_size = ANNO_DEFAULT_FONT,
+					.points = o->st->pen_points,
+					.n_points = o->st->pen_n,
+				};
+				annotation_paint(cr, &preview, 1.0);
+			}
+			cairo_pop_group_to_source(cr);
+			cairo_paint(cr);
+		} else {
+			anno_cache_paint(cr, o->anno_cache);
 		}
-		if (o->st->drawing) {
-			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
-			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
-									o->st->draw_x0, o->st->draw_y0, &px1, &py1);
-			struct annotation preview = {
-				.tool = o->st->current_tool,
-				.x0 = o->st->draw_x0,
-				.y0 = o->st->draw_y0,
-				.x1 = px1,
-				.y1 = py1,
-				.color = o->st->current_color,
-				.width = o->st->current_width,
-				.font_size = ANNO_DEFAULT_FONT,
-				.points = o->st->pen_points,
-				.n_points = o->st->pen_n,
-			};
-			annotation_paint(cr, &preview, 1.0);
-		}
-		cairo_pop_group_to_source(cr);
-		cairo_paint(cr);
 		if (o->st->text_input_active) {
 			double font = ANNO_DEFAULT_FONT;
 			cairo_select_font_face(cr, "sans-serif",

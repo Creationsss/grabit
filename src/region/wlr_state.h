@@ -47,6 +47,10 @@ struct ro_output {
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
 
+	cairo_surface_t *anno_cache;
+	size_t anno_cache_gen;
+	struct rect anno_cache_sel;
+
 	bool dirty;
 	struct wl_callback *frame_cb;
 };

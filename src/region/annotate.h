@@ -14,6 +14,8 @@ struct annotation;
 struct annotation_list;
 
 void annotation_paint(cairo_t *cr, const struct annotation *a, double scale);
+void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double scale,
+							   cairo_surface_t *backdrop);
 void annotation_list_paint(cairo_t *cr, const struct annotation_list *list,
 						   int32_t origin_x, int32_t origin_y, double scale);
 

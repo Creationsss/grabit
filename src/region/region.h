@@ -56,6 +56,7 @@ struct annotation_list {
 	struct annotation *items;
 	size_t n;
 	size_t cap;
+	size_t gen;
 };
 
 void annotation_list_free(struct annotation_list *list);

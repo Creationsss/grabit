@@ -27,6 +27,16 @@ void region_apply_handle_drag(struct ro_state *st);
 void region_undo_arm(struct ro_state *st);
 void region_undo_disarm(struct ro_state *st);
 
+#define NUDGE_LEFT (1u << 0)
+#define NUDGE_RIGHT (1u << 1)
+#define NUDGE_UP (1u << 2)
+#define NUDGE_DOWN (1u << 3)
+
+void region_nudge_press(struct ro_state *st, uint32_t dir);
+void region_nudge_release(struct ro_state *st, uint32_t dir);
+void region_nudge_disarm(struct ro_state *st);
+void region_nudge_tick(struct ro_state *st);
+
 void region_tooltip_arm(struct ro_state *st);
 void region_tooltip_disarm(struct ro_state *st);
 

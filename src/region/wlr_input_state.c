@@ -12,11 +12,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
+#include <unistd.h>
 
 #define UNDO_HOLD_DELAY_MS 600
 #define UNDO_HOLD_REPEAT_MS 80
 #define TOOLTIP_DELAY_MS 1000
 #define PEN_POINTS_MAX (1u << 18)
+#define NUDGE_DELAY_MS 300
+#define NUDGE_REPEAT_MS 30
+#define NUDGE_STEP_MAX 10
+#define NUDGE_ACCEL_TICKS 4
 
 void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8]) {
 	int32_t l = st->sel_x, r = st->sel_x + st->sel_w;
@@ -160,6 +165,73 @@ void region_undo_disarm(struct ro_state *st) {
 	st->undo_held = false;
 	struct itimerspec it = {0};
 	timerfd_settime(st->undo_timer_fd, 0, &it, NULL);
+}
+
+static void nudge_apply(struct ro_state *st, int32_t dx, int32_t dy) {
+	if (st->shift_held) {
+		st->sel_w += dx;
+		st->sel_h += dy;
+		if (st->sel_w < 1) st->sel_w = 1;
+		if (st->sel_h < 1) st->sel_h = 1;
+	} else {
+		st->sel_x += dx;
+		st->sel_y += dy;
+	}
+}
+
+static int32_t nudge_dx(uint32_t held) {
+	return ((held & NUDGE_RIGHT) ? 1 : 0) - ((held & NUDGE_LEFT) ? 1 : 0);
+}
+
+static int32_t nudge_dy(uint32_t held) {
+	return ((held & NUDGE_DOWN) ? 1 : 0) - ((held & NUDGE_UP) ? 1 : 0);
+}
+
+void region_nudge_press(struct ro_state *st, uint32_t dir) {
+	if (st->nudge_held & dir) return;
+	nudge_apply(st, nudge_dx(dir), nudge_dy(dir));
+	if (st->nudge_timer_fd < 0) return;
+	if (st->nudge_held == 0) {
+		st->nudge_ticks = 0;
+		struct itimerspec it = {
+			.it_value = {.tv_nsec = NUDGE_DELAY_MS * 1000000L},
+			.it_interval = {.tv_nsec = NUDGE_REPEAT_MS * 1000000L},
+		};
+		timerfd_settime(st->nudge_timer_fd, 0, &it, NULL);
+	}
+	st->nudge_held |= dir;
+}
+
+void region_nudge_release(struct ro_state *st, uint32_t dir) {
+	st->nudge_held &= ~dir;
+	if (st->nudge_held == 0) region_nudge_disarm(st);
+}
+
+void region_nudge_disarm(struct ro_state *st) {
+	if (st->nudge_timer_fd < 0) return;
+	st->nudge_held = 0;
+	st->nudge_ticks = 0;
+	struct itimerspec it = {0};
+	timerfd_settime(st->nudge_timer_fd, 0, &it, NULL);
+}
+
+void region_nudge_tick(struct ro_state *st) {
+	uint64_t expirations = 0;
+	ssize_t r = read(st->nudge_timer_fd, &expirations, sizeof expirations);
+	(void)r;
+	if (!st->region_locked || st->nudge_held == 0 ||
+		st->moving_region || st->handle_dragging != HANDLE_NONE || st->drawing) {
+		region_nudge_disarm(st);
+		return;
+	}
+	st->nudge_ticks++;
+	int32_t step = st->nudge_ticks / NUDGE_ACCEL_TICKS + 1;
+	if (step > NUDGE_STEP_MAX) step = NUDGE_STEP_MAX;
+	int32_t dx = nudge_dx(st->nudge_held);
+	int32_t dy = nudge_dy(st->nudge_held);
+	if (dx == 0 && dy == 0) return;
+	nudge_apply(st, dx * step, dy * step);
+	region_render_request_redraw_all(st);
 }
 
 void region_tooltip_arm(struct ro_state *st) {

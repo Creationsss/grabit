@@ -144,6 +144,10 @@ struct ro_state {
 	int undo_timer_fd;
 	bool undo_held;
 
+	int nudge_timer_fd;
+	uint32_t nudge_held;
+	int32_t nudge_ticks;
+
 	int tooltip_timer_fd;
 	int hovered_button;
 	bool tooltip_visible;

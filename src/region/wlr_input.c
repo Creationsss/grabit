@@ -505,10 +505,32 @@ static void keyboard_enter(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 						   struct wl_surface *surface) {
-	(void)data;
 	(void)kb;
 	(void)serial;
 	(void)surface;
+	struct ro_state *st = data;
+	if (st->cleanup) return;
+	region_nudge_disarm(st);
+	region_undo_disarm(st);
+}
+
+static uint32_t nudge_dir_for_sym(xkb_keysym_t sym) {
+	switch (sym) {
+	case XKB_KEY_Left:
+	case XKB_KEY_KP_Left:
+		return NUDGE_LEFT;
+	case XKB_KEY_Right:
+	case XKB_KEY_KP_Right:
+		return NUDGE_RIGHT;
+	case XKB_KEY_Up:
+	case XKB_KEY_KP_Up:
+		return NUDGE_UP;
+	case XKB_KEY_Down:
+	case XKB_KEY_KP_Down:
+		return NUDGE_DOWN;
+	default:
+		return 0;
+	}
 }
 
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {
@@ -551,6 +573,8 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
 			sym == XKB_KEY_z || sym == XKB_KEY_Z)
 			region_undo_disarm(st);
+		uint32_t dir = nudge_dir_for_sym(sym);
+		if (dir) region_nudge_release(st, dir);
 		return;
 	}
 
@@ -638,37 +662,9 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 
 	if (st->region_locked && !region_drag_active(st)) {
-		int32_t dx = 0, dy = 0;
-		switch (sym) {
-		case XKB_KEY_Left:
-		case XKB_KEY_KP_Left:
-			dx = -1;
-			break;
-		case XKB_KEY_Right:
-		case XKB_KEY_KP_Right:
-			dx = 1;
-			break;
-		case XKB_KEY_Up:
-		case XKB_KEY_KP_Up:
-			dy = -1;
-			break;
-		case XKB_KEY_Down:
-		case XKB_KEY_KP_Down:
-			dy = 1;
-			break;
-		default:
-			break;
-		}
-		if (dx != 0 || dy != 0) {
-			if (st->shift_held) {
-				st->sel_w += dx;
-				st->sel_h += dy;
-				if (st->sel_w < 1) st->sel_w = 1;
-				if (st->sel_h < 1) st->sel_h = 1;
-			} else {
-				st->sel_x += dx;
-				st->sel_y += dy;
-			}
+		uint32_t dir = nudge_dir_for_sym(sym);
+		if (dir) {
+			region_nudge_press(st, dir);
 			region_render_request_redraw_all(st);
 			return;
 		}

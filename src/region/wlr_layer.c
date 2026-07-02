@@ -9,6 +9,7 @@
 #include "hyprland.h"
 #include "log.h"
 #include "region/annotate.h"
+#include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl.h"
 
@@ -92,6 +93,9 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.tooltip_timer_fd = annotate_mode
 							  ? timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)
 							  : -1;
+	st.nudge_timer_fd = (annotate_mode || st.confirm_mode)
+							? timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)
+							: -1;
 
 	st.pointer = wl_seat_get_pointer(s->seat);
 	st.keyboard = wl_seat_get_keyboard(s->seat);
@@ -230,11 +234,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			break;
 		}
 
-		struct pollfd pfds[3];
+		struct pollfd pfds[4];
 		pfds[0].fd = wl_display_get_fd(s->display);
 		pfds[0].events = POLLIN;
 		int nfds = 1;
-		int undo_idx = -1, tip_idx = -1;
+		int undo_idx = -1, tip_idx = -1, nudge_idx = -1;
 		if (st.undo_timer_fd >= 0) {
 			pfds[nfds].fd = st.undo_timer_fd;
 			pfds[nfds].events = POLLIN;
@@ -244,6 +248,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			pfds[nfds].fd = st.tooltip_timer_fd;
 			pfds[nfds].events = POLLIN;
 			tip_idx = nfds++;
+		}
+		if (st.nudge_timer_fd >= 0) {
+			pfds[nfds].fd = st.nudge_timer_fd;
+			pfds[nfds].events = POLLIN;
+			nudge_idx = nfds++;
 		}
 
 		if (poll(pfds, (nfds_t)nfds, -1) < 0) {
@@ -290,6 +299,9 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				st.tooltip_visible = true;
 				region_render_request_redraw_all(&st);
 			}
+		}
+		if (nudge_idx >= 0 && (pfds[nudge_idx].revents & POLLIN)) {
+			region_nudge_tick(&st);
 		}
 	}
 loop_done:;
@@ -344,6 +356,7 @@ loop_done:;
 	free(st.pen_points);
 	if (st.undo_timer_fd >= 0) close(st.undo_timer_fd);
 	if (st.tooltip_timer_fd >= 0) close(st.tooltip_timer_fd);
+	if (st.nudge_timer_fd >= 0) close(st.nudge_timer_fd);
 
 	return rc;
 }

@@ -198,7 +198,7 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | key | default | notes |
 |---|---|---|
 | `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
-| `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys, drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
+| `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 

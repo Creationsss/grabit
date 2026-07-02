@@ -11,7 +11,6 @@
 #include "plugin/spawn.h"
 #include "plugin/state.h"
 #include "util.h"
-#include "vendor/sha256/sha256.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -57,6 +56,11 @@ static int symlink_force(const char *target, const char *link_path) {
 	return symlink(target, link_path);
 }
 
+static int plugin_rm_rf(const char *path) {
+	char *const argv[] = {"rm", "-rf", (char *)path, NULL};
+	return plugin_run_in(NULL, argv);
+}
+
 static void gc_stale_tmp(const char *root) {
 	DIR *d = opendir(root);
 	if (!d) return;
@@ -80,27 +84,10 @@ static void gc_stale_tmp(const char *root) {
 		char *path = NULL;
 		if (grabit_xasprintf(&path, "%s/%s", root, e->d_name) != 0) continue;
 		log_debug("plugin: gc stale %s", path);
-		char *const argv[] = {"rm", "-rf", path, NULL};
-		(void)plugin_run_in(NULL, argv);
+		(void)plugin_rm_rf(path);
 		free(path);
 	}
 	closedir(d);
-}
-
-static int verify_sha256(const char *path, const char *expect_hex) {
-	if (!expect_hex || !*expect_hex) return 0;
-	char actual[SHA256_HEX_SIZE];
-	if (plugin_sha256_file(path, actual) != 0) {
-		log_error("plugin: cannot hash %s", path);
-		return -1;
-	}
-	if (!plugin_sha256_equal(expect_hex, actual)) {
-		log_error("plugin: sha256 mismatch on %s", path);
-		log_error("  expected: %s", expect_hex);
-		log_error("  actual:   %s", actual);
-		return -1;
-	}
-	return 0;
 }
 
 int plugin_install_git(const char *url) {
@@ -136,10 +123,7 @@ int plugin_install_git(const char *url) {
 	free(tmp_name);
 
 	struct stat st;
-	if (stat(plugin_dir, &st) == 0) {
-		char *const argv[] = {"rm", "-rf", plugin_dir, NULL};
-		(void)plugin_run_in(NULL, argv);
-	}
+	if (stat(plugin_dir, &st) == 0) (void)plugin_rm_rf(plugin_dir);
 
 	log_info("plugin: cloning %s ...", url);
 	if (git_clone(url, plugin_dir) != 0) {
@@ -205,7 +189,7 @@ int plugin_install_git(const char *url) {
 			free(binary_path);
 			goto fail_manifest;
 		}
-		if (verify_sha256(binary_path, m.prebuilt_sha256) != 0) {
+		if (plugin_verify_sha256(binary_path, m.prebuilt_sha256) != 0) {
 			unlink(binary_path);
 			free(binary_path);
 			goto fail_manifest;
@@ -249,10 +233,7 @@ int plugin_install_git(const char *url) {
 fail_manifest:
 	plugin_manifest_free(&m);
 fail_clone:
-	if (plugin_dir) {
-		char *const argv[] = {"rm", "-rf", plugin_dir, NULL};
-		(void)plugin_run_in(NULL, argv);
-	}
+	if (plugin_dir) (void)plugin_rm_rf(plugin_dir);
 	free(plugin_dir);
 release:
 	plugin_lock_release(lock_fd);
@@ -285,8 +266,7 @@ int plugin_remove(const char *name) {
 	if (grabit_xasprintf(&link_path, "%s/grabit-%s", bin, name) != 0) goto out;
 	unlink(link_path);
 
-	char *const argv[] = {"rm", "-rf", plugin_dir, NULL};
-	if (plugin_run_in(NULL, argv) != 0) {
+	if (plugin_rm_rf(plugin_dir) != 0) {
 		log_error("plugin: rm -rf failed");
 		goto out;
 	}

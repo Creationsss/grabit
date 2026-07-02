@@ -26,14 +26,10 @@ struct ec_session {
 	int32_t width;
 	int32_t height;
 	int32_t stride;
-	uint32_t format;
-	bool swap_rb;
+	struct pixels_fmt_pick fmt;
 	bool have_size;
 	bool done;
 	bool overlay_cursor;
-
-	uint32_t advertised[16];
-	size_t n_advertised;
 
 	int status;
 	int *frame_status;
@@ -65,17 +61,7 @@ static void sess_shm_format(void *data,
 							struct ext_image_copy_capture_session_v1 *sess,
 							uint32_t format) {
 	(void)sess;
-	struct ec_session *es = data;
-	if (es->n_advertised < sizeof es->advertised / sizeof es->advertised[0]) {
-		es->advertised[es->n_advertised++] = format;
-	}
-	if (es->format) return;
-	uint32_t use = 0;
-	bool swap = false;
-	if (pixels_accept_format(format, &use, &swap)) {
-		es->format = use;
-		es->swap_rb = swap;
-	}
+	pixels_fmt_offer(&((struct ec_session *)data)->fmt, format);
 }
 
 static void sess_dmabuf_device(void *data,
@@ -253,12 +239,12 @@ static struct ec_session *ec_session_get(struct grabit_wl_state *s,
 
 static int alloc_buffer(struct ec_state *c) {
 	struct ec_session *es = c->sess;
-	if (!es->have_size || !es->format) {
-		pixels_log_advertised("ext-image-copy", es->advertised, es->n_advertised);
+	if (!es->have_size || !es->fmt.format) {
+		pixels_log_advertised("ext-image-copy", es->fmt.advertised, es->fmt.n);
 		return -1;
 	}
 	return pixels_pool_acquire(c->wls->shm, "grabit-ext-image-copy", c->pool,
-							   es->width, es->height, es->stride, es->format,
+							   es->width, es->height, es->stride, es->fmt.format,
 							   &c->buf);
 }
 
@@ -311,17 +297,9 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, false, NULL, &c) == 0) {
-		out->width = c.sess->width;
-		out->height = c.sess->height;
-		out->stride = c.sess->stride;
-		out->format = pixels_resolved_format(c.sess->format, c.sess->swap_rb);
-		out->size = c.buf.map_size;
-		out->bytes = malloc(c.buf.map_size);
-		if (out->bytes) {
-			pixels_copy(out->bytes, c.sess->stride, c.buf.map, c.sess->stride,
-						c.sess->width, c.sess->height, c.sess->swap_rb, false);
-			rc = 0;
-		}
+		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
+								   c.sess->width, c.sess->height, c.sess->stride,
+								   c.sess->fmt.format, c.sess->fmt.swap_rb, false);
 	}
 
 	cleanup_state(&c);
@@ -352,9 +330,9 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 			const uint8_t *src = (const uint8_t *)c.buf.map +
 								 (size_t)y * (size_t)c.sess->stride + (size_t)x * 4;
 			pixels_copy(dst, dst_stride, src, c.sess->stride, w, h,
-						c.sess->swap_rb, false);
+						c.sess->fmt.swap_rb, false);
 			if (out_format)
-				*out_format = pixels_resolved_format(c.sess->format, c.sess->swap_rb);
+				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.swap_rb);
 			rc = 0;
 		}
 	}

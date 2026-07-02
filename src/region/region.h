@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct config;
 struct grabit_wl_state;
 struct image;
 
@@ -61,7 +62,8 @@ struct annotation_list {
 
 void annotation_list_free(struct annotation_list *list);
 
-int region_select(struct grabit_wl_state *s, const struct image *frozen_per_output,
+int region_select(struct grabit_wl_state *s, struct config *cfg,
+				  const struct image *frozen_per_output,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,

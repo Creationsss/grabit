@@ -5,6 +5,7 @@
 #include "upload/sxcu_request.h"
 
 #include "upload/sxcu.h"
+#include "upload/upload.h"
 #include "util.h"
 
 #include <stdlib.h>
@@ -62,42 +63,17 @@ char *sxcu_build_url(CURL *c, const struct sxcu_uploader *u, const char *file_pa
 	return b.data;
 }
 
-static void clean_header_value(char *v) {
-	if (!v) return;
-	size_t n = strlen(v);
-	while (n > 0 && (v[n - 1] == '\r' || v[n - 1] == '\n' ||
-					 v[n - 1] == ' ' || v[n - 1] == '\t'))
-		v[--n] = '\0';
-	for (size_t i = 0; i < n; i++) {
-		if (v[i] == '\r' || v[i] == '\n') {
-			v[0] = '\0';
-			return;
-		}
-	}
-}
-
 struct curl_slist *sxcu_build_headers(const struct sxcu_uploader *u, const char *file_path,
 									  const char *content_type) {
 	struct curl_slist *list = NULL;
+	bool oom = false;
 	for (size_t i = 0; i < u->n_headers; i++) {
 		char *v = sxcu_expand_input(u->headers[i].v, file_path);
-		clean_header_value(v);
-		if (!v || !v[0]) {
-			free(v);
-			continue;
-		}
-		char *line = NULL;
-		grabit_xasprintf(&line, "%s: %s", u->headers[i].k, v);
-		if (line) list = curl_slist_append(list, line);
+		if (v && v[0]) list = upload_header_append(list, u->headers[i].k, v, &oom);
 		free(v);
-		free(line);
 	}
-	if (content_type) {
-		char *line = NULL;
-		grabit_xasprintf(&line, "Content-Type: %s", content_type);
-		if (line) list = curl_slist_append(list, line);
-		free(line);
-	}
+	if (content_type)
+		list = upload_header_append(list, "Content-Type", content_type, &oom);
 	return list;
 }
 

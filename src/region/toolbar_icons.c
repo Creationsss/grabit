@@ -223,12 +223,7 @@ void toolbar_color_current(cairo_t *cr, double cx, double cy, double s,
 	double w = half * 2;
 	double h = half * 2;
 
-	cairo_new_sub_path(cr);
-	cairo_arc(cr, x0 + radius, y0 + radius, radius, M_PI, 1.5 * M_PI);
-	cairo_arc(cr, x0 + w - radius, y0 + radius, radius, 1.5 * M_PI, 2.0 * M_PI);
-	cairo_arc(cr, x0 + w - radius, y0 + h - radius, radius, 0.0, 0.5 * M_PI);
-	cairo_arc(cr, x0 + radius, y0 + h - radius, radius, 0.5 * M_PI, M_PI);
-	cairo_close_path(cr);
+	grabit_cairo_rounded_rect(cr, x0, y0, w, h, radius);
 
 	grabit_cairo_set_source_argb(cr, color, 1);
 	cairo_fill_preserve(cr);

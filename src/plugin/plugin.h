@@ -38,6 +38,8 @@ int plugin_manifest_parse_file(const char *path, struct plugin_manifest *out);
 
 const char *plugin_dir_path(void);
 const char *plugin_bin_dir_path(void);
+char *plugin_path_for(const char *name, const char *suffix);
+int plugin_foreach_installed(int (*fn)(const char *name, void *ud), void *ud);
 
 bool plugin_name_is_valid(const char *name);
 int plugin_resolve(const char *name, char *path_out, size_t cap);

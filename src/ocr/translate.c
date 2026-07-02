@@ -205,11 +205,6 @@ char *grabit_translate(const char *text, const char *target) {
 	}
 	buf.data[buf.len] = '\0';
 	strip_ansi(buf.data);
-	size_t n = strlen(buf.data);
-	while (n > 0 && (buf.data[n - 1] == '\n' || buf.data[n - 1] == '\r' ||
-					 buf.data[n - 1] == ' ' || buf.data[n - 1] == '\t')) {
-		n--;
-	}
-	buf.data[n] = '\0';
+	grabit_rstrip(buf.data, strlen(buf.data));
 	return buf.data;
 }

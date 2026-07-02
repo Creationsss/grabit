@@ -12,7 +12,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-int grabit_freeze_capture(struct grabit_wl_state *s, const char *path,
+int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
+						  const char *path,
 						  const struct grabit_save_opts *save_opts,
 						  struct rect *out_rect, bool annotate,
 						  uint32_t *inout_color, int32_t *inout_width,
@@ -52,7 +53,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, const char *path,
 	}
 
 	if (!forced_only &&
-		region_select(s, frozen, annotate, &r, annotate ? &annos : NULL,
+		region_select(s, cfg, frozen, annotate, &r, annotate ? &annos : NULL,
 					  inout_color, inout_width, out_choices_dirty,
 					  forced_region, snap_rects, n_snap_rects) != 0) {
 		log_info("region selection cancelled");

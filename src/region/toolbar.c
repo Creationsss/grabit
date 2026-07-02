@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 
+#include "cairo_util.h"
 #include "wl.h"
 
 #include <math.h>
@@ -289,12 +290,7 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	if (tip_x + tip_w > pw - (double)S * 4.0) tip_x = pw - tip_w - (double)S * 4.0;
 
 	double r = 4.0 * S;
-	cairo_new_sub_path(cr);
-	cairo_arc(cr, tip_x + r, tip_y + r, r, M_PI, 1.5 * M_PI);
-	cairo_arc(cr, tip_x + tip_w - r, tip_y + r, r, 1.5 * M_PI, 2.0 * M_PI);
-	cairo_arc(cr, tip_x + tip_w - r, tip_y + tip_h - r, r, 0.0, 0.5 * M_PI);
-	cairo_arc(cr, tip_x + r, tip_y + tip_h - r, r, 0.5 * M_PI, M_PI);
-	cairo_close_path(cr);
+	grabit_cairo_rounded_rect(cr, tip_x, tip_y, tip_w, tip_h, r);
 	cairo_set_source_rgba(cr, 0.04, 0.04, 0.04, 0.94);
 	cairo_fill_preserve(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.18);

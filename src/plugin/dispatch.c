@@ -27,8 +27,8 @@ void plugin_dispatch_set_env(const char *name) {
 	}
 	setenv("GRABIT_PLUGIN_NAME", name, 1);
 
-	char *plugin_dir = NULL;
-	if (grabit_xasprintf(&plugin_dir, "%s/%s", plugin_dir_path(), name) == 0) {
+	char *plugin_dir = plugin_path_for(name, NULL);
+	if (plugin_dir) {
 		setenv("GRABIT_PLUGIN_DIR", plugin_dir, 1);
 		free(plugin_dir);
 	}
@@ -50,11 +50,7 @@ void plugin_dispatch_set_env(const char *name) {
 
 static const char *last_line(struct grabit_buf *b) {
 	if (!b->data) return "";
-	while (b->len > 0 && (b->data[b->len - 1] == '\n' ||
-						  b->data[b->len - 1] == '\r' ||
-						  b->data[b->len - 1] == ' ')) {
-		b->data[--b->len] = '\0';
-	}
+	b->len = grabit_rstrip(b->data, b->len);
 	char *nl = strrchr(b->data, '\n');
 	return nl ? nl + 1 : b->data;
 }
@@ -72,46 +68,24 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	plugin_maybe_auto_update(name);
 	plugin_dispatch_set_env(name);
 
-	int pipefd[2];
-	if (pipe(pipefd) != 0) return 1;
-
-	pid_t pid = fork();
-	if (pid < 0) {
-		close(pipefd[0]);
-		close(pipefd[1]);
-		return 1;
-	}
-	if (pid == 0) {
-		close(pipefd[0]);
-		dup2(pipefd[1], STDOUT_FILENO);
-		close(pipefd[1]);
-		char **new_argv = calloc((size_t)argc + 1, sizeof *new_argv);
-		if (!new_argv) _exit(127);
-		new_argv[0] = path;
-		for (int i = 1; i < argc; i++)
-			new_argv[i] = argv[i];
-		execv(path, new_argv);
-		_exit(127);
-	}
-	close(pipefd[1]);
+	char **new_argv = calloc((size_t)argc + 1, sizeof *new_argv);
+	if (!new_argv) return 1;
+	new_argv[0] = path;
+	for (int i = 1; i < argc; i++)
+		new_argv[i] = argv[i];
 
 	struct grabit_buf out = {0};
-	char chunk[4096];
-	ssize_t r;
 	enum { PLUGIN_OUTPUT_CAP = 16u << 20 };
 	bool capped = false;
-	while ((r = read(pipefd[0], chunk, sizeof chunk)) > 0) {
-		if (out.len + (size_t)r > PLUGIN_OUTPUT_CAP) {
-			capped = true;
-			break;
-		}
-		if (grabit_buf_putn(&out, chunk, (size_t)r) != 0) break;
+	int status = 0;
+	int rc = grabit_spawn_capture(new_argv, false, PLUGIN_OUTPUT_CAP, &out, &capped, &status);
+	free(new_argv);
+	if (rc != 0) {
+		grabit_buf_free(&out);
+		return 1;
 	}
-	close(pipefd[0]);
 	if (capped) log_warn("plugin: %s stdout exceeded %d MiB; truncating",
 						 name, PLUGIN_OUTPUT_CAP >> 20);
-	int status = 0;
-	(void)grabit_waitpid_intr(pid, &status);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 		if (out.data && out.data[0]) {
 			fprintf(stderr, "--- plugin %s stdout ---\n%s", name, out.data);

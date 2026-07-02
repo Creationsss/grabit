@@ -20,6 +20,7 @@ struct ro_state;
 #define HANDLE_W 7
 #define HANDLE_RADIUS 9
 
+void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8]);
 int region_handle_at(const struct ro_state *st, int32_t x, int32_t y);
 void region_apply_handle_drag(struct ro_state *st);
 

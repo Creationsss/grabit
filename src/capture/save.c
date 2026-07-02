@@ -90,6 +90,24 @@ static cairo_surface_t *build_composite_surface(int32_t dst_w, int32_t dst_h,
 	return dst;
 }
 
+int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
+						  int *w, int *h, int *stride, const unsigned char **data) {
+	if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+		log_error("%s: bad input surface", tag);
+		return -1;
+	}
+	cairo_surface_flush(surface);
+	*w = cairo_image_surface_get_width(surface);
+	*h = cairo_image_surface_get_height(surface);
+	*stride = cairo_image_surface_get_stride(surface);
+	*data = cairo_image_surface_get_data(surface);
+	if (*w <= 0 || *h <= 0 || *stride <= 0 || !*data) {
+		log_error("%s: empty surface", tag);
+		return -1;
+	}
+	return 0;
+}
+
 int grabit_save_png_surface(cairo_surface_t *surface, const char *path) {
 	cairo_status_t st = cairo_surface_write_to_png(surface, path);
 	if (st != CAIRO_STATUS_SUCCESS) {

@@ -3,6 +3,7 @@
 
 #include "capture/pixels.h"
 
+#include "capture/capture.h"
 #include "log.h"
 #include "util.h"
 
@@ -63,6 +64,19 @@ uint32_t pixels_resolved_format(uint32_t fmt, bool swap_rb) {
 										 : WL_SHM_FORMAT_ARGB8888;
 }
 
+void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
+	if (p->n < sizeof p->advertised / sizeof p->advertised[0]) {
+		p->advertised[p->n++] = fmt;
+	}
+	if (p->format) return;
+	uint32_t use = 0;
+	bool swap = false;
+	if (pixels_accept_format(fmt, &use, &swap)) {
+		p->format = use;
+		p->swap_rb = swap;
+	}
+}
+
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
 				 int32_t w, int32_t h, bool swap_rb, bool y_invert) {
@@ -83,6 +97,20 @@ void pixels_copy(void *dst, int32_t dst_stride,
 			memcpy(dp, sp, (size_t)w * 4);
 		}
 	}
+}
+
+int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
+						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,
+						  bool swap_rb, bool y_invert) {
+	out->width = w;
+	out->height = h;
+	out->stride = stride;
+	out->format = pixels_resolved_format(fmt, swap_rb);
+	out->size = map_size;
+	out->bytes = malloc(map_size);
+	if (!out->bytes) return -1;
+	pixels_copy(out->bytes, stride, map, stride, w, h, swap_rb, y_invert);
+	return 0;
 }
 
 void pixels_log_advertised(const char *backend,

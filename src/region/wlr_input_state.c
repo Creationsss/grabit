@@ -18,27 +18,35 @@
 #define TOOLTIP_DELAY_MS 1000
 #define PEN_POINTS_MAX (1u << 18)
 
-int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
-	if (!st->region_locked) return HANDLE_NONE;
+void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8]) {
 	int32_t l = st->sel_x, r = st->sel_x + st->sel_w;
 	int32_t t = st->sel_y, b = st->sel_y + st->sel_h;
 	int32_t mx = (l + r) / 2, my = (t + b) / 2;
-	struct {
-		int kind;
-		int32_t hx, hy;
-	} h[] = {
-		{HANDLE_NW, l, t},
-		{HANDLE_N, mx, t},
-		{HANDLE_NE, r, t},
-		{HANDLE_E, r, my},
-		{HANDLE_SE, r, b},
-		{HANDLE_S, mx, b},
-		{HANDLE_SW, l, b},
-		{HANDLE_W, l, my},
-	};
-	for (size_t i = 0; i < sizeof h / sizeof h[0]; i++) {
-		int32_t dx = x - h[i].hx, dy = y - h[i].hy;
-		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return h[i].kind;
+	hx[HANDLE_NW] = l;
+	hy[HANDLE_NW] = t;
+	hx[HANDLE_N] = mx;
+	hy[HANDLE_N] = t;
+	hx[HANDLE_NE] = r;
+	hy[HANDLE_NE] = t;
+	hx[HANDLE_E] = r;
+	hy[HANDLE_E] = my;
+	hx[HANDLE_SE] = r;
+	hy[HANDLE_SE] = b;
+	hx[HANDLE_S] = mx;
+	hy[HANDLE_S] = b;
+	hx[HANDLE_SW] = l;
+	hy[HANDLE_SW] = b;
+	hx[HANDLE_W] = l;
+	hy[HANDLE_W] = my;
+}
+
+int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
+	if (!st->region_locked) return HANDLE_NONE;
+	int32_t hx[8], hy[8];
+	region_handle_points(st, hx, hy);
+	for (int i = 0; i < 8; i++) {
+		int32_t dx = x - hx[i], dy = y - hy[i];
+		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return i;
 	}
 	return HANDLE_NONE;
 }

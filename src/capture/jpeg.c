@@ -15,21 +15,10 @@
 #include <jpeglib.h>
 
 int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int quality) {
-	if (!surface || !path) return -1;
-	if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-		log_error("jpeg: bad input surface");
-		return -1;
-	}
-
-	cairo_surface_flush(surface);
-	int w = cairo_image_surface_get_width(surface);
-	int h = cairo_image_surface_get_height(surface);
-	int stride = cairo_image_surface_get_stride(surface);
-	const unsigned char *src = cairo_image_surface_get_data(surface);
-	if (w <= 0 || h <= 0 || stride <= 0 || !src) {
-		log_error("jpeg: empty surface");
-		return -1;
-	}
+	if (!path) return -1;
+	int w, h, stride;
+	const unsigned char *src;
+	if (grabit_surface_pixels(surface, "jpeg", &w, &h, &stride, &src) != 0) return -1;
 
 	if (quality < 1) quality = 1;
 	if (quality > 100) quality = 100;

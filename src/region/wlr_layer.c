@@ -25,7 +25,8 @@
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-int region_select(struct grabit_wl_state *s, const struct image *frozen,
+int region_select(struct grabit_wl_state *s, struct config *cfg,
+				  const struct image *frozen,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
@@ -59,13 +60,11 @@ int region_select(struct grabit_wl_state *s, const struct image *frozen,
 
 	st.snap_hover = -1;
 	bool snap_enabled = true;
-	struct config region_cfg;
-	if (config_load(&region_cfg) == 0) {
-		const char *v = config_get(&region_cfg, "region.window_snap");
+	if (cfg) {
+		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
-		v = config_get(&region_cfg, "region.confirm");
+		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st.confirm_mode = true;
-		config_free(&region_cfg);
 	}
 	if (snap_rects && n_snap_rects > 0) {
 		st.snap_windows = malloc(n_snap_rects * sizeof *st.snap_windows);

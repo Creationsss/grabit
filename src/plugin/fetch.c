@@ -95,3 +95,19 @@ bool plugin_sha256_equal(const char *expect_hex, const char *actual_hex) {
 	if (!expect_hex || !*expect_hex) return true;
 	return strcasecmp(expect_hex, actual_hex) == 0;
 }
+
+int plugin_verify_sha256(const char *path, const char *expect_hex) {
+	if (!expect_hex || !*expect_hex) return 0;
+	char actual[SHA256_HEX_SIZE];
+	if (plugin_sha256_file(path, actual) != 0) {
+		log_error("plugin: cannot hash %s", path);
+		return -1;
+	}
+	if (!plugin_sha256_equal(expect_hex, actual)) {
+		log_error("plugin: sha256 mismatch on %s", path);
+		log_error("  expected: %s", expect_hex);
+		log_error("  actual:   %s", actual);
+		return -1;
+	}
+	return 0;
+}

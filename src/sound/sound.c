@@ -84,6 +84,5 @@ void grabit_sound_play(struct config *cfg) {
 		execvp(player, argv);
 		_exit(127);
 	}
-	int status;
-	waitpid(pid, &status, 0);
+	(void)grabit_waitpid_intr(pid, NULL);
 }

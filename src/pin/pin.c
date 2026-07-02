@@ -100,15 +100,6 @@ struct transient_extras {
 	const char *click_open;
 };
 
-static struct grabit_output *find_output_by_name(struct grabit_wl_state *s, const char *name) {
-	if (!name || !name[0]) return NULL;
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		struct grabit_output *o = s->outputs[i];
-		if (o->name && strcmp(o->name, name) == 0) return o;
-	}
-	return NULL;
-}
-
 static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 					bool transient, int dismiss_secs,
 					const struct transient_extras *te) {
@@ -157,7 +148,7 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		target = grabit_wl_output_at(&wls, r.x, r.y);
 	}
 	if (!target && transient && te && te->output_name && te->output_name[0]) {
-		target = find_output_by_name(&wls, te->output_name);
+		target = grabit_wl_output_by_name(&wls, te->output_name);
 		if (!target) {
 			log_warn("show: output `%s` not found; falling back to primary",
 					 te->output_name);

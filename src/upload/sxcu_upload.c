@@ -18,22 +18,12 @@
 
 #include <curl/curl.h>
 
-#ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.0.0"
-#endif
-
 struct write_ctx {
 	struct grabit_buf body;
 	struct sxcu_kv *headers;
 	size_t n_headers;
 	size_t cap_headers;
 };
-
-static size_t on_body(void *ptr, size_t sz, size_t nm, void *ud) {
-	struct write_ctx *w = ud;
-	size_t total = sz * nm;
-	return grabit_buf_putn(&w->body, ptr, total) == 0 ? total : 0;
-}
 
 static size_t on_header(char *buf, size_t sz, size_t nm, void *ud) {
 	struct write_ctx *w = ud;
@@ -212,16 +202,12 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 	hdrs = sxcu_build_headers(u, file_path, forced_ct);
 	if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
 
-	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, on_body);
-	curl_easy_setopt(c, CURLOPT_WRITEDATA, &w);
+	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
+	curl_easy_setopt(c, CURLOPT_WRITEDATA, &w.body);
 	curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, on_header);
 	curl_easy_setopt(c, CURLOPT_HEADERDATA, &w);
-	curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(c, CURLOPT_MAXREDIRS, 8L);
-	curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
-	curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 30L);
-	curl_easy_setopt(c, CURLOPT_TIMEOUT, 300L);
-	curl_easy_setopt(c, CURLOPT_USERAGENT, "grabit/" GRABIT_VERSION);
+	upload_curl_common(c);
 
 	CURLcode rc = curl_easy_perform(c);
 	long status = 0;
@@ -259,8 +245,12 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 											   u->regex_list, u->n_regex_list)
 						: NULL;
 		result->body = err ? err : strdup(body_data);
-		log_error("sxcu: upload failed (curl=%s, http=%ld)",
-				  curl_easy_strerror(rc), status);
+		if (rc != CURLE_OK) {
+			result->curl_code = (int)rc;
+			upload_log_curl_failure((int)rc);
+		} else {
+			upload_log_http_failure(status, body_data);
+		}
 	}
 
 cleanup:

@@ -386,27 +386,16 @@ static void output_redraw(struct ro_output *o) {
 		if (region_editing(o->st)) region_toolbar_render(cr, o);
 
 		int32_t hx[8], hy[8];
+		region_handle_points(o->st, hx, hy);
+		for (int i = 0; i < 8; i++) {
+			hx[i] = (hx[i] - o->go->x) * S;
+			hy[i] = (hy[i] - o->go->y) * S;
+		}
 		int32_t l = (o->st->sel_x - o->go->x) * S;
 		int32_t t = (o->st->sel_y - o->go->y) * S;
 		int32_t r = l + o->st->sel_w * S;
 		int32_t b = t + o->st->sel_h * S;
-		int32_t mx = (l + r) / 2, my = (t + b) / 2;
-		hx[0] = l;
-		hy[0] = t;
-		hx[1] = mx;
-		hy[1] = t;
-		hx[2] = r;
-		hy[2] = t;
-		hx[3] = r;
-		hy[3] = my;
-		hx[4] = r;
-		hy[4] = b;
-		hx[5] = mx;
-		hy[5] = b;
-		hx[6] = l;
-		hy[6] = b;
-		hx[7] = l;
-		hy[7] = my;
+		int32_t mx = (l + r) / 2;
 		double hr = 6.0 * S;
 		for (int i = 0; i < 8; i++) {
 			cairo_set_source_rgba(cr, 1, 1, 1, 0.95);

@@ -66,10 +66,7 @@ void tray_stop(struct tray_state *t) {
 	if (!t) return;
 	if (t->pid > 0) {
 		kill(t->pid, SIGTERM);
-		int status = 0;
-		while (waitpid(t->pid, &status, 0) < 0 && errno == EINTR) {
-			continue;
-		}
+		(void)grabit_waitpid_intr(t->pid, NULL);
 	}
 	free(t);
 }

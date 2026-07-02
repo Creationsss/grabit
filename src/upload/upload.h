@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <curl/curl.h>
+
 struct config;
 struct args;
 
@@ -30,6 +32,13 @@ int upload_perform(const char *service_name,
 				   struct upload_result *out);
 
 void upload_friendly_error(const struct upload_result *r, char *out, size_t cap);
+
+struct curl_slist *upload_header_append(struct curl_slist *list, const char *name,
+										const char *value, bool *oom);
+size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user);
+void upload_curl_common(CURL *curl);
+void upload_log_http_failure(long code, const char *body);
+void upload_log_curl_failure(int code);
 
 int cmd_sxcu(int argc, char **argv);
 

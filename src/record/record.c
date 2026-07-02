@@ -127,12 +127,6 @@ static char *build_record_path(struct config *cfg, const struct args *a,
 	return paths_build_output(cfg, a->filename_tpl, ".mp4", dest);
 }
 
-static bool resolve_also_save(struct config *cfg) {
-	const char *v = config_get(cfg, "also_save");
-	if (!v) v = config_get(cfg, "save_captures");
-	return v && strcmp(v, "true") == 0;
-}
-
 static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						struct buf_pool *pool, int fps, bool cursor, struct ring *ring) {
 	int64_t period_ns = 1000000000 / fps;
@@ -284,11 +278,12 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			struct rect *mon = NULL;
 			size_t n_mon = 0;
 			grabit_wl_monitor_rects(&s, &mon, &n_mon);
-			rc = region_select(&s, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, mon, n_mon);
+			rc = region_select(&s, cfg, frozen, false, &r, NULL, NULL, NULL, NULL, NULL,
+							   mon, n_mon);
 			free(mon);
 		}
 	} else {
-		rc = region_select(&s, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, NULL, 0);
+		rc = region_select(&s, cfg, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, NULL, 0);
 	}
 	for (size_t i = 0; i < s.n_outputs; i++)
 		image_free(&frozen[i]);
@@ -315,7 +310,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	bool keep_locally = !upload_service || resolve_also_save(cfg);
+	bool keep_locally = !upload_service || config_also_save(cfg);
 	char *output_path = build_record_path(cfg, a, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");

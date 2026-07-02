@@ -101,6 +101,17 @@ static void apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t ser
 	wl_surface_commit(st->cursor_surface);
 }
 
+static void slider_set_width_from_cursor(struct ro_state *st) {
+	int32_t sx, sy, sw, sh;
+	region_toolbar_slider_rect(st, &sx, &sy, &sw, &sh);
+	(void)sy;
+	(void)sh;
+	double frac = sw > 0 ? (double)(st->cursor_x - sx) / (double)sw : 0;
+	if (frac < 0) frac = 0;
+	if (frac > 1) frac = 1;
+	st->current_width = WIDTH_MIN + (int32_t)(frac * (WIDTH_MAX - WIDTH_MIN) + 0.5);
+}
+
 static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
 	struct ro_state *st = data;
@@ -137,15 +148,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 
 	if (st->region_locked) {
 		if (st->slider_dragging) {
-			int32_t slx, sly, slw, slh;
-			region_toolbar_slider_rect(st, &slx, &sly, &slw, &slh);
-			(void)sly;
-			(void)slh;
-			double frac = slw > 0 ? (double)(st->cursor_x - slx) / (double)slw : 0;
-			if (frac < 0) frac = 0;
-			if (frac > 1) frac = 1;
-			st->current_width = WIDTH_MIN +
-								(int32_t)(frac * (WIDTH_MAX - WIDTH_MIN) + 0.5);
+			slider_set_width_from_cursor(st);
 		} else if (st->color_picker_dragging) {
 			uint32_t picked = 0;
 			if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked)) {
@@ -303,15 +306,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 					st->eyedropper_mode = false;
 					refresh_cursor(st, p);
 				} else if (act == TB_WIDTH_SLIDER) {
-					int32_t sx, sy, sw, sh;
-					region_toolbar_slider_rect(st, &sx, &sy, &sw, &sh);
-					(void)sy;
-					(void)sh;
-					double frac = sw > 0 ? (double)(st->cursor_x - sx) / (double)sw : 0;
-					if (frac < 0) frac = 0;
-					if (frac > 1) frac = 1;
-					st->current_width = WIDTH_MIN +
-										(int32_t)(frac * (WIDTH_MAX - WIDTH_MIN) + 0.5);
+					slider_set_width_from_cursor(st);
 					st->slider_dragging = true;
 					st->edit_choices_dirty = true;
 					region_drag_start(st);

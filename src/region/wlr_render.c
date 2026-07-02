@@ -100,6 +100,30 @@ void region_render_free_buffer(struct ro_output *o) {
 	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
 }
 
+static void hint_text_extents(cairo_t *cr, double S, const char *hint,
+							  cairo_text_extents_t *ext) {
+	cairo_select_font_face(cr, "sans-serif",
+						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 12.0 * S);
+	cairo_text_extents(cr, hint, ext);
+}
+
+static void render_hint_pill(cairo_t *cr, double S, const char *hint,
+							 const cairo_text_extents_t *ext, double cx, double ty,
+							 double pw) {
+	double pad = 8.0 * S;
+	double tx = cx - ext->width / 2.0;
+	if (tx < pad) tx = pad;
+	if (tx + ext->width + pad > pw) tx = pw - ext->width - pad;
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_rectangle(cr, tx - pad, ty - ext->height - pad,
+					ext->width + pad * 2, ext->height + pad * 2);
+	cairo_fill(cr);
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, tx, ty);
+	cairo_show_text(cr, hint);
+}
+
 static void output_redraw(struct ro_output *o);
 
 static void frame_done(void *data, struct wl_callback *cb, uint32_t time) {
@@ -190,7 +214,7 @@ static void output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (o->st->annotate_mode && o->st->region_locked) {
+	if (region_editing(o->st) && o->st->region_locked) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
@@ -291,31 +315,20 @@ static void output_redraw(struct ro_output *o) {
 	}
 
 	if (o->st->region_locked) {
-		if (o->st->annotate_mode && o->st->text_input_active) {
+		if (region_editing(o->st) && o->st->text_input_active) {
 			const char *hint = o->st->text_len > 0
 								   ? "type more, enter to commit, esc to cancel"
 								   : "type your text, enter to commit, esc to cancel";
-			cairo_select_font_face(cr, "sans-serif",
-								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-			cairo_set_font_size(cr, 12.0 * S);
 			cairo_text_extents_t hext;
-			cairo_text_extents(cr, hint, &hext);
+			hint_text_extents(cr, S, hint, &hext);
 			double pad = 8.0 * S;
-			double tx = (double)(o->st->text_x - o->go->x) * S - hext.width / 2.0;
 			double ty = (double)(o->st->text_y - o->go->y) * S + 22.0 * S;
-			if (tx < pad) tx = pad;
-			if (tx + hext.width + pad > pw) tx = pw - hext.width - pad;
 			if (ty + hext.height + pad > ph) ty = ph - hext.height - pad;
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-			cairo_rectangle(cr, tx - pad, ty - hext.height - pad,
-							hext.width + pad * 2, hext.height + pad * 2);
-			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
-			cairo_move_to(cr, tx, ty);
-			cairo_show_text(cr, hint);
+			render_hint_pill(cr, S, hint, &hext,
+							 (double)(o->st->text_x - o->go->x) * S, ty, pw);
 		}
 
-		if (o->st->annotate_mode) region_toolbar_render(cr, o);
+		if (region_editing(o->st)) region_toolbar_render(cr, o);
 
 		int32_t hx[8], hy[8];
 		int32_t l = (o->st->sel_x - o->go->x) * S;
@@ -350,30 +363,18 @@ static void output_redraw(struct ro_output *o) {
 			cairo_stroke(cr);
 		}
 
-		if (o->st->annotate_mode) {
+		if (region_editing(o->st)) {
 			region_color_picker_render(cr, o);
 			region_toolbar_tooltip_render(cr, o);
 		} else if (sel_visible) {
 			const char *hint = "enter or ctrl+c to capture, esc to cancel";
-			cairo_select_font_face(cr, "sans-serif",
-								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-			cairo_set_font_size(cr, 12.0 * S);
 			cairo_text_extents_t hext;
-			cairo_text_extents(cr, hint, &hext);
+			hint_text_extents(cr, S, hint, &hext);
 			double pad = 8.0 * S;
-			double tx = (double)mx - hext.width / 2.0;
 			double ty = (double)b + 32.0 * S;
-			if (tx < pad) tx = pad;
-			if (tx + hext.width + pad > pw) tx = pw - hext.width - pad;
 			if (ty + pad > ph) ty = (double)t - 24.0 * S;
 			if (ty - hext.height - pad < 0) ty = (double)b - 20.0 * S;
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-			cairo_rectangle(cr, tx - pad, ty - hext.height - pad,
-							hext.width + pad * 2, hext.height + pad * 2);
-			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
-			cairo_move_to(cr, tx, ty);
-			cairo_show_text(cr, hint);
+			render_hint_pill(cr, S, hint, &hext, (double)mx, ty, pw);
 		}
 	}
 

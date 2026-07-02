@@ -114,9 +114,9 @@ instead of copying. Auto-dismisses after
 (default 8s).
 .TP
 .BR \-e ", " \-\-edit
-Open the in-tree annotation editor before the action (pen, rect, ellipse,
-arrow, blur, text, eraser, HSL color picker + eyedropper). Pairs with any
-action. Make it the default with
+Open the in-tree annotation editor before the action (pen, marker, line,
+rect, ellipse, arrow, blur, text, eraser, HSL color picker + eyedropper).
+Pairs with any action. Make it the default with
 .BR "grabit set edit.default true" .
 .SH MODIFIERS
 .TP
@@ -333,7 +333,9 @@ press
 .BR Ctrl+C ,
 or double-click inside it to capture;
 .B Esc
-cancels.
+cancels. In any selector,
+.B Ctrl+A
+selects the whole monitor under the cursor.
 .PP
 See
 .B OPTIONS.md

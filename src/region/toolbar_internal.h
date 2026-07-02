@@ -26,6 +26,8 @@ void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 							int32_t *out_w, int32_t *out_h);
 
 void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s);
+void toolbar_icon_marker(cairo_t *cr, double cx, double cy, double s);
+void toolbar_icon_line(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_rect(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s);

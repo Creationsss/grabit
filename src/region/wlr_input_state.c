@@ -274,7 +274,7 @@ void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 		int32_t side = adx > ady ? adx : ady;
 		*x1 = x0 + (dx < 0 ? -side : side);
 		*y1 = y0 + (dy < 0 ? -side : side);
-	} else if (tool == TOOL_ARROW) {
+	} else if (tool == TOOL_ARROW || tool == TOOL_LINE) {
 		double angle = atan2((double)(*y1 - y0), (double)(*x1 - x0));
 		double snap = round(angle / (M_PI / 4.0)) * (M_PI / 4.0);
 		double dx = *x1 - x0, dy = *y1 - y0;
@@ -291,7 +291,7 @@ void region_commit_drawing(struct ro_state *st) {
 	a.width = st->current_width;
 	a.font_size = ANNO_DEFAULT_FONT;
 
-	if (st->current_tool == TOOL_PEN || st->current_tool == TOOL_ERASER) {
+	if (tool_uses_points(st->current_tool)) {
 		if (st->pen_n == 0) {
 			st->drawing = false;
 			return;

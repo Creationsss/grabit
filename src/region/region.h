@@ -26,6 +26,8 @@ static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
 
 enum tool_kind {
 	TOOL_PEN = 0,
+	TOOL_MARKER,
+	TOOL_LINE,
 	TOOL_RECT,
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
@@ -34,6 +36,10 @@ enum tool_kind {
 	TOOL_ERASER,
 	TOOL_COUNT,
 };
+
+static inline bool tool_uses_points(enum tool_kind t) {
+	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
+}
 
 struct annotation {
 	enum tool_kind tool;

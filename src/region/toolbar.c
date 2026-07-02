@@ -11,21 +11,9 @@
 #include <cairo/cairo.h>
 
 static bool button_active(const struct ro_state *st, enum tb_action act) {
+	if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER)
+		return st->current_tool == (enum tool_kind)(act - TB_TOOL_PEN);
 	switch (act) {
-	case TB_TOOL_PEN:
-		return st->current_tool == TOOL_PEN;
-	case TB_TOOL_RECT:
-		return st->current_tool == TOOL_RECT;
-	case TB_TOOL_ELLIPSE:
-		return st->current_tool == TOOL_ELLIPSE;
-	case TB_TOOL_ARROW:
-		return st->current_tool == TOOL_ARROW;
-	case TB_TOOL_BLUR:
-		return st->current_tool == TOOL_BLUR;
-	case TB_TOOL_TEXT:
-		return st->current_tool == TOOL_TEXT;
-	case TB_TOOL_ERASER:
-		return st->current_tool == TOOL_ERASER;
 	case TB_COLOR_RED:
 		return st->current_color == TOOLBAR_COLORS[0];
 	case TB_COLOR_YELLOW:
@@ -100,6 +88,12 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	switch (act) {
 	case TB_TOOL_PEN:
 		toolbar_icon_pen(cr, cxi, cyi, s_icon);
+		break;
+	case TB_TOOL_MARKER:
+		toolbar_icon_marker(cr, cxi, cyi, s_icon);
+		break;
+	case TB_TOOL_LINE:
+		toolbar_icon_line(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_RECT:
 		toolbar_icon_rect(cr, cxi, cyi, s_icon);
@@ -206,18 +200,22 @@ static const char *tooltip_text(enum tb_action act) {
 	switch (act) {
 	case TB_TOOL_PEN:
 		return "Pen  (1)";
+	case TB_TOOL_MARKER:
+		return "Marker  (2)";
+	case TB_TOOL_LINE:
+		return "Line  (3)";
 	case TB_TOOL_RECT:
-		return "Rectangle  (2)";
+		return "Rectangle  (4)";
 	case TB_TOOL_ELLIPSE:
-		return "Ellipse  (3)";
+		return "Ellipse  (5)";
 	case TB_TOOL_ARROW:
-		return "Arrow  (4)";
+		return "Arrow  (6)";
 	case TB_TOOL_BLUR:
-		return "Blur  (5)";
+		return "Blur  (7)";
 	case TB_TOOL_TEXT:
-		return "Text  (6)";
+		return "Text  (8)";
 	case TB_TOOL_ERASER:
-		return "Eraser  (7)";
+		return "Eraser  (9)";
 	case TB_COLOR_RED:
 		return "Red";
 	case TB_COLOR_YELLOW:
@@ -233,9 +231,9 @@ static const char *tooltip_text(enum tb_action act) {
 	case TB_COLOR_CURRENT:
 		return "Current color  (click to open picker)";
 	case TB_WIDTH_SLIDER:
-		return "Line width  (drag)";
+		return "Line width  (drag or scroll)";
 	case TB_UNDO:
-		return "Undo  (u, hold to repeat)";
+		return "Undo  (u or ctrl+z, hold to repeat)";
 	case TB_SAVE:
 		return "Save  (Enter)";
 	case TB_CANCEL:

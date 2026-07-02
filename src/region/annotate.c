@@ -162,10 +162,26 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 		set_color(cr, a->color);
 		paint_arrow(cr, a->x0, a->y0, a->x1, a->y1, w);
 		break;
-	case TOOL_PEN: {
-		if (a->n_points < 1) break;
+	case TOOL_LINE:
 		set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
+		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+		cairo_move_to(cr, a->x0, a->y0);
+		cairo_line_to(cr, a->x1, a->y1);
+		cairo_stroke(cr);
+		break;
+	case TOOL_PEN:
+	case TOOL_MARKER:
+	case TOOL_ERASER: {
+		if (a->n_points < 1) break;
+		double lw = a->tool == TOOL_MARKER ? w * 2.5 : w;
+		if (a->tool == TOOL_MARKER)
+			grabit_cairo_set_source_argb(cr, a->color, 0.4);
+		else if (a->tool == TOOL_ERASER)
+			cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+		else
+			set_color(cr, a->color);
+		cairo_set_line_width(cr, lw);
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
 		cairo_move_to(cr, a->points[0], a->points[1]);
@@ -173,7 +189,7 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 			cairo_line_to(cr, a->points[i * 2], a->points[i * 2 + 1]);
 		}
 		if (a->n_points == 1) {
-			cairo_arc(cr, a->points[0], a->points[1], w / 2.0, 0, 2.0 * M_PI);
+			cairo_arc(cr, a->points[0], a->points[1], lw / 2.0, 0, 2.0 * M_PI);
 			cairo_fill(cr);
 		} else {
 			cairo_stroke(cr);
@@ -198,24 +214,6 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 		set_color(cr, a->color);
 		cairo_move_to(cr, a->x0, a->y0);
 		cairo_show_text(cr, a->text);
-		break;
-	}
-	case TOOL_ERASER: {
-		if (a->n_points < 1) break;
-		cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-		cairo_set_line_width(cr, w);
-		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-		cairo_move_to(cr, a->points[0], a->points[1]);
-		for (size_t i = 1; i < a->n_points; i++) {
-			cairo_line_to(cr, a->points[i * 2], a->points[i * 2 + 1]);
-		}
-		if (a->n_points == 1) {
-			cairo_arc(cr, a->points[0], a->points[1], w / 2.0, 0, 2.0 * M_PI);
-			cairo_fill(cr);
-		} else {
-			cairo_stroke(cr);
-		}
 		break;
 	}
 	case TOOL_COUNT:

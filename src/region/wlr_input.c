@@ -17,11 +17,11 @@
 
 #include <linux/input-event-codes.h>
 
-#define DOUBLE_CLICK_MS 400
-
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
+
+#define DOUBLE_CLICK_MS 400
 
 static void apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
 						 struct ro_output *o, struct wl_cursor *c);
@@ -47,7 +47,7 @@ static struct wl_cursor *pick_cursor(const struct ro_state *st, int32_t abs_x, i
 		if (st->handle_dragging >= 0 && st->handle_dragging < 8 &&
 			st->cursor_resize[st->handle_dragging])
 			return st->cursor_resize[st->handle_dragging];
-		if (st->annotate_mode && region_toolbar_contains(st, abs_x, abs_y)) {
+		if (region_editing(st) && region_toolbar_contains(st, abs_x, abs_y)) {
 			enum tb_action a = region_toolbar_hit(st, abs_x, abs_y);
 			if (a != TB_NONE && st->cursor_hand) return st->cursor_hand;
 			if (st->cursor_default) return st->cursor_default;
@@ -56,10 +56,10 @@ static struct wl_cursor *pick_cursor(const struct ro_state *st, int32_t abs_x, i
 		int h = region_handle_at(st, abs_x, abs_y);
 		if (h != HANDLE_NONE && st->cursor_resize[h]) return st->cursor_resize[h];
 		if (h != HANDLE_NONE && st->cursor_default) return st->cursor_default;
-		if ((st->ctrl_held || !st->annotate_mode) &&
+		if ((st->ctrl_held || !region_editing(st)) &&
 			region_inside_selection(st, abs_x, abs_y) && st->cursor_move)
 			return st->cursor_move;
-		if (!st->annotate_mode) return st->cursor;
+		if (!region_editing(st)) return st->cursor;
 		if (st->current_tool == TOOL_TEXT && st->cursor_text) return st->cursor_text;
 		return st->cursor_default ? st->cursor_default : st->cursor;
 	}
@@ -73,6 +73,15 @@ static void refresh_cursor(struct ro_state *st, struct wl_pointer *p) {
 	st->current_cursor = want;
 	if (st->last_cursor_serial == 0) return;
 	apply_cursor(st, p, st->last_cursor_serial, st->cursor_on, want);
+}
+
+static void lock_or_finish(struct ro_state *st) {
+	if (region_editing(st) || st->confirm_mode) {
+		st->region_locked = true;
+		if (st->pointer) refresh_cursor(st, st->pointer);
+	} else {
+		st->finished = true;
+	}
 }
 
 static void apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
@@ -148,8 +157,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 			st->sel_y = st->cursor_y - st->move_grab_dy;
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			region_apply_handle_drag(st);
-		} else if (st->drawing &&
-				   (st->current_tool == TOOL_PEN || st->current_tool == TOOL_ERASER)) {
+		} else if (st->drawing && tool_uses_points(st->current_tool)) {
 			region_pen_append(st, st->cursor_x, st->cursor_y);
 		}
 	} else {
@@ -159,7 +167,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	}
 
 	int hover = -1;
-	if (st->region_locked && st->annotate_mode && !st->drawing && !st->text_input_active &&
+	if (st->region_locked && region_editing(st) && !st->drawing && !st->text_input_active &&
 		!st->slider_dragging && !st->moving_region &&
 		st->handle_dragging == HANDLE_NONE) {
 		enum tb_action a = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
@@ -274,7 +282,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		}
 	}
 
-	if (st->region_locked && st->annotate_mode &&
+	if (st->region_locked && region_editing(st) &&
 		region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
 		enum tb_action act = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
 		if (act != TB_NONE) {
@@ -283,16 +291,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 				if (act != TB_WIDTH_SLIDER) region_tooltip_arm(st);
 				if (st->text_input_active) region_commit_text(st);
 				if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER) {
-					static const enum tool_kind ACT_TO_TOOL[] = {
-						[TB_TOOL_PEN] = TOOL_PEN,
-						[TB_TOOL_RECT] = TOOL_RECT,
-						[TB_TOOL_ELLIPSE] = TOOL_ELLIPSE,
-						[TB_TOOL_ARROW] = TOOL_ARROW,
-						[TB_TOOL_BLUR] = TOOL_BLUR,
-						[TB_TOOL_TEXT] = TOOL_TEXT,
-						[TB_TOOL_ERASER] = TOOL_ERASER,
-					};
-					st->current_tool = ACT_TO_TOOL[act];
+					st->current_tool = (enum tool_kind)(act - TB_TOOL_PEN);
 					refresh_cursor(st, p);
 				} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
 					st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];
@@ -358,14 +357,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 					st->snap_hover = -1;
 				}
 			}
-			if (st->has_selection) {
-				if ((st->annotate_mode && st->out_annos) || st->confirm_mode) {
-					st->region_locked = true;
-					refresh_cursor(st, p);
-				} else {
-					st->finished = true;
-				}
-			}
+			if (st->has_selection) lock_or_finish(st);
 		}
 		region_render_request_redraw_all(st);
 		return;
@@ -396,31 +388,26 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			region_render_request_redraw_all(st);
 			return;
 		}
-		if (!st->annotate_mode) {
-			if (region_inside_selection(st, st->cursor_x, st->cursor_y)) {
-				if (st->last_inside_press != 0 &&
-					time - st->last_inside_press <= DOUBLE_CLICK_MS) {
-					st->finished = true;
-					return;
-				}
-				st->last_inside_press = time;
-				st->moving_region = true;
-				st->move_grab_dx = st->cursor_x - st->sel_x;
-				st->move_grab_dy = st->cursor_y - st->sel_y;
-				region_drag_start(st);
-			} else {
-				st->region_locked = false;
-				st->dragging = true;
-				st->drag_x0 = st->cursor_x;
-				st->drag_y0 = st->cursor_y;
-				region_update_selection(st);
-			}
+		if (!region_inside_selection(st, st->cursor_x, st->cursor_y)) {
+			if (region_editing(st)) return;
+			st->region_locked = false;
+			st->dragging = true;
+			st->drag_x0 = st->cursor_x;
+			st->drag_y0 = st->cursor_y;
+			region_update_selection(st);
 			refresh_cursor(st, p);
 			region_render_request_redraw_all(st);
 			return;
 		}
-		if (!region_inside_selection(st, st->cursor_x, st->cursor_y)) return;
-		if (st->ctrl_held) {
+		if (!region_editing(st)) {
+			if (st->last_inside_press != 0 &&
+				time - st->last_inside_press <= DOUBLE_CLICK_MS) {
+				st->finished = true;
+				return;
+			}
+			st->last_inside_press = time;
+		}
+		if (st->ctrl_held || !region_editing(st)) {
 			st->moving_region = true;
 			st->move_grab_dx = st->cursor_x - st->sel_x;
 			st->move_grab_dy = st->cursor_y - st->sel_y;
@@ -442,7 +429,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		st->drawing = true;
 		st->draw_x0 = st->cursor_x;
 		st->draw_y0 = st->cursor_y;
-		if (st->current_tool == TOOL_PEN || st->current_tool == TOOL_ERASER) {
+		if (tool_uses_points(st->current_tool)) {
 			st->pen_n = 0;
 			region_pen_append(st, st->draw_x0, st->draw_y0);
 		}
@@ -463,11 +450,23 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 
 static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 						 uint32_t axis, wl_fixed_t value) {
-	(void)data;
 	(void)p;
 	(void)time;
-	(void)axis;
-	(void)value;
+	struct ro_state *st = data;
+	if (st->cleanup) return;
+	if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL) return;
+	if (!st->region_locked || !region_editing(st)) return;
+	st->scroll_accum += wl_fixed_to_double(value);
+	int32_t n = (int32_t)(st->scroll_accum / 10.0);
+	if (n == 0) return;
+	st->scroll_accum -= n * 10.0;
+	int32_t w = st->current_width - n;
+	if (w < WIDTH_MIN) w = WIDTH_MIN;
+	if (w > WIDTH_MAX) w = WIDTH_MAX;
+	if (w == st->current_width) return;
+	st->current_width = w;
+	st->edit_choices_dirty = true;
+	region_render_request_redraw_all(st);
 }
 
 static const struct wl_pointer_listener pointer_listener_g = {
@@ -624,7 +623,22 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 	if (st->ctrl_held && (sym == XKB_KEY_c || sym == XKB_KEY_C)) {
-		if (st->region_locked || st->has_selection) st->finished = true;
+		if (st->has_selection) st->finished = true;
+		return;
+	}
+	if (st->ctrl_held && (sym == XKB_KEY_a || sym == XKB_KEY_A)) {
+		if (region_drag_active(st) || st->n_outs == 0) return;
+		struct rect mon;
+		grabit_output_rect(st->cursor_on ? st->cursor_on->go : st->outs[0].go, &mon);
+		st->sel_x = mon.x;
+		st->sel_y = mon.y;
+		st->sel_w = mon.w;
+		st->sel_h = mon.h;
+		st->has_selection = true;
+		st->snap_hover = -1;
+		st->dragging = false;
+		lock_or_finish(st);
+		region_render_request_redraw_all(st);
 		return;
 	}
 
@@ -665,7 +679,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		}
 	}
 
-	if (!st->region_locked || !st->annotate_mode) return;
+	if (!st->region_locked || !region_editing(st)) return;
 
 	if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
 		(st->ctrl_held && (sym == XKB_KEY_z || sym == XKB_KEY_Z))) {
@@ -679,38 +693,10 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (region_drag_active(st)) return;
 
 	int32_t pick = -1;
-	switch (sym) {
-	case XKB_KEY_1:
-	case XKB_KEY_KP_1:
-		pick = TOOL_PEN;
-		break;
-	case XKB_KEY_2:
-	case XKB_KEY_KP_2:
-		pick = TOOL_RECT;
-		break;
-	case XKB_KEY_3:
-	case XKB_KEY_KP_3:
-		pick = TOOL_ELLIPSE;
-		break;
-	case XKB_KEY_4:
-	case XKB_KEY_KP_4:
-		pick = TOOL_ARROW;
-		break;
-	case XKB_KEY_5:
-	case XKB_KEY_KP_5:
-		pick = TOOL_BLUR;
-		break;
-	case XKB_KEY_6:
-	case XKB_KEY_KP_6:
-		pick = TOOL_TEXT;
-		break;
-	case XKB_KEY_7:
-	case XKB_KEY_KP_7:
-		pick = TOOL_ERASER;
-		break;
-	default:
-		break;
-	}
+	if (sym >= XKB_KEY_1 && sym <= XKB_KEY_9)
+		pick = (int32_t)(sym - XKB_KEY_1);
+	else if (sym >= XKB_KEY_KP_1 && sym <= XKB_KEY_KP_9)
+		pick = (int32_t)(sym - XKB_KEY_KP_1);
 	if (pick >= 0 && pick < TOOL_COUNT) {
 		st->current_tool = (enum tool_kind)pick;
 		if (st->pointer) refresh_cursor(st, st->pointer);

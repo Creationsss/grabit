@@ -120,6 +120,7 @@ struct ro_state {
 
 	uint32_t current_color;
 	int32_t current_width;
+	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
 	bool ctrl_held;
@@ -150,9 +151,15 @@ struct ro_state {
 	int32_t picker_pat_dh;
 };
 
+static inline bool region_editing(const struct ro_state *st) {
+	return st->annotate_mode && st->out_annos;
+}
+
 enum tb_action {
 	TB_NONE = -1,
 	TB_TOOL_PEN = 0,
+	TB_TOOL_MARKER,
+	TB_TOOL_LINE,
 	TB_TOOL_RECT,
 	TB_TOOL_ELLIPSE,
 	TB_TOOL_ARROW,

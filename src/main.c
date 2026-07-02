@@ -79,6 +79,7 @@ static int print_help(void) {
 		"Capture & output:\n"
 		"  -c, --copy        Copy screenshot to clipboard\n"
 		"  -u, --upload      Upload screenshot to default service\n"
+		"  --chunked         Upload to zipline in chunks (see services.zipline.chunked)\n"
 		"  --<service>       Upload to a specific service\n"
 		"                    (zipline|nest|fakecrime|ez|guns|pixelvault)\n"
 		"  -o, --output, --save\n"
@@ -372,7 +373,7 @@ static int run_upload(struct config *cfg, const struct args *a) {
 	if (!path) return 1;
 
 	struct upload_result r = {0};
-	int rc = upload_perform(service, path, cfg, &r);
+	int rc = upload_perform(service, path, cfg, a->chunked, &r);
 
 	if (rc == 0) {
 		clipboard_set_text(r.url);

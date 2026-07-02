@@ -28,7 +28,7 @@ void upload_result_free(struct upload_result *r);
 
 int upload_perform(const char *service_name,
 				   const char *file_path,
-				   struct config *cfg,
+				   struct config *cfg, bool chunked,
 				   struct upload_result *out);
 
 void upload_friendly_error(const struct upload_result *r, char *out, size_t cap);
@@ -39,6 +39,7 @@ size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user);
 void upload_curl_common(CURL *curl);
 void upload_log_http_failure(long code, const char *body);
 void upload_log_curl_failure(int code);
+void upload_log_response_body(const char *body);
 
 int cmd_sxcu(int argc, char **argv);
 

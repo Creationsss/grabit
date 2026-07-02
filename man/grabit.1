@@ -151,6 +151,16 @@ is
 The pointer is included by default; hide it with
 .BR "grabit set capture.cursor false" .
 .TP
+.B \-\-chunked
+Upload to Zipline in chunks via its partial-upload API (useful behind
+Cloudflare's upload size limit). Make it permanent with
+.B "grabit set services.zipline.chunked true"
+and tune the chunk size (MiB) with
+.BR services.zipline.chunk_size .
+Plain uploads rejected with HTTP 413 (e.g. Cloudflare's 100MB cap) retry in
+chunks automatically, halving the chunk size if needed. Zipline only; other
+services ignore it.
+.TP
 .BI \-f " file"
 Use an existing
 .I file

@@ -9,6 +9,7 @@
 #include "log.h"
 #include "notify/notify.h"
 #include "upload/sxcu.h"
+#include "upload/zipline.h"
 #include "util.h"
 #include "util/json_path.h"
 
@@ -224,7 +225,7 @@ struct curl_slist *upload_header_append(struct curl_slist *list, const char *nam
 	return next ? next : list;
 }
 
-static void log_response_body(const char *body) {
+void upload_log_response_body(const char *body) {
 	if (!body || !body[0]) return;
 	enum { BODY_MAX = 512 };
 	size_t len = strlen(body);
@@ -286,7 +287,7 @@ void upload_log_http_failure(long code, const char *body) {
 		log_error("upload failed (HTTP %ld): %s", code, summary);
 	else
 		log_error("upload failed (HTTP %ld)", code);
-	if (!summary || code == 0) log_response_body(body);
+	if (!summary || code == 0) upload_log_response_body(body);
 }
 
 void upload_log_curl_failure(int code) {
@@ -325,7 +326,7 @@ void upload_result_free(struct upload_result *r) {
 }
 
 int upload_perform(const char *service_name, const char *file_path,
-				   struct config *cfg, struct upload_result *out) {
+				   struct config *cfg, bool chunked, struct upload_result *out) {
 	upload_result_free(out);
 
 	const struct service *svc = find_service(service_name);
@@ -349,18 +350,13 @@ int upload_perform(const char *service_name, const char *file_path,
 		}
 	}
 
-	char env_key[64], cfg_key[64];
-	build_auth_keys(svc->name, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
-	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
+	const char *auth = resolve_auth(cfg, svc->name);
+	if (!auth) return -1;
 
-	if (!auth || !auth[0]) {
-		log_error("no auth token for %s.", svc->name);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, svc->name);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
-		return -1;
+	if (strcmp(svc->name, "zipline") == 0) {
+		const char *cv = config_get(cfg, "services.zipline.chunked");
+		if (chunked || (cv && strcmp(cv, "true") == 0))
+			return zipline_upload_partial(url, auth, cfg, file_path, out);
 	}
 
 	CURL *curl = curl_easy_init();
@@ -394,20 +390,7 @@ int upload_perform(const char *service_name, const char *file_path,
 	}
 
 	if (strcmp(svc->name, "zipline") == 0 && cfg) {
-		const char *prefix = "services.zipline.headers.";
-		size_t pl = strlen(prefix);
-		bool has_format = false;
-		for (size_t i = 0; i < cfg->n; i++) {
-			const char *k = cfg->kvs[i].key;
-			if (strncmp(k, prefix, pl) != 0) continue;
-			const char *header_name = k + pl;
-			const char *val = cfg->kvs[i].val;
-			if (strcmp(header_name, "x-zipline-format") == 0) has_format = true;
-			if (val && val[0]) headers = upload_header_append(headers, header_name, val, &hdr_oom);
-		}
-		if (!has_format) {
-			headers = upload_header_append(headers, "x-zipline-format", "name", &hdr_oom);
-		}
+		headers = zipline_option_headers(cfg, headers, &hdr_oom);
 	}
 
 	if (hdr_oom) {
@@ -445,6 +428,11 @@ int upload_perform(const char *service_name, const char *file_path,
 		upload_log_curl_failure((int)rc);
 		return -1;
 	}
+	if (http_code == 413 && strcmp(svc->name, "zipline") == 0) {
+		log_info("zipline: upload rejected as too large (HTTP 413); retrying in chunks");
+		upload_result_free(out);
+		return zipline_upload_partial(url, auth, cfg, file_path, out);
+	}
 	if (http_code != 200) {
 		upload_log_http_failure(http_code, out->body);
 		return -1;
@@ -455,7 +443,7 @@ int upload_perform(const char *service_name, const char *file_path,
 								   : NULL;
 	if (!root || json_object_get_type(root) != json_type_object) {
 		log_error("invalid JSON response from %s", svc->name);
-		log_response_body(out->body);
+		upload_log_response_body(out->body);
 		if (root) json_object_put(root);
 		return -1;
 	}
@@ -465,7 +453,7 @@ int upload_perform(const char *service_name, const char *file_path,
 
 	if (!out->url) {
 		log_error("could not find %s in %s response", svc->json_path, svc->name);
-		log_response_body(out->body);
+		upload_log_response_body(out->body);
 		return -1;
 	}
 	return 0;

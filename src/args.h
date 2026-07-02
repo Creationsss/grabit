@@ -29,6 +29,7 @@ struct args {
 	bool translate;
 	bool show;
 	bool cursor;
+	bool chunked;
 	bool fullscreen;
 	const char *file;
 	const char *service;

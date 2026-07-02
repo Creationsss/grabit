@@ -120,6 +120,7 @@ GRABIT_SRCS := \
 	src/tray/sni.c \
 	src/tray/tray.c \
 	src/upload/upload.c \
+	src/upload/zipline.c \
 	src/upload/sxcu_parse.c \
 	src/upload/sxcu_template.c \
 	src/upload/sxcu_request.c \

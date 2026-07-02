@@ -101,6 +101,8 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"preview.dismiss_secs",
 	"services.zipline.auth",
 	"services.zipline.domain",
+	"services.zipline.chunked",
+	"services.zipline.chunk_size",
 	"services.nest.auth",
 	"services.nest.folder",
 	"services.fakecrime.auth",
@@ -286,6 +288,16 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "services.zipline.chunked") == 0) {
+		*example_out = "true|false";
+		*def_out = "false";
+		return 0;
+	}
+	if (strcmp(key, "services.zipline.chunk_size") == 0) {
+		*example_out = "1-95 (MiB per chunk)";
+		*def_out = "25";
+		return 0;
+	}
 	if (strcmp(key, "translate.target") == 0) {
 		*example_out = "<iso-639-1 code, e.g. en|ja|de|es>";
 		*def_out = "en";
@@ -380,6 +392,8 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	puts("  services.<svc>.auth     (svc: zipline|nest|fakecrime|ez|guns|pixelvault)");
 	puts("  services.zipline.domain");
+	puts("  services.zipline.chunked");
+	puts("  services.zipline.chunk_size");
 	puts("  services.nest.folder");
 	puts("");
 	puts("  services.zipline.headers.<name>:");

@@ -120,6 +120,20 @@ grabit set services.zipline.domain https://your.host
 
 nest accepts an optional `services.nest.folder` (uuid) to upload into a specific folder.
 
+### zipline chunked uploads
+
+zipline v4 supports splitting large uploads into chunks (useful behind cloudflare's 100MB post limit). grabit sends them to `/api/upload/partial` the same way the zipline web client does:
+
+```sh
+grabit --record --zipline --chunked      # chunk this one upload
+grabit set services.zipline.chunked true # always chunk zipline uploads
+grabit set services.zipline.chunk_size 50  # MiB per chunk (default 25, 1-95)
+```
+
+the final chunk returns the file URL immediately while the server assembles the chunks in the background, so the link may 404 for a moment on very large files.
+
+grabit also recovers from proxy size limits automatically (cloudflare's free plan caps request bodies at 100MB): a plain zipline upload rejected with HTTP 413 is retried in chunks, and a chunk that still gets 413'd is retried with progressively halved chunks (down to 1 MiB).
+
 ### zipline custom headers
 
 zipline supports per-upload metadata via headers. set them with `services.zipline.headers.<name>`:

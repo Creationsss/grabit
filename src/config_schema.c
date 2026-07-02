@@ -23,6 +23,7 @@ static const char *BOOL_KEYS[] = {
 	"capture.cursor",
 	"region.window_snap",
 	"region.confirm",
+	"services.zipline.chunked",
 	"edit.default",
 	"preview.enabled",
 	NULL,
@@ -118,6 +119,8 @@ static bool valid_service_key(const char *key) {
 	const char *leaf = dot + 1;
 	if (strcmp(leaf, "auth") == 0) return true;
 	if (strcmp(leaf, "domain") == 0) return strcmp(svc, "zipline") == 0;
+	if (strcmp(leaf, "chunked") == 0) return strcmp(svc, "zipline") == 0;
+	if (strcmp(leaf, "chunk_size") == 0) return strcmp(svc, "zipline") == 0;
 	if (strcmp(leaf, "folder") == 0) return strcmp(svc, "nest") == 0;
 	if (strncmp(leaf, "headers.", 8) == 0) return strcmp(svc, "zipline") == 0 && leaf[8] != '\0';
 	return false;
@@ -405,6 +408,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 				  "film|animation|grain|stillimage|psnr|ssim|fastdecode|zerolatency");
 		return -1;
 	}
+	if (strcmp(key, "services.zipline.chunk_size") == 0 &&
+		validate_int_in_range(key, value, 1, 95) != 0) return -1;
 	if (strcmp(key, "recording.format") == 0 && !cfg_in_list(value, VALS_record_format)) {
 		log_error("recording.format must be one of mp4|webm|gif");
 		return -1;

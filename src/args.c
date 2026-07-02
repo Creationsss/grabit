@@ -98,6 +98,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->cursor = true;
 			continue;
 		}
+		if (strcmp(arg, "--chunked") == 0) {
+			out->chunked = true;
+			continue;
+		}
 		if (strcmp(arg, "-F") == 0 || strcmp(arg, "--fullscreen") == 0) {
 			out->fullscreen = true;
 			continue;

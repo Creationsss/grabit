@@ -489,7 +489,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				.body = upload_service,
 			});
 			struct upload_result ur = {0};
-			int up_rc = upload_perform(upload_service, output_path, cfg, &ur);
+			int up_rc = upload_perform(upload_service, output_path, cfg, a->chunked, &ur);
 			if (up_rc == 0 && ur.url) {
 				clipboard_set_text(ur.url);
 				puts(ur.url);

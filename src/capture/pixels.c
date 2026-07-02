@@ -68,12 +68,13 @@ void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
 	if (p->n < sizeof p->advertised / sizeof p->advertised[0]) {
 		p->advertised[p->n++] = fmt;
 	}
-	if (p->format) return;
+	if (p->chosen) return;
 	uint32_t use = 0;
 	bool swap = false;
 	if (pixels_accept_format(fmt, &use, &swap)) {
 		p->format = use;
 		p->swap_rb = swap;
+		p->chosen = true;
 	}
 }
 

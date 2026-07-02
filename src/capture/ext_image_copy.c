@@ -239,7 +239,7 @@ static struct ec_session *ec_session_get(struct grabit_wl_state *s,
 
 static int alloc_buffer(struct ec_state *c) {
 	struct ec_session *es = c->sess;
-	if (!es->have_size || !es->fmt.format) {
+	if (!es->have_size || !es->fmt.chosen) {
 		pixels_log_advertised("ext-image-copy", es->fmt.advertised, es->fmt.n);
 		return -1;
 	}

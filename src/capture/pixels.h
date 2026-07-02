@@ -19,6 +19,7 @@ struct pixels_fmt_pick {
 	size_t n;
 	uint32_t format;
 	bool swap_rb;
+	bool chosen;
 };
 
 void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt);

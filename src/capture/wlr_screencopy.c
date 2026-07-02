@@ -42,10 +42,10 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 	log_debug("wlr-screencopy: buffer format=%s (0x%08x) %ux%u stride=%u",
 			  fname ? fname : "?", format, w, h, stride);
 
-	bool had_format = c->fmt.format != 0;
+	bool had_format = c->fmt.chosen;
 	pixels_fmt_offer(&c->fmt, format);
 
-	if (c->buf.buffer || had_format || !c->fmt.format) return;
+	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
 
 	if (h > 0 && stride > SIZE_MAX / (size_t)h) {
 		log_error("wlr-screencopy: %ux%u stride=%u overflows", w, h, stride);

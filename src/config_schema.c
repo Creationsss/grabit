@@ -20,6 +20,7 @@ static const char *BOOL_KEYS[] = {
 	"webp.lossless",
 	"recording.cursor",
 	"sound.enabled",
+	"capture.cursor",
 	"region.window_snap",
 	"region.confirm",
 	"edit.default",
@@ -175,7 +176,8 @@ static bool valid_preview_key(const char *key) {
 
 static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
-	return strcmp(key + 8, "backend") == 0;
+	const char *leaf = key + 8;
+	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0;
 }
 
 static bool valid_region_key(const char *key) {
@@ -187,6 +189,7 @@ static bool valid_region_key(const char *key) {
 static bool valid_recording_key(const char *key) {
 	if (strncmp(key, "recording.", 10) != 0) return false;
 	const char *leaf = key + 10;
+	if (strcmp(leaf, "format") == 0) return true;
 	return strcmp(leaf, "fps") == 0 || strcmp(leaf, "crf") == 0 ||
 		   strcmp(leaf, "max_size_mb") == 0 || strcmp(leaf, "cursor") == 0 ||
 		   strcmp(leaf, "ffmpeg") == 0 || strcmp(leaf, "preset") == 0 ||
@@ -222,6 +225,8 @@ static const char *VALS_pix_fmt[] = {
 	"yuv420p10le",
 	NULL,
 };
+
+static const char *VALS_record_format[] = {"mp4", "webm", "gif", NULL};
 
 static const char *VALS_x264_preset[] = {
 	"ultrafast",
@@ -398,6 +403,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "recording.tune") == 0 && value[0] && !cfg_in_list(value, VALS_x264_tune)) {
 		log_error("recording.tune must be one of "
 				  "film|animation|grain|stillimage|psnr|ssim|fastdecode|zerolatency");
+		return -1;
+	}
+	if (strcmp(key, "recording.format") == 0 && !cfg_in_list(value, VALS_record_format)) {
+		log_error("recording.format must be one of mp4|webm|gif");
 		return -1;
 	}
 	if (strcmp(key, "recording.pix_fmt") == 0 && !cfg_in_list(value, VALS_pix_fmt)) {

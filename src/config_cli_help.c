@@ -69,6 +69,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"service",
 	"format",
 	"recording.fps",
+	"recording.format",
 	"recording.crf",
 	"recording.preset",
 	"recording.tune",
@@ -86,6 +87,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"webp.lossless",
 	"ocr.tesseract",
 	"capture.backend",
+	"capture.cursor",
 	"region.window_snap",
 	"region.confirm",
 	"translate.target",
@@ -171,6 +173,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		if (strcmp(leaf, "crf") == 0) {
 			*example_out = "0-51";
 			*def_out = "23";
+			return 0;
+		}
+		if (strcmp(leaf, "format") == 0) {
+			*example_out = "mp4|webm|gif";
+			*def_out = "mp4";
 			return 0;
 		}
 		if (strcmp(leaf, "max_size_mb") == 0) {
@@ -262,6 +269,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	if (strcmp(key, "capture.backend") == 0) {
 		*example_out = "auto|wlr|ext";
 		*def_out = "auto";
+		return 0;
+	}
+	if (strcmp(key, "capture.cursor") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
 		return 0;
 	}
 	if (strcmp(key, "region.window_snap") == 0) {
@@ -377,6 +389,7 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	static const char *const RECORDING_KEYS[] = {
 		"recording.fps",
+		"recording.format",
 		"recording.crf",
 		"recording.preset",
 		"recording.tune",
@@ -417,6 +430,7 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("ocr.tesseract", find_default("ocr.tesseract"));
 	puts("");
 	print_key_with_default("capture.backend", find_default("capture.backend"));
+	print_key_with_default("capture.cursor", find_default("capture.cursor"));
 	print_key_with_default("region.window_snap", find_default("region.window_snap"));
 	print_key_with_default("region.confirm", find_default("region.confirm"));
 	print_key_with_default("translate.target", find_default("translate.target"));

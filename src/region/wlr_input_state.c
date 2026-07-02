@@ -427,7 +427,7 @@ void region_commit_text(struct ro_state *st) {
 	struct annotation a = {0};
 	a.tool = TOOL_TEXT;
 	a.color = st->current_color;
-	a.font_size = ANNO_DEFAULT_FONT;
+	a.font_size = st->current_font;
 	a.x0 = st->text_x;
 	a.y0 = st->text_y;
 	st->text_buf[st->text_len] = '\0';

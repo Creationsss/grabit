@@ -131,14 +131,14 @@ static void cleanup_state(struct sc_state *c) {
 }
 
 int grabit_wlr_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
-							struct image *out) {
+							bool overlay_cursor, struct image *out) {
 	if (!s || !s->screencopy_manager || !o || !out) return -1;
 	if (o->dead || !o->wl_output) return -1;
 	memset(out, 0, sizeof *out);
 
 	struct sc_state c = {.wls = s};
 	c.frame = zwlr_screencopy_manager_v1_capture_output(
-		s->screencopy_manager, 0, o->wl_output);
+		s->screencopy_manager, overlay_cursor ? 1 : 0, o->wl_output);
 	if (!c.frame) {
 		log_error("zwlr_screencopy_manager_v1_capture_output: NULL");
 		return -1;

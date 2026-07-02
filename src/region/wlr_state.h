@@ -125,6 +125,7 @@ struct ro_state {
 
 	uint32_t current_color;
 	int32_t current_width;
+	int32_t current_font;
 	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
@@ -220,6 +221,8 @@ void region_color_picker_release_cache(struct ro_state *st);
 
 #define WIDTH_MIN 1
 #define WIDTH_MAX 12
+#define FONT_MIN 8
+#define FONT_MAX 72
 void region_toolbar_render(cairo_t *cr, const struct ro_output *o);
 void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
 

@@ -69,6 +69,7 @@ struct grabit_output *grabit_wl_output_by_name(struct grabit_wl_state *s, const 
 
 struct rect;
 void grabit_output_rect(const struct grabit_output *o, struct rect *r);
+void grabit_wl_outputs_bbox(struct grabit_wl_state *s, struct rect *out);
 void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out);
 int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out);
 

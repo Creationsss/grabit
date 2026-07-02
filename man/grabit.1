@@ -70,8 +70,10 @@ uploader.
 Capture, save to disk, and print the path to standard output.
 .TP
 .B \-\-record
-Toggle screen recording (run again to stop). Records a region to MP4/H.264 with
-a live border overlay and an SNI tray icon.
+Toggle screen recording (run again to stop). Records a region to MP4/H.264
+(or WebM/GIF via
+.BR "grabit set recording.format webm|gif" )
+with a live border overlay and an SNI tray icon.
 .TP
 .B \-\-pin
 Capture a region and pin it to the desktop as a click-through overlay. Pins
@@ -136,7 +138,18 @@ As above, but capture a specific monitor directly (no picker).
 .I monitor
 is a 1-based number or an output name (e.g.
 .BR \-\-fullscreen=DP\-1 ).
-An unknown value lists the available monitors and exits.
+Use
+.B \-\-fullscreen=all
+to capture every monitor stitched into one image. An unknown value lists the
+available monitors and exits.
+.TP
+.B \-\-cursor
+Include the mouse pointer in the screenshot for this run even if
+.B capture.cursor
+is
+.BR false .
+The pointer is included by default; hide it with
+.BR "grabit set capture.cursor false" .
 .TP
 .BI \-f " file"
 Use an existing

@@ -113,9 +113,11 @@ static int print_help(void) {
 	fputs(
 		"                    One monitor: grabs it directly. Multiple: hover a monitor\n"
 		"                    and click to pick it (drag still works for a custom region).\n"
-		"                    Skip the picker with --fullscreen=<n> (1-based) or\n"
-		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1). Works with\n"
+		"                    Skip the picker with --fullscreen=<n> (1-based),\n"
+		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1), or grab every\n"
+		"                    monitor stitched together with --fullscreen=all. Works with\n"
 		"                    -c/-u/-o/--pin/--tesseract/--record and pairs with -e.\n"
+		"  --cursor          Include the mouse pointer even if capture.cursor=false\n"
 		"  --silent, -q, --quiet  Suppress notifications and sound\n"
 		"  -d, --debug       Enable debug logging to stderr\n"
 		"  --filename <tpl>  Per-run filename template\n"
@@ -313,7 +315,9 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
 	bool edit_dirty = false;
 
-	int rc = grabit_freeze_capture(&s, cfg, path, &opts, out_rect, a->edit,
+	const char *cursor_cfg = config_get(cfg, "capture.cursor");
+	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
+	int rc = grabit_freeze_capture(&s, cfg, path, &opts, out_rect, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
 								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);

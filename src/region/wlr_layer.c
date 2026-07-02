@@ -53,28 +53,14 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.current_tool = TOOL_PEN;
 	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
+	st.current_font = ANNO_DEFAULT_FONT;
 	st.handle_dragging = -1;
 	st.hovered_button = -1;
 	st.outs = calloc(s->n_outputs, sizeof *st.outs);
 	if (!st.outs) return -1;
 	st.n_outs = s->n_outputs;
 
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		struct rect orect;
-		grabit_output_rect(s->outputs[i], &orect);
-		if (i == 0) {
-			st.bounds = orect;
-			continue;
-		}
-		int32_t rx = st.bounds.x + st.bounds.w;
-		int32_t by = st.bounds.y + st.bounds.h;
-		if (orect.x < st.bounds.x) st.bounds.x = orect.x;
-		if (orect.y < st.bounds.y) st.bounds.y = orect.y;
-		if (orect.x + orect.w > rx) rx = orect.x + orect.w;
-		if (orect.y + orect.h > by) by = orect.y + orect.h;
-		st.bounds.w = rx - st.bounds.x;
-		st.bounds.h = by - st.bounds.y;
-	}
+	grabit_wl_outputs_bbox(s, &st.bounds);
 
 	st.snap_hover = -1;
 	bool snap_enabled = true;

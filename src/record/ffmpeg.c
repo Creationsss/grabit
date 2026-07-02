@@ -17,7 +17,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
+int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,
 				 const char *output_path,
@@ -69,33 +69,54 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
 		argv[i++] = (char *)"-";
 		argv[i++] = (char *)"-vsync";
 		argv[i++] = (char *)"vfr";
+		bool gif = strcmp(format, "gif") == 0;
+		bool webm = strcmp(format, "webm") == 0;
 		argv[i++] = (char *)"-vf";
-		argv[i++] = (char *)"crop=trunc(iw/2)*2:trunc(ih/2)*2,"
-							"scale=in_range=full:out_range=full:"
-							"flags=accurate_rnd+full_chroma_int+full_chroma_inp,"
-							"format=yuv420p";
-		argv[i++] = (char *)"-c:v";
-		argv[i++] = (char *)"libx264";
-		argv[i++] = (char *)"-preset";
-		argv[i++] = (char *)preset;
-		if (tune && tune[0]) {
-			argv[i++] = (char *)"-tune";
-			argv[i++] = (char *)tune;
+		argv[i++] = (char *)(gif ? "split[a][b];[a]palettegen=stats_mode=single[p];"
+								   "[b][p]paletteuse=new=1"
+								 : "crop=trunc(iw/2)*2:trunc(ih/2)*2,"
+								   "scale=in_range=full:out_range=full:"
+								   "flags=accurate_rnd+full_chroma_int+full_chroma_inp,"
+								   "format=yuv420p");
+		if (webm) {
+			argv[i++] = (char *)"-c:v";
+			argv[i++] = (char *)"libvpx-vp9";
+			argv[i++] = (char *)"-deadline";
+			argv[i++] = (char *)"realtime";
+			argv[i++] = (char *)"-cpu-used";
+			argv[i++] = (char *)"6";
+			argv[i++] = (char *)"-row-mt";
+			argv[i++] = (char *)"1";
+			argv[i++] = (char *)"-pix_fmt";
+			argv[i++] = (char *)out_pix_fmt;
+			argv[i++] = (char *)"-crf";
+			argv[i++] = crf_s;
+			argv[i++] = (char *)"-b:v";
+			argv[i++] = (char *)"0";
+		} else if (!gif) {
+			argv[i++] = (char *)"-c:v";
+			argv[i++] = (char *)"libx264";
+			argv[i++] = (char *)"-preset";
+			argv[i++] = (char *)preset;
+			if (tune && tune[0]) {
+				argv[i++] = (char *)"-tune";
+				argv[i++] = (char *)tune;
+			}
+			argv[i++] = (char *)"-pix_fmt";
+			argv[i++] = (char *)out_pix_fmt;
+			argv[i++] = (char *)"-color_range";
+			argv[i++] = (char *)"pc";
+			argv[i++] = (char *)"-colorspace";
+			argv[i++] = (char *)"smpte170m";
+			argv[i++] = (char *)"-color_primaries";
+			argv[i++] = (char *)"bt709";
+			argv[i++] = (char *)"-color_trc";
+			argv[i++] = (char *)"iec61966-2-1";
+			argv[i++] = (char *)"-x264-params";
+			argv[i++] = (char *)"colormatrix=smpte170m";
+			argv[i++] = (char *)"-crf";
+			argv[i++] = crf_s;
 		}
-		argv[i++] = (char *)"-pix_fmt";
-		argv[i++] = (char *)out_pix_fmt;
-		argv[i++] = (char *)"-color_range";
-		argv[i++] = (char *)"pc";
-		argv[i++] = (char *)"-colorspace";
-		argv[i++] = (char *)"smpte170m";
-		argv[i++] = (char *)"-color_primaries";
-		argv[i++] = (char *)"bt709";
-		argv[i++] = (char *)"-color_trc";
-		argv[i++] = (char *)"iec61966-2-1";
-		argv[i++] = (char *)"-x264-params";
-		argv[i++] = (char *)"colormatrix=smpte170m";
-		argv[i++] = (char *)"-crf";
-		argv[i++] = crf_s;
 		argv[i++] = (char *)output_path;
 		argv[i] = NULL;
 		execvp(ffmpeg_bin, argv);

@@ -21,7 +21,7 @@ first run writes a default config to `~/.config/grabit/config.toml`.
 
 - region screenshots with native freeze + selector (no `slurp`/`grim` shellouts); uses `zwlr_screencopy_v1` if advertised, else falls back to `ext_image_copy_capture_v1` (KDE Plasma 6)
 - on hyprland, the region selector highlights the window under the cursor as a snap target - click to capture it, or drag for a freeform region
-- screen recording to mp4/h.264 with live overlay + sni tray icon
+- screen recording to mp4/h.264, webm/vp9, or gif with live overlay + sni tray icon
 - ocr (capture → text → clipboard) via tesseract
 - in-tree annotation editor (`--edit`): pen, rect, ellipse, arrow, blur, text, eraser, hsl color picker + eyedropper, hex input
 - pin captures to the desktop (always-on-top, click-through, draggable when grabbed)
@@ -192,6 +192,7 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | key | default | notes |
 |---|---|---|
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river) and falls back to `ext` (KDE Plasma 6). Force one with `wlr` or `ext`. |
+| `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 
 ### region selector
 
@@ -236,6 +237,7 @@ config keys (all optional):
 | key | default | notes |
 |---|---|---|
 | `recording.fps` | 30 | 1-120 |
+| `recording.format` | `mp4` | `mp4` (h.264), `webm` (vp9), or `gif`. `crf` applies to mp4/webm; `preset`/`tune`/`max_size_mb` are mp4-only; gif ignores all encoder keys |
 | `recording.crf` | 23 | 0-51 (lower = higher quality) |
 | `recording.preset` | `fast` | one of: `ultrafast`, `superfast`, `veryfast`, `faster`, `fast`, `medium`, `slow`, `slower`, `veryslow` |
 | `recording.tune` | (none) | one of: `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
@@ -352,8 +354,11 @@ monitor selection:
 - multiple monitors, no target: the region selector opens dimmed and snaps to whole monitors — hover a monitor to highlight it, click to grab it (same as window-snapping, but for monitors). dragging still works if you want a custom region.
 - `--fullscreen=<n>`: pick by 1-based number directly, no picker (the order shown in the printed monitor list).
 - `--fullscreen=<name>`: pick by output name directly, e.g. `--fullscreen=DP-1`.
+- `--fullscreen=all`: capture every monitor stitched into one image (gaps in the layout come out black).
 
 an unknown number or name prints the available monitors and exits.
+
+the mouse pointer is included in screenshots by default (`capture.cursor`, default `true`); `--cursor` forces it on for one run even when the config disables it. recordings have their own `recording.cursor`.
 
 with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
 
@@ -370,7 +375,7 @@ grabit -e -o                  # annotate, then save
 - **pen, marker, line, rect, ellipse, arrow, blur, text, eraser** - keyboard shortcuts `1`–`9`
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
-- **width slider** (1–12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli)
+- **width slider** (1–12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8–72) instead
 - **undo** (`u` or `ctrl+z`, hold to repeat) / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles

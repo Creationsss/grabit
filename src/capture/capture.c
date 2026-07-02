@@ -59,13 +59,13 @@ static enum capture_backend resolve_backend(struct grabit_wl_state *s) {
 }
 
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
-						struct image *out) {
+						bool overlay_cursor, struct image *out) {
 	if (!s) return -1;
 	switch (resolve_backend(s)) {
 	case CAP_WLR:
-		return grabit_wlr_capture_full(s, o, out);
+		return grabit_wlr_capture_full(s, o, overlay_cursor, out);
 	case CAP_EXT:
-		return grabit_ext_capture_full(s, o, out);
+		return grabit_ext_capture_full(s, o, overlay_cursor, out);
 	default:
 		return -1;
 	}

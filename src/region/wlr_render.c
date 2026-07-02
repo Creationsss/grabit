@@ -300,7 +300,7 @@ static void output_redraw(struct ro_output *o) {
 			anno_cache_paint(cr, o->anno_cache);
 		}
 		if (o->st->text_input_active) {
-			double font = ANNO_DEFAULT_FONT;
+			double font = o->st->current_font;
 			cairo_select_font_face(cr, "sans-serif",
 								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 			cairo_set_font_size(cr, font);
@@ -321,7 +321,7 @@ static void output_redraw(struct ro_output *o) {
 					.x0 = o->st->text_x,
 					.y0 = o->st->text_y,
 					.color = o->st->current_color,
-					.font_size = ANNO_DEFAULT_FONT,
+					.font_size = (int32_t)font,
 					.text = (char *)o->st->text_buf,
 				};
 				annotation_paint(cr, &preview, 1.0);

@@ -95,6 +95,12 @@ static bool read_cursor(struct config *cfg) {
 	return !v || strcmp(v, "true") == 0;
 }
 
+static const char *read_format(struct config *cfg) {
+	const char *v = config_get(cfg, "recording.format");
+	if (v && (strcmp(v, "webm") == 0 || strcmp(v, "gif") == 0)) return v;
+	return "mp4";
+}
+
 static const char *read_ffmpeg(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.ffmpeg");
 	return (v && v[0]) ? v : "ffmpeg";
@@ -122,9 +128,11 @@ static int64_t now_ns(void) {
 }
 
 static char *build_record_path(struct config *cfg, const struct args *a,
-							   bool keep_locally) {
+							   const char *format, bool keep_locally) {
 	enum paths_dest dest = keep_locally ? PATHS_DEST_VIDEOS : PATHS_DEST_TEMP;
-	return paths_build_output(cfg, a->filename_tpl, ".mp4", dest);
+	char ext[16];
+	snprintf(ext, sizeof ext, ".%s", format);
+	return paths_build_output(cfg, a->filename_tpl, ext, dest);
 }
 
 static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
@@ -242,7 +250,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 	for (size_t i = 0; i < s.n_outputs; i++) {
-		if (capture_output_full(&s, s.outputs[i], &frozen[i]) != 0) {
+		if (capture_output_full(&s, s.outputs[i], false, &frozen[i]) != 0) {
 			log_warn("freeze capture of %s failed; selector will be dimmed",
 					 s.outputs[i]->name ? s.outputs[i]->name : "?");
 			memset(&frozen[i], 0, sizeof frozen[i]);
@@ -311,7 +319,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	bool keep_locally = !upload_service || config_also_save(cfg);
-	char *output_path = build_record_path(cfg, a, keep_locally);
+	const char *format = read_format(cfg);
+	char *output_path = build_record_path(cfg, a, format, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
 		rec_layout_free(&layout);
@@ -353,7 +362,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	pid_t ffmpeg_pid = -1;
 	int ffmpeg_fd = -1;
-	if (spawn_ffmpeg(ffmpeg_bin, preset, tune, pix_fmt,
+	if (spawn_ffmpeg(ffmpeg_bin, format, preset, tune, pix_fmt,
 					 layout.dst_w, layout.dst_h, fps, crf,
 					 output_path, &ffmpeg_pid, &ffmpeg_fd) != 0) {
 		unlink_pid_file();
@@ -444,6 +453,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	if (wait_rc == 0) {
 		int max_mb = read_int_cfg(cfg, "recording.max_size_mb", 0, 0, 100000);
+		if (max_mb > 0 && strcmp(format, "mp4") != 0) {
+			log_debug("recording: max_size_mb only applies to mp4; skipping");
+			max_mb = 0;
+		}
 		struct stat st;
 		if (max_mb > 0 && stat(output_path, &st) == 0 &&
 			(long long)st.st_size > (long long)max_mb * 1024 * 1024) {

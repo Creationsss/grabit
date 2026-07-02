@@ -28,6 +28,7 @@ struct args {
 	bool no_upload;
 	bool translate;
 	bool show;
+	bool cursor;
 	bool fullscreen;
 	const char *file;
 	const char *service;

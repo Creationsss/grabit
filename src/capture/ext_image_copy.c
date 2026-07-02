@@ -289,14 +289,14 @@ static int do_capture(struct grabit_wl_state *s, struct grabit_output *o,
 }
 
 int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
-							struct image *out) {
+							bool overlay_cursor, struct image *out) {
 	if (!s || !s->ext_copy_manager || !s->ext_source_manager) return -1;
 	if (!o || o->dead || !o->wl_output || !out) return -1;
 	memset(out, 0, sizeof *out);
 
 	struct ec_state c;
 	int rc = -1;
-	if (do_capture(s, o, false, NULL, &c) == 0) {
+	if (do_capture(s, o, overlay_cursor, NULL, &c) == 0) {
 		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
 								   c.sess->width, c.sess->height, c.sess->stride,
 								   c.sess->fmt.format, c.sess->fmt.swap_rb, false);

@@ -62,22 +62,43 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 	cairo_surface_flush(target);
 	int32_t tw = cairo_image_surface_get_width(target);
 	int32_t th = cairo_image_surface_get_height(target);
-	int stride = cairo_image_surface_get_stride(target);
 	cairo_format_t fmt = cairo_image_surface_get_format(target);
 	if (fmt != CAIRO_FORMAT_ARGB32 && fmt != CAIRO_FORMAT_RGB24) {
 		cairo_restore(cr);
 		return;
 	}
 
-	cairo_surface_t *snap = cairo_image_surface_create(fmt, tw, th);
+	double bx0 = x, by0 = y, bx1 = x + w, by1 = y + h;
+	cairo_user_to_device(cr, &bx0, &by0);
+	cairo_user_to_device(cr, &bx1, &by1);
+	int32_t sx0 = (int32_t)floor(bx0 < bx1 ? bx0 : bx1);
+	int32_t sy0 = (int32_t)floor(by0 < by1 ? by0 : by1);
+	int32_t sx1 = (int32_t)ceil(bx0 > bx1 ? bx0 : bx1);
+	int32_t sy1 = (int32_t)ceil(by0 > by1 ? by0 : by1);
+	if (sx0 < 0) sx0 = 0;
+	if (sy0 < 0) sy0 = 0;
+	if (sx1 > tw) sx1 = tw;
+	if (sy1 > th) sy1 = th;
+	if (sx1 <= sx0 || sy1 <= sy0) {
+		cairo_restore(cr);
+		return;
+	}
+
+	cairo_surface_t *snap = cairo_image_surface_create(fmt, sx1 - sx0, sy1 - sy0);
 	cairo_t *cr2 = cairo_create(snap);
 	cairo_set_operator(cr2, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_surface(cr2, target, 0, 0);
+	cairo_set_source_surface(cr2, target, -sx0, -sy0);
 	cairo_paint(cr2);
 	cairo_destroy(cr2);
 	cairo_surface_flush(snap);
 
 	const uint8_t *snap_data = cairo_image_surface_get_data(snap);
+	int snap_stride = cairo_image_surface_get_stride(snap);
+	if (!snap_data) {
+		cairo_surface_destroy(snap);
+		cairo_restore(cr);
+		return;
+	}
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 	for (double cy = y; cy < y + h; cy += cell) {
@@ -93,18 +114,19 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 			int32_t py0 = (int32_t)dy0;
 			int32_t px1 = (int32_t)dx1;
 			int32_t py1 = (int32_t)dy1;
-			if (px0 < 0) px0 = 0;
-			if (py0 < 0) py0 = 0;
-			if (px1 > tw) px1 = tw;
-			if (py1 > th) py1 = th;
+			if (px0 < sx0) px0 = sx0;
+			if (py0 < sy0) py0 = sy0;
+			if (px1 > sx1) px1 = sx1;
+			if (py1 > sy1) py1 = sy1;
 			if (px1 <= px0 || py1 <= py0) continue;
 
 			uint64_t sr = 0, sg = 0, sb = 0;
 			uint64_t count = 0;
 			for (int32_t py = py0; py < py1; py++) {
-				const uint32_t *row = (const uint32_t *)(snap_data + (size_t)py * stride);
+				const uint32_t *row = (const uint32_t *)(snap_data +
+														 (size_t)(py - sy0) * snap_stride);
 				for (int32_t px = px0; px < px1; px++) {
-					uint32_t p = row[px];
+					uint32_t p = row[px - sx0];
 					sr += (p >> 16) & 0xff;
 					sg += (p >> 8) & 0xff;
 					sb += p & 0xff;

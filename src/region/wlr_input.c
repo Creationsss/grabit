@@ -17,6 +17,8 @@
 
 #include <linux/input-event-codes.h>
 
+#define DOUBLE_CLICK_MS 400
+
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
@@ -173,7 +175,6 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 						   uint32_t time, uint32_t button, uint32_t state) {
 	(void)p;
 	(void)serial;
-	(void)time;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
 
@@ -397,6 +398,12 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		}
 		if (!st->annotate_mode) {
 			if (region_inside_selection(st, st->cursor_x, st->cursor_y)) {
+				if (st->last_inside_press != 0 &&
+					time - st->last_inside_press <= DOUBLE_CLICK_MS) {
+					st->finished = true;
+					return;
+				}
+				st->last_inside_press = time;
 				st->moving_region = true;
 				st->move_grab_dx = st->cursor_x - st->sel_x;
 				st->move_grab_dy = st->cursor_y - st->sel_y;

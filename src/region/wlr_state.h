@@ -127,6 +127,7 @@ struct ro_state {
 	bool moving_region;
 	int32_t move_grab_dx;
 	int32_t move_grab_dy;
+	uint32_t last_inside_press;
 	bool slider_dragging;
 	bool eyedropper_mode;
 	bool color_picker_open;

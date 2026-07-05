@@ -172,6 +172,28 @@ static void render_hint_pill(cairo_t *cr, double S, const char *hint,
 	cairo_show_text(cr, hint);
 }
 
+static void render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char *hint) {
+	int32_t S = o->scale;
+	cairo_text_extents_t hext;
+	hint_text_extents(cr, S, hint, &hext);
+	double pad = 8.0 * S;
+	double ty = (double)o->pixel_height - 24.0 * S;
+	if (region_editing(o->st)) {
+		int32_t tbx, tby, tbw, tbh;
+		const struct grabit_output *to;
+		region_toolbar_rect(o->st, &to, &tbx, &tby, &tbw, &tbh);
+		if (to == o->go) {
+			double tb_top = (double)(tby - o->go->y) * S;
+			double tb_bot = (double)(tby + tbh - o->go->y) * S;
+			double pill_top = ty - hext.height - pad;
+			if (pill_top < tb_bot + 6.0 * S && ty + pad > tb_top - 6.0 * S)
+				ty = tb_top - 6.0 * S - pad;
+		}
+	}
+	render_hint_pill(cr, S, hint, &hext, (double)o->pixel_width / 2.0, ty,
+					 (double)o->pixel_width);
+}
+
 static void output_redraw(struct ro_output *o);
 
 static void frame_done(void *data, struct wl_callback *cb, uint32_t time) {
@@ -304,14 +326,17 @@ static void output_redraw(struct ro_output *o) {
 			cairo_select_font_face(cr, "sans-serif",
 								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 			cairo_set_font_size(cr, font);
+			cairo_font_extents_t fe;
+			cairo_font_extents(cr, &fe);
 			cairo_text_extents_t typed_ext = {0};
 			if (o->st->text_len > 0) {
 				cairo_text_extents(cr, o->st->text_buf, &typed_ext);
 			}
 			double pad = 4.0;
-			double pill_w = (typed_ext.width > 0 ? typed_ext.width : font * 0.6) + 2 * pad;
-			double pill_top = (double)o->st->text_y + typed_ext.y_bearing - pad;
-			double pill_h = (typed_ext.height > 0 ? typed_ext.height : font) + 2 * pad;
+			double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
+			double pill_w = tw + 2 * pad;
+			double pill_top = (double)o->st->text_y - fe.ascent - pad;
+			double pill_h = fe.ascent + fe.descent + 2 * pad;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
 			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
 			cairo_fill(cr);
@@ -327,11 +352,11 @@ static void output_redraw(struct ro_output *o) {
 				annotation_paint(cr, &preview, 1.0);
 			}
 
-			double cursor_x = (double)o->st->text_x + typed_ext.width;
+			double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
 			cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
 			cairo_set_line_width(cr, 1.5);
-			cairo_move_to(cr, cursor_x, (double)o->st->text_y + typed_ext.y_bearing);
-			cairo_line_to(cr, cursor_x, (double)o->st->text_y + 2);
+			cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);
+			cairo_line_to(cr, cursor_x, (double)o->st->text_y + fe.descent);
 			cairo_stroke(cr);
 		}
 		cairo_restore(cr);
@@ -370,17 +395,14 @@ static void output_redraw(struct ro_output *o) {
 	}
 
 	if (o->st->region_locked) {
-		if (region_editing(o->st) && o->st->text_input_active) {
-			const char *hint = o->st->text_len > 0
+		if (region_editing(o->st) && o->st->text_input_active &&
+			rect_contains((struct rect){o->go->x, o->go->y,
+										o->go->logical_width, o->go->logical_height},
+						  o->st->text_x, o->st->text_y)) {
+			render_bottom_hint(cr, o,
+							   o->st->text_len > 0
 								   ? "type more, enter to commit, esc to cancel"
-								   : "type your text, enter to commit, esc to cancel";
-			cairo_text_extents_t hext;
-			hint_text_extents(cr, S, hint, &hext);
-			double pad = 8.0 * S;
-			double ty = (double)(o->st->text_y - o->go->y) * S + 22.0 * S;
-			if (ty + hext.height + pad > ph) ty = ph - hext.height - pad;
-			render_hint_pill(cr, S, hint, &hext,
-							 (double)(o->st->text_x - o->go->x) * S, ty, pw);
+								   : "type your text, enter to commit, esc to cancel");
 		}
 
 		if (region_editing(o->st)) region_toolbar_render(cr, o);
@@ -391,11 +413,6 @@ static void output_redraw(struct ro_output *o) {
 			hx[i] = (hx[i] - o->go->x) * S;
 			hy[i] = (hy[i] - o->go->y) * S;
 		}
-		int32_t l = (o->st->sel_x - o->go->x) * S;
-		int32_t t = (o->st->sel_y - o->go->y) * S;
-		int32_t r = l + o->st->sel_w * S;
-		int32_t b = t + o->st->sel_h * S;
-		int32_t mx = (l + r) / 2;
 		double hr = 6.0 * S;
 		for (int i = 0; i < 8; i++) {
 			cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
@@ -411,14 +428,7 @@ static void output_redraw(struct ro_output *o) {
 			region_color_picker_render(cr, o);
 			region_toolbar_tooltip_render(cr, o);
 		} else if (sel_visible) {
-			const char *hint = "enter or ctrl+c to capture, esc to cancel";
-			cairo_text_extents_t hext;
-			hint_text_extents(cr, S, hint, &hext);
-			double pad = 8.0 * S;
-			double ty = (double)b + 32.0 * S;
-			if (ty + pad > ph) ty = (double)t - 24.0 * S;
-			if (ty - hext.height - pad < 0) ty = (double)b - 20.0 * S;
-			render_hint_pill(cr, S, hint, &hext, (double)mx, ty, pw);
+			render_bottom_hint(cr, o, "enter or ctrl+c to capture, esc to cancel");
 		}
 	}
 

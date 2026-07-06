@@ -120,6 +120,7 @@ static char *match_regex_text(const char *body, const char *pattern, int group_i
 	regmatch_t *m = (ngroups <= SXCU_REGEX_INLINE_GROUPS) ? small : calloc(ngroups, sizeof *m);
 	if (!m) {
 		regfree(&re);
+		free(bounded);
 		return NULL;
 	}
 	char *out = NULL;

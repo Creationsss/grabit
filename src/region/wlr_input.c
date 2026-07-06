@@ -156,9 +156,11 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 				st->edit_choices_dirty = true;
 			}
 		} else if (st->moving_region) {
+			int32_t px = st->sel_x, py = st->sel_y;
 			st->sel_x = st->cursor_x - st->move_grab_dx;
 			st->sel_y = st->cursor_y - st->move_grab_dy;
 			region_clamp_move(st);
+			if (st->sel_x != px || st->sel_y != py) st->region_moved = true;
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			region_apply_handle_drag(st);
 		} else if (st->drawing && tool_uses_points(st->current_tool)) {
@@ -219,6 +221,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		(st->drawing || st->moving_region || st->handle_dragging != HANDLE_NONE)) {
 		if (st->moving_region) {
 			st->moving_region = false;
+			if (!region_editing(st) && !st->region_moved) st->last_inside_press = time;
 			refresh_cursor(st, p);
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			st->handle_dragging = HANDLE_NONE;
@@ -402,10 +405,11 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 				st->finished = true;
 				return;
 			}
-			st->last_inside_press = time;
+			st->last_inside_press = 0;
 		}
 		if (st->ctrl_held || !region_editing(st)) {
 			st->moving_region = true;
+			st->region_moved = false;
 			st->move_grab_dx = st->cursor_x - st->sel_x;
 			st->move_grab_dy = st->cursor_y - st->sel_y;
 			region_drag_start(st);

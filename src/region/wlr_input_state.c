@@ -242,8 +242,8 @@ void region_nudge_tick(struct ro_state *st) {
 	uint64_t expirations = 0;
 	ssize_t r = read(st->nudge_timer_fd, &expirations, sizeof expirations);
 	(void)r;
-	if (!st->region_locked || st->nudge_held == 0 ||
-		st->moving_region || st->handle_dragging != HANDLE_NONE || st->drawing) {
+	if (!st->region_locked || st->nudge_held == 0 || st->text_input_active ||
+		region_drag_active(st)) {
 		region_nudge_disarm(st);
 		return;
 	}

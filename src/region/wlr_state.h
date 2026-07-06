@@ -132,6 +132,7 @@ struct ro_state {
 	bool ctrl_held;
 	int handle_dragging;
 	bool moving_region;
+	bool region_moved;
 	int32_t move_grab_dx;
 	int32_t move_grab_dy;
 	uint32_t last_inside_press;

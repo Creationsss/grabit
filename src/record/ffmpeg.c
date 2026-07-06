@@ -89,6 +89,14 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 			argv[i++] = (char *)"1";
 			argv[i++] = (char *)"-pix_fmt";
 			argv[i++] = (char *)out_pix_fmt;
+			argv[i++] = (char *)"-color_range";
+			argv[i++] = (char *)"pc";
+			argv[i++] = (char *)"-colorspace";
+			argv[i++] = (char *)"smpte170m";
+			argv[i++] = (char *)"-color_primaries";
+			argv[i++] = (char *)"bt709";
+			argv[i++] = (char *)"-color_trc";
+			argv[i++] = (char *)"iec61966-2-1";
 			argv[i++] = (char *)"-crf";
 			argv[i++] = crf_s;
 			argv[i++] = (char *)"-b:v";

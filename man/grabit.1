@@ -270,7 +270,18 @@ Uninstall a plugin.
 .BI name " ..."
 Run the installed plugin
 .BI grabit\- name
-(auto-updates in the background per its manifest).
+(auto-updates in the background per its manifest). With
+.BI \-p " name"
+the plugin's last stdout line is pinned to the desktop as a file.
+Plugins with
+.B capture.auto
+receive a fresh screenshot path as their first argument;
+.B \-\-capture
+and
+.B \-\-no\-capture
+override that per call. See
+.B PLUGINS.md
+for the manifest format.
 .SH FILENAME TEMPLATES
 Tokens accepted by
 .B \-\-filename
@@ -388,6 +399,11 @@ is one of
 .B GRABIT_BIN
 Set by plugin dispatch; absolute path to the grabit binary.
 .TP
+.BR GRABIT_PLUGIN_NAME ", " GRABIT_PLUGIN_DIR ", " GRABIT_CACHE_DIR
+Also set by plugin dispatch: the plugin's name, install directory, and
+per-plugin cache directory. See
+.BR PLUGINS.md .
+.TP
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
@@ -417,6 +433,12 @@ Registered ShareX uploaders.
 .TP
 .I $XDG_RUNTIME_DIR/grabit-show.pid
 PID file for the on-screen text/preview card.
+.TP
+.I ~/.config/grabit/plugins/<name>/
+Installed plugins (binaries symlinked from
+.IR plugins/.bin/ ;
+per-plugin cache under
+.IR ~/.cache/grabit/plugins/<name>/ ).
 .SH EXAMPLES
 .TP
 .B grabit \-c

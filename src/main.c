@@ -146,6 +146,7 @@ static int print_help(void) {
 		"  plugin remove <name>      Uninstall a plugin\n"
 		"  <name> ...                Run installed plugin `grabit-<name>`\n"
 		"                            (auto-updates in background per manifest)\n"
+		"  -p <name> ...             Run plugin, pin its last stdout line as a file\n"
 		"\n"
 		"Filename templates (--filename or `filename` config key):\n"
 		"  %Y %m %d %H %M %S strftime fields\n"

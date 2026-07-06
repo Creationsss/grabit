@@ -23,7 +23,8 @@ int plugin_state_write(const char *plugin_dir, const char *kind,
 	if (grabit_xasprintf(&tmp_path, "%s.tmp", path) != 0) goto out;
 	if (grabit_xasprintf(&content, "%s\n%s\n%s\n", kind, url ? url : "",
 						 sha256 ? sha256 : "") != 0) goto out;
-	int fd = open(tmp_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	unlink(tmp_path);
+	int fd = open(tmp_path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
 	if (fd < 0) goto out;
 	size_t len = strlen(content);
 	ssize_t w = write(fd, content, len);
@@ -56,9 +57,14 @@ int plugin_state_read(const char *plugin_dir,
 
 	char *path = NULL;
 	if (grabit_xasprintf(&path, "%s/.source", plugin_dir) != 0) return -1;
-	FILE *f = fopen(path, "r");
+	int rfd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
 	free(path);
-	if (!f) return -1;
+	if (rfd < 0) return -1;
+	FILE *f = fdopen(rfd, "r");
+	if (!f) {
+		close(rfd);
+		return -1;
+	}
 
 	char *lines[3] = {kind, url, sha};
 	size_t caps[3] = {kind_cap, url_cap, sha_cap};
@@ -75,7 +81,7 @@ int plugin_state_read(const char *plugin_dir,
 int plugin_touch_check(const char *plugin_dir) {
 	char *path = NULL;
 	if (grabit_xasprintf(&path, "%s/.last_check", plugin_dir) != 0) return -1;
-	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644);
 	free(path);
 	if (fd < 0) return -1;
 	close(fd);

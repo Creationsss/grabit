@@ -143,11 +143,13 @@ triggered on every `grabit <name>` and `grabit -p <name>` invocation. flow:
 
 1. tries the lock non-blockingly. if held by another op, **silently skips this round** (no log).
 2. if `<plugin-dir>/.last_check` is newer than `check_every_hours` ago, skip.
-3. **touches `.last_check` first**, then double-fork-detaches `grabit plugin update <name>` writing stdout+stderr to `<plugin-dir>/.update.log` (truncated each run). the background update is hard-killed after 5 minutes - slow builds should be updated in the foreground.
+3. **touches `.last_check` first**, then:
+   - **prebuilt plugins** double-fork-detach `grabit plugin update <name>` writing stdout+stderr to `<plugin-dir>/.update.log` (truncated each run, hard-killed after 5 minutes). this is safe because the fetched binary is https-only and pinned to the manifest's `sha256`.
+   - **git/build plugins** are **not** auto-updated - doing so would `git reset --hard` to the remote's current head and run the manifest's build command unattended, i.e. run whatever the (untrusted) remote serves. instead grabit just prints a one-line "run `grabit plugin update <name>`" hint (rate-limited by `.last_check`), and you update on demand.
 
-note the touch-before-spawn: a *failed* background update still postpones the next attempt by `check_every_hours`. if you're debugging an auto-update problem, run `grabit plugin update <name>` in the foreground.
+note the touch-before-spawn: a *failed* background update (or an ignored git hint) still postpones the next attempt by `check_every_hours`. if you're debugging an auto-update problem, run `grabit plugin update <name>` in the foreground.
 
-set `check_every_hours = 0` (or any value <= 0) to disable.
+set `check_every_hours = 0` (or any value <= 0) to disable the check entirely.
 
 ## remove
 

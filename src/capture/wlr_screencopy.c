@@ -6,6 +6,7 @@
 #include "capture/pixels.h"
 
 #include "log.h"
+#include "util.h"
 #include "wl.h"
 
 #include <stdbool.h>
@@ -47,6 +48,12 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 
 	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
 
+	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE ||
+		stride < (uint32_t)w * 4u) {
+		log_error("wlr-screencopy: bogus geometry %ux%u stride=%u", w, h, stride);
+		c->status = -1;
+		return;
+	}
 	if (h > 0 && stride > SIZE_MAX / (size_t)h) {
 		log_error("wlr-screencopy: %ux%u stride=%u overflows", w, h, stride);
 		c->status = -1;

@@ -169,13 +169,14 @@ char *grabit_translate(const char *text, const char *target) {
 			break;
 		}
 		if (n == 0) break;
-		if (grabit_buf_putn(&buf, chunk, (size_t)n) != 0) {
+		if (buf.len + (size_t)n > (16u << 20) ||
+			grabit_buf_putn(&buf, chunk, (size_t)n) != 0) {
 			grabit_buf_free(&buf);
 			close(out_p[0]);
 			kill(pid, SIGTERM);
 			(void)reap_with_grace(pid, NULL);
 			sigaction(SIGPIPE, &prev_pipe, NULL);
-			log_error("translate: oom reading output");
+			log_error("translate: output too large or oom");
 			return NULL;
 		}
 	}

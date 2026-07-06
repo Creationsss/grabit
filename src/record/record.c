@@ -287,11 +287,12 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			size_t n_mon = 0;
 			grabit_wl_monitor_rects(&s, &mon, &n_mon);
 			rc = region_select(&s, cfg, frozen, false, &r, NULL, NULL, NULL, NULL, NULL,
-							   mon, n_mon);
+							   NULL, mon, n_mon);
 			free(mon);
 		}
 	} else {
-		rc = region_select(&s, cfg, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, NULL, 0);
+		rc = region_select(&s, cfg, frozen, false, &r, NULL, NULL, NULL, NULL, NULL, NULL,
+						   NULL, 0);
 	}
 	for (size_t i = 0; i < s.n_outputs; i++)
 		image_free(&frozen[i]);

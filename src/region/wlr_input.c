@@ -296,6 +296,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 				if (st->text_input_active) region_commit_text(st);
 				if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER) {
 					st->current_tool = (enum tool_kind)(act - TB_TOOL_PEN);
+					st->edit_choices_dirty = true;
 					refresh_cursor(st, p);
 				} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
 					st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];
@@ -700,6 +701,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		pick = (int32_t)(sym - XKB_KEY_KP_1);
 	if (pick >= 0 && pick < TOOL_COUNT) {
 		st->current_tool = (enum tool_kind)pick;
+		st->edit_choices_dirty = true;
 		if (st->pointer) refresh_cursor(st, st->pointer);
 		region_render_request_redraw_all(st);
 	}

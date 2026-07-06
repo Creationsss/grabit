@@ -17,6 +17,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  const struct grabit_save_opts *save_opts,
 						  struct rect *out_rect, bool annotate, bool cursor,
 						  uint32_t *inout_color, int32_t *inout_width,
+						  int32_t *inout_tool,
 						  bool *out_choices_dirty, const struct rect *forced_region,
 						  const struct rect *snap_rects, size_t n_snap_rects) {
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
@@ -54,7 +55,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 
 	if (!forced_only &&
 		region_select(s, cfg, frozen, annotate, &r, annotate ? &annos : NULL,
-					  inout_color, inout_width, out_choices_dirty,
+					  inout_color, inout_width, inout_tool, out_choices_dirty,
 					  forced_region, snap_rects, n_snap_rects) != 0) {
 		log_info("region selection cancelled");
 		rc = GRABIT_CAPTURE_CANCELLED;

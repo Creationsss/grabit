@@ -42,6 +42,8 @@ static inline bool tool_uses_points(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
 }
 
+extern const char *const grabit_tool_names[];
+
 struct annotation {
 	enum tool_kind tool;
 	int32_t x0, y0, x1, y1;
@@ -67,6 +69,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
+				  int32_t *inout_tool,
 				  bool *out_choices_dirty, const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects);
 

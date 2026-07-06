@@ -394,12 +394,13 @@ grabit -e -o                  # annotate, then save
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles
 
-last-picked color and width persist via:
+last-picked color, width, and tool persist via:
 
 | key | default | notes |
 |---|---|---|
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
 | `edit.width` | `4` | integer 1-20 |
+| `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `ellipse`, `arrow`, `blur`, `text`, `eraser` - the editor reopens with your last-used tool |
 | `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
 
 ## filename templates

@@ -82,6 +82,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"sound.file",
 	"edit.color",
 	"edit.width",
+	"edit.tool",
 	"jpeg.quality",
 	"webp.quality",
 	"webp.lossless",
@@ -221,6 +222,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		if (strcmp(leaf, "width") == 0) {
 			*example_out = "1..20";
 			*def_out = "4";
+			return 0;
+		}
+		if (strcmp(leaf, "tool") == 0) {
+			*example_out = "pen|marker|line|rect|ellipse|arrow|blur|text|eraser";
+			*def_out = "pen";
 			return 0;
 		}
 		if (strcmp(leaf, "default") == 0) {
@@ -429,6 +435,7 @@ void cfg_help_print_all_keys(void) {
 	puts("");
 	print_key_with_default("edit.color", find_default("edit.color"));
 	print_key_with_default("edit.width", find_default("edit.width"));
+	print_key_with_default("edit.tool", find_default("edit.tool"));
 	print_key_with_default("edit.default", find_default("edit.default"));
 	puts("");
 	static const char *const ENCODER_KEYS[] = {

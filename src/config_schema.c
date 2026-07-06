@@ -6,6 +6,7 @@
 
 #include "config_internal.h"
 #include "log.h"
+#include "region/region.h"
 #include "upload/upload.h"
 #include "util.h"
 
@@ -135,7 +136,7 @@ static bool valid_edit_key(const char *key) {
 	if (strncmp(key, "edit.", 5) != 0) return false;
 	const char *leaf = key + 5;
 	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
-		   strcmp(leaf, "default") == 0;
+		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "default") == 0;
 }
 
 static bool valid_jpeg_key(const char *key) {
@@ -433,6 +434,12 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;
+	if (strcmp(key, "edit.tool") == 0 &&
+		!cfg_in_list(value, (const char **)grabit_tool_names)) {
+		log_error("edit.tool must be one of "
+				  "pen|marker|line|rect|ellipse|arrow|blur|text|eraser");
+		return -1;
+	}
 	if (strcmp(key, "edit.width") == 0 &&
 		validate_int_in_range(key, value, 1, 20) != 0) return -1;
 	if (cfg_is_bool_key(key) && strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {

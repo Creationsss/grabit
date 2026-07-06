@@ -31,6 +31,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
+				  int32_t *inout_tool,
 				  bool *out_choices_dirty, const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
@@ -50,7 +51,9 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	struct ro_state st = {.wls = s, .frozen = frozen};
 	st.annotate_mode = annotate_mode;
 	st.out_annos = out_annos;
-	st.current_tool = TOOL_PEN;
+	st.current_tool = (inout_tool && *inout_tool >= 0 && *inout_tool < TOOL_COUNT)
+						  ? (enum tool_kind) * inout_tool
+						  : TOOL_PEN;
 	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
 	st.current_font = ANNO_DEFAULT_FONT;
@@ -319,6 +322,7 @@ loop_done:;
 	}
 	if (inout_color) *inout_color = st.current_color;
 	if (inout_width) *inout_width = st.current_width;
+	if (inout_tool) *inout_tool = (int32_t)st.current_tool;
 	if (out_choices_dirty) *out_choices_dirty = st.edit_choices_dirty;
 
 	st.cleanup = true;

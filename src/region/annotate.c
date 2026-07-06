@@ -13,6 +13,19 @@
 
 #include <cairo/cairo.h>
 
+const char *const grabit_tool_names[] = {
+	"pen",
+	"marker",
+	"line",
+	"rect",
+	"ellipse",
+	"arrow",
+	"blur",
+	"text",
+	"eraser",
+	NULL,
+};
+
 static void set_color(cairo_t *cr, uint32_t color) {
 	grabit_cairo_set_source_argb(cr, color, 1.0);
 }

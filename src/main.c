@@ -314,6 +314,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 
 	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
 	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
+	int32_t edit_tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
 	bool edit_dirty = false;
 
 	const char *cursor_cfg = config_get(cfg, "capture.cursor");
@@ -321,11 +322,12 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 	int rc = grabit_freeze_capture(&s, cfg, path, &opts, out_rect, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
+								   a->edit ? &edit_tool : NULL,
 								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
 	grabit_wl_finish(&s);
 	free(mon_rects);
 
-	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width);
+	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width, edit_tool);
 
 	if (rc != 0) {
 		unlink(path);

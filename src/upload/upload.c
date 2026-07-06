@@ -171,10 +171,20 @@ size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user) {
 
 void upload_curl_common(CURL *curl) {
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 8L);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, "grabit/" GRABIT_VERSION);
+#if LIBCURL_VERSION_NUM >= 0x075500
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
 }
 
 static char *extract_url(struct json_object *root, const char *paths) {
@@ -205,8 +215,21 @@ static size_t value_clean_len(const char *value) {
 	return n;
 }
 
+static bool header_name_ok(const char *name) {
+	if (!name || !*name) return false;
+	for (const char *p = name; *p; p++) {
+		unsigned char c = (unsigned char)*p;
+		if (c <= 0x20 || c == 0x7f || c == ':') return false;
+	}
+	return true;
+}
+
 struct curl_slist *upload_header_append(struct curl_slist *list, const char *name,
 										const char *value, bool *oom) {
+	if (!header_name_ok(name)) {
+		log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		return list;
+	}
 	size_t vlen = value_clean_len(value);
 	if (vlen == 0) {
 		log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);

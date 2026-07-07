@@ -212,16 +212,22 @@ Print help and exit.
 .TP
 .B config
 Open the on-screen settings window: a floating toplevel with the keys grouped
-into tabs (general, recording, editor, image, ocr, notify). Each key gets a
-widget for its type \(em a toggle for bools,
+into tabs (general, recording, editor, image, ocr, notify, services). Each key
+gets a widget for its type \(em a toggle for bools,
 .RB \(lq< value >\(rq
-steppers for enums and numbers, an editable text field for strings, a
+steppers for numbers, a dropdown for enums, monitors, and the upload service, an
+editable text field for strings, and a
 .RB \(lq ... \(rq
 file/folder picker for path keys (needs
 .B zenity
 or
-.BR kdialog ),
-and a dropdown of connected monitors for the monitor keys. Arrow keys (or
+.BR kdialog ).
+The services tab shows only the selected service's settings and an
+import button for ShareX
+.B .sxcu
+files; the notify tab has a
+.B Test
+button that fires a sample notification, sound, and preview. Arrow keys (or
 .BR hjkl )
 move and change,
 .B Tab
@@ -234,6 +240,11 @@ up to
 so it can be restored.
 .B Esc
 closes.
+.TP
+.B test-notify
+Fire a sample desktop notification, shutter sound, and preview card using the
+current settings \(em each gated on whether it is enabled in the config. Use it
+to check the notify settings without taking a screenshot.
 .TP
 .BI "set " "key value"
 Write a config key (schema-validated).

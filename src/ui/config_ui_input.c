@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "ui/config_ui_internal.h"
 
+#include "notify_test.h"
 #include "picker.h"
 #include "ui/window.h"
 
@@ -30,6 +31,17 @@ void tab_rect(int i, struct rect *r) {
 	r->y = 0;
 	r->w = tw;
 	r->h = TABBAR_H;
+}
+
+bool test_btn_rect(struct cfg_ui *u, struct rect *r) {
+	if (u->tab != TAB_NOTIFY) return false;
+	int row = u->tab_n[u->tab] - u->scroll;
+	if (row < 0 || row >= u->n_visible) return false;
+	r->w = 200;
+	r->h = FIELD_H;
+	r->x = (PANEL_W - r->w) / 2;
+	r->y = TABBAR_H + row * ROW_H + (ROW_H - r->h) / 2;
+	return true;
 }
 
 void toggle_rect(struct rect *r, double row_y) {
@@ -504,6 +516,8 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 		enum ui_cursor c = h == HIT_FIELD  ? UI_CURSOR_TEXT
 						   : h == HIT_NONE ? UI_CURSOR_DEFAULT
 										   : UI_CURSOR_HAND;
+		struct rect tb;
+		if (test_btn_rect(u, &tb) && rect_contains(tb, e->x, e->y)) c = UI_CURSOR_HAND;
 		ui_window_set_cursor(win, c);
 		if (moved && pos >= 0 && pos != u->sel && u->editing < 0) {
 			u->sel = pos;
@@ -515,6 +529,14 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 	if (e->kind != UI_PTR_BUTTON || !e->pressed || e->button != BTN_LEFT) return;
 	u->status[0] = '\0';
 	if (u->editing >= 0) commit_edit(u);
+
+	struct rect tb;
+	if (test_btn_rect(u, &tb) && rect_contains(tb, e->x, e->y)) {
+		grabit_notify_test(&u->cfg);
+		snprintf(u->status, sizeof u->status, "sent test notification");
+		ui_window_redraw(win);
+		return;
+	}
 
 	if (h == HIT_TAB) {
 		for (int t = 0; t < NTAB; t++) {

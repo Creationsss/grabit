@@ -20,6 +20,7 @@ struct ui_pointer_event;
 
 enum {
 	NTAB = 7,
+	TAB_NOTIFY = 5,
 	PANEL_W = 580,
 	PAD = 18,
 	TABBAR_H = 44,
@@ -81,6 +82,7 @@ int cfg_ui_import_sxcu(struct cfg_ui *u, const char *path, char *name_out, size_
 
 bool bool_on(const char *v);
 void tab_rect(int i, struct rect *r);
+bool test_btn_rect(struct cfg_ui *u, struct rect *r);
 void toggle_rect(struct rect *r, double row_y);
 void right_btn_rect(struct rect *r, double row_y);
 void dec_inc_rects(struct rect *dec, struct rect *inc, double row_y);

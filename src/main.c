@@ -20,6 +20,7 @@
 #include "log.h"
 #include "mime.h"
 #include "notify/notify.h"
+#include "notify_test.h"
 #include "ocr/ocr.h"
 #include "paths.h"
 #include "pin/pin.h"
@@ -128,6 +129,7 @@ static int print_help(void) {
 		"\n"
 		"Config (run `grabit set --help` for details):\n"
 		"  config            Open the on-screen config editor (toggles/steppers)\n"
+		"  test-notify       Fire a sample notification, sound, and preview\n"
 		"  set <key> <val>   Write a config key (validated)\n"
 		"  set <key>         Print example value for that key\n"
 		"  set               List all available keys\n"
@@ -871,6 +873,13 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		if (strcmp(first, "config") == 0) return grabit_config_ui();
+		if (strcmp(first, "test-notify") == 0) {
+			struct config cfg;
+			if (config_load(&cfg) != 0) return 1;
+			int rc = grabit_notify_test(&cfg);
+			config_free(&cfg);
+			return rc == 0 ? 0 : 1;
+		}
 		if (strcmp(first, "set") == 0) return cmd_set(argc - 2, argv + 2);
 		if (strcmp(first, "get") == 0) return cmd_get(argc - 2, argv + 2);
 		if (strcmp(first, "unset") == 0) return cmd_unset(argc - 2, argv + 2);

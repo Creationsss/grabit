@@ -312,6 +312,15 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 		draw_widget(cr, u, i, y);
 	}
 
+	struct rect tb;
+	if (test_btn_rect(u, &tb)) {
+		cairo_set_source_rgba(cr, 1, 1, 1, 0.08);
+		cairo_rectangle(cr, tb.x, tb.y, tb.w, tb.h);
+		cairo_fill(cr);
+		text_centered(cr, tb.x + tb.w / 2.0, tb.y + tb.h / 2.0 + 5, "Test notifications", 13,
+					  CAIRO_FONT_WEIGHT_BOLD, 1.0, 0.55, 0.32, 1);
+	}
+
 	if (u->tab_n[u->tab] > u->n_visible) {
 		double track = u->n_visible * ROW_H;
 		double th = track * u->n_visible / u->tab_n[u->tab];

@@ -218,10 +218,12 @@ static void open_dropdown(struct cfg_ui *u, int pos) {
 	u->dd_open = cur_key(u, pos);
 	u->dd_y = TABBAR_H + (pos - u->scroll) * ROW_H;
 	u->sel = pos;
+	u->dd_hover = -1;
 }
 
 static void close_dropdown(struct cfg_ui *u) {
 	u->dd_open = -1;
+	u->dd_hover = -1;
 }
 
 void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user) {
@@ -362,6 +364,10 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 		}
 		if (e->kind == UI_PTR_MOTION) {
 			ui_window_set_cursor(win, over >= 0 ? UI_CURSOR_HAND : UI_CURSOR_DEFAULT);
+			if (over != u->dd_hover) {
+				u->dd_hover = over;
+				ui_window_redraw(win);
+			}
 			return;
 		}
 		if (e->kind == UI_PTR_BUTTON && e->pressed && e->button == BTN_LEFT) {
@@ -380,6 +386,10 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 						   : h == HIT_NONE ? UI_CURSOR_DEFAULT
 										   : UI_CURSOR_HAND;
 		ui_window_set_cursor(win, c);
+		if (pos >= 0 && pos != u->sel && u->editing < 0) {
+			u->sel = pos;
+			ui_window_redraw(win);
+		}
 		return;
 	}
 

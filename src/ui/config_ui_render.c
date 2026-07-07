@@ -60,6 +60,17 @@ static void ellipsis_dots(cairo_t *cr, const struct rect *rc) {
 	}
 }
 
+static double hint_advance(cairo_t *cr, const char *key, const char *label) {
+	cairo_text_extents_t ke, le;
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, 11);
+	cairo_text_extents(cr, key, &ke);
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 11.5);
+	cairo_text_extents(cr, label, &le);
+	return (ke.width + 11) + 6 + le.width + 15;
+}
+
 static double draw_hint(cairo_t *cr, double x, double y, const char *key, const char *label) {
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 11);
@@ -251,17 +262,16 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.08);
 	cairo_rectangle(cr, 0, h - FOOTER_H, w, 1);
 	cairo_fill(cr);
-	double hx = PAD, hy = h - 9;
-	if (u->editing >= 0) {
-		hx = draw_hint(cr, hx, hy, "type", "edit text");
-		hx = draw_hint(cr, hx, hy, "enter", "accept");
-		hx = draw_hint(cr, hx, hy, "esc", "cancel");
-	} else {
-		hx = draw_hint(cr, hx, hy, "arrows", "move / change");
-		hx = draw_hint(cr, hx, hy, "enter", "edit");
-		hx = draw_hint(cr, hx, hy, "tab", "switch");
-		hx = draw_hint(cr, hx, hy, "esc", "close");
-	}
+	static const char *const edit_hints[][2] = {
+		{"type", "edit text"}, {"enter", "accept"}, {"esc", "cancel"}};
+	static const char *const nav_hints[][2] = {
+		{"arrows", "move / change"}, {"enter", "edit"}, {"tab", "switch"}, {"esc", "close"}};
+	const char *const (*hints)[2] = u->editing >= 0 ? edit_hints : nav_hints;
+	int n_hints = u->editing >= 0 ? 3 : 4;
+	double total = 0;
+	for (int i = 0; i < n_hints; i++) total += hint_advance(cr, hints[i][0], hints[i][1]);
+	double hx = (w - (total - 15)) / 2.0, hy = h - 9;
+	for (int i = 0; i < n_hints; i++) hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1]);
 	(void)hx;
 
 	if (u->dd_open >= 0) {
@@ -283,6 +293,10 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 			bool sel = strcmp(cfg_ui_monitor_value(u, k), cur) == 0;
 			if (sel) {
 				set_accent(cr, 0.18);
+				cairo_rectangle(cr, ir.x, ir.y, ir.w, ir.h);
+				cairo_fill(cr);
+			} else if (k == u->dd_hover) {
+				cairo_set_source_rgba(cr, 1, 1, 1, 0.07);
 				cairo_rectangle(cr, ir.x, ir.y, ir.w, ir.h);
 				cairo_fill(cr);
 			}

@@ -56,6 +56,7 @@ struct cfg_ui {
 	const char **monitors;
 	int n_monitors;
 	int dd_open;
+	int dd_hover;
 	double dd_y;
 	int panel_h;
 

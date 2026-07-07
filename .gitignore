@@ -13,3 +13,4 @@ vgcore.*
 .DS_Store
 /tools/smoke.sh
 /aur/
+.direnv

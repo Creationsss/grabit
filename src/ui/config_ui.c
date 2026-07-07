@@ -187,6 +187,8 @@ int grabit_config_ui(void) {
 	u.pick_fd = -1;
 	u.dd_open = -1;
 	u.dd_hover = -1;
+	u.ptr_x = -1;
+	u.ptr_y = -1;
 	if (config_load(&u.cfg) != 0) {
 		grabit_wl_finish(&s);
 		return 1;

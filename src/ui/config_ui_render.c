@@ -173,8 +173,12 @@ static void draw_monitor(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	cairo_rectangle(cr, fr.x, fr.y, fr.w, fr.h);
 	cairo_fill(cr);
 	const char *v = u->val[i];
+	cairo_save(cr);
+	cairo_rectangle(cr, fr.x, fr.y, fr.w - 16, fr.h);
+	cairo_clip(cr);
 	text(cr, fr.x + 8, fr.y + fr.h / 2.0 + 5, v[0] ? v : "(auto)", 13,
 		 CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
+	cairo_restore(cr);
 	tri_down(cr, fr.x + fr.w - 12, fr.y + fr.h / 2.0);
 }
 
@@ -185,8 +189,12 @@ static void draw_service(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	cairo_rectangle(cr, fr.x, fr.y, fr.w, fr.h);
 	cairo_fill(cr);
 	const char *v = u->val[i];
+	cairo_save(cr);
+	cairo_rectangle(cr, fr.x, fr.y, fr.w - 16, fr.h);
+	cairo_clip(cr);
 	text(cr, fr.x + 8, fr.y + fr.h / 2.0 + 5, v[0] ? v : "(none)", 13,
 		 CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
+	cairo_restore(cr);
 	tri_down(cr, fr.x + fr.w - 12, fr.y + fr.h / 2.0);
 
 	struct rect br;

@@ -60,6 +60,7 @@ struct cfg_ui {
 	int n_services;
 	int dd_open;
 	int dd_hover;
+	int32_t ptr_x, ptr_y;
 	double dd_y;
 	int panel_h;
 

@@ -93,8 +93,11 @@ void dropdown_item_rect(struct cfg_ui *u, int idx, struct rect *r) {
 	struct rect fr;
 	field_rect(&fr, dd_is_service(u), u->dd_y);
 	int list_h = cfg_ui_dd_count(u) * DD_ITEM_H;
+	int avail_top = TABBAR_H, avail_bot = u->panel_h - FOOTER_H;
 	int below = fr.y + fr.h + 2;
-	int top = (below + list_h <= u->panel_h - FOOTER_H) ? below : fr.y - 2 - list_h;
+	int top = below + list_h <= avail_bot ? below : fr.y - 2 - list_h;
+	if (top + list_h > avail_bot) top = avail_bot - list_h;
+	if (top < avail_top) top = avail_top;
 	r->x = fr.x;
 	r->w = fr.w;
 	r->h = DD_ITEM_H;
@@ -102,12 +105,14 @@ void dropdown_item_rect(struct cfg_ui *u, int idx, struct rect *r) {
 }
 
 static void set_val(struct cfg_ui *u, int i, const char *s) {
-	char *n = strdup(s);
+	if (config_set(&u->cfg, u->keys[i].key, s) != 0) return;
+	config_save(&u->cfg);
+	const char *stored = config_get(&u->cfg, u->keys[i].key);
+	char *n = strdup(stored ? stored : s);
 	if (!n) return;
 	free(u->val[i]);
 	u->val[i] = n;
-	if (config_set(&u->cfg, u->keys[i].key, u->val[i]) == 0) config_save(&u->cfg);
-	if (strcmp(u->keys[i].key, "service") == 0) cfg_ui_refresh_tabs(u);
+	if (u->keys[i].is_service) cfg_ui_refresh_tabs(u);
 }
 
 static void on_pick_ready(struct ui_window *win, void *user) {
@@ -163,6 +168,19 @@ static void monitor_cycle(struct cfg_ui *u, int i, int dir) {
 	set_val(u, i, cfg_ui_monitor_value(u, nx));
 }
 
+static void service_cycle(struct cfg_ui *u, int i, int dir) {
+	if (u->n_services <= 0) return;
+	int cur = 0;
+	for (int k = 0; k < u->n_services; k++) {
+		if (strcmp(u->services[k], u->val[i]) == 0) {
+			cur = k;
+			break;
+		}
+	}
+	int nx = ((cur + dir) % u->n_services + u->n_services) % u->n_services;
+	set_val(u, i, u->services[nx]);
+}
+
 static void int_step(struct cfg_ui *u, int i, long delta) {
 	const struct cfg_key_desc *d = &u->keys[i];
 	long cur = d->lo;
@@ -189,7 +207,10 @@ static void change_row(struct cfg_ui *u, int pos, int dir, long mult) {
 		int_step(u, i, dir * mult);
 		break;
 	case CFG_STRING:
-		if (u->keys[i].is_monitor) monitor_cycle(u, i, dir);
+		if (u->keys[i].is_monitor)
+			monitor_cycle(u, i, dir);
+		else if (u->keys[i].is_service)
+			service_cycle(u, i, dir);
 		break;
 	}
 }
@@ -238,11 +259,19 @@ static void ensure_visible(struct cfg_ui *u) {
 	clamp_scroll(u);
 }
 
+static int dd_index_of(struct cfg_ui *u, const char *val) {
+	int count = cfg_ui_dd_count(u);
+	for (int k = 0; k < count; k++)
+		if (strcmp(cfg_ui_dd_value(u, k), val) == 0) return k;
+	return -1;
+}
+
 static void open_dropdown(struct cfg_ui *u, int pos) {
 	u->dd_open = cur_key(u, pos);
 	u->dd_y = TABBAR_H + (pos - u->scroll) * ROW_H;
 	u->sel = pos;
-	u->dd_hover = -1;
+	int idx = dd_index_of(u, u->val[u->dd_open]);
+	u->dd_hover = idx >= 0 ? idx : 0;
 }
 
 static void close_dropdown(struct cfg_ui *u) {
@@ -274,7 +303,27 @@ void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user)
 	}
 
 	if (u->dd_open >= 0) {
-		close_dropdown(u);
+		int count = cfg_ui_dd_count(u);
+		switch (e->sym) {
+		case XKB_KEY_Up:
+		case XKB_KEY_k:
+			if (count > 0) u->dd_hover = (u->dd_hover - 1 + count) % count;
+			break;
+		case XKB_KEY_Down:
+		case XKB_KEY_j:
+			if (count > 0) u->dd_hover = (u->dd_hover + 1) % count;
+			break;
+		case XKB_KEY_Return:
+		case XKB_KEY_KP_Enter:
+		case XKB_KEY_space:
+			if (u->dd_hover >= 0 && u->dd_hover < count)
+				set_val(u, u->dd_open, cfg_ui_dd_value(u, u->dd_hover));
+			close_dropdown(u);
+			break;
+		default:
+			close_dropdown(u);
+			break;
+		}
 		ui_window_redraw(win);
 		return;
 	}
@@ -413,11 +462,14 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 	enum hit h = hit_test(u, e->x, e->y, &pos);
 
 	if (e->kind == UI_PTR_MOTION) {
+		bool moved = e->x != u->ptr_x || e->y != u->ptr_y;
+		u->ptr_x = e->x;
+		u->ptr_y = e->y;
 		enum ui_cursor c = h == HIT_FIELD  ? UI_CURSOR_TEXT
 						   : h == HIT_NONE ? UI_CURSOR_DEFAULT
 										   : UI_CURSOR_HAND;
 		ui_window_set_cursor(win, c);
-		if (pos >= 0 && pos != u->sel && u->editing < 0) {
+		if (moved && pos >= 0 && pos != u->sel && u->editing < 0) {
 			u->sel = pos;
 			ui_window_redraw(win);
 		}

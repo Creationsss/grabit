@@ -63,6 +63,28 @@ static int build_tabs(struct cfg_ui *u) {
 	return 0;
 }
 
+static int load_last_tab(void) {
+	const char *dir = paths_config_dir();
+	if (!dir) return 0;
+	char path[4096];
+	snprintf(path, sizeof path, "%s/.last_tab", dir);
+	char *buf = NULL;
+	size_t len = 0;
+	if (grabit_read_file(path, 32, &buf, &len) != 0) return 0;
+	int t = (int)strtol(buf, NULL, 10);
+	free(buf);
+	return t >= 0 && t < NTAB ? t : 0;
+}
+
+static void save_last_tab(int tab) {
+	const char *dir = paths_config_dir();
+	if (!dir) return;
+	char path[4096], buf[16];
+	snprintf(path, sizeof path, "%s/.last_tab", dir);
+	int n = snprintf(buf, sizeof buf, "%d\n", tab);
+	if (n > 0) paths_atomic_write(path, buf, (size_t)n);
+}
+
 static void backup_config(void) {
 	const char *src = paths_config_file();
 	char *buf = NULL;
@@ -102,6 +124,8 @@ int grabit_config_ui(void) {
 	for (size_t i = 0; i < u.n_keys; i++)
 		u.val[i] = initial_value(&u.keys[i], config_get(&u.cfg, u.keys[i].key));
 
+	u.tab = load_last_tab();
+
 	u.monitors = calloc(s.n_outputs ? s.n_outputs : 1, sizeof *u.monitors);
 	if (u.monitors) {
 		for (size_t k = 0; k < s.n_outputs; k++) {
@@ -140,6 +164,7 @@ int grabit_config_ui(void) {
 		goto cleanup;
 	}
 	ui_window_run(u.win);
+	save_last_tab(u.tab);
 
 cleanup:
 	if (u.pick_fd >= 0) close(u.pick_fd);

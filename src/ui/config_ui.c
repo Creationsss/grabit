@@ -10,6 +10,7 @@
 #include "paths.h"
 #include "ui/config_ui_internal.h"
 #include "ui/window.h"
+#include "upload/sxcu.h"
 #include "util.h"
 #include "wl.h"
 
@@ -50,19 +51,92 @@ static char *initial_value(const struct cfg_key_desc *d, const char *cur) {
 	return out ? out : strdup("");
 }
 
+static const char *active_service(struct cfg_ui *u) {
+	const char *s = config_get(&u->cfg, "service");
+	return s && s[0] ? s : "zipline";
+}
+
+static bool service_key_hidden(struct cfg_ui *u, const char *key) {
+	if (strncmp(key, "services.", 9) != 0) return false;
+	const char *rest = key + 9, *dot = strchr(rest, '.');
+	if (!dot) return false;
+	size_t len = (size_t)(dot - rest);
+	const char *act = active_service(u);
+	return strlen(act) != len || strncmp(rest, act, len) != 0;
+}
+
+static void free_tabs(struct cfg_ui *u) {
+	for (int t = 0; t < NTAB; t++) {
+		free(u->tab_keys[t]);
+		u->tab_keys[t] = NULL;
+		u->tab_n[t] = 0;
+	}
+}
+
 static int build_tabs(struct cfg_ui *u) {
-	for (size_t i = 0; i < u->n_keys; i++)
+	free_tabs(u);
+	for (size_t i = 0; i < u->n_keys; i++) {
+		if (service_key_hidden(u, u->keys[i].key)) continue;
 		u->tab_n[tab_for(u->keys[i].key)]++;
+	}
 	for (int t = 0; t < NTAB; t++) {
 		u->tab_keys[t] = calloc(u->tab_n[t] ? u->tab_n[t] : 1, sizeof **u->tab_keys);
 		if (!u->tab_keys[t]) return -1;
 		u->tab_n[t] = 0;
 	}
 	for (size_t i = 0; i < u->n_keys; i++) {
+		if (service_key_hidden(u, u->keys[i].key)) continue;
 		int t = tab_for(u->keys[i].key);
 		u->tab_keys[t][u->tab_n[t]++] = (int)i;
 	}
 	return 0;
+}
+
+static void free_services(struct cfg_ui *u) {
+	for (int i = 0; i < u->n_services; i++)
+		free(u->services[i]);
+	free(u->services);
+	u->services = NULL;
+	u->n_services = 0;
+}
+
+void cfg_ui_build_services(struct cfg_ui *u) {
+	free_services(u);
+	const struct cfg_key_desc *d = cfg_key_desc_find("service");
+	size_t nb = 0;
+	if (d && d->vals)
+		while (d->vals[nb])
+			nb++;
+	char **custom = NULL;
+	size_t nc = 0;
+	sxcu_dir_list(&custom, &nc);
+	u->services = calloc(nb + nc, sizeof *u->services);
+	if (!u->services) {
+		for (size_t i = 0; i < nc; i++)
+			free(custom[i]);
+		free(custom);
+		return;
+	}
+	for (size_t i = 0; i < nb; i++) {
+		char *s = strdup(d->vals[i]);
+		if (s) u->services[u->n_services++] = s;
+	}
+	for (size_t i = 0; i < nc; i++)
+		u->services[u->n_services++] = custom[i];
+	free(custom);
+}
+
+int cfg_ui_import_sxcu(struct cfg_ui *u, const char *path, char *name_out, size_t cap) {
+	int rc = sxcu_dir_add(path, name_out, cap);
+	if (rc == 0) cfg_ui_build_services(u);
+	return rc;
+}
+
+void cfg_ui_refresh_tabs(struct cfg_ui *u) {
+	build_tabs(u);
+	if (u->sel >= u->tab_n[u->tab]) u->sel = u->tab_n[u->tab] - 1;
+	if (u->sel < 0) u->sel = 0;
+	u->scroll = 0;
 }
 
 static int load_last_tab(void) {
@@ -135,6 +209,7 @@ int grabit_config_ui(void) {
 			if (mo && !mo->dead && mo->name) u.monitors[u.n_monitors++] = mo->name;
 		}
 	}
+	cfg_ui_build_services(&u);
 
 	backup_config();
 
@@ -175,6 +250,7 @@ cleanup:
 		free(u.val[i]);
 	free(u.val);
 	free(u.monitors);
+	free_services(&u);
 	for (int t = 0; t < NTAB; t++)
 		free(u.tab_keys[t]);
 	config_free(&u.cfg);

@@ -61,33 +61,26 @@ static void ellipsis_dots(cairo_t *cr, const struct rect *rc) {
 	}
 }
 
-static double hint_advance(cairo_t *cr, const char *key, const char *label) {
-	cairo_text_extents_t ke, le;
-	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(cr, 11);
-	cairo_text_extents(cr, key, &ke);
-	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	cairo_set_font_size(cr, 11.5);
-	cairo_text_extents(cr, label, &le);
-	return (ke.width + 11) + 6 + le.width + 15;
-}
-
-static double draw_hint(cairo_t *cr, double x, double y, const char *key, const char *label) {
+static double draw_hint(cairo_t *cr, double x, double y, const char *key, const char *label,
+						bool measure) {
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 11);
 	cairo_text_extents_t ke;
 	cairo_text_extents(cr, key, &ke);
 	double cw = ke.width + 11;
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.10);
-	cairo_rectangle(cr, x, y - 12, cw, 16);
-	cairo_fill(cr);
-	text(cr, x + 5.5, y, key, 11, CAIRO_FONT_WEIGHT_BOLD, 0.9, 0.9, 0.93, 1);
+	if (!measure) {
+		cairo_set_source_rgba(cr, 1, 1, 1, 0.10);
+		cairo_rectangle(cr, x, y - 12, cw, 16);
+		cairo_fill(cr);
+		text(cr, x + 5.5, y, key, 11, CAIRO_FONT_WEIGHT_BOLD, 0.9, 0.9, 0.93, 1);
+	}
 	x += cw + 6;
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 11.5);
 	cairo_text_extents_t le;
 	cairo_text_extents(cr, label, &le);
-	text(cr, x, y, label, 11.5, CAIRO_FONT_WEIGHT_NORMAL, 0.56, 0.56, 0.6, 1);
+	if (!measure)
+		text(cr, x, y, label, 11.5, CAIRO_FONT_WEIGHT_NORMAL, 0.56, 0.56, 0.6, 1);
 	return x + le.width + 15;
 }
 
@@ -185,6 +178,33 @@ static void draw_monitor(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	tri_down(cr, fr.x + fr.w - 12, fr.y + fr.h / 2.0);
 }
 
+static void draw_service(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
+	struct rect fr;
+	field_rect(&fr, true, row_y);
+	cairo_set_source_rgba(cr, 1, 1, 1, 0.06);
+	cairo_rectangle(cr, fr.x, fr.y, fr.w, fr.h);
+	cairo_fill(cr);
+	const char *v = u->val[i];
+	text(cr, fr.x + 8, fr.y + fr.h / 2.0 + 5, v[0] ? v : "(none)", 13,
+		 CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
+	tri_down(cr, fr.x + fr.w - 12, fr.y + fr.h / 2.0);
+
+	struct rect br;
+	right_btn_rect(&br, row_y);
+	cairo_set_source_rgba(cr, 1, 1, 1, 0.08);
+	cairo_rectangle(cr, br.x, br.y, br.w, br.h);
+	cairo_fill(cr);
+	double cx = br.x + br.w / 2.0, cy = br.y + br.h / 2.0;
+	cairo_set_source_rgba(cr, 0.9, 0.9, 0.92, 1);
+	cairo_set_line_width(cr, 2.0);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_move_to(cr, cx - 5, cy);
+	cairo_line_to(cr, cx + 5, cy);
+	cairo_move_to(cr, cx, cy - 5);
+	cairo_line_to(cr, cx, cy + 5);
+	cairo_stroke(cr);
+}
+
 static void draw_widget(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	const struct cfg_key_desc *d = &u->keys[i];
 	const char *v = u->val[i];
@@ -209,6 +229,8 @@ static void draw_widget(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	if (d->kind == CFG_STRING) {
 		if (d->is_monitor)
 			draw_monitor(cr, u, i, row_y);
+		else if (d->is_service)
+			draw_service(cr, u, i, row_y);
 		else
 			draw_field(cr, u, i, row_y);
 		return;
@@ -294,14 +316,14 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 	int n_hints = u->editing >= 0 ? 3 : 4;
 	double total = 0;
 	for (int i = 0; i < n_hints; i++)
-		total += hint_advance(cr, hints[i][0], hints[i][1]);
+		total = draw_hint(cr, total, 0, hints[i][0], hints[i][1], true);
 	double hx = (w - (total - 15)) / 2.0, hy = h - 9;
 	for (int i = 0; i < n_hints; i++)
-		hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1]);
+		hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1], false);
 	(void)hx;
 
 	if (u->dd_open >= 0) {
-		int count = cfg_ui_monitor_count(u);
+		int count = cfg_ui_dd_count(u);
 		struct rect first;
 		dropdown_item_rect(u, 0, &first);
 		double bh = count * DD_ITEM_H;
@@ -316,7 +338,7 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 		for (int k = 0; k < count; k++) {
 			struct rect ir;
 			dropdown_item_rect(u, k, &ir);
-			bool sel = strcmp(cfg_ui_monitor_value(u, k), cur) == 0;
+			bool sel = strcmp(cfg_ui_dd_value(u, k), cur) == 0;
 			if (sel) {
 				set_accent(cr, 0.18);
 				cairo_rectangle(cr, ir.x, ir.y, ir.w, ir.h);
@@ -326,7 +348,7 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 				cairo_rectangle(cr, ir.x, ir.y, ir.w, ir.h);
 				cairo_fill(cr);
 			}
-			text(cr, ir.x + 8, ir.y + ir.h / 2.0 + 5, cfg_ui_monitor_label(u, k), 13,
+			text(cr, ir.x + 8, ir.y + ir.h / 2.0 + 5, cfg_ui_dd_label(u, k), 13,
 				 sel ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL, 0.9, 0.9, 0.92, 1);
 		}
 	}

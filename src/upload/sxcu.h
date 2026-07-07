@@ -67,7 +67,7 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 
 const char *sxcu_dir_path(void);
 int sxcu_dir_list(char ***names_out, size_t *n_out);
-int sxcu_dir_add(const char *file_path);
+int sxcu_dir_add(const char *file_path, char *name_out, size_t name_cap);
 int sxcu_dir_remove(const char *name);
 int sxcu_dir_lookup(const char *name, struct sxcu_uploader *out);
 bool sxcu_dir_has(const char *name);

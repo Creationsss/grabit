@@ -109,11 +109,20 @@ per service, either:
 grabit set services.zipline.auth "<token>"             # plaintext in config (chmod 0600)
 ```
 
-or via env (preferred, works with password managers):
+or via env (works with password managers):
 
 ```sh
 export GRABIT_ZIPLINE_AUTH="$(pass show grabit/zipline)"
 ```
+
+or a command that prints the token (settable in the UI, keeps it out of config):
+
+```sh
+grabit set services.zipline.auth_cmd "pass show grabit/zipline"
+```
+
+`auth_cmd` runs through `/bin/sh -c`; its first output line (trimmed) is the token.
+resolution order is the env var, then `auth_cmd`, then plaintext `auth`.
 
 zipline also needs:
 

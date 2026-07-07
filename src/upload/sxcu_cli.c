@@ -79,7 +79,7 @@ int cmd_sxcu(int argc, char **argv) {
 	}
 	if (strcmp(sub, "add") == 0 || strcmp(sub, "install") == 0) {
 		if (argc != 2) return usage();
-		if (sxcu_dir_add(argv[1]) != 0) return 1;
+		if (sxcu_dir_add(argv[1], NULL, 0) != 0) return 1;
 		log_info("sxcu: added to %s", sxcu_dir_path());
 		return 0;
 	}

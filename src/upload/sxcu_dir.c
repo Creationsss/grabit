@@ -156,7 +156,8 @@ static char *sanitize(const char *src) {
 	return out;
 }
 
-int sxcu_dir_add(const char *file_path) {
+int sxcu_dir_add(const char *file_path, char *name_out, size_t name_cap) {
+	if (name_out && name_cap) name_out[0] = '\0';
 	if (!file_path) return -1;
 
 	struct sxcu_uploader probe = {0};
@@ -180,14 +181,19 @@ int sxcu_dir_add(const char *file_path) {
 
 	char dst[SXCU_PATH_MAX];
 	int rc = sxcu_path_for(name, dst, sizeof dst);
-	free(name);
-	if (rc != 0) return -1;
+	if (rc != 0) {
+		free(name);
+		return -1;
+	}
 
 	if (copy_file(file_path, dst) != 0) {
 		log_error("sxcu: copy %s -> %s failed", file_path, dst);
+		free(name);
 		return -1;
 	}
 	chmod(dst, SXCU_FILE_MODE);
+	if (name_out && name_cap) snprintf(name_out, name_cap, "%s", name);
+	free(name);
 	return 0;
 }
 

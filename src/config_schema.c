@@ -117,6 +117,7 @@ static bool valid_service_key(const char *key) {
 
 	const char *leaf = dot + 1;
 	if (strcmp(leaf, "auth") == 0) return true;
+	if (strcmp(leaf, "auth_cmd") == 0) return true;
 	if (strcmp(leaf, "domain") == 0) return strcmp(svc, "zipline") == 0;
 	if (strcmp(leaf, "chunked") == 0) return strcmp(svc, "zipline") == 0;
 	if (strcmp(leaf, "chunk_size") == 0) return strcmp(svc, "zipline") == 0;
@@ -252,7 +253,7 @@ static const struct cfg_key_desc CFG_KEYS[] = {
 	{.key = "editor", .label = "External editor", .kind = CFG_STRING, .is_path = true},
 	{.key = "filename", .label = "Filename template", .kind = CFG_STRING},
 	{.key = "filename_preset", .label = "Filename preset", .kind = CFG_ENUM, .vals = VALS_filename_preset},
-	{.key = "service", .label = "Upload service", .kind = CFG_STRING, .validate = validate_service},
+	{.key = "service", .label = "Upload service", .kind = CFG_STRING, .is_service = true, .vals = KNOWN_SERVICES, .validate = validate_service},
 	{.key = "format", .label = "Image format", .kind = CFG_ENUM, .vals = VALS_format, .def = "png"},
 	{.key = "recording.fps", .label = "Frame rate (fps)", .kind = CFG_INT, .lo = 1, .hi = 120, .def = "30"},
 	{.key = "recording.crf", .label = "Quality (CRF, lower=better)", .kind = CFG_INT, .lo = 0, .hi = 51, .def = "23"},
@@ -287,16 +288,22 @@ static const struct cfg_key_desc CFG_KEYS[] = {
 	{.key = "preview.position", .label = "Preview position", .kind = CFG_ENUM, .vals = VALS_position, .def = "bottom-right"},
 	{.key = "preview.output", .label = "Preview monitor", .kind = CFG_STRING, .is_monitor = true},
 	{.key = "preview.dismiss_secs", .label = "Preview timeout (s)", .kind = CFG_INT, .lo = 0, .hi = 600, .def = "5"},
-	{.key = "services.zipline.auth", .label = "Zipline token", .kind = CFG_STRING, .is_secret = true},
-	{.key = "services.zipline.domain", .label = "Zipline domain", .kind = CFG_STRING},
-	{.key = "services.zipline.chunked", .label = "Zipline chunked upload", .kind = CFG_BOOL, .def = "false"},
-	{.key = "services.zipline.chunk_size", .label = "Zipline chunk size (MB)", .kind = CFG_INT, .lo = 1, .hi = 95, .def = "25"},
-	{.key = "services.nest.auth", .label = "Nest token", .kind = CFG_STRING, .is_secret = true},
-	{.key = "services.nest.folder", .label = "Nest folder", .kind = CFG_STRING},
-	{.key = "services.fakecrime.auth", .label = "fakecrime token", .kind = CFG_STRING, .is_secret = true},
-	{.key = "services.ez.auth", .label = "ez token", .kind = CFG_STRING, .is_secret = true},
-	{.key = "services.guns.auth", .label = "guns token", .kind = CFG_STRING, .is_secret = true},
-	{.key = "services.pixelvault.auth", .label = "pixelvault token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.zipline.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.zipline.auth_cmd", .label = "Token command", .kind = CFG_STRING},
+	{.key = "services.zipline.domain", .label = "Domain", .kind = CFG_STRING},
+	{.key = "services.zipline.chunked", .label = "Chunked upload", .kind = CFG_BOOL, .def = "false"},
+	{.key = "services.zipline.chunk_size", .label = "Chunk size (MB)", .kind = CFG_INT, .lo = 1, .hi = 95, .def = "25"},
+	{.key = "services.nest.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.nest.auth_cmd", .label = "Token command", .kind = CFG_STRING},
+	{.key = "services.nest.folder", .label = "Folder", .kind = CFG_STRING},
+	{.key = "services.fakecrime.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.fakecrime.auth_cmd", .label = "Token command", .kind = CFG_STRING},
+	{.key = "services.ez.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.ez.auth_cmd", .label = "Token command", .kind = CFG_STRING},
+	{.key = "services.guns.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.guns.auth_cmd", .label = "Token command", .kind = CFG_STRING},
+	{.key = "services.pixelvault.auth", .label = "Token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.pixelvault.auth_cmd", .label = "Token command", .kind = CFG_STRING},
 };
 static const size_t CFG_KEYS_N = sizeof CFG_KEYS / sizeof CFG_KEYS[0];
 
@@ -363,14 +370,6 @@ int config_set(struct config *c, const char *key, const char *value) {
 			break;
 		}
 	}
-
-	if (strcmp(key, "services.zipline.chunked") == 0 &&
-		strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
-		log_error("services.zipline.chunked must be true or false");
-		return -1;
-	}
-	if (strcmp(key, "services.zipline.chunk_size") == 0 &&
-		validate_int_in_range(key, value, 1, 95) != 0) return -1;
 
 	const char *zl_prefix = "services.zipline.headers.";
 	if (strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {

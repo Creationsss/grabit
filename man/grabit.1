@@ -376,6 +376,17 @@ Per-service auth tokens go under
 or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
+To keep the token out of the config file, set
+.BI services. name .auth_cmd
+to a shell command that prints it, e.g.
+.BR "grabit set services.zipline.auth_cmd \(dqpass show grabit/zipline\(dq" .
+It is run through
+.BR "/bin/sh -c" ,
+and its first output line (trimmed) is used as the token.
+Resolution order is the environment variable, then
+.BR auth_cmd ,
+then the plaintext
+.BR auth .
 .PP
 Set
 .B region.confirm

@@ -52,9 +52,12 @@ struct cfg_ui {
 	int pick_fd;
 	int pick_pid;
 	int pick_key;
+	bool pick_import;
 
 	const char **monitors;
 	int n_monitors;
+	char **services;
+	int n_services;
 	int dd_open;
 	int dd_hover;
 	double dd_y;
@@ -66,7 +69,13 @@ struct cfg_ui {
 int cfg_ui_monitor_count(struct cfg_ui *u);
 const char *cfg_ui_monitor_value(struct cfg_ui *u, int idx);
 const char *cfg_ui_monitor_label(struct cfg_ui *u, int idx);
+int cfg_ui_dd_count(struct cfg_ui *u);
+const char *cfg_ui_dd_value(struct cfg_ui *u, int idx);
+const char *cfg_ui_dd_label(struct cfg_ui *u, int idx);
 void dropdown_item_rect(struct cfg_ui *u, int idx, struct rect *r);
+void cfg_ui_refresh_tabs(struct cfg_ui *u);
+void cfg_ui_build_services(struct cfg_ui *u);
+int cfg_ui_import_sxcu(struct cfg_ui *u, const char *path, char *name_out, size_t cap);
 
 bool bool_on(const char *v);
 void tab_rect(int i, struct rect *r);

@@ -43,6 +43,7 @@ struct cfg_key_desc {
 	bool is_dir;
 	bool is_monitor;
 	bool is_secret;
+	bool is_service;
 	int (*validate)(const char *value);
 };
 

@@ -73,10 +73,26 @@ const char *cfg_ui_monitor_label(struct cfg_ui *u, int idx) {
 	return idx <= 0 ? "(auto)" : u->monitors[idx - 1];
 }
 
+static bool dd_is_service(struct cfg_ui *u) {
+	return u->dd_open >= 0 && u->keys[u->dd_open].is_service;
+}
+
+int cfg_ui_dd_count(struct cfg_ui *u) {
+	return dd_is_service(u) ? u->n_services : cfg_ui_monitor_count(u);
+}
+
+const char *cfg_ui_dd_value(struct cfg_ui *u, int idx) {
+	return dd_is_service(u) ? u->services[idx] : cfg_ui_monitor_value(u, idx);
+}
+
+const char *cfg_ui_dd_label(struct cfg_ui *u, int idx) {
+	return dd_is_service(u) ? u->services[idx] : cfg_ui_monitor_label(u, idx);
+}
+
 void dropdown_item_rect(struct cfg_ui *u, int idx, struct rect *r) {
 	struct rect fr;
-	field_rect(&fr, false, u->dd_y);
-	int list_h = cfg_ui_monitor_count(u) * DD_ITEM_H;
+	field_rect(&fr, dd_is_service(u), u->dd_y);
+	int list_h = cfg_ui_dd_count(u) * DD_ITEM_H;
 	int below = fr.y + fr.h + 2;
 	int top = (below + list_h <= u->panel_h - FOOTER_H) ? below : fr.y - 2 - list_h;
 	r->x = fr.x;
@@ -91,6 +107,7 @@ static void set_val(struct cfg_ui *u, int i, const char *s) {
 	free(u->val[i]);
 	u->val[i] = n;
 	if (config_set(&u->cfg, u->keys[i].key, u->val[i]) == 0) config_save(&u->cfg);
+	if (strcmp(u->keys[i].key, "service") == 0) cfg_ui_refresh_tabs(u);
 }
 
 static void on_pick_ready(struct ui_window *win, void *user) {
@@ -100,7 +117,14 @@ static void on_pick_ready(struct ui_window *win, void *user) {
 	ui_window_watch_fd(win, -1, NULL, NULL);
 	close(u->pick_fd);
 	u->pick_fd = -1;
-	if (ok == 0) set_val(u, u->pick_key, picked);
+	if (ok == 0 && u->pick_import) {
+		char name[128];
+		if (cfg_ui_import_sxcu(u, picked, name, sizeof name) == 0 && name[0])
+			set_val(u, u->pick_key, name);
+	} else if (ok == 0) {
+		set_val(u, u->pick_key, picked);
+	}
+	u->pick_import = false;
 	ui_window_redraw(win);
 }
 
@@ -265,7 +289,7 @@ void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user)
 		if (i < 0) return;
 		if (u->keys[i].kind != CFG_STRING)
 			change_row(u, u->sel, +1, 1);
-		else if (u->keys[i].is_monitor)
+		else if (u->keys[i].is_monitor || u->keys[i].is_service)
 			open_dropdown(u, u->sel);
 		else
 			begin_edit(u, i);
@@ -307,6 +331,7 @@ enum hit { HIT_NONE,
 		   HIT_FIELD,
 		   HIT_BROWSE,
 		   HIT_DROPDOWN,
+		   HIT_IMPORT,
 		   HIT_DEC,
 		   HIT_INC };
 
@@ -326,6 +351,12 @@ static enum hit hit_test(struct cfg_ui *u, int32_t x, int32_t y, int *out_pos) {
 		if (d->is_monitor) {
 			field_rect(&r, false, ry);
 			return rect_contains(r, x, y) ? HIT_DROPDOWN : HIT_NONE;
+		}
+		if (d->is_service) {
+			field_rect(&r, true, ry);
+			if (rect_contains(r, x, y)) return HIT_DROPDOWN;
+			right_btn_rect(&r, ry);
+			return rect_contains(r, x, y) ? HIT_IMPORT : HIT_NONE;
 		}
 		field_rect(&r, d->is_path, ry);
 		if (rect_contains(r, x, y)) return HIT_FIELD;
@@ -353,7 +384,7 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 	}
 
 	if (u->dd_open >= 0) {
-		int count = cfg_ui_monitor_count(u), over = -1;
+		int count = cfg_ui_dd_count(u), over = -1;
 		for (int k = 0; k < count; k++) {
 			struct rect ir;
 			dropdown_item_rect(u, k, &ir);
@@ -371,7 +402,7 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 			return;
 		}
 		if (e->kind == UI_PTR_BUTTON && e->pressed && e->button == BTN_LEFT) {
-			if (over >= 0) set_val(u, u->dd_open, cfg_ui_monitor_value(u, over));
+			if (over >= 0) set_val(u, u->dd_open, cfg_ui_dd_value(u, over));
 			close_dropdown(u);
 			ui_window_redraw(win);
 		}
@@ -421,14 +452,16 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 		case HIT_FIELD:
 			begin_edit(u, i);
 			break;
-		case HIT_BROWSE: {
+		case HIT_BROWSE:
+		case HIT_IMPORT: {
 			if (u->pick_fd >= 0) break;
 			pid_t pid = 0;
-			int fd = grabit_pick_path_start(u->keys[i].is_dir, &pid);
+			int fd = grabit_pick_path_start(h == HIT_BROWSE && u->keys[i].is_dir, &pid);
 			if (fd >= 0) {
 				u->pick_fd = fd;
 				u->pick_pid = (int)pid;
 				u->pick_key = i;
+				u->pick_import = (h == HIT_IMPORT);
 				ui_window_watch_fd(win, fd, on_pick_ready, u);
 			}
 			break;

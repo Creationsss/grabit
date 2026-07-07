@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 #include <curl/curl.h>
 #include <json-c/json.h>
@@ -52,20 +53,83 @@ static void build_auth_keys(const char *service, char *env_key, size_t env_cap,
 	snprintf(cfg_key, cfg_cap, "services.%s.auth", service);
 }
 
-static const char *resolve_auth(struct config *cfg, const char *service) {
+static bool run_auth_cmd(const char *cmd, char *out, size_t cap) {
+	char *const argv[] = {"/bin/sh", "-c", (char *)cmd, NULL};
+	struct grabit_buf buf = {0};
+	bool capped = false;
+	int status = 0;
+	if (grabit_spawn_capture(argv, false, cap + 64, &buf, &capped, &status) != 0) {
+		grabit_buf_free(&buf);
+		return false;
+	}
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		log_error("auth_cmd exited with an error");
+		grabit_buf_free(&buf);
+		return false;
+	}
+	size_t n = buf.data ? buf.len : 0;
+	if (n) {
+		char *nl = memchr(buf.data, '\n', n);
+		if (nl) n = (size_t)(nl - buf.data);
+		n = grabit_rstrip(buf.data, n);
+	}
+	if (n == 0 || n >= cap) {
+		log_error("auth_cmd produced %s", n == 0 ? "no output" : "an oversized token");
+		grabit_buf_free(&buf);
+		return false;
+	}
+	memcpy(out, buf.data, n);
+	out[n] = '\0';
+	grabit_buf_free(&buf);
+	return true;
+}
+
+static bool auth_configured(struct config *cfg, const char *service) {
+	char env_key[64], cfg_key[64], cmd_key[80];
+	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
+	const char *env = getenv(env_key);
+	if (env && env[0]) return true;
+	snprintf(cmd_key, sizeof cmd_key, "services.%s.auth_cmd", service);
+	const char *cmd = config_get(cfg, cmd_key);
+	if (cmd && cmd[0]) return true;
+	const char *plain = config_get(cfg, cfg_key);
+	return plain && plain[0];
+}
+
+static void log_auth_help(const char *service) {
 	char env_key[64], cfg_key[64];
 	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
-	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
-	if (!auth || !auth[0]) {
-		log_error("no auth token for %s.", service);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
-		return NULL;
+	log_error("no auth token for %s.", service);
+	log_error("  password manager (recommended):");
+	log_error("    grabit set services.%s.auth_cmd \"pass show grabit/%s\"", service, service);
+	log_error("  environment (takes priority):");
+	log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
+	log_error("  plaintext (config 0600):");
+	log_error("    grabit set %s <token>", cfg_key);
+}
+
+static bool resolve_auth(struct config *cfg, const char *service, char *out, size_t cap) {
+	char env_key[64], cfg_key[64], cmd_key[80];
+	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
+	const char *env = getenv(env_key);
+	if (env && env[0]) {
+		snprintf(out, cap, "%s", env);
+		return true;
 	}
-	return auth;
+	snprintf(cmd_key, sizeof cmd_key, "services.%s.auth_cmd", service);
+	const char *cmd = config_get(cfg, cmd_key);
+	if (cmd && cmd[0]) {
+		if (run_auth_cmd(cmd, out, cap)) return true;
+		log_error("services.%s.auth_cmd did not return a usable token", service);
+		return false;
+	}
+	const char *plain = config_get(cfg, cfg_key);
+	if (plain && plain[0]) {
+		snprintf(out, cap, "%s", plain);
+		return true;
+	}
+	log_auth_help(service);
+	return false;
 }
 
 static const struct service *find_service(const char *name) {
@@ -123,7 +187,8 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 		return -1;
 	}
 
-	if (!resolve_auth(cfg, service)) {
+	if (!auth_configured(cfg, service)) {
+		log_auth_help(service);
 		char body[160];
 		snprintf(body, sizeof body, "run: grabit set services.%s.auth <token>", service);
 		notify_send(&(struct notify_opts){
@@ -360,8 +425,8 @@ int upload_perform(const char *service_name, const char *file_path,
 		}
 	}
 
-	const char *auth = resolve_auth(cfg, svc->name);
-	if (!auth) return -1;
+	char auth[8192];
+	if (!resolve_auth(cfg, svc->name, auth, sizeof auth)) return -1;
 
 	if (strcmp(svc->name, "zipline") == 0) {
 		const char *cv = config_get(cfg, "services.zipline.chunked");

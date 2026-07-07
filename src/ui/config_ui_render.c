@@ -84,16 +84,19 @@ static double draw_hint(cairo_t *cr, double x, double y, const char *key, const 
 	return x + le.width + 15;
 }
 
-static void blur_text(cairo_t *cr, double x, double y, const char *s) {
-	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	cairo_set_font_size(cr, 13);
-	for (int dy = -3; dy <= 3; dy++) {
-		for (int dx = -3; dx <= 3; dx++) {
-			cairo_set_source_rgba(cr, 0.88, 0.88, 0.9, 0.05);
-			cairo_move_to(cr, x + dx, y + dy);
-			cairo_show_text(cr, s);
-		}
+static void draw_masked(cairo_t *cr, double x, double y, const char *s) {
+	char dots[3 * 64 + 1];
+	size_t b = 0;
+	int n = 0;
+	for (const char *p = s; *p && n < 64; p++) {
+		if (((unsigned char)*p & 0xC0) == 0x80) continue;
+		dots[b++] = (char)0xE2;
+		dots[b++] = (char)0x80;
+		dots[b++] = (char)0xA2;
+		n++;
 	}
+	dots[b] = '\0';
+	text(cr, x, y, dots, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
 }
 
 static bool row_revealed(struct cfg_ui *u, int i) {
@@ -125,15 +128,15 @@ static void draw_field(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	cairo_rectangle(cr, fr.x + 4, fr.y, fr.w - 8, fr.h);
 	cairo_clip(cr);
 	cairo_text_extents_t e = {0};
-	bool blurred = u->keys[i].is_secret && !editing && !row_revealed(u, i);
+	bool masked = u->keys[i].is_secret && !editing && !row_revealed(u, i);
 	if (shown[0]) {
 		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 		cairo_set_font_size(cr, 13);
 		cairo_text_extents(cr, shown, &e);
 		double over = (tx + e.width) - (fr.x + fr.w - 7);
 		if (editing && over > 0) tx -= over;
-		if (blurred)
-			blur_text(cr, tx, ty, shown);
+		if (masked)
+			draw_masked(cr, tx, ty, shown);
 		else
 			text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
 	}

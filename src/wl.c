@@ -460,10 +460,31 @@ void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_
 	*n_out = s->n_outputs;
 }
 
+void grabit_wl_outputs_bbox(struct grabit_wl_state *s, struct rect *out) {
+	memset(out, 0, sizeof *out);
+	if (s->n_outputs == 0) return;
+	grabit_output_rect(s->outputs[0], out);
+	int32_t max_x = out->x + out->w, max_y = out->y + out->h;
+	for (size_t i = 1; i < s->n_outputs; i++) {
+		struct rect r;
+		grabit_output_rect(s->outputs[i], &r);
+		if (r.x < out->x) out->x = r.x;
+		if (r.y < out->y) out->y = r.y;
+		if (r.x + r.w > max_x) max_x = r.x + r.w;
+		if (r.y + r.h > max_y) max_y = r.y + r.h;
+	}
+	out->w = max_x - out->x;
+	out->h = max_y - out->y;
+}
+
 int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out) {
 	if (s->n_outputs == 0) {
 		log_error("fullscreen: no outputs");
 		return -1;
+	}
+	if (spec && strcmp(spec, "all") == 0) {
+		grabit_wl_outputs_bbox(s, out);
+		return 0;
 	}
 	if (spec && spec[0]) {
 		struct grabit_output *target = NULL;

@@ -6,6 +6,7 @@
 
 #include "config_internal.h"
 #include "log.h"
+#include "region/region.h"
 #include "upload/upload.h"
 #include "util.h"
 
@@ -27,6 +28,7 @@ static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NUL
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_edit_color[] = {"red", "yellow", "green", "blue", "black", "white", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
+static const char *VALS_record_format[] = {"mp4", "webm", "gif", NULL};
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
 static const char *VALS_position[] = {
 	"top-left",
@@ -116,6 +118,8 @@ static bool valid_service_key(const char *key) {
 	const char *leaf = dot + 1;
 	if (strcmp(leaf, "auth") == 0) return true;
 	if (strcmp(leaf, "domain") == 0) return strcmp(svc, "zipline") == 0;
+	if (strcmp(leaf, "chunked") == 0) return strcmp(svc, "zipline") == 0;
+	if (strcmp(leaf, "chunk_size") == 0) return strcmp(svc, "zipline") == 0;
 	if (strcmp(leaf, "folder") == 0) return strcmp(svc, "nest") == 0;
 	if (strncmp(leaf, "headers.", 8) == 0) return strcmp(svc, "zipline") == 0 && leaf[8] != '\0';
 	return false;
@@ -258,18 +262,22 @@ static const struct cfg_key_desc CFG_KEYS[] = {
 	{.key = "recording.preset", .label = "Encoder preset", .kind = CFG_ENUM, .vals = VALS_x264_preset, .def = "fast"},
 	{.key = "recording.tune", .label = "Encoder tune", .kind = CFG_ENUM, .vals = VALS_x264_tune, .allow_empty = true},
 	{.key = "recording.pix_fmt", .label = "Pixel format", .kind = CFG_ENUM, .vals = VALS_pix_fmt, .def = "yuv420p"},
+	{.key = "recording.format", .label = "Recording format", .kind = CFG_ENUM, .vals = VALS_record_format, .def = "mp4"},
 	{.key = "ocr.tesseract", .label = "tesseract binary", .kind = CFG_STRING, .is_path = true},
 	{.key = "sound.enabled", .label = "Play a shutter sound", .kind = CFG_BOOL, .def = "false"},
 	{.key = "sound.player", .label = "Sound player", .kind = CFG_STRING, .is_path = true},
 	{.key = "sound.file", .label = "Sound file", .kind = CFG_STRING, .is_path = true},
 	{.key = "edit.color", .label = "Annotation color", .kind = CFG_STRING, .validate = validate_edit_color, .def = "red"},
 	{.key = "edit.width", .label = "Stroke width", .kind = CFG_INT, .lo = 1, .hi = 20, .def = "4"},
+	{.key = "edit.tool", .label = "Default tool", .kind = CFG_ENUM, .vals = grabit_tool_names, .def = "pen"},
 	{.key = "edit.default", .label = "Annotate every capture", .kind = CFG_BOOL, .def = "false"},
 	{.key = "jpeg.quality", .label = "JPEG quality", .kind = CFG_INT, .lo = 1, .hi = 100, .def = "90"},
 	{.key = "webp.quality", .label = "WebP quality", .kind = CFG_INT, .lo = 0, .hi = 100, .def = "85"},
 	{.key = "webp.lossless", .label = "WebP lossless", .kind = CFG_BOOL, .def = "false"},
 	{.key = "capture.backend", .label = "Capture backend", .kind = CFG_ENUM, .vals = VALS_capture_backend, .def = "auto"},
+	{.key = "capture.cursor", .label = "Include the pointer", .kind = CFG_BOOL, .def = "true"},
 	{.key = "region.window_snap", .label = "Snap to windows", .kind = CFG_BOOL, .def = "true"},
+	{.key = "region.confirm", .label = "Confirm before capture", .kind = CFG_BOOL, .def = "false"},
 	{.key = "translate.target", .label = "Translate to (language)", .kind = CFG_STRING},
 	{.key = "text_card.dismiss_secs", .label = "OCR card timeout (s)", .kind = CFG_INT, .lo = 0, .hi = 600, .def = "8"},
 	{.key = "text_card.position", .label = "OCR card position", .kind = CFG_ENUM, .vals = VALS_position, .def = "bottom-right"},
@@ -346,6 +354,14 @@ int config_set(struct config *c, const char *key, const char *value) {
 		}
 	}
 
+	if (strcmp(key, "services.zipline.chunked") == 0 &&
+		strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
+		log_error("services.zipline.chunked must be true or false");
+		return -1;
+	}
+	if (strcmp(key, "services.zipline.chunk_size") == 0 &&
+		validate_int_in_range(key, value, 1, 95) != 0) return -1;
+
 	const char *zl_prefix = "services.zipline.headers.";
 	if (strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {
 		if (validate_zl_header(key + strlen(zl_prefix), value) != 0) return -1;
@@ -370,5 +386,5 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("out of memory");
 		return -1;
 	}
-	return config_save(c);
+	return 0;
 }

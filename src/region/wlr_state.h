@@ -47,6 +47,10 @@ struct ro_output {
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
 
+	cairo_surface_t *anno_cache;
+	size_t anno_cache_gen;
+	struct rect anno_cache_sel;
+
 	bool dirty;
 	struct wl_callback *frame_cb;
 };
@@ -87,6 +91,7 @@ struct ro_state {
 	int32_t sel_y;
 	int32_t sel_w;
 	int32_t sel_h;
+	struct rect bounds;
 
 	struct rect *snap_windows;
 	size_t n_snap_windows;
@@ -99,6 +104,7 @@ struct ro_state {
 	const struct image *frozen;
 
 	bool annotate_mode;
+	bool confirm_mode;
 	bool region_locked;
 	enum tool_kind current_tool;
 
@@ -119,13 +125,17 @@ struct ro_state {
 
 	uint32_t current_color;
 	int32_t current_width;
+	int32_t current_font;
+	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
 	bool ctrl_held;
 	int handle_dragging;
 	bool moving_region;
+	bool region_moved;
 	int32_t move_grab_dx;
 	int32_t move_grab_dy;
+	uint32_t last_inside_press;
 	bool slider_dragging;
 	bool eyedropper_mode;
 	bool color_picker_open;
@@ -136,6 +146,10 @@ struct ro_state {
 
 	int undo_timer_fd;
 	bool undo_held;
+
+	int nudge_timer_fd;
+	uint32_t nudge_held;
+	int32_t nudge_ticks;
 
 	int tooltip_timer_fd;
 	int hovered_button;
@@ -148,9 +162,15 @@ struct ro_state {
 	int32_t picker_pat_dh;
 };
 
+static inline bool region_editing(const struct ro_state *st) {
+	return st->annotate_mode && st->out_annos;
+}
+
 enum tb_action {
 	TB_NONE = -1,
 	TB_TOOL_PEN = 0,
+	TB_TOOL_MARKER,
+	TB_TOOL_LINE,
 	TB_TOOL_RECT,
 	TB_TOOL_ELLIPSE,
 	TB_TOOL_ARROW,
@@ -202,6 +222,8 @@ void region_color_picker_release_cache(struct ro_state *st);
 
 #define WIDTH_MIN 1
 #define WIDTH_MAX 12
+#define FONT_MIN 8
+#define FONT_MAX 72
 void region_toolbar_render(cairo_t *cr, const struct ro_output *o);
 void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
 

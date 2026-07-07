@@ -43,6 +43,8 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct grabit_save_opts *opts,
 									const char *path);
 
+int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
+						  int *w, int *h, int *stride, const unsigned char **data);
 int grabit_save_png_surface(cairo_surface_t *surface, const char *path);
 int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int quality);
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,

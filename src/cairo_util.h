@@ -4,10 +4,15 @@
 #ifndef GRABIT_CAIRO_UTIL_H
 #define GRABIT_CAIRO_UTIL_H
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <cairo/cairo.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static inline void grabit_cairo_set_source_argb(cairo_t *cr, uint32_t color, double alpha) {
 	double r = ((color >> 16) & 0xff) / 255.0;
@@ -29,6 +34,16 @@ static inline cairo_surface_t *grabit_cairo_image(void *data, cairo_format_t fmt
 static inline cairo_surface_t *grabit_cairo_image_argb(void *data, int32_t w, int32_t h,
 													   int32_t stride) {
 	return grabit_cairo_image(data, CAIRO_FORMAT_ARGB32, w, h, stride);
+}
+
+static inline void grabit_cairo_rounded_rect(cairo_t *cr, double x, double y,
+											 double w, double h, double r) {
+	cairo_new_sub_path(cr);
+	cairo_arc(cr, x + r, y + r, r, M_PI, 1.5 * M_PI);
+	cairo_arc(cr, x + w - r, y + r, r, 1.5 * M_PI, 2.0 * M_PI);
+	cairo_arc(cr, x + w - r, y + h - r, r, 0.0, 0.5 * M_PI);
+	cairo_arc(cr, x + r, y + h - r, r, 0.5 * M_PI, M_PI);
+	cairo_close_path(cr);
 }
 
 #endif

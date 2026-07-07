@@ -13,6 +13,7 @@ struct image;
 struct pixels_pool;
 
 int grabit_wlr_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
+							bool overlay_cursor,
 							struct image *out);
 int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,
@@ -22,6 +23,7 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 							  struct pixels_pool *cache);
 
 int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
+							bool overlay_cursor,
 							struct image *out);
 int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,

@@ -56,14 +56,9 @@ static int update_prebuilt(const char *plugin_dir, const char *name,
 	}
 	if (res != PLUGIN_FETCH_OK) goto out;
 
-	if (sha && *sha) {
-		char actual[SHA256_HEX_SIZE];
-		if (plugin_sha256_file(tmp_path, actual) != 0 ||
-			!plugin_sha256_equal(sha, actual)) {
-			log_error("plugin: sha256 mismatch on update; keeping current binary");
-			unlink(tmp_path);
-			goto out;
-		}
+	if (plugin_verify_sha256(tmp_path, sha) != 0) {
+		unlink(tmp_path);
+		goto out;
 	}
 	chmod(tmp_path, 0755);
 	int sync_fd = open(tmp_path, O_RDONLY | O_CLOEXEC);
@@ -102,8 +97,9 @@ int plugin_update(const char *name) {
 	struct plugin_manifest m = {0};
 	int rc = -1;
 
-	if (grabit_xasprintf(&plugin_dir, "%s/%s", plugin_dir_path(), name) != 0) goto out;
-	if (grabit_xasprintf(&manifest_path, "%s/manifest.toml", plugin_dir) != 0) goto out;
+	plugin_dir = plugin_path_for(name, NULL);
+	manifest_path = plugin_path_for(name, "manifest.toml");
+	if (!plugin_dir || !manifest_path) goto out;
 	if (plugin_manifest_parse_file(manifest_path, &m) != 0) goto out;
 
 	char source_kind[32];
@@ -145,25 +141,15 @@ out:
 	return rc;
 }
 
+static int update_one_cb(const char *name, void *ud) {
+	int *n = ud;
+	if (plugin_update(name) == 0) (*n)++;
+	return 0;
+}
+
 int plugin_update_all(void) {
-	const char *root = plugin_dir_path();
-	if (!root[0]) return -1;
-	DIR *d = opendir(root);
-	if (!d) return 0;
 	int n = 0;
-	struct dirent *e;
-	while ((e = readdir(d)) != NULL) {
-		if (e->d_name[0] == '.') continue;
-		if (!plugin_name_is_valid(e->d_name)) continue;
-		char *path = NULL;
-		if (grabit_xasprintf(&path, "%s/%s", root, e->d_name) != 0) continue;
-		struct stat st;
-		bool is_dir = (stat(path, &st) == 0 && S_ISDIR(st.st_mode));
-		free(path);
-		if (!is_dir) continue;
-		if (plugin_update(e->d_name) == 0) n++;
-	}
-	closedir(d);
+	if (plugin_foreach_installed(update_one_cb, &n) != 0) return -1;
 	log_info("plugin: updated %d plugin(s)", n);
 	return 0;
 }
@@ -180,13 +166,30 @@ void plugin_maybe_auto_update(const char *name) {
 	struct plugin_manifest m = {0};
 	bool should_spawn = false;
 
-	if (grabit_xasprintf(&plugin_dir, "%s/%s", plugin_dir_path(), name) != 0) goto out;
-	if (grabit_xasprintf(&manifest_path, "%s/manifest.toml", plugin_dir) != 0) goto out;
+	plugin_dir = plugin_path_for(name, NULL);
+	manifest_path = plugin_path_for(name, "manifest.toml");
+	if (!plugin_dir || !manifest_path) goto out;
 	if (plugin_manifest_parse_file(manifest_path, &m) != 0) goto out;
 	if (m.update_check_hours <= 0) goto out;
-	if (grabit_xasprintf(&check_path, "%s/.last_check", plugin_dir) != 0) goto out;
+	check_path = plugin_path_for(name, ".last_check");
+	if (!check_path) goto out;
 	if (!stale(check_path, m.update_check_hours)) goto out;
+
+	char source_kind[32];
+	char source_url[2048];
+	char source_sha[SHA256_HEX_SIZE];
+	bool prebuilt = plugin_state_read(plugin_dir, source_kind, sizeof source_kind,
+									  source_url, sizeof source_url,
+									  source_sha, sizeof source_sha) == 0 &&
+					strcmp(source_kind, "prebuilt") == 0;
 	plugin_touch_check(plugin_dir);
+	if (!prebuilt) {
+		log_info("plugin: %s may have updates; run `grabit plugin update %s` "
+				 "(git plugins are not auto-updated, since that would build and run "
+				 "code from the remote unattended)",
+				 name, name);
+		goto out;
+	}
 	should_spawn = true;
 out:
 	plugin_manifest_free(&m);
@@ -206,7 +209,7 @@ out:
 
 	char log_path[1024];
 	snprintf(log_path, sizeof log_path, "%s/%s/.update.log", plugin_dir_path(), name);
-	int logfd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	int logfd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644);
 	if (logfd >= 0) {
 		dup2(logfd, STDOUT_FILENO);
 		dup2(logfd, STDERR_FILENO);

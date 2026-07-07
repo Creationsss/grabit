@@ -73,6 +73,7 @@ int cmd_set(int argc, char **argv) {
 	struct config c;
 	if (config_load(&c) != 0) return 1;
 	int rc = config_set(&c, argv[0], argv[1]);
+	if (rc == 0) rc = config_save(&c);
 	const char *stored = (rc == 0) ? config_get(&c, argv[0]) : NULL;
 	if (rc == 0) log_info("set %s = %s", argv[0], stored ? stored : argv[1]);
 	config_free(&c);

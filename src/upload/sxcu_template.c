@@ -109,11 +109,18 @@ static char *match_regex_text(const char *body, const char *pattern, int group_i
 		log_warn("sxcu: invalid regex: %s", pattern);
 		return NULL;
 	}
+	char *bounded = NULL;
+	enum { REGEX_SUBJECT_MAX = 256u << 10 };
+	if (strlen(body) > REGEX_SUBJECT_MAX) {
+		bounded = strndup(body, REGEX_SUBJECT_MAX);
+		if (bounded) body = bounded;
+	}
 	size_t ngroups = re.re_nsub + 1;
 	regmatch_t small[SXCU_REGEX_INLINE_GROUPS];
 	regmatch_t *m = (ngroups <= SXCU_REGEX_INLINE_GROUPS) ? small : calloc(ngroups, sizeof *m);
 	if (!m) {
 		regfree(&re);
+		free(bounded);
 		return NULL;
 	}
 	char *out = NULL;
@@ -125,6 +132,7 @@ static char *match_regex_text(const char *body, const char *pattern, int group_i
 	}
 	if (m != small) free(m);
 	regfree(&re);
+	free(bounded);
 	return out;
 }
 

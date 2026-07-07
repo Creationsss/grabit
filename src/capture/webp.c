@@ -16,21 +16,10 @@
 
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 							 int quality, bool lossless) {
-	if (!surface || !path) return -1;
-	if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-		log_error("webp: bad input surface");
-		return -1;
-	}
-
-	cairo_surface_flush(surface);
-	int w = cairo_image_surface_get_width(surface);
-	int h = cairo_image_surface_get_height(surface);
-	int stride = cairo_image_surface_get_stride(surface);
-	const unsigned char *src = cairo_image_surface_get_data(surface);
-	if (w <= 0 || h <= 0 || stride <= 0 || !src) {
-		log_error("webp: empty surface");
-		return -1;
-	}
+	if (!path) return -1;
+	int w, h, stride;
+	const unsigned char *src;
+	if (grabit_surface_pixels(surface, "webp", &w, &h, &stride, &src) != 0) return -1;
 
 	if (quality < 0) quality = 0;
 	if (quality > 100) quality = 100;

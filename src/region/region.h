@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct config;
 struct grabit_wl_state;
 struct image;
 
@@ -26,6 +27,8 @@ static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
 
 enum tool_kind {
 	TOOL_PEN = 0,
+	TOOL_MARKER,
+	TOOL_LINE,
 	TOOL_RECT,
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
@@ -34,6 +37,12 @@ enum tool_kind {
 	TOOL_ERASER,
 	TOOL_COUNT,
 };
+
+static inline bool tool_uses_points(enum tool_kind t) {
+	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
+}
+
+extern const char *const grabit_tool_names[];
 
 struct annotation {
 	enum tool_kind tool;
@@ -50,14 +59,17 @@ struct annotation_list {
 	struct annotation *items;
 	size_t n;
 	size_t cap;
+	size_t gen;
 };
 
 void annotation_list_free(struct annotation_list *list);
 
-int region_select(struct grabit_wl_state *s, const struct image *frozen_per_output,
+int region_select(struct grabit_wl_state *s, struct config *cfg,
+				  const struct image *frozen_per_output,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
+				  int32_t *inout_tool,
 				  bool *out_choices_dirty, const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects);
 

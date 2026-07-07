@@ -11,6 +11,7 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
+struct grabit_output;
 struct grabit_wl_state;
 struct zwlr_layer_surface_v1;
 struct zwp_relative_pointer_v1;
@@ -19,6 +20,7 @@ struct wl_cursor_theme;
 
 struct pin_state {
 	struct grabit_wl_state *wls;
+	struct grabit_output *out;
 
 	cairo_surface_t *image;
 	int32_t img_w;
@@ -91,6 +93,7 @@ void pin_render_free_buffer(struct pin_state *st);
 void pin_render_paint(struct pin_state *st);
 void pin_render_repaint_button_area(struct pin_state *st);
 void pin_render_attach_layer(struct pin_state *st);
+void pin_surface_recreate(struct pin_state *st);
 
 void pin_input_attach(struct pin_state *st);
 void pin_input_apply_region(struct pin_state *st);

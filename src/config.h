@@ -24,6 +24,7 @@ void config_free(struct config *c);
 
 const char *config_get(struct config *c, const char *key);
 int config_set(struct config *c, const char *key, const char *value);
+bool config_also_save(struct config *c);
 
 int cmd_set(int argc, char **argv);
 int cmd_get(int argc, char **argv);

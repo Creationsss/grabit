@@ -225,3 +225,9 @@ const char *config_get(struct config *c, const char *key) {
 	struct kv *e = kv_find(c, key);
 	return e ? e->val : NULL;
 }
+
+bool config_also_save(struct config *c) {
+	const char *v = config_get(c, "also_save");
+	if (!v) v = config_get(c, "save_captures");
+	return v && strcmp(v, "true") == 0;
+}

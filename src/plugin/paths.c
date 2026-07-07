@@ -5,9 +5,12 @@
 #include "plugin/plugin.h"
 
 #include "paths.h"
+#include "util.h"
 
+#include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define PLUGIN_PATH_MAX 1024
@@ -48,6 +51,34 @@ const char *plugin_dir_path(void) {
 const char *plugin_bin_dir_path(void) {
 	init_paths();
 	return g_plugin_bin;
+}
+
+char *plugin_path_for(const char *name, const char *suffix) {
+	char *out = NULL;
+	int rc = suffix
+				 ? grabit_xasprintf(&out, "%s/%s/%s", plugin_dir_path(), name, suffix)
+				 : grabit_xasprintf(&out, "%s/%s", plugin_dir_path(), name);
+	return rc == 0 ? out : NULL;
+}
+
+int plugin_foreach_installed(int (*fn)(const char *name, void *ud), void *ud) {
+	const char *root = plugin_dir_path();
+	if (!root[0]) return -1;
+	DIR *d = opendir(root);
+	if (!d) return 0;
+	struct dirent *e;
+	while ((e = readdir(d)) != NULL) {
+		if (e->d_name[0] == '.') continue;
+		if (!plugin_name_is_valid(e->d_name)) continue;
+		char path[PLUGIN_PATH_MAX];
+		int n = snprintf(path, sizeof path, "%s/%s", root, e->d_name);
+		if (n <= 0 || (size_t)n >= sizeof path) continue;
+		struct stat st;
+		if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+		if (fn(e->d_name, ud) != 0) break;
+	}
+	closedir(d);
+	return 0;
 }
 
 int plugin_resolve(const char *name, char *path_out, size_t cap) {

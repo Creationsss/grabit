@@ -90,7 +90,7 @@ static void set_val(struct cfg_ui *u, int i, const char *s) {
 	if (!n) return;
 	free(u->val[i]);
 	u->val[i] = n;
-	config_set(&u->cfg, u->keys[i].key, u->val[i]);
+	if (config_set(&u->cfg, u->keys[i].key, u->val[i]) == 0) config_save(&u->cfg);
 }
 
 static void on_pick_ready(struct ui_window *win, void *user) {

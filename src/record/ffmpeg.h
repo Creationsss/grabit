@@ -7,7 +7,7 @@
 #include <stdatomic.h>
 #include <sys/types.h>
 
-int spawn_ffmpeg(const char *ffmpeg_bin, const char *preset,
+int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,
 				 const char *output_path,

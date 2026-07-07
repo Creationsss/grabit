@@ -20,4 +20,6 @@ int plugin_sha256_file(const char *path, char *hex_out);
 
 bool plugin_sha256_equal(const char *expect_hex, const char *actual_hex);
 
+int plugin_verify_sha256(const char *path, const char *expect_hex);
+
 #endif

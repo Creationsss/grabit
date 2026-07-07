@@ -9,6 +9,7 @@
 #include "log.h"
 #include "notify/notify.h"
 #include "upload/sxcu.h"
+#include "upload/zipline.h"
 #include "util.h"
 #include "util/json_path.h"
 
@@ -20,6 +21,10 @@
 
 #include <curl/curl.h>
 #include <json-c/json.h>
+
+#ifndef GRABIT_VERSION
+#define GRABIT_VERSION "0.0.0"
+#endif
 
 struct service {
 	const char *name;
@@ -45,6 +50,22 @@ static void build_auth_keys(const char *service, char *env_key, size_t env_cap,
 	for (char *p = env_key + 7; *p; p++)
 		*p = (char)toupper((unsigned char)*p);
 	snprintf(cfg_key, cfg_cap, "services.%s.auth", service);
+}
+
+static const char *resolve_auth(struct config *cfg, const char *service) {
+	char env_key[64], cfg_key[64];
+	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
+	const char *auth = getenv(env_key);
+	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
+	if (!auth || !auth[0]) {
+		log_error("no auth token for %s.", service);
+		log_error("  recommended (password-manager-friendly):");
+		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
+		log_error("  or fallback (plaintext in config 0600):");
+		log_error("    grabit set %s <token>", cfg_key);
+		return NULL;
+	}
+	return auth;
 }
 
 static const struct service *find_service(const char *name) {
@@ -102,16 +123,7 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 		return -1;
 	}
 
-	char env_key[64], cfg_key[64];
-	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
-	const char *env_auth = getenv(env_key);
-	const char *cfg_auth = config_get(cfg, cfg_key);
-	if ((!env_auth || !env_auth[0]) && (!cfg_auth || !cfg_auth[0])) {
-		log_error("no auth token for %s.", service);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
+	if (!resolve_auth(cfg, service)) {
 		char body[160];
 		snprintf(body, sizeof body, "run: grabit set services.%s.auth <token>", service);
 		notify_send(&(struct notify_opts){
@@ -138,10 +150,28 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 	return 0;
 }
 
-static size_t curl_write_cb(char *ptr, size_t size, size_t nmemb, void *user) {
+size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user) {
 	struct grabit_buf *b = user;
 	size_t total = size * nmemb;
 	return grabit_buf_putn(b, ptr, total) == 0 ? total : 0;
+}
+
+void upload_curl_common(CURL *curl) {
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 8L);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, "grabit/" GRABIT_VERSION);
+#if LIBCURL_VERSION_NUM >= 0x075500
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS,
+					 (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
 }
 
 static char *extract_url(struct json_object *root, const char *paths) {
@@ -172,9 +202,21 @@ static size_t value_clean_len(const char *value) {
 	return n;
 }
 
-static struct curl_slist *append_header(struct curl_slist *list,
-										const char *name, const char *value,
-										bool *oom) {
+static bool header_name_ok(const char *name) {
+	if (!name || !*name) return false;
+	for (const char *p = name; *p; p++) {
+		unsigned char c = (unsigned char)*p;
+		if (c <= 0x20 || c == 0x7f || c == ':') return false;
+	}
+	return true;
+}
+
+struct curl_slist *upload_header_append(struct curl_slist *list, const char *name,
+										const char *value, bool *oom) {
+	if (!header_name_ok(name)) {
+		log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		return list;
+	}
 	size_t vlen = value_clean_len(value);
 	if (vlen == 0) {
 		log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
@@ -193,7 +235,7 @@ static struct curl_slist *append_header(struct curl_slist *list,
 	return next ? next : list;
 }
 
-static void log_response_body(const char *body) {
+void upload_log_response_body(const char *body) {
 	if (!body || !body[0]) return;
 	enum { BODY_MAX = 512 };
 	size_t len = strlen(body);
@@ -249,13 +291,21 @@ static const char *curl_friendly(int code) {
 	}
 }
 
-static void log_http_failure(long code, const char *body) {
+void upload_log_http_failure(long code, const char *body) {
 	const char *summary = http_friendly(code);
 	if (summary)
 		log_error("upload failed (HTTP %ld): %s", code, summary);
 	else
 		log_error("upload failed (HTTP %ld)", code);
-	if (!summary || code == 0) log_response_body(body);
+	if (!summary || code == 0) upload_log_response_body(body);
+}
+
+void upload_log_curl_failure(int code) {
+	const char *friendly = curl_friendly(code);
+	if (friendly)
+		log_error("upload: %s (%s)", friendly, curl_easy_strerror((CURLcode)code));
+	else
+		log_error("curl: %s", curl_easy_strerror((CURLcode)code));
 }
 
 void upload_friendly_error(const struct upload_result *r, char *out, size_t cap) {
@@ -286,7 +336,7 @@ void upload_result_free(struct upload_result *r) {
 }
 
 int upload_perform(const char *service_name, const char *file_path,
-				   struct config *cfg, struct upload_result *out) {
+				   struct config *cfg, bool chunked, struct upload_result *out) {
 	upload_result_free(out);
 
 	const struct service *svc = find_service(service_name);
@@ -310,18 +360,13 @@ int upload_perform(const char *service_name, const char *file_path,
 		}
 	}
 
-	char env_key[64], cfg_key[64];
-	build_auth_keys(svc->name, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
-	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
+	const char *auth = resolve_auth(cfg, svc->name);
+	if (!auth) return -1;
 
-	if (!auth || !auth[0]) {
-		log_error("no auth token for %s.", svc->name);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, svc->name);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
-		return -1;
+	if (strcmp(svc->name, "zipline") == 0) {
+		const char *cv = config_get(cfg, "services.zipline.chunked");
+		if (chunked || (cv && strcmp(cv, "true") == 0))
+			return zipline_upload_partial(url, auth, cfg, file_path, out);
 	}
 
 	CURL *curl = curl_easy_init();
@@ -351,24 +396,11 @@ int upload_perform(const char *service_name, const char *file_path,
 		curl_mime_name(ap, svc->auth_name);
 		curl_mime_data(ap, auth, CURL_ZERO_TERMINATED);
 	} else {
-		headers = append_header(headers, svc->auth_name, auth, &hdr_oom);
+		headers = upload_header_append(headers, svc->auth_name, auth, &hdr_oom);
 	}
 
 	if (strcmp(svc->name, "zipline") == 0 && cfg) {
-		const char *prefix = "services.zipline.headers.";
-		size_t pl = strlen(prefix);
-		bool has_format = false;
-		for (size_t i = 0; i < cfg->n; i++) {
-			const char *k = cfg->kvs[i].key;
-			if (strncmp(k, prefix, pl) != 0) continue;
-			const char *header_name = k + pl;
-			const char *val = cfg->kvs[i].val;
-			if (strcmp(header_name, "x-zipline-format") == 0) has_format = true;
-			if (val && val[0]) headers = append_header(headers, header_name, val, &hdr_oom);
-		}
-		if (!has_format) {
-			headers = append_header(headers, "x-zipline-format", "name", &hdr_oom);
-		}
+		headers = zipline_option_headers(cfg, headers, &hdr_oom);
 	}
 
 	if (hdr_oom) {
@@ -383,14 +415,10 @@ int upload_perform(const char *service_name, const char *file_path,
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "grabit/0.1.0");
 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+	upload_curl_common(curl);
 
 	log_info("uploading %s to %s ...", grabit_basename(file_path), svc->name);
 	log_debug("POST %s", url);
@@ -407,15 +435,16 @@ int upload_perform(const char *service_name, const char *file_path,
 
 	if (rc != CURLE_OK) {
 		out->curl_code = (int)rc;
-		const char *friendly = curl_friendly((int)rc);
-		if (friendly)
-			log_error("upload: %s (%s)", friendly, curl_easy_strerror(rc));
-		else
-			log_error("curl: %s", curl_easy_strerror(rc));
+		upload_log_curl_failure((int)rc);
 		return -1;
 	}
+	if (http_code == 413 && strcmp(svc->name, "zipline") == 0) {
+		log_info("zipline: upload rejected as too large (HTTP 413); retrying in chunks");
+		upload_result_free(out);
+		return zipline_upload_partial(url, auth, cfg, file_path, out);
+	}
 	if (http_code != 200) {
-		log_http_failure(http_code, out->body);
+		upload_log_http_failure(http_code, out->body);
 		return -1;
 	}
 
@@ -424,7 +453,7 @@ int upload_perform(const char *service_name, const char *file_path,
 								   : NULL;
 	if (!root || json_object_get_type(root) != json_type_object) {
 		log_error("invalid JSON response from %s", svc->name);
-		log_response_body(out->body);
+		upload_log_response_body(out->body);
 		if (root) json_object_put(root);
 		return -1;
 	}
@@ -434,7 +463,7 @@ int upload_perform(const char *service_name, const char *file_path,
 
 	if (!out->url) {
 		log_error("could not find %s in %s response", svc->json_path, svc->name);
-		log_response_body(out->body);
+		upload_log_response_body(out->body);
 		return -1;
 	}
 	return 0;

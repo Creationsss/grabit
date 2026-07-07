@@ -4,6 +4,7 @@
 #ifndef GRABIT_TEMPLATE_H
 #define GRABIT_TEMPLATE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 struct template_ctx {
@@ -14,5 +15,6 @@ struct template_ctx {
 char *template_expand(const char *tpl, const struct template_ctx *ctx);
 char *template_sanitize(const char *s);
 const char *template_for_preset(const char *preset);
+bool template_uses_window(const char *tpl);
 
 #endif

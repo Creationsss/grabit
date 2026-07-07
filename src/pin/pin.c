@@ -100,13 +100,37 @@ struct transient_extras {
 	const char *click_open;
 };
 
-static struct grabit_output *find_output_by_name(struct grabit_wl_state *s, const char *name) {
-	if (!name || !name[0]) return NULL;
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		struct grabit_output *o = s->outputs[i];
-		if (o->name && strcmp(o->name, name) == 0) return o;
+void pin_surface_recreate(struct pin_state *st) {
+	grabit_wl_callback_drop(&st->drag_frame_cb);
+	pin_render_free_buffer(st);
+	if (st->layer_surface) zwlr_layer_surface_v1_destroy(st->layer_surface);
+	if (st->surface) wl_surface_destroy(st->surface);
+	st->configured = false;
+	st->pointer_in_surface = false;
+	int32_t new_scale = (st->out && st->out->scale > 0) ? st->out->scale : 1;
+	if (new_scale != st->scale) {
+		st->scale = new_scale;
+		pin_input_destroy_cursors(st);
+		pin_input_load_cursors(st);
 	}
-	return NULL;
+
+	st->surface = wl_compositor_create_surface(st->wls->compositor);
+	st->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+		st->wls->layer_shell, st->surface,
+		st->out ? st->out->wl_output : NULL,
+		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
+	pin_render_attach_layer(st);
+	zwlr_layer_surface_v1_set_size(st->layer_surface,
+								   (uint32_t)st->width, (uint32_t)st->height);
+	zwlr_layer_surface_v1_set_anchor(st->layer_surface,
+									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
+	zwlr_layer_surface_v1_set_margin(st->layer_surface,
+									 st->margin_y, 0, 0, st->margin_x);
+	zwlr_layer_surface_v1_set_exclusive_zone(st->layer_surface, -1);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(
+		st->layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
+	wl_surface_commit(st->surface);
 }
 
 static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
@@ -157,13 +181,14 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		target = grabit_wl_output_at(&wls, r.x, r.y);
 	}
 	if (!target && transient && te && te->output_name && te->output_name[0]) {
-		target = find_output_by_name(&wls, te->output_name);
+		target = grabit_wl_output_by_name(&wls, te->output_name);
 		if (!target) {
 			log_warn("show: output `%s` not found; falling back to primary",
 					 te->output_name);
 		}
 	}
 	if (!target) target = grabit_wl_primary_output(&wls);
+	st.out = target;
 
 	if (target && target->scale > 0) st.scale = target->scale;
 

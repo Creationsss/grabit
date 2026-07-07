@@ -61,6 +61,8 @@ static const char *zl_header_example(const struct zl_hdr *h) {
 static const char *const SERVICE_KEYS[] = {
 	"services.zipline.auth",
 	"services.zipline.domain",
+	"services.zipline.chunked",
+	"services.zipline.chunk_size",
 	"services.nest.auth",
 	"services.nest.folder",
 	"services.fakecrime.auth",

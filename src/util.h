@@ -33,6 +33,7 @@ size_t grabit_edit_distance(const char *a, const char *b);
 void grabit_suggest_update(const char *input, const char *cand, const char **best,
 						   size_t *best_dist);
 bool grabit_suggest_within(const char *input, size_t best_dist);
+size_t grabit_rstrip(char *s, size_t len);
 
 #include <stdint.h>
 bool grabit_parse_hex_color(const char *s, uint32_t *out);
@@ -65,6 +66,9 @@ int grabit_buf_putc(struct grabit_buf *b, char c);
 void grabit_buf_free(struct grabit_buf *b);
 
 int grabit_read_file(const char *path, size_t max_bytes, char **out, size_t *out_len);
+
+int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes,
+						 struct grabit_buf *out, bool *capped, int *status);
 
 void grabit_install_signal_handler(int sig, void (*handler)(int));
 void grabit_ignore_signal(int sig);

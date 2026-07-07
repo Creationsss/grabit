@@ -19,27 +19,30 @@
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 
-struct ec_state {
-	struct grabit_wl_state *wls;
-	struct ext_image_copy_capture_session_v1 *session;
-	struct ext_image_copy_capture_frame_v1 *frame;
+struct ec_session {
 	struct ext_image_capture_source_v1 *source;
-	struct pixels_shm_buf buf;
+	struct ext_image_copy_capture_session_v1 *session;
 
 	int32_t width;
 	int32_t height;
 	int32_t stride;
-	uint32_t format;
-	uint32_t transform;
-	bool swap_rb;
+	struct pixels_fmt_pick fmt;
 	bool have_size;
-	bool session_done;
+	bool done;
+	bool overlay_cursor;
 
+	int status;
+	int *frame_status;
+};
+
+struct ec_state {
+	struct grabit_wl_state *wls;
+	struct ec_session *sess;
+	bool owns_session;
+	struct ext_image_copy_capture_frame_v1 *frame;
+	struct pixels_shm_buf buf;
 	struct pixels_pool *pool;
-
-	uint32_t advertised[16];
-	size_t n_advertised;
-
+	uint32_t transform;
 	int status;
 };
 
@@ -47,28 +50,18 @@ static void sess_buffer_size(void *data,
 							 struct ext_image_copy_capture_session_v1 *sess,
 							 uint32_t w, uint32_t h) {
 	(void)sess;
-	struct ec_state *c = data;
-	c->width = (int32_t)w;
-	c->height = (int32_t)h;
-	c->stride = (int32_t)w * 4;
-	c->have_size = true;
+	struct ec_session *es = data;
+	es->width = (int32_t)w;
+	es->height = (int32_t)h;
+	es->stride = (int32_t)w * 4;
+	es->have_size = true;
 }
 
 static void sess_shm_format(void *data,
 							struct ext_image_copy_capture_session_v1 *sess,
 							uint32_t format) {
 	(void)sess;
-	struct ec_state *c = data;
-	if (c->n_advertised < sizeof c->advertised / sizeof c->advertised[0]) {
-		c->advertised[c->n_advertised++] = format;
-	}
-	if (c->format) return;
-	uint32_t use = 0;
-	bool swap = false;
-	if (pixels_accept_format(format, &use, &swap)) {
-		c->format = use;
-		c->swap_rb = swap;
-	}
+	pixels_fmt_offer(&((struct ec_session *)data)->fmt, format);
 }
 
 static void sess_dmabuf_device(void *data,
@@ -90,13 +83,14 @@ static void sess_dmabuf_format(void *data,
 
 static void sess_done(void *data, struct ext_image_copy_capture_session_v1 *sess) {
 	(void)sess;
-	((struct ec_state *)data)->session_done = true;
+	((struct ec_session *)data)->done = true;
 }
 
 static void sess_stopped(void *data, struct ext_image_copy_capture_session_v1 *sess) {
 	(void)sess;
-	struct ec_state *c = data;
-	c->status = -1;
+	struct ec_session *es = data;
+	es->status = -1;
+	if (es->frame_status) *es->frame_status = -1;
 	log_error("ext-image-copy: session stopped before capture completed");
 }
 
@@ -148,6 +142,8 @@ static void frame_failed(void *data,
 	(void)f;
 	struct ec_state *c = data;
 	c->status = -1;
+	if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_BUFFER_CONSTRAINTS)
+		c->sess->status = -1;
 	log_error("ext-image-copy: frame failed (reason %u)", reason);
 }
 
@@ -173,30 +169,89 @@ static void warn_rotation_once(uint32_t transform) {
 	});
 }
 
-static int wait_session_done(struct grabit_wl_state *s, struct ec_state *c) {
-	while (!c->session_done && c->status >= 0) {
+static int wait_session_done(struct grabit_wl_state *s, struct ec_session *es) {
+	while (!es->done && es->status >= 0) {
 		if (wl_display_dispatch(s->display) < 0) {
 			log_error("wl_display_dispatch: lost connection");
 			return -1;
 		}
 	}
-	return c->status < 0 ? -1 : 0;
+	return es->status < 0 ? -1 : 0;
+}
+
+static void ec_session_destroy(struct ec_session *es) {
+	if (!es) return;
+	if (es->session) ext_image_copy_capture_session_v1_destroy(es->session);
+	if (es->source) ext_image_capture_source_v1_destroy(es->source);
+	free(es);
+}
+
+static void ec_session_destroy_cb(void *priv) {
+	ec_session_destroy(priv);
+}
+
+static struct ec_session *ec_session_get(struct grabit_wl_state *s,
+										 struct grabit_output *o,
+										 bool overlay_cursor,
+										 struct pixels_pool *pool) {
+	if (pool && pool->backend_priv) {
+		struct ec_session *es = pool->backend_priv;
+		if (es->status >= 0 && es->overlay_cursor == overlay_cursor) return es;
+		ec_session_destroy(es);
+		pool->backend_priv = NULL;
+	}
+
+	struct ec_session *es = calloc(1, sizeof *es);
+	if (!es) return NULL;
+	es->overlay_cursor = overlay_cursor;
+
+	es->source = ext_output_image_capture_source_manager_v1_create_source(
+		s->ext_source_manager, o->wl_output);
+	if (!es->source) {
+		log_error("ext-image-copy: create_source failed");
+		free(es);
+		return NULL;
+	}
+
+	uint32_t opts = overlay_cursor
+						? EXT_IMAGE_COPY_CAPTURE_MANAGER_V1_OPTIONS_PAINT_CURSORS
+						: 0;
+	es->session = ext_image_copy_capture_manager_v1_create_session(
+		s->ext_copy_manager, es->source, opts);
+	if (!es->session) {
+		log_error("ext-image-copy: create_session failed");
+		ec_session_destroy(es);
+		return NULL;
+	}
+	ext_image_copy_capture_session_v1_add_listener(es->session, &sess_listener, es);
+
+	if (wait_session_done(s, es) != 0) {
+		ec_session_destroy(es);
+		return NULL;
+	}
+
+	if (pool) {
+		pool->backend_priv = es;
+		pool->backend_priv_destroy = ec_session_destroy_cb;
+	}
+	return es;
 }
 
 static int alloc_buffer(struct ec_state *c) {
-	if (!c->have_size || !c->format) {
-		pixels_log_advertised("ext-image-copy", c->advertised, c->n_advertised);
+	struct ec_session *es = c->sess;
+	if (!es->have_size || !es->fmt.chosen) {
+		pixels_log_advertised("ext-image-copy", es->fmt.advertised, es->fmt.n);
 		return -1;
 	}
 	return pixels_pool_acquire(c->wls->shm, "grabit-ext-image-copy", c->pool,
-							   c->width, c->height, c->stride, c->format,
+							   es->width, es->height, es->stride, es->fmt.format,
 							   &c->buf);
 }
 
 static void cleanup_state(struct ec_state *c) {
+	if (c->sess) c->sess->frame_status = NULL;
 	if (c->frame) ext_image_copy_capture_frame_v1_destroy(c->frame);
-	if (c->session) ext_image_copy_capture_session_v1_destroy(c->session);
-	if (c->source) ext_image_capture_source_v1_destroy(c->source);
+	if (c->owns_session) ec_session_destroy(c->sess);
 	pixels_shm_buf_destroy(&c->buf);
 }
 
@@ -207,29 +262,13 @@ static int do_capture(struct grabit_wl_state *s, struct grabit_output *o,
 	out_state->wls = s;
 	out_state->pool = pool;
 
-	out_state->source = ext_output_image_capture_source_manager_v1_create_source(
-		s->ext_source_manager, o->wl_output);
-	if (!out_state->source) {
-		log_error("ext-image-copy: create_source failed");
-		return -1;
-	}
+	out_state->sess = ec_session_get(s, o, overlay_cursor, pool);
+	if (!out_state->sess) return -1;
+	out_state->owns_session = pool == NULL;
 
-	uint32_t opts = overlay_cursor
-						? EXT_IMAGE_COPY_CAPTURE_MANAGER_V1_OPTIONS_PAINT_CURSORS
-						: 0;
-	out_state->session = ext_image_copy_capture_manager_v1_create_session(
-		s->ext_copy_manager, out_state->source, opts);
-	if (!out_state->session) {
-		log_error("ext-image-copy: create_session failed");
-		return -1;
-	}
-	ext_image_copy_capture_session_v1_add_listener(out_state->session,
-												   &sess_listener, out_state);
-
-	if (wait_session_done(s, out_state) != 0) return -1;
 	if (alloc_buffer(out_state) != 0) return -1;
 
-	out_state->frame = ext_image_copy_capture_session_v1_create_frame(out_state->session);
+	out_state->frame = ext_image_copy_capture_session_v1_create_frame(out_state->sess->session);
 	if (!out_state->frame) {
 		log_error("ext-image-copy: create_frame failed");
 		return -1;
@@ -238,34 +277,29 @@ static int do_capture(struct grabit_wl_state *s, struct grabit_output *o,
 												 &frame_listener, out_state);
 	ext_image_copy_capture_frame_v1_attach_buffer(out_state->frame, out_state->buf.buffer);
 	ext_image_copy_capture_frame_v1_damage_buffer(out_state->frame, 0, 0,
-												  out_state->width, out_state->height);
+												  out_state->sess->width,
+												  out_state->sess->height);
+	out_state->sess->frame_status = &out_state->status;
 	ext_image_copy_capture_frame_v1_capture(out_state->frame);
 
 	int rc = pixels_wl_wait(s->display, &out_state->status);
+	out_state->sess->frame_status = NULL;
 	if (rc == 0) warn_rotation_once(out_state->transform);
 	return rc;
 }
 
 int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
-							struct image *out) {
+							bool overlay_cursor, struct image *out) {
 	if (!s || !s->ext_copy_manager || !s->ext_source_manager) return -1;
 	if (!o || o->dead || !o->wl_output || !out) return -1;
 	memset(out, 0, sizeof *out);
 
 	struct ec_state c;
 	int rc = -1;
-	if (do_capture(s, o, false, NULL, &c) == 0) {
-		out->width = c.width;
-		out->height = c.height;
-		out->stride = c.stride;
-		out->format = pixels_resolved_format(c.format, c.swap_rb);
-		out->size = c.buf.map_size;
-		out->bytes = malloc(c.buf.map_size);
-		if (out->bytes) {
-			pixels_copy(out->bytes, c.stride, c.buf.map, c.stride,
-						c.width, c.height, c.swap_rb, false);
-			rc = 0;
-		}
+	if (do_capture(s, o, overlay_cursor, NULL, &c) == 0) {
+		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
+								   c.sess->width, c.sess->height, c.sess->stride,
+								   c.sess->fmt.format, c.sess->fmt.swap_rb, false);
 	}
 
 	cleanup_state(&c);
@@ -286,17 +320,19 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, overlay_cursor, cache, &c) == 0) {
-		if (x < 0 || y < 0 || w > c.width - x || h > c.height - y) {
+		if (x < 0 || y < 0 || w > c.sess->width - x || h > c.sess->height - y) {
 			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",
-					  x, y, w, h, c.width, c.height);
+					  x, y, w, h, c.sess->width, c.sess->height);
 		} else if (h != dst_h || w * 4 != dst_stride) {
 			log_error("ext-image-copy: size mismatch (got %dx%d, dst stride=%d h=%d)",
 					  w, h, dst_stride, dst_h);
 		} else {
 			const uint8_t *src = (const uint8_t *)c.buf.map +
-								 (size_t)y * (size_t)c.stride + (size_t)x * 4;
-			pixels_copy(dst, dst_stride, src, c.stride, w, h, c.swap_rb, false);
-			if (out_format) *out_format = pixels_resolved_format(c.format, c.swap_rb);
+								 (size_t)y * (size_t)c.sess->stride + (size_t)x * 4;
+			pixels_copy(dst, dst_stride, src, c.sess->stride, w, h,
+						c.sess->fmt.swap_rb, false);
+			if (out_format)
+				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.swap_rb);
 			rc = 0;
 		}
 	}

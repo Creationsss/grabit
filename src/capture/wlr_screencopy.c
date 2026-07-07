@@ -6,6 +6,7 @@
 #include "capture/pixels.h"
 
 #include "log.h"
+#include "util.h"
 #include "wl.h"
 
 #include <stdbool.h>
@@ -25,14 +26,10 @@ struct sc_state {
 	int32_t width;
 	int32_t height;
 	int32_t stride;
-	uint32_t format;
+	struct pixels_fmt_pick fmt;
 	bool y_invert;
-	bool swap_rb;
 
 	struct pixels_pool *pool;
-
-	uint32_t advertised[16];
-	size_t n_advertised;
 
 	int status;
 };
@@ -46,30 +43,29 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 	log_debug("wlr-screencopy: buffer format=%s (0x%08x) %ux%u stride=%u",
 			  fname ? fname : "?", format, w, h, stride);
 
-	if (c->n_advertised < sizeof c->advertised / sizeof c->advertised[0]) {
-		c->advertised[c->n_advertised++] = format;
+	bool had_format = c->fmt.chosen;
+	pixels_fmt_offer(&c->fmt, format);
+
+	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
+
+	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE ||
+		stride < (uint32_t)w * 4u) {
+		log_error("wlr-screencopy: bogus geometry %ux%u stride=%u", w, h, stride);
+		c->status = -1;
+		return;
 	}
-
-	if (c->buf.buffer) return;
-
-	uint32_t use_format = 0;
-	bool swap_rb = false;
-	if (!pixels_accept_format(format, &use_format, &swap_rb)) return;
-
 	if (h > 0 && stride > SIZE_MAX / (size_t)h) {
 		log_error("wlr-screencopy: %ux%u stride=%u overflows", w, h, stride);
 		c->status = -1;
 		return;
 	}
 
-	c->format = use_format;
-	c->swap_rb = swap_rb;
 	c->width = (int32_t)w;
 	c->height = (int32_t)h;
 	c->stride = (int32_t)stride;
 
 	if (pixels_pool_acquire(c->wls->shm, "grabit-screencopy", c->pool,
-							c->width, c->height, c->stride, c->format,
+							c->width, c->height, c->stride, c->fmt.format,
 							&c->buf) != 0) {
 		c->status = -1;
 	}
@@ -87,7 +83,7 @@ static void sc_linux_dmabuf(void *data, struct zwlr_screencopy_frame_v1 *f,
 static void sc_buffer_done(void *data, struct zwlr_screencopy_frame_v1 *f) {
 	struct sc_state *c = data;
 	if (!c->buf.buffer) {
-		pixels_log_advertised("wlr-screencopy", c->advertised, c->n_advertised);
+		pixels_log_advertised("wlr-screencopy", c->fmt.advertised, c->fmt.n);
 		c->status = -1;
 		return;
 	}
@@ -142,14 +138,14 @@ static void cleanup_state(struct sc_state *c) {
 }
 
 int grabit_wlr_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
-							struct image *out) {
+							bool overlay_cursor, struct image *out) {
 	if (!s || !s->screencopy_manager || !o || !out) return -1;
 	if (o->dead || !o->wl_output) return -1;
 	memset(out, 0, sizeof *out);
 
 	struct sc_state c = {.wls = s};
 	c.frame = zwlr_screencopy_manager_v1_capture_output(
-		s->screencopy_manager, 0, o->wl_output);
+		s->screencopy_manager, overlay_cursor ? 1 : 0, o->wl_output);
 	if (!c.frame) {
 		log_error("zwlr_screencopy_manager_v1_capture_output: NULL");
 		return -1;
@@ -158,17 +154,9 @@ int grabit_wlr_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 
 	int rc = -1;
 	if (pixels_wl_wait(s->display, &c.status) == 0 && c.buf.map) {
-		out->width = c.width;
-		out->height = c.height;
-		out->stride = c.stride;
-		out->format = pixels_resolved_format(c.format, c.swap_rb);
-		out->size = c.buf.map_size;
-		out->bytes = malloc(c.buf.map_size);
-		if (out->bytes) {
-			pixels_copy(out->bytes, c.stride, c.buf.map, c.stride,
-						c.width, c.height, c.swap_rb, c.y_invert);
-			rc = 0;
-		}
+		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
+								   c.width, c.height, c.stride, c.fmt.format,
+								   c.fmt.swap_rb, c.y_invert);
 	}
 
 	cleanup_state(&c);
@@ -202,8 +190,9 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 					  c.width, c.height, dst_stride, dst_h);
 		} else {
 			pixels_copy(dst, dst_stride, c.buf.map, c.stride,
-						c.width, c.height, c.swap_rb, c.y_invert);
-			if (out_format) *out_format = pixels_resolved_format(c.format, c.swap_rb);
+						c.width, c.height, c.fmt.swap_rb, c.y_invert);
+			if (out_format)
+				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.swap_rb);
 			rc = 0;
 		}
 	}

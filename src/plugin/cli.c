@@ -28,27 +28,17 @@ static int help(void) {
 	return 0;
 }
 
+static int list_one_cb(const char *name, void *ud) {
+	int *n = ud;
+	puts(name);
+	(*n)++;
+	return 0;
+}
+
 static int do_list(void) {
-	const char *root = plugin_dir_path();
-	if (!root[0]) return 1;
-	DIR *d = opendir(root);
-	if (!d) {
-		log_info("no plugins installed");
-		return 0;
-	}
 	int n = 0;
-	struct dirent *e;
-	while ((e = readdir(d)) != NULL) {
-		if (e->d_name[0] == '.') continue;
-		char path[1024];
-		snprintf(path, sizeof path, "%s/%s", root, e->d_name);
-		struct stat st;
-		if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
-		puts(e->d_name);
-		n++;
-	}
-	closedir(d);
-	if (n == 0) log_info("no plugins installed in %s", root);
+	if (plugin_foreach_installed(list_one_cb, &n) != 0) return 1;
+	if (n == 0) log_info("no plugins installed in %s", plugin_dir_path());
 	return 0;
 }
 

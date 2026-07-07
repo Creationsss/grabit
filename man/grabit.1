@@ -1,6 +1,6 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
 .\" Copyright (C) 2026 creations
-.TH GRABIT 1 "2026-06-23" "grabit 0.4.0" "User Commands"
+.TH GRABIT 1 "2026-07-05" "grabit 0.5.0" "User Commands"
 .SH NAME
 grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland compositors
 .SH SYNOPSIS
@@ -70,8 +70,10 @@ uploader.
 Capture, save to disk, and print the path to standard output.
 .TP
 .B \-\-record
-Toggle screen recording (run again to stop). Records a region to MP4/H.264 with
-a live border overlay and an SNI tray icon.
+Toggle screen recording (run again to stop). Records a region to MP4/H.264
+(or WebM/GIF via
+.BR "grabit set recording.format webm|gif" )
+with a live border overlay and an SNI tray icon.
 .TP
 .B \-\-pin
 Capture a region and pin it to the desktop as a click-through overlay. Pins
@@ -114,9 +116,9 @@ instead of copying. Auto-dismisses after
 (default 8s).
 .TP
 .BR \-e ", " \-\-edit
-Open the in-tree annotation editor before the action (pen, rect, ellipse,
-arrow, blur, text, eraser, HSL color picker + eyedropper). Pairs with any
-action. Make it the default with
+Open the in-tree annotation editor before the action (pen, marker, line,
+rect, ellipse, arrow, blur, text, eraser, HSL color picker + eyedropper).
+Pairs with any action. Make it the default with
 .BR "grabit set edit.default true" .
 .SH MODIFIERS
 .TP
@@ -136,7 +138,28 @@ As above, but capture a specific monitor directly (no picker).
 .I monitor
 is a 1-based number or an output name (e.g.
 .BR \-\-fullscreen=DP\-1 ).
-An unknown value lists the available monitors and exits.
+Use
+.B \-\-fullscreen=all
+to capture every monitor stitched into one image. An unknown value lists the
+available monitors and exits.
+.TP
+.B \-\-cursor
+Include the mouse pointer in the screenshot for this run even if
+.B capture.cursor
+is
+.BR false .
+The pointer is included by default; hide it with
+.BR "grabit set capture.cursor false" .
+.TP
+.B \-\-chunked
+Upload to Zipline in chunks via its partial-upload API (useful behind
+Cloudflare's upload size limit). Make it permanent with
+.B "grabit set services.zipline.chunked true"
+and tune the chunk size (MiB) with
+.BR services.zipline.chunk_size .
+Plain uploads rejected with HTTP 413 (e.g. Cloudflare's 100MB cap) retry in
+chunks automatically, halving the chunk size if needed. Zipline only; other
+services ignore it.
 .TP
 .BI \-f " file"
 Use an existing
@@ -272,7 +295,18 @@ Uninstall a plugin.
 .BI name " ..."
 Run the installed plugin
 .BI grabit\- name
-(auto-updates in the background per its manifest).
+(auto-updates in the background per its manifest). With
+.BI \-p " name"
+the plugin's last stdout line is pinned to the desktop as a file.
+Plugins with
+.B capture.auto
+receive a fresh screenshot path as their first argument;
+.B \-\-capture
+and
+.B \-\-no\-capture
+override that per call. See
+.B PLUGINS.md
+for the manifest format.
 .SH FILENAME TEMPLATES
 Tokens accepted by
 .B \-\-filename
@@ -343,10 +377,31 @@ or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
 .PP
+Set
+.B region.confirm
+to
+.B true
+to keep the selection adjustable after releasing the drag (flameshot-style):
+resize it with the handles or
+.BR Shift+arrows ,
+move it by dragging inside it or with the
+.B arrow keys
+(hold to accelerate),
+drag outside it to start over, then press
+.BR Enter ,
+press
+.BR Ctrl+C ,
+or double-click inside it to capture;
+.B Esc
+cancels. In any selector,
+.B Ctrl+A
+selects the whole monitor under the cursor.
+.PP
 See
 .B OPTIONS.md
-for the full key reference (capture backend, region snap, encoder quality,
-recording, sound, pin, OCR/translate, preview/text card, edit defaults).
+for the full key reference (capture backend, region snap/confirm, encoder
+quality, recording, sound, pin, OCR/translate, preview/text card, edit
+defaults).
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG
@@ -368,6 +423,11 @@ is one of
 .TP
 .B GRABIT_BIN
 Set by plugin dispatch; absolute path to the grabit binary.
+.TP
+.BR GRABIT_PLUGIN_NAME ", " GRABIT_PLUGIN_DIR ", " GRABIT_CACHE_DIR
+Also set by plugin dispatch: the plugin's name, install directory, and
+per-plugin cache directory. See
+.BR PLUGINS.md .
 .TP
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
@@ -403,6 +463,12 @@ PID file for the on-screen text/preview card.
 Backup of the configuration taken when
 .B config
 opens, for reverting live edits.
+.TP
+.I ~/.config/grabit/plugins/<name>/
+Installed plugins (binaries symlinked from
+.IR plugins/.bin/ ;
+per-plugin cache under
+.IR ~/.cache/grabit/plugins/<name>/ ).
 .SH EXAMPLES
 .TP
 .B grabit \-c

@@ -345,6 +345,66 @@ size_t grabit_edit_distance(const char *a, const char *b) {
 	return prev[lb];
 }
 
+size_t grabit_rstrip(char *s, size_t len) {
+	while (len > 0 && (s[len - 1] == ' ' || s[len - 1] == '\t' ||
+					   s[len - 1] == '\r' || s[len - 1] == '\n'))
+		len--;
+	s[len] = '\0';
+	return len;
+}
+
+int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes,
+						 struct grabit_buf *out, bool *capped, int *status) {
+	if (capped) *capped = false;
+	int p[2];
+	if (pipe(p) != 0) {
+		log_error("%s: pipe: %s", argv[0], strerror(errno));
+		return -1;
+	}
+	pid_t pid = fork();
+	if (pid < 0) {
+		log_error("%s: fork: %s", argv[0], strerror(errno));
+		close(p[0]);
+		close(p[1]);
+		return -1;
+	}
+	if (pid == 0) {
+		if (dup2(p[1], STDOUT_FILENO) < 0) _exit(126);
+		if (merge_stderr && dup2(p[1], STDERR_FILENO) < 0) _exit(126);
+		close(p[0]);
+		close(p[1]);
+		execvp(argv[0], argv);
+		_exit(errno == ENOENT ? 127 : 126);
+	}
+	close(p[1]);
+
+	char chunk[4096];
+	for (;;) {
+		ssize_t n = read(p[0], chunk, sizeof chunk);
+		if (n < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
+		if (n == 0) break;
+		if (max_bytes > 0 && out->len + (size_t)n > max_bytes) {
+			if (capped) *capped = true;
+			break;
+		}
+		if (grabit_buf_putn(out, chunk, (size_t)n) != 0) {
+			log_error("%s: oom reading output", argv[0]);
+			close(p[0]);
+			kill(pid, SIGTERM);
+			(void)grabit_waitpid_intr(pid, NULL);
+			return -1;
+		}
+	}
+	close(p[0]);
+
+	if (grabit_waitpid_intr(pid, status) != 0) return -1;
+	if (out->data && grabit_buf_putc(out, '\0') == 0) out->len--;
+	return 0;
+}
+
 bool grabit_is_grabit_process(pid_t pid) {
 	if (pid <= 0) return false;
 	char path[64];

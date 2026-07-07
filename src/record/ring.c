@@ -19,7 +19,7 @@ int pool_init(struct buf_pool *p, size_t n, size_t buf_size) {
 	p->buf_size = buf_size;
 	pthread_mutex_init(&p->mu, NULL);
 	for (size_t i = 0; i < n; i++) {
-		p->slots[i] = malloc(buf_size);
+		p->slots[i] = calloc(1, buf_size);
 		if (!p->slots[i]) {
 			pool_destroy(p);
 			return -1;

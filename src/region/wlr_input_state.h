@@ -20,11 +20,22 @@ struct ro_state;
 #define HANDLE_W 7
 #define HANDLE_RADIUS 9
 
+void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8]);
 int region_handle_at(const struct ro_state *st, int32_t x, int32_t y);
 void region_apply_handle_drag(struct ro_state *st);
 
 void region_undo_arm(struct ro_state *st);
 void region_undo_disarm(struct ro_state *st);
+
+#define NUDGE_LEFT (1u << 0)
+#define NUDGE_RIGHT (1u << 1)
+#define NUDGE_UP (1u << 2)
+#define NUDGE_DOWN (1u << 3)
+
+void region_nudge_press(struct ro_state *st, uint32_t dir);
+void region_nudge_release(struct ro_state *st, uint32_t dir);
+void region_nudge_disarm(struct ro_state *st);
+void region_nudge_tick(struct ro_state *st);
 
 void region_tooltip_arm(struct ro_state *st);
 void region_tooltip_disarm(struct ro_state *st);
@@ -35,6 +46,7 @@ void region_drag_abort(struct ro_state *st);
 
 bool region_set_hover(struct ro_state *st, int btn);
 
+void region_clamp_move(struct ro_state *st);
 void region_update_selection(struct ro_state *st);
 bool region_inside_selection(const struct ro_state *st, int32_t x, int32_t y);
 

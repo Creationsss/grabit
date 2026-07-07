@@ -141,7 +141,14 @@ fail: {
 }
 
 static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
-	if (dest == PATHS_DEST_TEMP) return strdup("/tmp");
+	if (dest == PATHS_DEST_TEMP) {
+		char rt[4096];
+		char *out = NULL;
+		if (grabit_runtime_dir(rt, sizeof rt) == 0 &&
+			grabit_xasprintf(&out, "%s/grabit", rt) == 0)
+			return out;
+		return strdup("/tmp");
+	}
 
 	const char *d = config_get(cfg, "save_dir");
 	if (d && d[0]) return strdup(d);
@@ -171,7 +178,8 @@ char *paths_build_output(struct config *cfg, const char *cli_template,
 	}
 
 	char *win_class = NULL, *win_title = NULL;
-	(void)grabit_hyprland_active_window(&win_class, &win_title);
+	if (template_uses_window(tpl))
+		(void)grabit_hyprland_active_window(&win_class, &win_title);
 	struct template_ctx ctx = {
 		.window_class = win_class,
 		.window_title = win_title,

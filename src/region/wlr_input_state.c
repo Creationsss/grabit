@@ -12,33 +12,46 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
+#include <unistd.h>
 
 #define UNDO_HOLD_DELAY_MS 600
 #define UNDO_HOLD_REPEAT_MS 80
 #define TOOLTIP_DELAY_MS 1000
 #define PEN_POINTS_MAX (1u << 18)
+#define NUDGE_DELAY_MS 300
+#define NUDGE_REPEAT_MS 30
+#define NUDGE_STEP_MAX 10
+#define NUDGE_ACCEL_TICKS 4
 
-int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
-	if (!st->region_locked) return HANDLE_NONE;
+void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8]) {
 	int32_t l = st->sel_x, r = st->sel_x + st->sel_w;
 	int32_t t = st->sel_y, b = st->sel_y + st->sel_h;
 	int32_t mx = (l + r) / 2, my = (t + b) / 2;
-	struct {
-		int kind;
-		int32_t hx, hy;
-	} h[] = {
-		{HANDLE_NW, l, t},
-		{HANDLE_N, mx, t},
-		{HANDLE_NE, r, t},
-		{HANDLE_E, r, my},
-		{HANDLE_SE, r, b},
-		{HANDLE_S, mx, b},
-		{HANDLE_SW, l, b},
-		{HANDLE_W, l, my},
-	};
-	for (size_t i = 0; i < sizeof h / sizeof h[0]; i++) {
-		int32_t dx = x - h[i].hx, dy = y - h[i].hy;
-		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return h[i].kind;
+	hx[HANDLE_NW] = l;
+	hy[HANDLE_NW] = t;
+	hx[HANDLE_N] = mx;
+	hy[HANDLE_N] = t;
+	hx[HANDLE_NE] = r;
+	hy[HANDLE_NE] = t;
+	hx[HANDLE_E] = r;
+	hy[HANDLE_E] = my;
+	hx[HANDLE_SE] = r;
+	hy[HANDLE_SE] = b;
+	hx[HANDLE_S] = mx;
+	hy[HANDLE_S] = b;
+	hx[HANDLE_SW] = l;
+	hy[HANDLE_SW] = b;
+	hx[HANDLE_W] = l;
+	hy[HANDLE_W] = my;
+}
+
+int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
+	if (!st->region_locked) return HANDLE_NONE;
+	int32_t hx[8], hy[8];
+	region_handle_points(st, hx, hy);
+	for (int i = 0; i < 8; i++) {
+		int32_t dx = x - hx[i], dy = y - hy[i];
+		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return i;
 	}
 	return HANDLE_NONE;
 }
@@ -81,10 +94,26 @@ static int flip_handle_y(int h) {
 	}
 }
 
+void region_clamp_move(struct ro_state *st) {
+	if (st->bounds.w <= 0 || st->bounds.h <= 0) return;
+	if (st->sel_x < st->bounds.x) st->sel_x = st->bounds.x;
+	if (st->sel_y < st->bounds.y) st->sel_y = st->bounds.y;
+	if (st->sel_x + st->sel_w > st->bounds.x + st->bounds.w)
+		st->sel_x = st->bounds.x + st->bounds.w - st->sel_w;
+	if (st->sel_y + st->sel_h > st->bounds.y + st->bounds.h)
+		st->sel_y = st->bounds.y + st->bounds.h - st->sel_h;
+}
+
 void region_apply_handle_drag(struct ro_state *st) {
 	int32_t l = st->sel_x, r = st->sel_x + st->sel_w;
 	int32_t t = st->sel_y, b = st->sel_y + st->sel_h;
 	int32_t cx = st->cursor_x, cy = st->cursor_y;
+	if (st->bounds.w > 0 && st->bounds.h > 0) {
+		if (cx < st->bounds.x) cx = st->bounds.x;
+		if (cy < st->bounds.y) cy = st->bounds.y;
+		if (cx > st->bounds.x + st->bounds.w) cx = st->bounds.x + st->bounds.w;
+		if (cy > st->bounds.y + st->bounds.h) cy = st->bounds.y + st->bounds.h;
+	}
 	switch (st->handle_dragging) {
 	case HANDLE_NW:
 		l = cx;
@@ -152,6 +181,80 @@ void region_undo_disarm(struct ro_state *st) {
 	st->undo_held = false;
 	struct itimerspec it = {0};
 	timerfd_settime(st->undo_timer_fd, 0, &it, NULL);
+}
+
+static void nudge_apply(struct ro_state *st, int32_t dx, int32_t dy) {
+	if (st->shift_held) {
+		st->sel_w += dx;
+		st->sel_h += dy;
+		if (st->sel_w < 1) st->sel_w = 1;
+		if (st->sel_h < 1) st->sel_h = 1;
+		if (st->bounds.w > 0 && st->bounds.h > 0) {
+			if (st->sel_x + st->sel_w > st->bounds.x + st->bounds.w)
+				st->sel_w = st->bounds.x + st->bounds.w - st->sel_x;
+			if (st->sel_y + st->sel_h > st->bounds.y + st->bounds.h)
+				st->sel_h = st->bounds.y + st->bounds.h - st->sel_y;
+		}
+	} else {
+		st->sel_x += dx;
+		st->sel_y += dy;
+		region_clamp_move(st);
+	}
+}
+
+static int32_t nudge_dx(uint32_t held) {
+	return ((held & NUDGE_RIGHT) ? 1 : 0) - ((held & NUDGE_LEFT) ? 1 : 0);
+}
+
+static int32_t nudge_dy(uint32_t held) {
+	return ((held & NUDGE_DOWN) ? 1 : 0) - ((held & NUDGE_UP) ? 1 : 0);
+}
+
+void region_nudge_press(struct ro_state *st, uint32_t dir) {
+	if (st->nudge_held & dir) return;
+	nudge_apply(st, nudge_dx(dir), nudge_dy(dir));
+	if (st->nudge_timer_fd < 0) return;
+	if (st->nudge_held == 0) {
+		st->nudge_ticks = 0;
+		struct itimerspec it = {
+			.it_value = {.tv_nsec = NUDGE_DELAY_MS * 1000000L},
+			.it_interval = {.tv_nsec = NUDGE_REPEAT_MS * 1000000L},
+		};
+		timerfd_settime(st->nudge_timer_fd, 0, &it, NULL);
+	}
+	st->nudge_held |= dir;
+}
+
+void region_nudge_release(struct ro_state *st, uint32_t dir) {
+	st->nudge_held &= ~dir;
+	if (st->nudge_held == 0) region_nudge_disarm(st);
+}
+
+void region_nudge_disarm(struct ro_state *st) {
+	if (st->nudge_timer_fd < 0) return;
+	st->nudge_held = 0;
+	st->nudge_ticks = 0;
+	struct itimerspec it = {0};
+	timerfd_settime(st->nudge_timer_fd, 0, &it, NULL);
+}
+
+void region_nudge_tick(struct ro_state *st) {
+	uint64_t expirations = 0;
+	ssize_t r = read(st->nudge_timer_fd, &expirations, sizeof expirations);
+	(void)r;
+	if (!st->region_locked || st->nudge_held == 0 || st->text_input_active ||
+		region_drag_active(st)) {
+		region_nudge_disarm(st);
+		return;
+	}
+	st->nudge_ticks++;
+	int32_t step = st->nudge_ticks / NUDGE_ACCEL_TICKS + 1;
+	if (step > NUDGE_STEP_MAX) step = NUDGE_STEP_MAX;
+	int32_t dx = nudge_dx(st->nudge_held);
+	int32_t dy = nudge_dy(st->nudge_held);
+	if (dx == 0 && dy == 0) return;
+	nudge_apply(st, dx * step, dy * step);
+	region_render_request_redraw_all(st);
 }
 
 void region_tooltip_arm(struct ro_state *st) {
@@ -274,7 +377,7 @@ void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 		int32_t side = adx > ady ? adx : ady;
 		*x1 = x0 + (dx < 0 ? -side : side);
 		*y1 = y0 + (dy < 0 ? -side : side);
-	} else if (tool == TOOL_ARROW) {
+	} else if (tool == TOOL_ARROW || tool == TOOL_LINE) {
 		double angle = atan2((double)(*y1 - y0), (double)(*x1 - x0));
 		double snap = round(angle / (M_PI / 4.0)) * (M_PI / 4.0);
 		double dx = *x1 - x0, dy = *y1 - y0;
@@ -291,7 +394,7 @@ void region_commit_drawing(struct ro_state *st) {
 	a.width = st->current_width;
 	a.font_size = ANNO_DEFAULT_FONT;
 
-	if (st->current_tool == TOOL_PEN || st->current_tool == TOOL_ERASER) {
+	if (tool_uses_points(st->current_tool)) {
 		if (st->pen_n == 0) {
 			st->drawing = false;
 			return;
@@ -324,7 +427,7 @@ void region_commit_text(struct ro_state *st) {
 	struct annotation a = {0};
 	a.tool = TOOL_TEXT;
 	a.color = st->current_color;
-	a.font_size = ANNO_DEFAULT_FONT;
+	a.font_size = st->current_font;
 	a.x0 = st->text_x;
 	a.y0 = st->text_y;
 	st->text_buf[st->text_len] = '\0';

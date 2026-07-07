@@ -85,6 +85,10 @@ static int output_alloc_buffer(struct ro_output *o) {
 
 void region_render_free_buffer(struct ro_output *o) {
 	grabit_wl_callback_drop(&o->frame_cb);
+	if (o->anno_cache) {
+		cairo_surface_destroy(o->anno_cache);
+		o->anno_cache = NULL;
+	}
 	if (o->cairo_frozen_pat) {
 		cairo_pattern_destroy(o->cairo_frozen_pat);
 		o->cairo_frozen_pat = NULL;
@@ -98,6 +102,96 @@ void region_render_free_buffer(struct ro_output *o) {
 		o->cairo_dst = NULL;
 	}
 	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+}
+
+static void anno_cache_ensure(struct ro_output *o) {
+	const struct annotation_list *annos = o->st->out_annos;
+	int32_t S = o->scale;
+	struct rect sel = {o->st->sel_x, o->st->sel_y, o->st->sel_w, o->st->sel_h};
+	if (o->anno_cache &&
+		(cairo_image_surface_get_width(o->anno_cache) != o->pixel_width ||
+		 cairo_image_surface_get_height(o->anno_cache) != o->pixel_height)) {
+		cairo_surface_destroy(o->anno_cache);
+		o->anno_cache = NULL;
+	}
+	if (o->anno_cache && o->anno_cache_gen == annos->gen &&
+		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
+		return;
+	if (!o->anno_cache) {
+		o->anno_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+												   o->pixel_width, o->pixel_height);
+		if (cairo_surface_status(o->anno_cache) != CAIRO_STATUS_SUCCESS) {
+			cairo_surface_destroy(o->anno_cache);
+			o->anno_cache = NULL;
+			return;
+		}
+	}
+	cairo_t *cc = cairo_create(o->anno_cache);
+	cairo_set_operator(cc, CAIRO_OPERATOR_CLEAR);
+	cairo_paint(cc);
+	cairo_set_operator(cc, CAIRO_OPERATOR_OVER);
+	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
+	cairo_scale(cc, S, S);
+	for (size_t i = 0; i < annos->n; i++)
+		annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
+	cairo_destroy(cc);
+	cairo_surface_flush(o->anno_cache);
+	o->anno_cache_gen = annos->gen;
+	o->anno_cache_sel = sel;
+}
+
+static void anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {
+	cairo_save(cr);
+	cairo_identity_matrix(cr);
+	cairo_set_source_surface(cr, cache, 0, 0);
+	cairo_paint(cr);
+	cairo_restore(cr);
+}
+
+static void hint_text_extents(cairo_t *cr, double S, const char *hint,
+							  cairo_text_extents_t *ext) {
+	cairo_select_font_face(cr, "sans-serif",
+						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 12.0 * S);
+	cairo_text_extents(cr, hint, ext);
+}
+
+static void render_hint_pill(cairo_t *cr, double S, const char *hint,
+							 const cairo_text_extents_t *ext, double cx, double ty,
+							 double pw) {
+	double pad = 8.0 * S;
+	double tx = cx - ext->width / 2.0;
+	if (tx < pad) tx = pad;
+	if (tx + ext->width + pad > pw) tx = pw - ext->width - pad;
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_rectangle(cr, tx - pad, ty - ext->height - pad,
+					ext->width + pad * 2, ext->height + pad * 2);
+	cairo_fill(cr);
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, tx, ty);
+	cairo_show_text(cr, hint);
+}
+
+static void render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char *hint) {
+	int32_t S = o->scale;
+	cairo_text_extents_t hext;
+	hint_text_extents(cr, S, hint, &hext);
+	double pad = 8.0 * S;
+	double ty = (double)o->pixel_height - 24.0 * S;
+	if (region_editing(o->st)) {
+		int32_t tbx, tby, tbw, tbh;
+		const struct grabit_output *to;
+		region_toolbar_rect(o->st, &to, &tbx, &tby, &tbw, &tbh);
+		if (to == o->go) {
+			double tb_top = (double)(tby - o->go->y) * S;
+			double tb_bot = (double)(tby + tbh - o->go->y) * S;
+			double pill_top = ty - hext.height - pad;
+			if (pill_top < tb_bot + 6.0 * S && ty + pad > tb_top - 6.0 * S)
+				ty = tb_top - 6.0 * S - pad;
+		}
+	}
+	render_hint_pill(cr, S, hint, &hext, (double)o->pixel_width / 2.0, ty,
+					 (double)o->pixel_width);
 }
 
 static void output_redraw(struct ro_output *o);
@@ -190,49 +284,59 @@ static void output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (o->st->annotate_mode && o->st->region_locked) {
+	if (region_editing(o->st) && o->st->region_locked) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		cairo_push_group(cr);
-		if (o->st->out_annos) {
-			for (size_t i = 0; i < o->st->out_annos->n; i++) {
-				annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
+		anno_cache_ensure(o);
+		if (!o->anno_cache || o->st->drawing) {
+			cairo_push_group(cr);
+			if (o->anno_cache) {
+				anno_cache_paint(cr, o->anno_cache);
+			} else {
+				for (size_t i = 0; i < o->st->out_annos->n; i++) {
+					annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
+				}
 			}
+			if (o->st->drawing) {
+				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
+				region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
+										o->st->draw_x0, o->st->draw_y0, &px1, &py1);
+				struct annotation preview = {
+					.tool = o->st->current_tool,
+					.x0 = o->st->draw_x0,
+					.y0 = o->st->draw_y0,
+					.x1 = px1,
+					.y1 = py1,
+					.color = o->st->current_color,
+					.width = o->st->current_width,
+					.font_size = ANNO_DEFAULT_FONT,
+					.points = o->st->pen_points,
+					.n_points = o->st->pen_n,
+				};
+				annotation_paint(cr, &preview, 1.0);
+			}
+			cairo_pop_group_to_source(cr);
+			cairo_paint(cr);
+		} else {
+			anno_cache_paint(cr, o->anno_cache);
 		}
-		if (o->st->drawing) {
-			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
-			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
-									o->st->draw_x0, o->st->draw_y0, &px1, &py1);
-			struct annotation preview = {
-				.tool = o->st->current_tool,
-				.x0 = o->st->draw_x0,
-				.y0 = o->st->draw_y0,
-				.x1 = px1,
-				.y1 = py1,
-				.color = o->st->current_color,
-				.width = o->st->current_width,
-				.font_size = ANNO_DEFAULT_FONT,
-				.points = o->st->pen_points,
-				.n_points = o->st->pen_n,
-			};
-			annotation_paint(cr, &preview, 1.0);
-		}
-		cairo_pop_group_to_source(cr);
-		cairo_paint(cr);
 		if (o->st->text_input_active) {
-			double font = ANNO_DEFAULT_FONT;
+			double font = o->st->current_font;
 			cairo_select_font_face(cr, "sans-serif",
 								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 			cairo_set_font_size(cr, font);
+			cairo_font_extents_t fe;
+			cairo_font_extents(cr, &fe);
 			cairo_text_extents_t typed_ext = {0};
 			if (o->st->text_len > 0) {
 				cairo_text_extents(cr, o->st->text_buf, &typed_ext);
 			}
 			double pad = 4.0;
-			double pill_w = (typed_ext.width > 0 ? typed_ext.width : font * 0.6) + 2 * pad;
-			double pill_top = (double)o->st->text_y + typed_ext.y_bearing - pad;
-			double pill_h = (typed_ext.height > 0 ? typed_ext.height : font) + 2 * pad;
+			double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
+			double pill_w = tw + 2 * pad;
+			double pill_top = (double)o->st->text_y - fe.ascent - pad;
+			double pill_h = fe.ascent + fe.descent + 2 * pad;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
 			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
 			cairo_fill(cr);
@@ -242,17 +346,17 @@ static void output_redraw(struct ro_output *o) {
 					.x0 = o->st->text_x,
 					.y0 = o->st->text_y,
 					.color = o->st->current_color,
-					.font_size = ANNO_DEFAULT_FONT,
+					.font_size = (int32_t)font,
 					.text = (char *)o->st->text_buf,
 				};
 				annotation_paint(cr, &preview, 1.0);
 			}
 
-			double cursor_x = (double)o->st->text_x + typed_ext.width;
+			double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
 			cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
 			cairo_set_line_width(cr, 1.5);
-			cairo_move_to(cr, cursor_x, (double)o->st->text_y + typed_ext.y_bearing);
-			cairo_line_to(cr, cursor_x, (double)o->st->text_y + 2);
+			cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);
+			cairo_line_to(cr, cursor_x, (double)o->st->text_y + fe.descent);
 			cairo_stroke(cr);
 		}
 		cairo_restore(cr);
@@ -278,8 +382,8 @@ static void output_redraw(struct ro_output *o) {
 			cairo_set_font_size(cr, 14.0 * S);
 			cairo_text_extents_t ext;
 			cairo_text_extents(cr, dims, &ext);
-			double tx = (double)sel_r - ext.width - 8.0 * S;
-			double ty = (double)sel_b - 8.0 * S;
+			double tx = (double)sel_r - ext.width - 14.0 * S;
+			double ty = (double)sel_b - 14.0 * S;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
 			cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
 							ext.width + 8.0 * S, ext.height + 6.0 * S);
@@ -290,55 +394,25 @@ static void output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (o->st->annotate_mode && o->st->region_locked) {
-		if (o->st->text_input_active) {
-			const char *hint = o->st->text_len > 0
+	if (o->st->region_locked) {
+		if (region_editing(o->st) && o->st->text_input_active &&
+			rect_contains((struct rect){o->go->x, o->go->y,
+										o->go->logical_width, o->go->logical_height},
+						  o->st->text_x, o->st->text_y)) {
+			render_bottom_hint(cr, o,
+							   o->st->text_len > 0
 								   ? "type more, enter to commit, esc to cancel"
-								   : "type your text, enter to commit, esc to cancel";
-			cairo_select_font_face(cr, "sans-serif",
-								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-			cairo_set_font_size(cr, 12.0 * S);
-			cairo_text_extents_t hext;
-			cairo_text_extents(cr, hint, &hext);
-			double pad = 8.0 * S;
-			double tx = (double)(o->st->text_x - o->go->x) * S - hext.width / 2.0;
-			double ty = (double)(o->st->text_y - o->go->y) * S + 22.0 * S;
-			if (tx < pad) tx = pad;
-			if (tx + hext.width + pad > pw) tx = pw - hext.width - pad;
-			if (ty + hext.height + pad > ph) ty = ph - hext.height - pad;
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-			cairo_rectangle(cr, tx - pad, ty - hext.height - pad,
-							hext.width + pad * 2, hext.height + pad * 2);
-			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
-			cairo_move_to(cr, tx, ty);
-			cairo_show_text(cr, hint);
+								   : "type your text, enter to commit, esc to cancel");
 		}
 
-		region_toolbar_render(cr, o);
+		if (region_editing(o->st)) region_toolbar_render(cr, o);
 
 		int32_t hx[8], hy[8];
-		int32_t l = (o->st->sel_x - o->go->x) * S;
-		int32_t t = (o->st->sel_y - o->go->y) * S;
-		int32_t r = l + o->st->sel_w * S;
-		int32_t b = t + o->st->sel_h * S;
-		int32_t mx = (l + r) / 2, my = (t + b) / 2;
-		hx[0] = l;
-		hy[0] = t;
-		hx[1] = mx;
-		hy[1] = t;
-		hx[2] = r;
-		hy[2] = t;
-		hx[3] = r;
-		hy[3] = my;
-		hx[4] = r;
-		hy[4] = b;
-		hx[5] = mx;
-		hy[5] = b;
-		hx[6] = l;
-		hy[6] = b;
-		hx[7] = l;
-		hy[7] = my;
+		region_handle_points(o->st, hx, hy);
+		for (int i = 0; i < 8; i++) {
+			hx[i] = (hx[i] - o->go->x) * S;
+			hy[i] = (hy[i] - o->go->y) * S;
+		}
 		double hr = 6.0 * S;
 		for (int i = 0; i < 8; i++) {
 			cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
@@ -350,8 +424,12 @@ static void output_redraw(struct ro_output *o) {
 			cairo_stroke(cr);
 		}
 
-		region_color_picker_render(cr, o);
-		region_toolbar_tooltip_render(cr, o);
+		if (region_editing(o->st)) {
+			region_color_picker_render(cr, o);
+			region_toolbar_tooltip_render(cr, o);
+		} else if (sel_visible) {
+			render_bottom_hint(cr, o, "enter or ctrl+c to capture, esc to cancel");
+		}
 	}
 
 	cairo_destroy(cr);

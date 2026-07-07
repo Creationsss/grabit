@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-VERSION    := 0.4.0
+VERSION    := 0.5.0
 NAME       := grabit
 
 BUILDDIR   := build
@@ -128,6 +128,7 @@ GRABIT_SRCS := \
 	src/tray/sni.c \
 	src/tray/tray.c \
 	src/upload/upload.c \
+	src/upload/zipline.c \
 	src/upload/sxcu_parse.c \
 	src/upload/sxcu_template.c \
 	src/upload/sxcu_request.c \

@@ -14,9 +14,25 @@ bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, bool *out_swap_rb)
 
 uint32_t pixels_resolved_format(uint32_t fmt, bool swap_rb);
 
+struct pixels_fmt_pick {
+	uint32_t advertised[16];
+	size_t n;
+	uint32_t format;
+	bool swap_rb;
+	bool chosen;
+};
+
+void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt);
+
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
 				 int32_t w, int32_t h, bool swap_rb, bool y_invert);
+
+struct image;
+
+int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
+						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,
+						  bool swap_rb, bool y_invert);
 
 void pixels_log_advertised(const char *backend,
 						   const uint32_t *advertised, size_t n);
@@ -43,6 +59,8 @@ struct pixels_pool {
 	size_t map_size;
 	int32_t width, height, stride;
 	uint32_t format;
+	void *backend_priv;
+	void (*backend_priv_destroy)(void *priv);
 };
 
 void pixels_pool_destroy(struct pixels_pool *p);

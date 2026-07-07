@@ -37,7 +37,7 @@
 #include "wl.h"
 
 #ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.4.0"
+#define GRABIT_VERSION "0.5.0"
 #endif
 
 static char g_tmpfile_path[4096] = {0};
@@ -80,6 +80,7 @@ static int print_help(void) {
 		"Capture & output:\n"
 		"  -c, --copy        Copy screenshot to clipboard\n"
 		"  -u, --upload      Upload screenshot to default service\n"
+		"  --chunked         Upload to zipline in chunks (see services.zipline.chunked)\n"
 		"  --<service>       Upload to a specific service\n"
 		"                    (zipline|nest|fakecrime|ez|guns|pixelvault)\n"
 		"  -o, --output, --save\n"
@@ -114,9 +115,11 @@ static int print_help(void) {
 	fputs(
 		"                    One monitor: grabs it directly. Multiple: hover a monitor\n"
 		"                    and click to pick it (drag still works for a custom region).\n"
-		"                    Skip the picker with --fullscreen=<n> (1-based) or\n"
-		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1). Works with\n"
+		"                    Skip the picker with --fullscreen=<n> (1-based),\n"
+		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1), or grab every\n"
+		"                    monitor stitched together with --fullscreen=all. Works with\n"
 		"                    -c/-u/-o/--pin/--tesseract/--record and pairs with -e.\n"
+		"  --cursor          Include the mouse pointer even if capture.cursor=false\n"
 		"  --silent, -q, --quiet  Suppress notifications and sound\n"
 		"  -d, --debug       Enable debug logging to stderr\n"
 		"  --filename <tpl>  Per-run filename template\n"
@@ -145,6 +148,7 @@ static int print_help(void) {
 		"  plugin remove <name>      Uninstall a plugin\n"
 		"  <name> ...                Run installed plugin `grabit-<name>`\n"
 		"                            (auto-updates in background per manifest)\n"
+		"  -p <name> ...             Run plugin, pin its last stdout line as a file\n"
 		"\n"
 		"Filename templates (--filename or `filename` config key):\n"
 		"  %Y %m %d %H %M %S strftime fields\n"
@@ -252,9 +256,7 @@ static char *build_capture_path(const struct args *a, struct config *cfg,
 	} else if (eff == ACTION_OCR) {
 		save = false;
 	} else {
-		const char *si = config_get(cfg, "also_save");
-		if (!si) si = config_get(cfg, "save_captures");
-		save = si && strcmp(si, "true") == 0;
+		save = config_also_save(cfg);
 	}
 	*is_temp = !save;
 	enum paths_dest dest = save ? PATHS_DEST_PICTURES : PATHS_DEST_TEMP;
@@ -315,16 +317,20 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 
 	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
 	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
+	int32_t edit_tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
 	bool edit_dirty = false;
 
-	int rc = grabit_freeze_capture(&s, path, &opts, out_rect, a->edit,
+	const char *cursor_cfg = config_get(cfg, "capture.cursor");
+	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
+	int rc = grabit_freeze_capture(&s, cfg, path, &opts, out_rect, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
+								   a->edit ? &edit_tool : NULL,
 								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
 	grabit_wl_finish(&s);
 	free(mon_rects);
 
-	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width);
+	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width, edit_tool);
 
 	if (rc != 0) {
 		unlink(path);
@@ -344,26 +350,35 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 	return path;
 }
 
+static char *acquire_source(const struct args *a, struct config *cfg,
+							enum action eff, bool *is_temp,
+							struct rect *out_rect) {
+	if (a->file) {
+		char *path = strdup(a->file);
+		if (!path) log_error("out of memory");
+		return path;
+	}
+	return capture_to_file(a, cfg, eff, is_temp, out_rect);
+}
+
+static void release_source(char *path, bool is_temp) {
+	if (is_temp) {
+		unlink(path);
+		clear_tmpfile();
+	}
+	free(path);
+}
+
 static int run_upload(struct config *cfg, const struct args *a) {
 	const char *service = NULL;
 	if (upload_preflight(cfg, a, &service) != 0) return 1;
 
 	bool is_temp = false;
-	char *path = NULL;
-
-	if (a->file) {
-		path = strdup(a->file);
-		if (!path) {
-			log_error("out of memory");
-			return 1;
-		}
-	} else {
-		path = capture_to_file(a, cfg, ACTION_UPLOAD, &is_temp, NULL);
-		if (!path) return 1;
-	}
+	char *path = acquire_source(a, cfg, ACTION_UPLOAD, &is_temp, NULL);
+	if (!path) return 1;
 
 	struct upload_result r = {0};
-	int rc = upload_perform(service, path, cfg, &r);
+	int rc = upload_perform(service, path, cfg, a->chunked, &r);
 
 	if (rc == 0) {
 		clipboard_set_text(r.url);
@@ -399,27 +414,14 @@ static int run_upload(struct config *cfg, const struct args *a) {
 	}
 
 	upload_result_free(&r);
-	if (is_temp) {
-		unlink(path);
-		clear_tmpfile();
-	}
-	free(path);
+	release_source(path, is_temp);
 	return rc == 0 ? 0 : 1;
 }
 
 static int run_copy(struct config *cfg, const struct args *a) {
 	bool is_temp = false;
-	char *path;
-	if (a->file) {
-		path = strdup(a->file);
-		if (!path) {
-			log_error("out of memory");
-			return 1;
-		}
-	} else {
-		path = capture_to_file(a, cfg, ACTION_COPY, &is_temp, NULL);
-		if (!path) return 1;
-	}
+	char *path = acquire_source(a, cfg, ACTION_COPY, &is_temp, NULL);
+	if (!path) return 1;
 
 	int rc = clipboard_set_image_file(path);
 
@@ -441,11 +443,7 @@ static int run_copy(struct config *cfg, const struct args *a) {
 		});
 	}
 
-	if (is_temp) {
-		unlink(path);
-		clear_tmpfile();
-	}
-	free(path);
+	release_source(path, is_temp);
 	return rc == 0 ? 0 : 1;
 }
 
@@ -520,25 +518,12 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	bool is_temp = false;
-	char *path;
-	if (a->file) {
-		path = strdup(a->file);
-		if (!path) {
-			log_error("out of memory");
-			return 1;
-		}
-	} else {
-		path = capture_to_file(a, cfg, ACTION_OCR, &is_temp, NULL);
-		if (!path) return 1;
-	}
+	char *path = acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL);
+	if (!path) return 1;
 
 	char *text = grabit_ocr_run(bin, path);
 
-	if (is_temp) {
-		unlink(path);
-		clear_tmpfile();
-	}
-	free(path);
+	release_source(path, is_temp);
 
 	if (!text) {
 		notify_send(&(struct notify_opts){
@@ -681,30 +666,16 @@ static int run_record(struct config *cfg, const struct args *a) {
 
 static int run_pin(struct config *cfg, const struct args *a) {
 	bool is_temp = false;
-	char *path;
 	struct rect r = {0};
-	bool have_rect = false;
-	if (a->file) {
-		path = strdup(a->file);
-		if (!path) {
-			log_error("out of memory");
-			return 1;
-		}
-	} else {
-		path = capture_to_file(a, cfg, ACTION_PIN, &is_temp, &r);
-		if (!path) return 1;
-		have_rect = (r.w > 0 && r.h > 0);
-	}
+	char *path = acquire_source(a, cfg, ACTION_PIN, &is_temp, &r);
+	if (!path) return 1;
+	bool have_rect = (r.w > 0 && r.h > 0);
 
 	int rc = pin_spawn(cfg, path, have_rect ? &r : NULL);
 
 	if (rc == 0) grabit_sound_play(cfg);
 
-	if (is_temp) {
-		unlink(path);
-		clear_tmpfile();
-	}
-	free(path);
+	release_source(path, is_temp);
 	return rc == 0 ? 0 : 1;
 }
 

@@ -287,6 +287,16 @@ static const struct cfg_key_desc CFG_KEYS[] = {
 	{.key = "preview.position", .label = "Preview position", .kind = CFG_ENUM, .vals = VALS_position, .def = "bottom-right"},
 	{.key = "preview.output", .label = "Preview monitor", .kind = CFG_STRING, .is_monitor = true},
 	{.key = "preview.dismiss_secs", .label = "Preview timeout (s)", .kind = CFG_INT, .lo = 0, .hi = 600, .def = "5"},
+	{.key = "services.zipline.auth", .label = "Zipline token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.zipline.domain", .label = "Zipline domain", .kind = CFG_STRING},
+	{.key = "services.zipline.chunked", .label = "Zipline chunked upload", .kind = CFG_BOOL, .def = "false"},
+	{.key = "services.zipline.chunk_size", .label = "Zipline chunk size (MB)", .kind = CFG_INT, .lo = 1, .hi = 95, .def = "25"},
+	{.key = "services.nest.auth", .label = "Nest token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.nest.folder", .label = "Nest folder", .kind = CFG_STRING},
+	{.key = "services.fakecrime.auth", .label = "fakecrime token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.ez.auth", .label = "ez token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.guns.auth", .label = "guns token", .kind = CFG_STRING, .is_secret = true},
+	{.key = "services.pixelvault.auth", .label = "pixelvault token", .kind = CFG_STRING, .is_secret = true},
 };
 static const size_t CFG_KEYS_N = sizeof CFG_KEYS / sizeof CFG_KEYS[0];
 

@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 static int tab_for(const char *key) {
+	if (!strcmp(key, "service")) return 6;
 	if (!strchr(key, '.')) return 0;
 	if (!strncmp(key, "recording.", 10)) return 1;
 	if (!strncmp(key, "edit.", 5)) return 2;
@@ -29,6 +30,7 @@ static int tab_for(const char *key) {
 		!strncmp(key, "text_card.", 10))
 		return 4;
 	if (!strncmp(key, "preview.", 8) || !strncmp(key, "sound.", 6)) return 5;
+	if (!strncmp(key, "services.", 9)) return 6;
 	return 0;
 }
 

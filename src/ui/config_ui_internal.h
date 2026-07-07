@@ -19,7 +19,7 @@ struct ui_key_event;
 struct ui_pointer_event;
 
 enum {
-	NTAB = 6,
+	NTAB = 7,
 	PANEL_W = 580,
 	PAD = 18,
 	TABBAR_H = 44,

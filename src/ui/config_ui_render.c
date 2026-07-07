@@ -15,6 +15,7 @@ static const char *const TAB_NAMES[NTAB] = {
 	"Image",
 	"OCR",
 	"Notify",
+	"Services",
 };
 
 static void set_accent(cairo_t *cr, double a) {
@@ -90,6 +91,25 @@ static double draw_hint(cairo_t *cr, double x, double y, const char *key, const 
 	return x + le.width + 15;
 }
 
+static void blur_text(cairo_t *cr, double x, double y, const char *s) {
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 13);
+	for (int dy = -3; dy <= 3; dy++) {
+		for (int dx = -3; dx <= 3; dx++) {
+			cairo_set_source_rgba(cr, 0.88, 0.88, 0.9, 0.05);
+			cairo_move_to(cr, x + dx, y + dy);
+			cairo_show_text(cr, s);
+		}
+	}
+}
+
+static bool row_revealed(struct cfg_ui *u, int i) {
+	if (u->editing == i) return true;
+	if (u->sel >= 0 && u->sel < u->tab_n[u->tab])
+		return u->tab_keys[u->tab][u->sel] == i;
+	return false;
+}
+
 static void draw_field(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	bool editing = u->editing == i;
 	struct rect fr;
@@ -112,13 +132,17 @@ static void draw_field(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	cairo_rectangle(cr, fr.x + 4, fr.y, fr.w - 8, fr.h);
 	cairo_clip(cr);
 	cairo_text_extents_t e = {0};
+	bool blurred = u->keys[i].is_secret && !editing && !row_revealed(u, i);
 	if (shown[0]) {
 		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 		cairo_set_font_size(cr, 13);
 		cairo_text_extents(cr, shown, &e);
 		double over = (tx + e.width) - (fr.x + fr.w - 7);
 		if (editing && over > 0) tx -= over;
-		text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
+		if (blurred)
+			blur_text(cr, tx, ty, shown);
+		else
+			text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
 	}
 	if (editing) {
 		double caret = tx + e.width + 1;
@@ -266,12 +290,14 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 		{"type", "edit text"}, {"enter", "accept"}, {"esc", "cancel"}};
 	static const char *const nav_hints[][2] = {
 		{"arrows", "move / change"}, {"enter", "edit"}, {"tab", "switch"}, {"esc", "close"}};
-	const char *const (*hints)[2] = u->editing >= 0 ? edit_hints : nav_hints;
+	const char *const(*hints)[2] = u->editing >= 0 ? edit_hints : nav_hints;
 	int n_hints = u->editing >= 0 ? 3 : 4;
 	double total = 0;
-	for (int i = 0; i < n_hints; i++) total += hint_advance(cr, hints[i][0], hints[i][1]);
+	for (int i = 0; i < n_hints; i++)
+		total += hint_advance(cr, hints[i][0], hints[i][1]);
 	double hx = (w - (total - 15)) / 2.0, hy = h - 9;
-	for (int i = 0; i < n_hints; i++) hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1]);
+	for (int i = 0; i < n_hints; i++)
+		hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1]);
 	(void)hx;
 
 	if (u->dd_open >= 0) {

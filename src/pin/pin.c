@@ -107,7 +107,12 @@ void pin_surface_recreate(struct pin_state *st) {
 	if (st->surface) wl_surface_destroy(st->surface);
 	st->configured = false;
 	st->pointer_in_surface = false;
-	st->scale = (st->out && st->out->scale > 0) ? st->out->scale : 1;
+	int32_t new_scale = (st->out && st->out->scale > 0) ? st->out->scale : 1;
+	if (new_scale != st->scale) {
+		st->scale = new_scale;
+		pin_input_destroy_cursors(st);
+		pin_input_load_cursors(st);
+	}
 
 	st->surface = wl_compositor_create_surface(st->wls->compositor);
 	st->layer_surface = zwlr_layer_shell_v1_get_layer_surface(

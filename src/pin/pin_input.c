@@ -136,16 +136,6 @@ static void flush_drag(struct pin_state *st) {
 			st->pending_dy_fixed -= dy_int * 256;
 		}
 		if (new_mx == st->margin_x && new_my == st->margin_y) return;
-
-		struct grabit_output *dst = grabit_wl_output_at(
-			st->wls, out->x + new_mx + half_w, out->y + new_my + half_h);
-		if (dst && dst != out) {
-			st->margin_x = out->x + new_mx - dst->x;
-			st->margin_y = out->y + new_my - dst->y;
-			st->out = dst;
-			pin_surface_recreate(st);
-			return;
-		}
 		st->margin_x = new_mx;
 		st->margin_y = new_my;
 	} else {
@@ -171,6 +161,18 @@ static void flush_drag(struct pin_state *st) {
 	st->drag_frame_cb = wl_surface_frame(st->surface);
 	wl_callback_add_listener(st->drag_frame_cb, &drag_frame_listener_g, st);
 	wl_surface_commit(st->surface);
+}
+
+static void migrate_to_center_output(struct pin_state *st) {
+	if (st->transient || !st->out) return;
+	int32_t cx = st->out->x + st->margin_x + st->width / 2;
+	int32_t cy = st->out->y + st->margin_y + st->height / 2;
+	struct grabit_output *dst = grabit_wl_output_at(st->wls, cx, cy);
+	if (!dst || dst == st->out) return;
+	st->margin_x = st->out->x + st->margin_x - dst->x;
+	st->margin_y = st->out->y + st->margin_y - dst->y;
+	st->out = dst;
+	pin_surface_recreate(st);
 }
 
 static void drag_frame_done(void *data, struct wl_callback *cb, uint32_t time) {
@@ -292,6 +294,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		st->dragging = false;
 		st->pending_dx_fixed = 0;
 		st->pending_dy_fixed = 0;
+		migrate_to_center_output(st);
 	}
 	update_cursor(st);
 }

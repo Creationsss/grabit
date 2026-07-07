@@ -37,7 +37,8 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	struct ui_window *w = data;
 	w->pointer_x = wl_fixed_to_int(sx);
 	w->pointer_y = wl_fixed_to_int(sy);
-	struct ui_pointer_event e = {.kind = UI_PTR_MOTION, .x = w->pointer_x, .y = w->pointer_y};
+	struct ui_pointer_event e = {
+		.kind = UI_PTR_MOTION, .x = w->pointer_x, .y = w->pointer_y, .shift = w->shift_held};
 	if (w->on_pointer) w->on_pointer(w, &e, w->user);
 }
 
@@ -53,6 +54,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		.y = w->pointer_y,
 		.button = button,
 		.pressed = state == WL_POINTER_BUTTON_STATE_PRESSED,
+		.shift = w->shift_held,
 	};
 	if (w->on_pointer) w->on_pointer(w, &e, w->user);
 }

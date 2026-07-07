@@ -32,6 +32,7 @@ struct ui_pointer_event {
 	int32_t x, y;
 	uint32_t button;
 	bool pressed;
+	bool shift;
 	double axis;
 };
 

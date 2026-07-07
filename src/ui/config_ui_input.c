@@ -581,10 +581,10 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 			open_dropdown(u, pos);
 			break;
 		case HIT_DEC:
-			change_row(u, pos, -1, 1);
+			change_row(u, pos, -1, e->shift ? 10 : 1);
 			break;
 		case HIT_INC:
-			change_row(u, pos, +1, 1);
+			change_row(u, pos, +1, e->shift ? 10 : 1);
 			break;
 		default:
 			break;

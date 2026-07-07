@@ -124,8 +124,12 @@ static void on_pick_ready(struct ui_window *win, void *user) {
 	u->pick_fd = -1;
 	if (ok == 0 && u->pick_import) {
 		char name[128];
-		if (cfg_ui_import_sxcu(u, picked, name, sizeof name) == 0 && name[0])
-			set_val(u, u->pick_key, name);
+		if (cfg_ui_import_sxcu(u, picked, name, sizeof name) == 0) {
+			if (name[0]) set_val(u, u->pick_key, name);
+			snprintf(u->status, sizeof u->status, "imported %s", name[0] ? name : "uploader");
+		} else {
+			snprintf(u->status, sizeof u->status, "couldn't import: not a valid .sxcu");
+		}
 	} else if (ok == 0) {
 		set_val(u, u->pick_key, picked);
 	}
@@ -281,6 +285,7 @@ static void close_dropdown(struct cfg_ui *u) {
 
 void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user) {
 	struct cfg_ui *u = user;
+	u->status[0] = '\0';
 
 	if (u->editing >= 0) {
 		switch (e->sym) {
@@ -477,6 +482,7 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 	}
 
 	if (e->kind != UI_PTR_BUTTON || !e->pressed || e->button != BTN_LEFT) return;
+	u->status[0] = '\0';
 	if (u->editing >= 0) commit_edit(u);
 
 	if (h == HIT_TAB) {

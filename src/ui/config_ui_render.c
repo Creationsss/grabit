@@ -316,19 +316,51 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.08);
 	cairo_rectangle(cr, 0, h - FOOTER_H, w, 1);
 	cairo_fill(cr);
-	static const char *const edit_hints[][2] = {
-		{"type", "edit text"}, {"enter", "accept"}, {"esc", "cancel"}};
-	static const char *const nav_hints[][2] = {
-		{"arrows", "move / change"}, {"enter", "edit"}, {"tab", "switch"}, {"esc", "close"}};
-	const char *const(*hints)[2] = u->editing >= 0 ? edit_hints : nav_hints;
-	int n_hints = u->editing >= 0 ? 3 : 4;
-	double total = 0;
-	for (int i = 0; i < n_hints; i++)
-		total = draw_hint(cr, total, 0, hints[i][0], hints[i][1], true);
-	double hx = (w - (total - 15)) / 2.0, hy = h - 9;
-	for (int i = 0; i < n_hints; i++)
-		hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1], false);
-	(void)hx;
+	if (u->status[0]) {
+		text_centered(cr, w / 2.0, h - 9, u->status, 12, CAIRO_FONT_WEIGHT_NORMAL,
+					  1.0, 0.7, 0.4, 1);
+	} else {
+		const char *hints[5][2];
+		int n_hints = 0;
+		if (u->editing >= 0) {
+			hints[n_hints][0] = "type", hints[n_hints++][1] = "edit text";
+			hints[n_hints][0] = "enter", hints[n_hints++][1] = "accept";
+			hints[n_hints][0] = "esc", hints[n_hints++][1] = "cancel";
+		} else if (u->dd_open >= 0) {
+			hints[n_hints][0] = "arrows", hints[n_hints++][1] = "move";
+			hints[n_hints][0] = "enter", hints[n_hints++][1] = "select";
+			hints[n_hints][0] = "esc", hints[n_hints++][1] = "cancel";
+		} else {
+			const struct cfg_key_desc *sd = NULL;
+			if (u->sel >= 0 && u->sel < u->tab_n[u->tab])
+				sd = &u->keys[u->tab_keys[u->tab][u->sel]];
+			const char *verb = "change";
+			if (sd && sd->kind == CFG_BOOL)
+				verb = "toggle";
+			else if (sd && sd->kind == CFG_ENUM)
+				verb = "cycle";
+			else if (sd && sd->kind == CFG_INT)
+				verb = "adjust";
+			else if (sd && sd->kind == CFG_STRING)
+				verb = sd->is_monitor || sd->is_service ? "pick" : "edit";
+			hints[n_hints][0] = "arrows", hints[n_hints++][1] = "move / change";
+			hints[n_hints][0] = "enter", hints[n_hints++][1] = verb;
+			if (sd && sd->is_service)
+				hints[n_hints][0] = "+", hints[n_hints++][1] = "import .sxcu";
+			else if (sd && sd->kind == CFG_INT)
+				hints[n_hints][0] = "shift", hints[n_hints++][1] = "step x10";
+			else
+				hints[n_hints][0] = "tab", hints[n_hints++][1] = "switch";
+			hints[n_hints][0] = "esc", hints[n_hints++][1] = "done";
+		}
+		double total = 0;
+		for (int i = 0; i < n_hints; i++)
+			total = draw_hint(cr, total, 0, hints[i][0], hints[i][1], true);
+		double hx = (w - (total - 15)) / 2.0, hy = h - 9;
+		for (int i = 0; i < n_hints; i++)
+			hx = draw_hint(cr, hx, hy, hints[i][0], hints[i][1], false);
+		(void)hx;
+	}
 
 	if (u->dd_open >= 0) {
 		int count = cfg_ui_dd_count(u);

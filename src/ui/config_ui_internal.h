@@ -48,6 +48,7 @@ struct cfg_ui {
 
 	int editing;
 	char edit_buf[512];
+	char status[160];
 
 	int pick_fd;
 	int pick_pid;

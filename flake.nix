@@ -44,6 +44,7 @@
           tesseract
           translate-shell
           xdg-utils
+          zenity
         ];
 
         installPhase = ''

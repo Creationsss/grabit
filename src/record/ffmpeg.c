@@ -75,7 +75,8 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 		argv[i++] = (char *)(gif ? "split[a][b];[a]palettegen=stats_mode=single[p];"
 								   "[b][p]paletteuse=new=1"
 								 : "crop=trunc(iw/2)*2:trunc(ih/2)*2,"
-								   "scale=in_range=full:out_range=full:"
+								   "scale=in_range=full:in_color_matrix=bt709:"
+								   "out_range=tv:out_color_matrix=bt709:"
 								   "flags=accurate_rnd+full_chroma_int+full_chroma_inp,"
 								   "format=yuv420p");
 		if (webm) {
@@ -90,9 +91,9 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 			argv[i++] = (char *)"-pix_fmt";
 			argv[i++] = (char *)out_pix_fmt;
 			argv[i++] = (char *)"-color_range";
-			argv[i++] = (char *)"pc";
+			argv[i++] = (char *)"tv";
 			argv[i++] = (char *)"-colorspace";
-			argv[i++] = (char *)"smpte170m";
+			argv[i++] = (char *)"bt709";
 			argv[i++] = (char *)"-color_primaries";
 			argv[i++] = (char *)"bt709";
 			argv[i++] = (char *)"-color_trc";
@@ -113,15 +114,13 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 			argv[i++] = (char *)"-pix_fmt";
 			argv[i++] = (char *)out_pix_fmt;
 			argv[i++] = (char *)"-color_range";
-			argv[i++] = (char *)"pc";
+			argv[i++] = (char *)"tv";
 			argv[i++] = (char *)"-colorspace";
-			argv[i++] = (char *)"smpte170m";
+			argv[i++] = (char *)"bt709";
 			argv[i++] = (char *)"-color_primaries";
 			argv[i++] = (char *)"bt709";
 			argv[i++] = (char *)"-color_trc";
 			argv[i++] = (char *)"iec61966-2-1";
-			argv[i++] = (char *)"-x264-params";
-			argv[i++] = (char *)"colormatrix=smpte170m";
 			argv[i++] = (char *)"-crf";
 			argv[i++] = crf_s;
 		}
@@ -206,6 +205,14 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 			(char *)"medium",
 			(char *)"-pix_fmt",
 			(char *)"yuv420p",
+			(char *)"-color_range",
+			(char *)"tv",
+			(char *)"-colorspace",
+			(char *)"bt709",
+			(char *)"-color_primaries",
+			(char *)"bt709",
+			(char *)"-color_trc",
+			(char *)"iec61966-2-1",
 			(char *)"-an",
 			tmp_path,
 			NULL,

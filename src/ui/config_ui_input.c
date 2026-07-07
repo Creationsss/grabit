@@ -77,16 +77,42 @@ static bool dd_is_service(struct cfg_ui *u) {
 	return u->dd_open >= 0 && u->keys[u->dd_open].is_service;
 }
 
+static bool dd_is_enum(struct cfg_ui *u) {
+	return u->dd_open >= 0 && u->keys[u->dd_open].kind == CFG_ENUM;
+}
+
+static int enum_val_count(const struct cfg_key_desc *d) {
+	int n = 0;
+	while (d->vals[n])
+		n++;
+	return n + (d->allow_empty ? 1 : 0);
+}
+
 int cfg_ui_dd_count(struct cfg_ui *u) {
-	return dd_is_service(u) ? u->n_services : cfg_ui_monitor_count(u);
+	if (dd_is_enum(u)) return enum_val_count(&u->keys[u->dd_open]);
+	if (dd_is_service(u)) return u->n_services;
+	return cfg_ui_monitor_count(u);
 }
 
 const char *cfg_ui_dd_value(struct cfg_ui *u, int idx) {
-	return dd_is_service(u) ? u->services[idx] : cfg_ui_monitor_value(u, idx);
+	if (dd_is_enum(u)) {
+		const struct cfg_key_desc *d = &u->keys[u->dd_open];
+		int n = 0;
+		while (d->vals[n])
+			n++;
+		return idx < n ? d->vals[idx] : "";
+	}
+	if (dd_is_service(u)) return u->services[idx];
+	return cfg_ui_monitor_value(u, idx);
 }
 
 const char *cfg_ui_dd_label(struct cfg_ui *u, int idx) {
-	return dd_is_service(u) ? u->services[idx] : cfg_ui_monitor_label(u, idx);
+	if (dd_is_enum(u)) {
+		const char *v = cfg_ui_dd_value(u, idx);
+		return v[0] ? v : "(none)";
+	}
+	if (dd_is_service(u)) return u->services[idx];
+	return cfg_ui_monitor_label(u, idx);
 }
 
 void dropdown_item_rect(struct cfg_ui *u, int idx, struct rect *r) {
@@ -341,12 +367,13 @@ void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user)
 	case XKB_KEY_KP_Enter: {
 		int i = cur_key(u, u->sel);
 		if (i < 0) return;
-		if (u->keys[i].kind != CFG_STRING)
-			change_row(u, u->sel, +1, 1);
-		else if (u->keys[i].is_monitor || u->keys[i].is_service)
+		if (u->keys[i].kind == CFG_ENUM ||
+			(u->keys[i].kind == CFG_STRING && (u->keys[i].is_monitor || u->keys[i].is_service)))
 			open_dropdown(u, u->sel);
-		else
+		else if (u->keys[i].kind == CFG_STRING)
 			begin_edit(u, i);
+		else
+			change_row(u, u->sel, +1, 1);
 		break;
 	}
 	case XKB_KEY_Tab:
@@ -419,6 +446,10 @@ static enum hit hit_test(struct cfg_ui *u, int32_t x, int32_t y, int *out_pos) {
 			if (rect_contains(r, x, y)) return HIT_BROWSE;
 		}
 		return HIT_NONE;
+	}
+	if (d->kind == CFG_ENUM) {
+		field_rect(&r, false, ry);
+		return rect_contains(r, x, y) ? HIT_DROPDOWN : HIT_NONE;
 	}
 	struct rect dec, inc;
 	dec_inc_rects(&dec, &inc, ry);

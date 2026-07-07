@@ -166,7 +166,7 @@ static void tri_down(cairo_t *cr, double cx, double cy) {
 	cairo_fill(cr);
 }
 
-static void draw_monitor(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
+static void draw_combo(cairo_t *cr, struct cfg_ui *u, int i, double row_y, const char *ph) {
 	struct rect fr;
 	field_rect(&fr, false, row_y);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.06);
@@ -176,7 +176,7 @@ static void draw_monitor(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	cairo_save(cr);
 	cairo_rectangle(cr, fr.x, fr.y, fr.w - 16, fr.h);
 	cairo_clip(cr);
-	text(cr, fr.x + 8, fr.y + fr.h / 2.0 + 5, v[0] ? v : "(auto)", 13,
+	text(cr, fr.x + 8, fr.y + fr.h / 2.0 + 5, v[0] ? v : ph, 13,
 		 CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
 	cairo_restore(cr);
 	tri_down(cr, fr.x + fr.w - 12, fr.y + fr.h / 2.0);
@@ -236,11 +236,16 @@ static void draw_widget(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 
 	if (d->kind == CFG_STRING) {
 		if (d->is_monitor)
-			draw_monitor(cr, u, i, row_y);
+			draw_combo(cr, u, i, row_y, "(auto)");
 		else if (d->is_service)
 			draw_service(cr, u, i, row_y);
 		else
 			draw_field(cr, u, i, row_y);
+		return;
+	}
+
+	if (d->kind == CFG_ENUM) {
+		draw_combo(cr, u, i, row_y, "(none)");
 		return;
 	}
 
@@ -338,7 +343,7 @@ void cfg_ui_draw(cairo_t *cr, int32_t w, int32_t h, void *user) {
 			if (sd && sd->kind == CFG_BOOL)
 				verb = "toggle";
 			else if (sd && sd->kind == CFG_ENUM)
-				verb = "cycle";
+				verb = "pick";
 			else if (sd && sd->kind == CFG_INT)
 				verb = "adjust";
 			else if (sd && sd->kind == CFG_STRING)

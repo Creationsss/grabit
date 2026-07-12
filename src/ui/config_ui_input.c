@@ -4,9 +4,12 @@
 #define _XOPEN_SOURCE 700
 #include "ui/config_ui_internal.h"
 
+#include "clipboard/clipboard.h"
 #include "notify_test.h"
 #include "picker.h"
 #include "ui/window.h"
+
+#include <cairo/cairo.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -257,35 +260,208 @@ static void change_row(struct cfg_ui *u, int pos, int dir, long mult) {
 	}
 }
 
+static int u8_prev(const char *s, int i) {
+	if (i <= 0) return 0;
+	i--;
+	while (i > 0 && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i--;
+	return i;
+}
+
+static int u8_next(const char *s, int i) {
+	int n = (int)strlen(s);
+	if (i >= n) return n;
+	i++;
+	while (i < n && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i++;
+	return i;
+}
+
+static int sel_lo(struct cfg_ui *u) {
+	return u->edit_cursor < u->edit_anchor ? u->edit_cursor : u->edit_anchor;
+}
+
+static int sel_hi(struct cfg_ui *u) {
+	return u->edit_cursor > u->edit_anchor ? u->edit_cursor : u->edit_anchor;
+}
+
+static bool has_sel(struct cfg_ui *u) {
+	return u->edit_cursor != u->edit_anchor;
+}
+
+static void edit_push_undo(struct cfg_ui *u) {
+	if (u->edit_undo_n == EDIT_UNDO_MAX) {
+		memmove(u->edit_undo[0], u->edit_undo[1], sizeof u->edit_undo - sizeof u->edit_undo[0]);
+		memmove(u->edit_undo_cur, u->edit_undo_cur + 1,
+				sizeof u->edit_undo_cur - sizeof u->edit_undo_cur[0]);
+		u->edit_undo_n--;
+	}
+	memcpy(u->edit_undo[u->edit_undo_n], u->edit_buf, sizeof u->edit_buf);
+	u->edit_undo_cur[u->edit_undo_n] = u->edit_cursor;
+	u->edit_undo_n++;
+}
+
+static void edit_undo(struct cfg_ui *u) {
+	if (u->edit_undo_n == 0) return;
+	u->edit_undo_n--;
+	memcpy(u->edit_buf, u->edit_undo[u->edit_undo_n], sizeof u->edit_buf);
+	u->edit_cursor = u->edit_undo_cur[u->edit_undo_n];
+	int len = (int)strlen(u->edit_buf);
+	if (u->edit_cursor > len) u->edit_cursor = len;
+	u->edit_anchor = u->edit_cursor;
+}
+
+static void edit_delete_sel(struct cfg_ui *u) {
+	int lo = sel_lo(u), hi = sel_hi(u);
+	if (lo == hi) return;
+	int len = (int)strlen(u->edit_buf);
+	memmove(u->edit_buf + lo, u->edit_buf + hi, len - hi + 1);
+	u->edit_cursor = lo;
+	u->edit_anchor = lo;
+}
+
+static cairo_t *measure_ctx(void) {
+	static cairo_t *cr = NULL;
+	if (!cr) {
+		cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
+		cr = cairo_create(s);
+		cairo_surface_destroy(s);
+		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+		cairo_set_font_size(cr, 13);
+	}
+	return cr;
+}
+
+double cfg_ui_edit_prefix_w(const char *s, int bytes) {
+	if (bytes <= 0) return 0;
+	char tmp[512];
+	if (bytes > (int)sizeof tmp - 1) bytes = (int)sizeof tmp - 1;
+	memcpy(tmp, s, (size_t)bytes);
+	tmp[bytes] = '\0';
+	cairo_text_extents_t e;
+	cairo_text_extents(measure_ctx(), tmp, &e);
+	return e.x_advance;
+}
+
+static int edit_offset_from_x(const char *s, double rel_x) {
+	int len = (int)strlen(s), best = 0, i = 0;
+	double bestd = 1e9;
+	for (;;) {
+		double d = cfg_ui_edit_prefix_w(s, i) - rel_x;
+		if (d < 0) d = -d;
+		if (d < bestd) {
+			bestd = d;
+			best = i;
+		}
+		if (i >= len) break;
+		i = u8_next(s, i);
+	}
+	return best;
+}
+
+static void edit_cursor_at_x(struct cfg_ui *u, int32_t x, bool extend) {
+	int i = u->editing;
+	if (i < 0) return;
+	struct rect fr;
+	double row_y = TABBAR_H + (u->sel - u->scroll) * ROW_H;
+	field_rect(&fr, u->keys[i].is_path, row_y);
+	double avail = fr.w - 14;
+	double cur_x = cfg_ui_edit_prefix_w(u->edit_buf, u->edit_cursor);
+	double scroll = cur_x > avail ? cur_x - avail : 0;
+	int off = edit_offset_from_x(u->edit_buf, (double)x - (fr.x + 7) + scroll);
+	u->edit_cursor = off;
+	if (!extend) u->edit_anchor = off;
+}
+
 static void begin_edit(struct cfg_ui *u, int i) {
 	u->editing = i;
 	snprintf(u->edit_buf, sizeof u->edit_buf, "%s", u->val[i]);
+	u->edit_cursor = (int)strlen(u->edit_buf);
+	u->edit_anchor = u->edit_cursor;
+	u->edit_undo_n = 0;
 }
 
 static void commit_edit(struct cfg_ui *u) {
 	if (u->editing < 0) return;
 	set_val(u, u->editing, u->edit_buf);
 	u->editing = -1;
+	u->edit_selecting = false;
 }
 
 static void cancel_edit(struct cfg_ui *u) {
 	u->editing = -1;
+	u->edit_selecting = false;
 }
 
 static void edit_insert(struct cfg_ui *u, const char *s) {
-	size_t len = strlen(u->edit_buf), n = strlen(s);
-	if (len + n + 1 > sizeof u->edit_buf) return;
-	memcpy(u->edit_buf + len, s, n);
-	u->edit_buf[len + n] = '\0';
+	size_t n = strlen(s);
+	int lo = sel_lo(u), hi = sel_hi(u);
+	int len = (int)strlen(u->edit_buf);
+	if ((size_t)(len - (hi - lo)) + n + 1 > sizeof u->edit_buf) return;
+	edit_push_undo(u);
+	edit_delete_sel(u);
+	len = (int)strlen(u->edit_buf);
+	memmove(u->edit_buf + u->edit_cursor + n, u->edit_buf + u->edit_cursor,
+			(size_t)(len - u->edit_cursor + 1));
+	memcpy(u->edit_buf + u->edit_cursor, s, n);
+	u->edit_cursor += (int)n;
+	u->edit_anchor = u->edit_cursor;
 }
 
 static void edit_backspace(struct cfg_ui *u) {
-	size_t len = strlen(u->edit_buf);
-	while (len > 0) {
-		unsigned char c = (unsigned char)u->edit_buf[--len];
-		if ((c & 0xC0) != 0x80) break;
+	if (has_sel(u)) {
+		edit_push_undo(u);
+		edit_delete_sel(u);
+		return;
 	}
-	u->edit_buf[len] = '\0';
+	if (u->edit_cursor == 0) return;
+	edit_push_undo(u);
+	int prev = u8_prev(u->edit_buf, u->edit_cursor);
+	int len = (int)strlen(u->edit_buf);
+	memmove(u->edit_buf + prev, u->edit_buf + u->edit_cursor,
+			(size_t)(len - u->edit_cursor + 1));
+	u->edit_cursor = prev;
+	u->edit_anchor = prev;
+}
+
+static void edit_delete_fwd(struct cfg_ui *u) {
+	if (has_sel(u)) {
+		edit_push_undo(u);
+		edit_delete_sel(u);
+		return;
+	}
+	int len = (int)strlen(u->edit_buf);
+	if (u->edit_cursor >= len) return;
+	edit_push_undo(u);
+	int next = u8_next(u->edit_buf, u->edit_cursor);
+	memmove(u->edit_buf + u->edit_cursor, u->edit_buf + next, (size_t)(len - next + 1));
+}
+
+static void edit_select_all(struct cfg_ui *u) {
+	u->edit_anchor = 0;
+	u->edit_cursor = (int)strlen(u->edit_buf);
+}
+
+static void edit_copy(struct cfg_ui *u) {
+	int lo = sel_lo(u), hi = sel_hi(u);
+	if (lo == hi) {
+		lo = 0;
+		hi = (int)strlen(u->edit_buf);
+	}
+	if (hi == lo) return;
+	char tmp[512];
+	int n = hi - lo;
+	memcpy(tmp, u->edit_buf + lo, (size_t)n);
+	tmp[n] = '\0';
+	clipboard_set_text(tmp);
+}
+
+static void edit_cut(struct cfg_ui *u) {
+	if (!has_sel(u)) edit_select_all(u);
+	if (!has_sel(u)) return;
+	edit_copy(u);
+	edit_push_undo(u);
+	edit_delete_sel(u);
 }
 
 static void clamp_scroll(struct cfg_ui *u) {
@@ -326,6 +502,30 @@ void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user)
 	u->status[0] = '\0';
 
 	if (u->editing >= 0) {
+		if (e->ctrl) {
+			switch (e->sym) {
+			case XKB_KEY_a:
+			case XKB_KEY_A:
+				edit_select_all(u);
+				break;
+			case XKB_KEY_c:
+			case XKB_KEY_C:
+				edit_copy(u);
+				break;
+			case XKB_KEY_x:
+			case XKB_KEY_X:
+				edit_cut(u);
+				break;
+			case XKB_KEY_z:
+			case XKB_KEY_Z:
+				edit_undo(u);
+				break;
+			default:
+				break;
+			}
+			ui_window_redraw(win);
+			return;
+		}
 		switch (e->sym) {
 		case XKB_KEY_Escape:
 			cancel_edit(u);
@@ -337,8 +537,27 @@ void cfg_ui_key(struct ui_window *win, const struct ui_key_event *e, void *user)
 		case XKB_KEY_BackSpace:
 			edit_backspace(u);
 			break;
+		case XKB_KEY_Delete:
+			edit_delete_fwd(u);
+			break;
+		case XKB_KEY_Left:
+			u->edit_cursor = u8_prev(u->edit_buf, u->edit_cursor);
+			if (!e->shift) u->edit_anchor = u->edit_cursor;
+			break;
+		case XKB_KEY_Right:
+			u->edit_cursor = u8_next(u->edit_buf, u->edit_cursor);
+			if (!e->shift) u->edit_anchor = u->edit_cursor;
+			break;
+		case XKB_KEY_Home:
+			u->edit_cursor = 0;
+			if (!e->shift) u->edit_anchor = 0;
+			break;
+		case XKB_KEY_End:
+			u->edit_cursor = (int)strlen(u->edit_buf);
+			if (!e->shift) u->edit_anchor = u->edit_cursor;
+			break;
 		default:
-			if (e->utf8[0]) edit_insert(u, e->utf8);
+			if (e->utf8[0] && (unsigned char)e->utf8[0] >= 0x20) edit_insert(u, e->utf8);
 			break;
 		}
 		ui_window_redraw(win);
@@ -510,6 +729,11 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 	enum hit h = hit_test(u, e->x, e->y, &pos);
 
 	if (e->kind == UI_PTR_MOTION) {
+		if (u->edit_selecting && u->editing >= 0) {
+			edit_cursor_at_x(u, e->x, true);
+			ui_window_redraw(win);
+			return;
+		}
 		bool moved = e->x != u->ptr_x || e->y != u->ptr_y;
 		u->ptr_x = e->x;
 		u->ptr_y = e->y;
@@ -526,9 +750,14 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 		return;
 	}
 
+	if (e->kind == UI_PTR_BUTTON && !e->pressed) {
+		u->edit_selecting = false;
+		return;
+	}
 	if (e->kind != UI_PTR_BUTTON || !e->pressed || e->button != BTN_LEFT) return;
 	u->status[0] = '\0';
-	if (u->editing >= 0) commit_edit(u);
+	int click_key = h == HIT_FIELD ? cur_key(u, pos) : -1;
+	if (u->editing >= 0 && click_key != u->editing) commit_edit(u);
 
 	struct rect tb;
 	if (test_btn_rect(u, &tb) && rect_contains(tb, e->x, e->y)) {
@@ -561,7 +790,9 @@ void cfg_ui_pointer(struct ui_window *win, const struct ui_pointer_event *e, voi
 			bool_toggle(u, i);
 			break;
 		case HIT_FIELD:
-			begin_edit(u, i);
+			if (u->editing != i) begin_edit(u, i);
+			edit_cursor_at_x(u, e->x, false);
+			u->edit_selecting = true;
 			break;
 		case HIT_BROWSE:
 		case HIT_IMPORT: {

@@ -122,31 +122,39 @@ static void draw_field(cairo_t *cr, struct cfg_ui *u, int i, double row_y) {
 	}
 
 	const char *shown = editing ? u->edit_buf : u->val[i];
-	double tx = fr.x + 7;
 	double ty = fr.y + fr.h / 2.0 + 5;
 	cairo_save(cr);
 	cairo_rectangle(cr, fr.x + 4, fr.y, fr.w - 8, fr.h);
 	cairo_clip(cr);
-	cairo_text_extents_t e = {0};
-	bool masked = u->keys[i].is_secret && !editing && !row_revealed(u, i);
-	if (shown[0]) {
-		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-		cairo_set_font_size(cr, 13);
-		cairo_text_extents(cr, shown, &e);
-		double over = (tx + e.width) - (fr.x + fr.w - 7);
-		if (editing && over > 0) tx -= over;
-		if (masked)
-			draw_masked(cr, tx, ty, shown);
-		else
-			text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
-	}
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 13);
 	if (editing) {
-		double caret = tx + e.width + 1;
+		double avail = fr.w - 14;
+		double cur_x = cfg_ui_edit_prefix_w(shown, u->edit_cursor);
+		double scroll = cur_x > avail ? cur_x - avail : 0;
+		double tx = fr.x + 7 - scroll;
+		if (u->edit_cursor != u->edit_anchor) {
+			int lo = u->edit_cursor < u->edit_anchor ? u->edit_cursor : u->edit_anchor;
+			int hi = u->edit_cursor > u->edit_anchor ? u->edit_cursor : u->edit_anchor;
+			double x0 = tx + cfg_ui_edit_prefix_w(shown, lo);
+			double x1 = tx + cfg_ui_edit_prefix_w(shown, hi);
+			set_accent(cr, 0.35);
+			cairo_rectangle(cr, x0, fr.y + 4, x1 - x0, fr.h - 8);
+			cairo_fill(cr);
+		}
+		if (shown[0]) text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
+		double caret = tx + cur_x;
 		set_accent(cr, 1);
 		cairo_set_line_width(cr, 1.5);
 		cairo_move_to(cr, caret, fr.y + 5);
 		cairo_line_to(cr, caret, fr.y + fr.h - 5);
 		cairo_stroke(cr);
+	} else if (shown[0]) {
+		double tx = fr.x + 7;
+		if (u->keys[i].is_secret && !row_revealed(u, i))
+			draw_masked(cr, tx, ty, shown);
+		else
+			text(cr, tx, ty, shown, 13, CAIRO_FONT_WEIGHT_NORMAL, 0.88, 0.88, 0.9, 1);
 	}
 	cairo_restore(cr);
 

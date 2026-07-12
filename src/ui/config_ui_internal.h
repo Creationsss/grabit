@@ -32,6 +32,7 @@ enum {
 	FIELD_W = 190,
 	FIELD_H = 26,
 	DD_ITEM_H = 26,
+	EDIT_UNDO_MAX = 16,
 };
 
 struct cfg_ui {
@@ -49,6 +50,12 @@ struct cfg_ui {
 
 	int editing;
 	char edit_buf[512];
+	int edit_cursor;
+	int edit_anchor;
+	bool edit_selecting;
+	char edit_undo[EDIT_UNDO_MAX][512];
+	int edit_undo_cur[EDIT_UNDO_MAX];
+	int edit_undo_n;
 	char status[160];
 
 	int pick_fd;
@@ -83,6 +90,7 @@ int cfg_ui_import_sxcu(struct cfg_ui *u, const char *path, char *name_out, size_
 bool bool_on(const char *v);
 void tab_rect(int i, struct rect *r);
 bool test_btn_rect(struct cfg_ui *u, struct rect *r);
+double cfg_ui_edit_prefix_w(const char *s, int bytes);
 void toggle_rect(struct rect *r, double row_y);
 void right_btn_rect(struct rect *r, double row_y);
 void dec_inc_rects(struct rect *dec, struct rect *inc, double row_y);

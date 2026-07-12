@@ -264,7 +264,7 @@ static const struct cfg_key_desc CFG_KEYS[] = {
 	{.key = "recording.tune", .label = "Encoder tune", .kind = CFG_ENUM, .vals = VALS_x264_tune, .allow_empty = true},
 	{.key = "recording.pix_fmt", .label = "Pixel format", .kind = CFG_ENUM, .vals = VALS_pix_fmt, .def = "yuv420p"},
 	{.key = "recording.format", .label = "Recording format", .kind = CFG_ENUM, .vals = VALS_record_format, .def = "mp4"},
-	{.key = "ocr.tesseract", .label = "tesseract binary", .kind = CFG_STRING, .is_path = true},
+	{.key = "ocr.tesseract", .label = "tesseract binary", .kind = CFG_STRING, .def = "tesseract", .is_path = true},
 	{.key = "sound.enabled", .label = "Play a shutter sound", .kind = CFG_BOOL, .def = "false"},
 	{.key = "sound.player", .label = "Sound player", .kind = CFG_STRING, .is_path = true},
 	{.key = "sound.file", .label = "Sound file", .kind = CFG_STRING, .is_path = true},

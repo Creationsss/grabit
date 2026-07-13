@@ -5,6 +5,7 @@
 #include "region/wlr_state.h"
 
 #include "capture/capture.h"
+#include "region/annotate.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "wl.h"
@@ -40,10 +41,56 @@ static bool eyedropper_sample(struct ro_state *st, uint32_t *out_color) {
 	return true;
 }
 
+static int anno_hit_index(const struct ro_state *st, int32_t x, int32_t y) {
+	if (!st->out_annos) return -1;
+	for (size_t i = st->out_annos->n; i > 0; i--) {
+		if (annotation_hit(&st->out_annos->items[i - 1], x, y))
+			return (int)(i - 1);
+	}
+	return -1;
+}
+
+static int anno_corner_at(const struct ro_state *st, int32_t x, int32_t y) {
+	const struct annotation *a = region_anno_selected(st);
+	if (!a) return -1;
+	int mask = annotation_corner_mask(a);
+	for (int c = 0; c < 4; c++) {
+		if (!(mask & (1 << c))) continue;
+		int32_t dx = x - annotation_corner_x(a, c);
+		int32_t dy = y - annotation_corner_y(a, c);
+		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return c;
+	}
+	return -1;
+}
+
 static bool toolbar_reachable(const struct ro_state *st) {
 	return region_editing(st) && !st->dragging && !st->tb_dragging &&
 		   !st->drawing && !st->moving_region && !st->slider_dragging &&
+		   !region_anno_dragging(st) &&
 		   !st->text_input_active && st->handle_dragging == HANDLE_NONE;
+}
+
+static void mode_enter_region(struct ro_state *st) {
+	st->region_locked = false;
+	st->anno_edit_mode = false;
+	st->sel_anno = -1;
+	st->color_picker_open = false;
+	st->eyedropper_mode = false;
+}
+
+static void mode_enter_anno_edit(struct ro_state *st) {
+	st->region_locked = true;
+	st->anno_edit_mode = true;
+	st->color_picker_open = false;
+	st->eyedropper_mode = false;
+}
+
+static void mode_select_tool(struct ro_state *st, enum tool_kind t) {
+	st->current_tool = t;
+	st->region_locked = true;
+	st->anno_edit_mode = false;
+	st->sel_anno = -1;
+	st->edit_choices_dirty = true;
 }
 
 static struct wl_cursor *pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
@@ -63,6 +110,13 @@ static struct wl_cursor *pick_cursor(const struct ro_state *st, int32_t abs_x, i
 		int h = region_handle_at(st, abs_x, abs_y);
 		if (h != HANDLE_NONE && st->cursor_resize[h]) return st->cursor_resize[h];
 		if (h != HANDLE_NONE && st->cursor_default) return st->cursor_default;
+		if (st->anno_edit_mode) {
+			bool grab = region_anno_dragging(st) ||
+						anno_corner_at(st, abs_x, abs_y) >= 0 ||
+						anno_hit_index(st, abs_x, abs_y) >= 0;
+			if (grab && st->cursor_move) return st->cursor_move;
+			return st->cursor_default ? st->cursor_default : st->cursor;
+		}
 		if ((st->ctrl_held || !region_editing(st)) &&
 			region_inside_selection(st, abs_x, abs_y) && st->cursor_move)
 			return st->cursor_move;
@@ -179,6 +233,27 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 			if (st->sel_x != px || st->sel_y != py) st->region_moved = true;
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			region_apply_handle_drag(st);
+		} else if (st->anno_drag == ANNO_DRAG_MOVE) {
+			struct annotation *a = region_anno_selected(st);
+			if (a) {
+				annotation_translate(a, st->cursor_x - st->anno_last_x,
+									 st->cursor_y - st->anno_last_y);
+			}
+			st->anno_last_x = st->cursor_x;
+			st->anno_last_y = st->cursor_y;
+		} else if (st->anno_drag >= 0) {
+			struct annotation *a = region_anno_selected(st);
+			if (a) {
+				if (st->anno_drag & 1)
+					a->x1 = st->cursor_x;
+				else
+					a->x0 = st->cursor_x;
+				if (st->anno_drag & 2)
+					a->y1 = st->cursor_y;
+				else
+					a->y0 = st->cursor_y;
+				annotation_update_bbox(a);
+			}
 		} else if (st->drawing && tool_uses_points(st->current_tool)) {
 			region_pen_append(st, st->cursor_x, st->cursor_y);
 		}
@@ -231,14 +306,13 @@ static bool toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	if (act != TB_WIDTH_SLIDER) region_tooltip_arm(st);
 	if (st->text_input_active) region_commit_text(st);
 	if (act == TB_REGION) {
-		st->region_locked = false;
-		st->color_picker_open = false;
-		st->eyedropper_mode = false;
+		mode_enter_region(st);
+		refresh_cursor(st, p);
+	} else if (act == TB_EDIT) {
+		mode_enter_anno_edit(st);
 		refresh_cursor(st, p);
 	} else if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER) {
-		st->current_tool = (enum tool_kind)(act - TB_TOOL_PEN);
-		st->region_locked = true;
-		st->edit_choices_dirty = true;
+		mode_select_tool(st, (enum tool_kind)(act - TB_TOOL_PEN));
 		refresh_cursor(st, p);
 	} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
 		st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];
@@ -306,7 +380,8 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	}
 
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
-		(st->drawing || st->moving_region || st->handle_dragging != HANDLE_NONE)) {
+		(st->drawing || st->moving_region || region_anno_dragging(st) ||
+		 st->handle_dragging != HANDLE_NONE)) {
 		if (st->moving_region) {
 			st->moving_region = false;
 			region_undo_commit(st);
@@ -315,6 +390,20 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			st->handle_dragging = HANDLE_NONE;
 			region_undo_commit(st);
+			refresh_cursor(st, p);
+		} else if (region_anno_dragging(st)) {
+			bool was_move = st->anno_drag == ANNO_DRAG_MOVE;
+			st->anno_drag = ANNO_DRAG_NONE;
+			if (st->sel_anno >= 0) {
+				if (was_move)
+					region_undo_record_anno_move(st, (size_t)st->sel_anno,
+												 st->anno_last_x - st->anno_press_x,
+												 st->anno_last_y - st->anno_press_y);
+				else
+					region_undo_record_anno_geom(st, (size_t)st->sel_anno,
+												 st->anno_geom_snap);
+			}
+			if (st->out_annos) st->out_annos->gen++;
 			refresh_cursor(st, p);
 		} else if (st->drawing) {
 			region_commit_drawing(st);
@@ -438,6 +527,31 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			region_undo_begin(st);
 			st->handle_dragging = h;
 			region_drag_start(st);
+			region_render_request_redraw_all(st);
+			return;
+		}
+		if (st->anno_edit_mode) {
+			const struct annotation *a = region_anno_selected(st);
+			int c = anno_corner_at(st, st->cursor_x, st->cursor_y);
+			if (a && c >= 0) {
+				st->anno_geom_snap[0] = a->x0;
+				st->anno_geom_snap[1] = a->y0;
+				st->anno_geom_snap[2] = a->x1;
+				st->anno_geom_snap[3] = a->y1;
+				st->anno_drag = c;
+				st->out_annos->gen++;
+				region_drag_start(st);
+			} else {
+				st->sel_anno = anno_hit_index(st, st->cursor_x, st->cursor_y);
+				if (st->sel_anno >= 0) {
+					st->anno_drag = ANNO_DRAG_MOVE;
+					st->anno_press_x = st->anno_last_x = st->cursor_x;
+					st->anno_press_y = st->anno_last_y = st->cursor_y;
+					st->out_annos->gen++;
+					region_drag_start(st);
+				}
+			}
+			refresh_cursor(st, p);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -583,6 +697,14 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (st->cleanup) return;
 	region_nudge_disarm(st);
 	region_undo_disarm(st);
+}
+
+static int32_t tool_for_letter(xkb_keysym_t sym) {
+	static const char keys[] = "pmlroabte";
+	if (sym >= XKB_KEY_A && sym <= XKB_KEY_Z) sym += XKB_KEY_a - XKB_KEY_A;
+	if (sym < XKB_KEY_a || sym > XKB_KEY_z) return -1;
+	const char *p = strchr(keys, (int)sym);
+	return p ? (int32_t)(p - keys) : -1;
 }
 
 static uint32_t nudge_dir_for_sym(xkb_keysym_t sym) {
@@ -754,15 +876,21 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (region_drag_active(st)) return;
 
+	if (!st->ctrl_held && (sym == XKB_KEY_s || sym == XKB_KEY_S)) {
+		mode_enter_anno_edit(st);
+		if (st->pointer) refresh_cursor(st, st->pointer);
+		region_render_request_redraw_all(st);
+		return;
+	}
+
 	int32_t pick = -1;
 	if (sym >= XKB_KEY_1 && sym <= XKB_KEY_9)
 		pick = (int32_t)(sym - XKB_KEY_1);
 	else if (sym >= XKB_KEY_KP_1 && sym <= XKB_KEY_KP_9)
 		pick = (int32_t)(sym - XKB_KEY_KP_1);
+	if (pick < 0 && !st->ctrl_held) pick = tool_for_letter(sym);
 	if (pick >= 0 && pick < TOOL_COUNT) {
-		st->current_tool = (enum tool_kind)pick;
-		st->region_locked = true;
-		st->edit_choices_dirty = true;
+		mode_select_tool(st, (enum tool_kind)pick);
 		if (st->pointer) refresh_cursor(st, st->pointer);
 		region_render_request_redraw_all(st);
 	}

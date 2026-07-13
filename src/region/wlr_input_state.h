@@ -5,9 +5,13 @@
 #define GRABIT_REGION_WLR_INPUT_STATE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
+struct annotation;
 struct ro_state;
+
+struct annotation *region_anno_selected(const struct ro_state *st);
 
 #define HANDLE_NONE -1
 #define HANDLE_NW 0
@@ -29,6 +33,10 @@ void region_undo_disarm(struct ro_state *st);
 
 void region_undo_begin(struct ro_state *st);
 void region_undo_commit(struct ro_state *st);
+void region_undo_record_anno_move(struct ro_state *st, size_t idx,
+								  int32_t dx, int32_t dy);
+void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
+								  const int32_t g[4]);
 void region_undo_pop(struct ro_state *st);
 
 #define NUDGE_LEFT (1u << 0)

@@ -22,13 +22,6 @@
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-static int32_t i32max(int32_t a, int32_t b) {
-	return a > b ? a : b;
-}
-static int32_t i32min(int32_t a, int32_t b) {
-	return a < b ? a : b;
-}
-
 static int output_alloc_buffer(struct ro_output *o) {
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
 	o->pixel_width = o->width * o->scale;
@@ -126,6 +119,7 @@ static void anno_cache_ensure(struct ro_output *o) {
 			return;
 		}
 	}
+	int32_t skip = region_anno_dragging(o->st) ? o->st->sel_anno : -1;
 	cairo_t *cc = cairo_create(o->anno_cache);
 	cairo_set_operator(cc, CAIRO_OPERATOR_CLEAR);
 	cairo_paint(cc);
@@ -133,7 +127,8 @@ static void anno_cache_ensure(struct ro_output *o) {
 	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
 	cairo_scale(cc, S, S);
 	for (size_t i = 0; i < annos->n; i++)
-		annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
+		if ((int32_t)i != skip)
+			annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
 	cairo_destroy(cc);
 	cairo_surface_flush(o->anno_cache);
 	o->anno_cache_gen = annos->gen;
@@ -192,6 +187,32 @@ static void render_bottom_hint(cairo_t *cr, const struct ro_output *o, const cha
 	}
 	render_hint_pill(cr, S, hint, &hext, (double)o->pixel_width / 2.0, ty,
 					 (double)o->pixel_width);
+}
+
+static void paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
+	const struct annotation *a = region_anno_selected(st);
+	if (!a) return;
+	cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
+	cairo_set_line_width(cr, 1.2);
+	double sel_dash[2] = {4.0, 4.0};
+	cairo_set_dash(cr, sel_dash, 2, 0);
+	cairo_rectangle(cr, a->bbox.x - 2, a->bbox.y - 2,
+					a->bbox.w + 4, a->bbox.h + 4);
+	cairo_stroke(cr);
+	cairo_set_dash(cr, NULL, 0, 0);
+	int mask = annotation_corner_mask(a);
+	for (int c = 0; c < 4; c++) {
+		if (!(mask & (1 << c))) continue;
+		double hx = annotation_corner_x(a, c);
+		double hy = annotation_corner_y(a, c);
+		cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+		cairo_rectangle(cr, hx - 4, hy - 4, 8, 8);
+		cairo_fill(cr);
+		cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
+		cairo_set_line_width(cr, 1.0);
+		cairo_rectangle(cr, hx - 4, hy - 4, 8, 8);
+		cairo_stroke(cr);
+	}
 }
 
 static void output_redraw(struct ro_output *o);
@@ -285,18 +306,24 @@ static void output_redraw(struct ro_output *o) {
 	}
 
 	if (region_editing(o->st)) {
+		bool anno_drag = region_anno_dragging(o->st);
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
 		anno_cache_ensure(o);
-		if (!o->anno_cache || o->st->drawing) {
+		if (!o->anno_cache || o->st->drawing || anno_drag) {
 			cairo_push_group(cr);
 			if (o->anno_cache) {
 				anno_cache_paint(cr, o->anno_cache);
 			} else {
 				for (size_t i = 0; i < o->st->out_annos->n; i++) {
+					if (anno_drag && (int32_t)i == o->st->sel_anno) continue;
 					annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
 				}
+			}
+			if (anno_drag) {
+				const struct annotation *da = region_anno_selected(o->st);
+				if (da) annotation_paint(cr, da, 1.0);
 			}
 			if (o->st->drawing) {
 				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
@@ -321,6 +348,7 @@ static void output_redraw(struct ro_output *o) {
 		} else {
 			anno_cache_paint(cr, o->anno_cache);
 		}
+		if (o->st->anno_edit_mode) paint_anno_selection(cr, o->st);
 		if (o->st->text_input_active) {
 			double font = o->st->current_font;
 			cairo_select_font_face(cr, "sans-serif",

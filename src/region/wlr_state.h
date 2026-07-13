@@ -55,10 +55,30 @@ struct ro_output {
 	struct wl_callback *frame_cb;
 };
 
+enum undo_kind {
+	UNDO_ANNO_ADD,
+	UNDO_REGION,
+	UNDO_ANNO_MOVE,
+	UNDO_ANNO_GEOM,
+};
+
 struct undo_item {
-	bool is_region;
-	bool prev_has;
-	struct rect prev;
+	enum undo_kind kind;
+	union {
+		struct {
+			bool has;
+			struct rect r;
+		} region;
+		struct {
+			size_t idx;
+			int32_t dx;
+			int32_t dy;
+		} move;
+		struct {
+			size_t idx;
+			int32_t g[4];
+		} geom;
+	} u;
 };
 
 struct ro_state {
@@ -166,6 +186,15 @@ struct ro_state {
 	bool undo_snap_has;
 	bool undo_snap_armed;
 
+	bool anno_edit_mode;
+	int32_t sel_anno;
+	int anno_drag;
+	int32_t anno_press_x;
+	int32_t anno_press_y;
+	int32_t anno_last_x;
+	int32_t anno_last_y;
+	int32_t anno_geom_snap[4];
+
 	int nudge_timer_fd;
 	uint32_t nudge_held;
 	int32_t nudge_ticks;
@@ -185,9 +214,17 @@ static inline bool region_editing(const struct ro_state *st) {
 	return st->annotate_mode && st->out_annos;
 }
 
+#define ANNO_DRAG_NONE (-1)
+#define ANNO_DRAG_MOVE 4
+
+static inline bool region_anno_dragging(const struct ro_state *st) {
+	return st->anno_drag >= 0;
+}
+
 enum tb_action {
 	TB_NONE = -1,
 	TB_REGION = 0,
+	TB_EDIT,
 	TB_TOOL_PEN,
 	TB_TOOL_MARKER,
 	TB_TOOL_LINE,

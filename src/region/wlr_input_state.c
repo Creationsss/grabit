@@ -164,6 +164,13 @@ void region_apply_handle_drag(struct ro_state *st) {
 	st->sel_h = b - t;
 }
 
+struct annotation *region_anno_selected(const struct ro_state *st) {
+	if (!st->out_annos || st->sel_anno < 0 ||
+		(size_t)st->sel_anno >= st->out_annos->n)
+		return NULL;
+	return &st->out_annos->items[st->sel_anno];
+}
+
 void region_undo_arm(struct ro_state *st) {
 	if (st->undo_timer_fd < 0) return;
 	st->undo_held = true;
@@ -208,27 +215,72 @@ void region_undo_commit(struct ro_state *st) {
 	if (st->undo_snap_has == st->has_selection &&
 		memcmp(&cur, &st->undo_snap, sizeof cur) == 0)
 		return;
-	undo_push(st, (struct undo_item){.is_region = true,
-									 .prev_has = st->undo_snap_has,
-									 .prev = st->undo_snap});
+	undo_push(st, (struct undo_item){
+					  .kind = UNDO_REGION,
+					  .u.region = {.has = st->undo_snap_has, .r = st->undo_snap}});
 }
 
 static void undo_record_anno(struct ro_state *st) {
-	undo_push(st, (struct undo_item){.is_region = false});
+	undo_push(st, (struct undo_item){.kind = UNDO_ANNO_ADD});
+}
+
+void region_undo_record_anno_move(struct ro_state *st, size_t idx,
+								  int32_t dx, int32_t dy) {
+	if (dx == 0 && dy == 0) return;
+	undo_push(st, (struct undo_item){
+					  .kind = UNDO_ANNO_MOVE,
+					  .u.move = {.idx = idx, .dx = dx, .dy = dy}});
+}
+
+void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
+								  const int32_t g[4]) {
+	if (!st->out_annos || idx >= st->out_annos->n) return;
+	const struct annotation *a = &st->out_annos->items[idx];
+	if (a->x0 == g[0] && a->y0 == g[1] && a->x1 == g[2] && a->y1 == g[3]) return;
+	struct undo_item it = {.kind = UNDO_ANNO_GEOM, .u.geom = {.idx = idx}};
+	memcpy(it.u.geom.g, g, sizeof it.u.geom.g);
+	undo_push(st, it);
+}
+
+static void undo_apply(struct ro_state *st, const struct undo_item *it) {
+	struct annotation_list *annos = st->out_annos;
+	switch (it->kind) {
+	case UNDO_REGION:
+		st->sel_x = it->u.region.r.x;
+		st->sel_y = it->u.region.r.y;
+		st->sel_w = it->u.region.r.w;
+		st->sel_h = it->u.region.r.h;
+		st->has_selection = it->u.region.has;
+		break;
+	case UNDO_ANNO_ADD:
+		if (annos) annotation_list_pop(annos);
+		break;
+	case UNDO_ANNO_MOVE:
+		if (annos && it->u.move.idx < annos->n) {
+			annotation_translate(&annos->items[it->u.move.idx],
+								 -it->u.move.dx, -it->u.move.dy);
+			annos->gen++;
+		}
+		break;
+	case UNDO_ANNO_GEOM:
+		if (annos && it->u.geom.idx < annos->n) {
+			struct annotation *a = &annos->items[it->u.geom.idx];
+			a->x0 = it->u.geom.g[0];
+			a->y0 = it->u.geom.g[1];
+			a->x1 = it->u.geom.g[2];
+			a->y1 = it->u.geom.g[3];
+			annotation_update_bbox(a);
+			annos->gen++;
+		}
+		break;
+	}
+	if (annos && st->sel_anno >= 0 && (size_t)st->sel_anno >= annos->n)
+		st->sel_anno = -1;
 }
 
 void region_undo_pop(struct ro_state *st) {
 	if (st->undo_n == 0) return;
-	struct undo_item it = st->undo_items[--st->undo_n];
-	if (it.is_region) {
-		st->sel_x = it.prev.x;
-		st->sel_y = it.prev.y;
-		st->sel_w = it.prev.w;
-		st->sel_h = it.prev.h;
-		st->has_selection = it.prev_has;
-	} else if (st->out_annos) {
-		annotation_list_pop(st->out_annos);
-	}
+	undo_apply(st, &st->undo_items[--st->undo_n]);
 }
 
 static void nudge_apply(struct ro_state *st, int32_t dx, int32_t dy) {
@@ -331,6 +383,7 @@ void region_drag_start(struct ro_state *st) {
 bool region_drag_active(const struct ro_state *st) {
 	return st->drawing || st->slider_dragging || st->moving_region ||
 		   st->tb_dragging || st->handle_dragging != HANDLE_NONE ||
+		   region_anno_dragging(st) ||
 		   st->eyedropper_mode || st->color_picker_open ||
 		   st->color_picker_dragging || st->color_input_active;
 }
@@ -346,6 +399,21 @@ void region_drag_abort(struct ro_state *st) {
 	st->moving_region = false;
 	st->tb_dragging = false;
 	st->handle_dragging = HANDLE_NONE;
+	if (region_anno_dragging(st) && region_anno_selected(st)) {
+		if (st->anno_drag == ANNO_DRAG_MOVE) {
+			undo_apply(st, &(struct undo_item){
+							   .kind = UNDO_ANNO_MOVE,
+							   .u.move = {.idx = (size_t)st->sel_anno,
+										  .dx = st->anno_last_x - st->anno_press_x,
+										  .dy = st->anno_last_y - st->anno_press_y}});
+		} else {
+			struct undo_item it = {.kind = UNDO_ANNO_GEOM,
+								   .u.geom = {.idx = (size_t)st->sel_anno}};
+			memcpy(it.u.geom.g, st->anno_geom_snap, sizeof it.u.geom.g);
+			undo_apply(st, &it);
+		}
+	}
+	st->anno_drag = ANNO_DRAG_NONE;
 	st->eyedropper_mode = false;
 	st->color_picker_open = false;
 	st->color_picker_dragging = false;

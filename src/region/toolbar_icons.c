@@ -36,6 +36,21 @@ void toolbar_icon_region(cairo_t *cr, double cx, double cy, double s) {
 	cairo_fill(cr);
 }
 
+void toolbar_icon_select(cairo_t *cr, double cx, double cy, double s) {
+	double k = s / 20.0;
+	double x = cx - 4.5 * k;
+	double y = cy - 7.5 * k;
+	cairo_move_to(cr, x, y);
+	cairo_line_to(cr, x, y + 13.0 * k);
+	cairo_line_to(cr, x + 3.2 * k, y + 10.2 * k);
+	cairo_line_to(cr, x + 5.4 * k, y + 15.0 * k);
+	cairo_line_to(cr, x + 7.6 * k, y + 14.0 * k);
+	cairo_line_to(cr, x + 5.4 * k, y + 9.4 * k);
+	cairo_line_to(cr, x + 9.6 * k, y + 9.4 * k);
+	cairo_close_path(cr);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);

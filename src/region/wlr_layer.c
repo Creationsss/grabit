@@ -58,6 +58,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.current_font = ANNO_DEFAULT_FONT;
 	st.handle_dragging = -1;
 	st.hovered_button = -1;
+	st.sel_anno = -1;
+	st.anno_drag = ANNO_DRAG_NONE;
 	st.outs = calloc(s->n_outputs, sizeof *st.outs);
 	if (!st.outs) return -1;
 	st.n_outs = s->n_outputs;

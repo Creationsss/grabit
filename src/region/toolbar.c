@@ -13,8 +13,9 @@
 
 static bool button_active(const struct ro_state *st, enum tb_action act) {
 	if (act == TB_REGION) return !st->region_locked;
+	if (act == TB_EDIT) return st->anno_edit_mode;
 	if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER)
-		return st->region_locked &&
+		return st->region_locked && !st->anno_edit_mode &&
 			   st->current_tool == (enum tool_kind)(act - TB_TOOL_PEN);
 	switch (act) {
 	case TB_COLOR_RED:
@@ -92,6 +93,9 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	switch (act) {
 	case TB_REGION:
 		toolbar_icon_region(cr, cxi, cyi, s_icon);
+		break;
+	case TB_EDIT:
+		toolbar_icon_select(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_PEN:
 		toolbar_icon_pen(cr, cxi, cyi, s_icon);
@@ -209,24 +213,26 @@ static const char *tooltip_text(enum tb_action act) {
 	switch (act) {
 	case TB_REGION:
 		return "Select region  (drag to set the capture area)";
+	case TB_EDIT:
+		return "Move/resize annotations  (s)";
 	case TB_TOOL_PEN:
-		return "Pen  (1)";
+		return "Pen  (1 / p)";
 	case TB_TOOL_MARKER:
-		return "Marker  (2)";
+		return "Marker  (2 / m)";
 	case TB_TOOL_LINE:
-		return "Line  (3)";
+		return "Line  (3 / l)";
 	case TB_TOOL_RECT:
-		return "Rectangle  (4)";
+		return "Rectangle  (4 / r)";
 	case TB_TOOL_ELLIPSE:
-		return "Ellipse  (5)";
+		return "Ellipse  (5 / o)";
 	case TB_TOOL_ARROW:
-		return "Arrow  (6)";
+		return "Arrow  (6 / a)";
 	case TB_TOOL_BLUR:
-		return "Blur  (7)";
+		return "Blur  (7 / b)";
 	case TB_TOOL_TEXT:
-		return "Text  (8)";
+		return "Text  (8 / t)";
 	case TB_TOOL_ERASER:
-		return "Eraser  (9)";
+		return "Eraser  (9 / e)";
 	case TB_COLOR_RED:
 		return "Red";
 	case TB_COLOR_YELLOW:

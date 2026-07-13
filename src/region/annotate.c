@@ -285,7 +285,9 @@ int annotation_list_push(struct annotation_list *list, const struct annotation *
 		list->items = p;
 		list->cap = cap;
 	}
-	list->items[list->n++] = *a;
+	list->items[list->n] = *a;
+	annotation_update_bbox(&list->items[list->n]);
+	list->n++;
 	list->gen++;
 	return 0;
 }
@@ -310,4 +312,94 @@ void annotation_list_free(struct annotation_list *list) {
 		annotation_free(&list->items[i]);
 	free(list->items);
 	memset(list, 0, sizeof *list);
+}
+
+void annotation_update_bbox(struct annotation *a) {
+	int32_t minx, miny, maxx, maxy;
+	if (tool_uses_points(a->tool) && a->n_points > 0) {
+		minx = maxx = a->points[0];
+		miny = maxy = a->points[1];
+		for (size_t i = 1; i < a->n_points; i++) {
+			minx = i32min(minx, a->points[i * 2]);
+			maxx = i32max(maxx, a->points[i * 2]);
+			miny = i32min(miny, a->points[i * 2 + 1]);
+			maxy = i32max(maxy, a->points[i * 2 + 1]);
+		}
+	} else if (a->tool == TOOL_TEXT) {
+		int32_t fs = a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT;
+		int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
+		minx = a->x0;
+		maxx = a->x0 + len * fs * 3 / 5;
+		miny = a->y0 - fs;
+		maxy = a->y0 + fs / 4;
+	} else {
+		minx = i32min(a->x0, a->x1);
+		maxx = i32max(a->x0, a->x1);
+		miny = i32min(a->y0, a->y1);
+		maxy = i32max(a->y0, a->y1);
+	}
+	int32_t pad = a->width / 2 + 2;
+	a->bbox.x = minx - pad;
+	a->bbox.y = miny - pad;
+	a->bbox.w = maxx - minx + pad * 2;
+	a->bbox.h = maxy - miny + pad * 2;
+}
+
+static double seg_dist2(double px, double py, double x0, double y0,
+						double x1, double y1) {
+	double dx = x1 - x0, dy = y1 - y0;
+	double len2 = dx * dx + dy * dy;
+	double t = len2 > 0.0 ? ((px - x0) * dx + (py - y0) * dy) / len2 : 0.0;
+	if (t < 0.0) t = 0.0;
+	if (t > 1.0) t = 1.0;
+	double cx = x0 + t * dx, cy = y0 + t * dy;
+	return (px - cx) * (px - cx) + (py - cy) * (py - cy);
+}
+
+int annotation_corner_mask(const struct annotation *a) {
+	if (a->tool == TOOL_LINE || a->tool == TOOL_ARROW) return 0x9;
+	if (a->tool == TOOL_RECT || a->tool == TOOL_ELLIPSE || a->tool == TOOL_BLUR)
+		return 0xF;
+	return 0;
+}
+
+bool annotation_hit(const struct annotation *a, int32_t x, int32_t y) {
+	int32_t tol = a->width + 6;
+	double tol2 = (double)tol * (double)tol;
+	struct rect ebb = {a->bbox.x - tol, a->bbox.y - tol,
+					   a->bbox.w + tol * 2, a->bbox.h + tol * 2};
+	if (!rect_contains(ebb, x, y)) return false;
+	switch (a->tool) {
+	case TOOL_LINE:
+	case TOOL_ARROW:
+		return seg_dist2(x, y, a->x0, a->y0, a->x1, a->y1) <= tol2;
+	case TOOL_PEN:
+	case TOOL_MARKER:
+	case TOOL_ERASER:
+		if (a->n_points == 0) return false;
+		if (a->n_points == 1)
+			return seg_dist2(x, y, a->points[0], a->points[1],
+							 a->points[0], a->points[1]) <= tol2;
+		for (size_t i = 0; i + 1 < a->n_points; i++) {
+			if (seg_dist2(x, y, a->points[i * 2], a->points[i * 2 + 1],
+						  a->points[i * 2 + 2], a->points[i * 2 + 3]) <= tol2)
+				return true;
+		}
+		return false;
+	default:
+		return true;
+	}
+}
+
+void annotation_translate(struct annotation *a, int32_t dx, int32_t dy) {
+	a->x0 += dx;
+	a->y0 += dy;
+	a->x1 += dx;
+	a->y1 += dy;
+	for (size_t i = 0; i < a->n_points; i++) {
+		a->points[i * 2] += dx;
+		a->points[i * 2 + 1] += dy;
+	}
+	a->bbox.x += dx;
+	a->bbox.y += dy;
 }

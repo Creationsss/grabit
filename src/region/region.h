@@ -23,6 +23,14 @@ static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
 	return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 }
 
+static inline int32_t i32min(int32_t a, int32_t b) {
+	return a < b ? a : b;
+}
+
+static inline int32_t i32max(int32_t a, int32_t b) {
+	return a > b ? a : b;
+}
+
 #define ANNO_DEFAULT_FONT 18
 
 enum tool_kind {
@@ -53,7 +61,16 @@ struct annotation {
 	uint32_t color;
 	int32_t width;
 	int32_t font_size;
+	struct rect bbox;
 };
+
+static inline int32_t annotation_corner_x(const struct annotation *a, int c) {
+	return (c & 1) ? a->x1 : a->x0;
+}
+
+static inline int32_t annotation_corner_y(const struct annotation *a, int c) {
+	return (c & 2) ? a->y1 : a->y0;
+}
 
 struct annotation_list {
 	struct annotation *items;

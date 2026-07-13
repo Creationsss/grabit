@@ -12,8 +12,10 @@
 #include <cairo/cairo.h>
 
 static bool button_active(const struct ro_state *st, enum tb_action act) {
+	if (act == TB_REGION) return !st->region_locked;
 	if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER)
-		return st->current_tool == (enum tool_kind)(act - TB_TOOL_PEN);
+		return st->region_locked &&
+			   st->current_tool == (enum tool_kind)(act - TB_TOOL_PEN);
 	switch (act) {
 	case TB_COLOR_RED:
 		return st->current_color == TOOLBAR_COLORS[0];
@@ -34,7 +36,8 @@ static bool button_active(const struct ro_state *st, enum tb_action act) {
 	}
 }
 
-static void paint_button_bg(cairo_t *cr, enum tb_action act, bool active,
+static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
+							enum tb_action act, bool active,
 							double bxi, double byi, double bwi, double bhi, double pad) {
 	double rr = 0.18, gg = 0.18, bb = 0.18, aa = 0.94;
 	if (active) {
@@ -46,7 +49,7 @@ static void paint_button_bg(cairo_t *cr, enum tb_action act, bool active,
 		rr = 0.20;
 		gg = 0.58;
 		bb = 0.32;
-		aa = 0.96;
+		aa = st->has_selection ? 0.96 : 0.35;
 	} else if (act == TB_CANCEL) {
 		rr = 0.62;
 		gg = 0.22;
@@ -87,6 +90,9 @@ static void paint_slider(cairo_t *cr, const struct ro_state *st, int32_t S,
 
 static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double cyi, double s_icon) {
 	switch (act) {
+	case TB_REGION:
+		toolbar_icon_region(cr, cxi, cyi, s_icon);
+		break;
 	case TB_TOOL_PEN:
 		toolbar_icon_pen(cr, cxi, cyi, s_icon);
 		break;
@@ -167,7 +173,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		bool is_slider = (act == TB_WIDTH_SLIDER);
 		bool is_current = (act == TB_COLOR_CURRENT);
 
-		if (!is_color && !is_slider && !is_current) paint_button_bg(cr, act, active, bxi, byi, bwi, bhi, pad);
+		if (!is_color && !is_slider && !is_current)
+			paint_button_bg(cr, o->st, act, active, bxi, byi, bwi, bhi, pad);
 
 		double cxi = bxi + bwi / 2.0;
 		double cyi = byi + bhi / 2.0;
@@ -188,9 +195,10 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 			continue;
 		}
 
+		double ia = (act == TB_SAVE && !o->st->has_selection) ? 0.45 : 1.0;
 		cairo_set_source_rgba(cr, active ? 1.0 : 0.92,
 							  active ? 1.0 : 0.92,
-							  active ? 1.0 : 0.92, 1);
+							  active ? 1.0 : 0.92, ia);
 		paint_tool_icon(cr, act, cxi, cyi, s_icon);
 	}
 
@@ -199,6 +207,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 
 static const char *tooltip_text(enum tb_action act) {
 	switch (act) {
+	case TB_REGION:
+		return "Select region  (drag to set the capture area)";
 	case TB_TOOL_PEN:
 		return "Pen  (1)";
 	case TB_TOOL_MARKER:

@@ -27,6 +27,10 @@ void region_apply_handle_drag(struct ro_state *st);
 void region_undo_arm(struct ro_state *st);
 void region_undo_disarm(struct ro_state *st);
 
+void region_undo_begin(struct ro_state *st);
+void region_undo_commit(struct ro_state *st);
+void region_undo_pop(struct ro_state *st);
+
 #define NUDGE_LEFT (1u << 0)
 #define NUDGE_RIGHT (1u << 1)
 #define NUDGE_UP (1u << 2)

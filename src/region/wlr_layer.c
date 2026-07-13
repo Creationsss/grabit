@@ -8,7 +8,6 @@
 #include "cursor.h"
 #include "hyprland.h"
 #include "log.h"
-#include "region/annotate.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl.h"
@@ -102,6 +101,21 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.nudge_timer_fd = (annotate_mode || st.confirm_mode)
 							? timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)
 							: -1;
+
+	if (annotate_mode) {
+		int32_t cpx = 0, cpy = 0;
+		if (grabit_hyprland_cursorpos(&cpx, &cpy) == 0) {
+			for (size_t i = 0; i < s->n_outputs; i++) {
+				const struct grabit_output *go = s->outputs[i];
+				if (cpx >= go->x && cpy >= go->y &&
+					cpx < go->x + go->logical_width &&
+					cpy < go->y + go->logical_height) {
+					st.tb_out = go;
+					break;
+				}
+			}
+		}
+	}
 
 	st.pointer = wl_seat_get_pointer(s->seat);
 	st.keyboard = wl_seat_get_keyboard(s->seat);
@@ -293,7 +307,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			ssize_t r = read(st.undo_timer_fd, &expirations, sizeof expirations);
 			(void)r;
 			if (st.undo_held) {
-				if (st.out_annos) annotation_list_pop(st.out_annos);
+				region_undo_pop(&st);
 				region_render_request_redraw_all(&st);
 			}
 		}
@@ -361,6 +375,7 @@ loop_done:;
 	if (st.xkb_ctx) xkb_context_unref(st.xkb_ctx);
 
 	free(st.pen_points);
+	free(st.undo_items);
 	if (st.undo_timer_fd >= 0) close(st.undo_timer_fd);
 	if (st.tooltip_timer_fd >= 0) close(st.tooltip_timer_fd);
 	if (st.nudge_timer_fd >= 0) close(st.nudge_timer_fd);

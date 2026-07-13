@@ -97,23 +97,15 @@ void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 	*out_h = toolbar_btn_h(act);
 }
 
-static const struct grabit_output *output_for_selection_center(const struct ro_state *st) {
-	int32_t cx = st->sel_x + st->sel_w / 2;
-	int32_t cy = st->sel_y + st->sel_h / 2;
-	for (size_t i = 0; i < st->n_outs; i++) {
-		const struct grabit_output *o = st->outs[i].go;
-		if (cx >= o->x && cy >= o->y &&
-			cx < o->x + o->logical_width &&
-			cy < o->y + o->logical_height) return o;
-	}
-	if (st->n_outs > 0) return st->outs[0].go;
-	return NULL;
+static const struct grabit_output *toolbar_output(const struct ro_state *st) {
+	if (st->tb_out) return st->tb_out;
+	return grabit_wl_primary_output(st->wls);
 }
 
 void region_toolbar_rect(const struct ro_state *st,
 						 const struct grabit_output **out_o,
 						 int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
-	const struct grabit_output *o = output_for_selection_center(st);
+	const struct grabit_output *o = toolbar_output(st);
 	if (out_o) *out_o = o;
 	if (!o) {
 		*x = *y = *w = *h = 0;
@@ -124,73 +116,22 @@ void region_toolbar_rect(const struct ro_state *st,
 	*w = tw;
 	*h = th;
 
-	int32_t sel_left = st->sel_x;
-	int32_t sel_right = st->sel_x + st->sel_w;
-	int32_t sel_top = st->sel_y;
-	int32_t sel_bottom = st->sel_y + st->sel_h;
-	int32_t out_left = o->x;
-	int32_t out_right = o->x + o->logical_width;
-	int32_t out_top = o->y;
-	int32_t out_bottom = o->y + o->logical_height;
-
-	bool below = sel_bottom + TB_GAP + th <= out_bottom;
-	bool above = sel_top - TB_GAP - th >= out_top;
-	bool right = sel_right + TB_GAP + tw <= out_right;
-	bool left = sel_left - TB_GAP - tw >= out_left;
-	bool inside = st->sel_h >= th + TB_GAP * 2;
-
-	enum { PLACE_BELOW,
-		   PLACE_ABOVE,
-		   PLACE_RIGHT,
-		   PLACE_LEFT,
-		   PLACE_INSIDE,
-		   PLACE_FALLBACK } place;
-	if (below)
-		place = PLACE_BELOW;
-	else if (above)
-		place = PLACE_ABOVE;
-	else if (right)
-		place = PLACE_RIGHT;
-	else if (left)
-		place = PLACE_LEFT;
-	else if (inside)
-		place = PLACE_INSIDE;
-	else
-		place = PLACE_FALLBACK;
-
-	if (place == PLACE_RIGHT || place == PLACE_LEFT) {
-		*x = (place == PLACE_RIGHT) ? sel_right + TB_GAP : sel_left - TB_GAP - tw;
-		int32_t want_y = sel_top + st->sel_h / 2 - th / 2;
-		int32_t y_lo = out_top + TB_GAP;
-		int32_t y_hi = out_bottom - th - TB_GAP;
-		if (want_y < y_lo) want_y = y_lo;
-		if (want_y > y_hi) want_y = y_hi;
-		*y = want_y;
+	if (st->tb_moved) {
+		int32_t xx = st->tb_x;
+		int32_t yy = st->tb_y;
+		int32_t x_hi = o->x + o->logical_width - tw;
+		int32_t y_hi = o->y + o->logical_height - th;
+		if (xx > x_hi) xx = x_hi;
+		if (xx < o->x) xx = o->x;
+		if (yy > y_hi) yy = y_hi;
+		if (yy < o->y) yy = o->y;
+		*x = xx;
+		*y = yy;
 		return;
 	}
 
-	switch (place) {
-	case PLACE_BELOW:
-		*y = sel_bottom + TB_GAP;
-		break;
-	case PLACE_ABOVE:
-		*y = sel_top - TB_GAP - th;
-		break;
-	case PLACE_INSIDE:
-		*y = sel_bottom - th - TB_GAP;
-		break;
-	default:
-		*y = out_bottom - th - TB_GAP;
-		if (*y < out_top + TB_GAP) *y = out_top + TB_GAP;
-		break;
-	}
-
-	int32_t want_x = st->sel_x + st->sel_w / 2 - tw / 2;
-	int32_t x_lo = o->x + 8;
-	int32_t x_hi = o->x + o->logical_width - tw - 8;
-	if (want_x < x_lo) want_x = x_lo;
-	if (want_x > x_hi) want_x = x_hi;
-	*x = want_x;
+	*x = o->x + (o->logical_width - tw) / 2;
+	*y = o->y + TB_GAP;
 }
 
 void region_toolbar_slider_rect(const struct ro_state *st,

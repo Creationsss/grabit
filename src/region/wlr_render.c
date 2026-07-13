@@ -284,7 +284,7 @@ static void output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (region_editing(o->st) && o->st->region_locked) {
+	if (region_editing(o->st)) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
@@ -405,31 +405,34 @@ static void output_redraw(struct ro_output *o) {
 								   : "type your text, enter to commit, esc to cancel");
 		}
 
-		if (region_editing(o->st)) region_toolbar_render(cr, o);
-
-		int32_t hx[8], hy[8];
-		region_handle_points(o->st, hx, hy);
-		for (int i = 0; i < 8; i++) {
-			hx[i] = (hx[i] - o->go->x) * S;
-			hy[i] = (hy[i] - o->go->y) * S;
+		if (o->st->has_selection) {
+			int32_t hx[8], hy[8];
+			region_handle_points(o->st, hx, hy);
+			for (int i = 0; i < 8; i++) {
+				hx[i] = (hx[i] - o->go->x) * S;
+				hy[i] = (hy[i] - o->go->y) * S;
+			}
+			double hr = 6.0 * S;
+			for (int i = 0; i < 8; i++) {
+				cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+				cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
+				cairo_fill(cr);
+				cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
+				cairo_set_line_width(cr, 1.5 * S);
+				cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
+				cairo_stroke(cr);
+			}
 		}
-		double hr = 6.0 * S;
-		for (int i = 0; i < 8; i++) {
-			cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
-			cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
-			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
-			cairo_set_line_width(cr, 1.5 * S);
-			cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
-			cairo_stroke(cr);
-		}
 
-		if (region_editing(o->st)) {
-			region_color_picker_render(cr, o);
-			region_toolbar_tooltip_render(cr, o);
-		} else if (sel_visible) {
+		if (!region_editing(o->st) && sel_visible) {
 			render_bottom_hint(cr, o, "enter or ctrl+c to capture, esc to cancel");
 		}
+	}
+
+	if (region_editing(o->st)) {
+		region_toolbar_render(cr, o);
+		region_color_picker_render(cr, o);
+		region_toolbar_tooltip_render(cr, o);
 	}
 
 	cairo_destroy(cr);

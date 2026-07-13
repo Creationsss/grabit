@@ -46,7 +46,7 @@ void region_handle_points(const struct ro_state *st, int32_t hx[8], int32_t hy[8
 }
 
 int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
-	if (!st->region_locked) return HANDLE_NONE;
+	if (!st->region_locked || !st->has_selection) return HANDLE_NONE;
 	int32_t hx[8], hy[8];
 	region_handle_points(st, hx, hy);
 	for (int i = 0; i < 8; i++) {
@@ -183,6 +183,54 @@ void region_undo_disarm(struct ro_state *st) {
 	timerfd_settime(st->undo_timer_fd, 0, &it, NULL);
 }
 
+void region_undo_begin(struct ro_state *st) {
+	if (st->undo_snap_armed) return;
+	st->undo_snap = (struct rect){st->sel_x, st->sel_y, st->sel_w, st->sel_h};
+	st->undo_snap_has = st->has_selection;
+	st->undo_snap_armed = true;
+}
+
+static void undo_push(struct ro_state *st, struct undo_item item) {
+	if (st->undo_n == st->undo_cap) {
+		size_t cap = st->undo_cap ? st->undo_cap * 2 : 64;
+		struct undo_item *p = realloc(st->undo_items, cap * sizeof *p);
+		if (!p) return;
+		st->undo_items = p;
+		st->undo_cap = cap;
+	}
+	st->undo_items[st->undo_n++] = item;
+}
+
+void region_undo_commit(struct ro_state *st) {
+	if (!st->undo_snap_armed) return;
+	st->undo_snap_armed = false;
+	struct rect cur = {st->sel_x, st->sel_y, st->sel_w, st->sel_h};
+	if (st->undo_snap_has == st->has_selection &&
+		memcmp(&cur, &st->undo_snap, sizeof cur) == 0)
+		return;
+	undo_push(st, (struct undo_item){.is_region = true,
+									 .prev_has = st->undo_snap_has,
+									 .prev = st->undo_snap});
+}
+
+static void undo_record_anno(struct ro_state *st) {
+	undo_push(st, (struct undo_item){.is_region = false});
+}
+
+void region_undo_pop(struct ro_state *st) {
+	if (st->undo_n == 0) return;
+	struct undo_item it = st->undo_items[--st->undo_n];
+	if (it.is_region) {
+		st->sel_x = it.prev.x;
+		st->sel_y = it.prev.y;
+		st->sel_w = it.prev.w;
+		st->sel_h = it.prev.h;
+		st->has_selection = it.prev_has;
+	} else if (st->out_annos) {
+		annotation_list_pop(st->out_annos);
+	}
+}
+
 static void nudge_apply(struct ro_state *st, int32_t dx, int32_t dy) {
 	if (st->shift_held) {
 		st->sel_w += dx;
@@ -212,6 +260,7 @@ static int32_t nudge_dy(uint32_t held) {
 
 void region_nudge_press(struct ro_state *st, uint32_t dir) {
 	if (st->nudge_held & dir) return;
+	if (st->nudge_held == 0) region_undo_begin(st);
 	nudge_apply(st, nudge_dx(dir), nudge_dy(dir));
 	if (st->nudge_timer_fd < 0) return;
 	if (st->nudge_held == 0) {
@@ -231,6 +280,7 @@ void region_nudge_release(struct ro_state *st, uint32_t dir) {
 }
 
 void region_nudge_disarm(struct ro_state *st) {
+	region_undo_commit(st);
 	if (st->nudge_timer_fd < 0) return;
 	st->nudge_held = 0;
 	st->nudge_ticks = 0;
@@ -280,9 +330,9 @@ void region_drag_start(struct ro_state *st) {
 
 bool region_drag_active(const struct ro_state *st) {
 	return st->drawing || st->slider_dragging || st->moving_region ||
-		   st->handle_dragging != HANDLE_NONE || st->eyedropper_mode ||
-		   st->color_picker_open || st->color_picker_dragging ||
-		   st->color_input_active;
+		   st->tb_dragging || st->handle_dragging != HANDLE_NONE ||
+		   st->eyedropper_mode || st->color_picker_open ||
+		   st->color_picker_dragging || st->color_input_active;
 }
 
 void region_drag_abort(struct ro_state *st) {
@@ -294,6 +344,7 @@ void region_drag_abort(struct ro_state *st) {
 	}
 	st->slider_dragging = false;
 	st->moving_region = false;
+	st->tb_dragging = false;
 	st->handle_dragging = HANDLE_NONE;
 	st->eyedropper_mode = false;
 	st->color_picker_open = false;
@@ -304,6 +355,7 @@ void region_drag_abort(struct ro_state *st) {
 		st->text_input_active = false;
 		st->text_len = 0;
 	}
+	region_undo_commit(st);
 	region_undo_disarm(st);
 }
 
@@ -414,7 +466,10 @@ void region_commit_drawing(struct ro_state *st) {
 		a.y1 = y1;
 	}
 
-	if (annotation_list_push(st->out_annos, &a) != 0) annotation_free(&a);
+	if (annotation_list_push(st->out_annos, &a) != 0)
+		annotation_free(&a);
+	else
+		undo_record_anno(st);
 	st->drawing = false;
 }
 
@@ -434,6 +489,8 @@ void region_commit_text(struct ro_state *st) {
 	a.text = strdup(st->text_buf);
 	if (!a.text || annotation_list_push(st->out_annos, &a) != 0) {
 		annotation_free(&a);
+	} else {
+		undo_record_anno(st);
 	}
 	st->text_input_active = false;
 	st->text_len = 0;

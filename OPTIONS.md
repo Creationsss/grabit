@@ -365,7 +365,7 @@ grabit --record -F            # record a whole monitor
 monitor selection:
 
 - one monitor connected: that monitor is grabbed directly, no UI.
-- multiple monitors, no target: the region selector opens dimmed and snaps to whole monitors — hover a monitor to highlight it, click to grab it (same as window-snapping, but for monitors). dragging still works if you want a custom region.
+- multiple monitors, no target: the region selector opens dimmed and snaps to whole monitors. hover a monitor to highlight it, click to grab it (same as window-snapping, but for monitors). dragging still works if you want a custom region.
 - `--fullscreen=<n>`: pick by 1-based number directly, no picker (the order shown in the printed monitor list).
 - `--fullscreen=<name>`: pick by output name directly, e.g. `--fullscreen=DP-1`.
 - `--fullscreen=all`: capture every monitor stitched into one image (gaps in the layout come out black).
@@ -384,13 +384,14 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. flow: drag a region, then a flameshot-style toolbar appears. tools:
+`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the monitor the mouse is on from the moment the overlay opens; drag it by its background to park it anywhere and it stays put for the rest of that invocation. the overlay starts in region-select mode, but picking any tool (click or `1`–`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button to drag out the capture area (save stays disabled until one is set). tools:
 
+- **select region** - drag out or replace the capture area
 - **pen, marker, line, rect, ellipse, arrow, blur, text, eraser** - keyboard shortcuts `1`–`9`
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1–12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8–72) instead
-- **undo** (`u` or `ctrl+z`, hold to repeat) / **save** (`enter`) / **cancel** (`esc` or right-click)
+- **undo** (`u` or `ctrl+z`, hold to repeat) - steps back through annotations and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles
 

@@ -10,6 +10,32 @@
 
 #include <cairo/cairo.h>
 
+void toolbar_icon_region(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.4 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	double hw = s * 0.42;
+	double hh = s * 0.34;
+	double arm = s * 0.16;
+	double corners[4][2] = {
+		{cx - hw, cy - hh},
+		{cx + hw, cy - hh},
+		{cx + hw, cy + hh},
+		{cx - hw, cy + hh},
+	};
+	for (int i = 0; i < 4; i++) {
+		double sx = corners[i][0] > cx ? -1.0 : 1.0;
+		double sy = corners[i][1] > cy ? -1.0 : 1.0;
+		cairo_move_to(cr, corners[i][0] + sx * arm, corners[i][1]);
+		cairo_line_to(cr, corners[i][0], corners[i][1]);
+		cairo_line_to(cr, corners[i][0], corners[i][1] + sy * arm);
+	}
+	cairo_stroke(cr);
+	double dot = s * 0.05;
+	cairo_arc(cr, cx, cy, dot, 0, 2.0 * M_PI);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);

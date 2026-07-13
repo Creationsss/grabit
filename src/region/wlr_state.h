@@ -55,6 +55,12 @@ struct ro_output {
 	struct wl_callback *frame_cb;
 };
 
+struct undo_item {
+	bool is_region;
+	bool prev_has;
+	struct rect prev;
+};
+
 struct ro_state {
 	struct grabit_wl_state *wls;
 	struct ro_output *outs;
@@ -137,6 +143,13 @@ struct ro_state {
 	int32_t move_grab_dy;
 	uint32_t last_inside_press;
 	bool slider_dragging;
+	bool tb_dragging;
+	bool tb_moved;
+	int32_t tb_x;
+	int32_t tb_y;
+	int32_t tb_grab_dx;
+	int32_t tb_grab_dy;
+	const struct grabit_output *tb_out;
 	bool eyedropper_mode;
 	bool color_picker_open;
 	bool color_picker_dragging;
@@ -146,6 +159,12 @@ struct ro_state {
 
 	int undo_timer_fd;
 	bool undo_held;
+	struct undo_item *undo_items;
+	size_t undo_n;
+	size_t undo_cap;
+	struct rect undo_snap;
+	bool undo_snap_has;
+	bool undo_snap_armed;
 
 	int nudge_timer_fd;
 	uint32_t nudge_held;
@@ -168,7 +187,8 @@ static inline bool region_editing(const struct ro_state *st) {
 
 enum tb_action {
 	TB_NONE = -1,
-	TB_TOOL_PEN = 0,
+	TB_REGION = 0,
+	TB_TOOL_PEN,
 	TB_TOOL_MARKER,
 	TB_TOOL_LINE,
 	TB_TOOL_RECT,

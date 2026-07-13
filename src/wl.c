@@ -401,6 +401,9 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 }
 
 struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s) {
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		if (s->outputs[i]->x == 0 && s->outputs[i]->y == 0) return s->outputs[i];
+	}
 	return s->n_outputs > 0 ? s->outputs[0] : NULL;
 }
 

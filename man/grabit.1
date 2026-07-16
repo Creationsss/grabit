@@ -1,6 +1,6 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
 .\" Copyright (C) 2026 creations
-.TH GRABIT 1 "2026-07-05" "grabit 0.5.0" "User Commands"
+.TH GRABIT 1 "2026-07-15" "grabit 0.5.0" "User Commands"
 .SH NAME
 grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland compositors
 .SH SYNOPSIS
@@ -116,16 +116,41 @@ instead of copying. Auto-dismisses after
 (default 8s).
 .TP
 .BR \-e ", " \-\-edit
-Open the in-tree annotation editor before the action (pen, marker, line,
-rect, ellipse, arrow, blur, text, eraser, HSL color picker + eyedropper).
-Pairs with any action. Make it the default with
+Open the in-tree annotation editor before the action. Pairs with any action;
+make it the default with
 .BR "grabit set edit.default true" .
+A toolbar opens at the top of the primary monitor (override with
+.BR edit.toolbar_output );
+drag it by its background to park it anywhere, and the parked spot is
+remembered across runs
+.RB ( edit.toolbar_pos )
+as long as that output is still connected. The editor starts in
+region-select mode, but picking any tool switches to drawing immediately, so
+the frozen screen can be annotated before a region exists; the select-region
+button drags out (or replaces) the capture area, and Save stays disabled
+until one is set. Tools: pen, marker, line, rect, ellipse, arrow, blur,
+text, eraser (keys
+.B 1\-9
+or letters
+.BR p / m / l / r / o / a / b / t / e ),
+a move/resize tool
+.RB ( s )
+that repositions drawn annotations (corner handles resize shapes, lines, and
+arrows; strokes and text move only), an HSL color picker with eyedropper, and
+a width slider (or scroll wheel; the wheel sizes text instead while the text
+tool is active). Undo
+.RB ( u
+or
+.BR Ctrl+Z ,
+hold to repeat) steps back through annotations, annotation moves/resizes,
+and region changes alike. Last-used color, width, and tool persist across
+runs.
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
 Capture a whole monitor instead of dragging a region. With one monitor it is
 grabbed directly. With several, the selector opens dimmed and snaps to whole
-monitors \(em hover a monitor to highlight it and click to grab it (dragging
+monitors: hover a monitor to highlight it and click to grab it (dragging
 still works for a custom region). Pairs with any capture action, including
 .BR \-\-record ,
 and with

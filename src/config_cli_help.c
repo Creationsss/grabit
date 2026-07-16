@@ -83,6 +83,9 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"edit.color",
 	"edit.width",
 	"edit.tool",
+	"edit.default",
+	"edit.toolbar_output",
+	"edit.toolbar_pos",
 	"jpeg.quality",
 	"webp.quality",
 	"webp.lossless",
@@ -232,6 +235,14 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		if (strcmp(leaf, "default") == 0) {
 			*example_out = "true|false";
 			*def_out = "false";
+			return 0;
+		}
+		if (strcmp(leaf, "toolbar_output") == 0) {
+			*example_out = "<output name, e.g. DP-1; empty = primary>";
+			return 0;
+		}
+		if (strcmp(leaf, "toolbar_pos") == 0) {
+			*example_out = "<output>:<x>,<y> (written automatically when the toolbar is dragged)";
 			return 0;
 		}
 	}
@@ -437,6 +448,8 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("edit.width", find_default("edit.width"));
 	print_key_with_default("edit.tool", find_default("edit.tool"));
 	print_key_with_default("edit.default", find_default("edit.default"));
+	print_key_with_default("edit.toolbar_output", find_default("edit.toolbar_output"));
+	print_key_with_default("edit.toolbar_pos", find_default("edit.toolbar_pos"));
 	puts("");
 	static const char *const ENCODER_KEYS[] = {
 		"jpeg.quality",

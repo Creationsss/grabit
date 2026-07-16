@@ -179,15 +179,11 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	if (st->cleanup) return;
 	struct ro_output *o = region_render_find_by_surface(st, surface);
 	if (!o) return;
-	bool moved_output = st->cursor_on != o;
 	st->cursor_on = o;
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
 	st->last_cursor_serial = serial;
-	if (!st->tb_moved) st->tb_out = o->go;
 	apply_cursor(st, p, serial, o, pick_cursor(st, st->cursor_x, st->cursor_y));
-	if (moved_output && region_editing(st))
-		region_render_request_redraw_all(st);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,

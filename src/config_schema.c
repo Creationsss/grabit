@@ -136,7 +136,9 @@ static bool valid_edit_key(const char *key) {
 	if (strncmp(key, "edit.", 5) != 0) return false;
 	const char *leaf = key + 5;
 	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
-		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "default") == 0;
+		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "default") == 0 ||
+		   strcmp(leaf, "toolbar_output") == 0 ||
+		   strcmp(leaf, "toolbar_pos") == 0;
 }
 
 static bool valid_jpeg_key(const char *key) {

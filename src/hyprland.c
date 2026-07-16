@@ -141,25 +141,6 @@ int grabit_hyprland_active_window(char **class_out, char **title_out) {
 	return 0;
 }
 
-int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {
-	struct json_object *root = NULL;
-	if (ipc_query("j/cursorpos", &root) != 0) return -1;
-	if (json_object_get_type(root) != json_type_object) {
-		json_object_put(root);
-		return -1;
-	}
-	struct json_object *xo = NULL, *yo = NULL;
-	if (!json_object_object_get_ex(root, "x", &xo) ||
-		!json_object_object_get_ex(root, "y", &yo)) {
-		json_object_put(root);
-		return -1;
-	}
-	*x_out = (int32_t)json_object_get_int(xo);
-	*y_out = (int32_t)json_object_get_int(yo);
-	json_object_put(root);
-	return 0;
-}
-
 static int collect_active_ws_ids(int64_t **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;

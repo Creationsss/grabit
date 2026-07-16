@@ -384,7 +384,7 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the monitor the mouse is on from the moment the overlay opens; drag it by its background to park it anywhere and it stays put for the rest of that invocation. the overlay starts in region-select mode, but picking any tool (click or `1`–`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button to drag out the capture area (save stays disabled until one is set). tools:
+`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens; drag it by its background to park it anywhere. the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`–`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button to drag out the capture area (save stays disabled until one is set). tools:
 
 - **select region** - drag out or replace the capture area
 - **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
@@ -404,6 +404,8 @@ last-picked color, width, and tool persist via:
 | `edit.width` | `4` | integer 1-20 |
 | `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `ellipse`, `arrow`, `blur`, `text`, `eraser` - the editor reopens with your last-used tool |
 | `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
+| `edit.toolbar_output` | (empty) | output name the toolbar opens on, e.g. `DP-1`; empty picks the primary monitor |
+| `edit.toolbar_pos` | (empty) | last parked toolbar spot as `<output>:<x>,<y>`, written automatically when you drag the toolbar; ignored if that output is gone |
 
 ## filename templates
 

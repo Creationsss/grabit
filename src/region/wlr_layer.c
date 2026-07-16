@@ -8,6 +8,7 @@
 #include "cursor.h"
 #include "hyprland.h"
 #include "log.h"
+#include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl.h"
@@ -73,6 +74,26 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st.confirm_mode = true;
+		v = config_get(cfg, "edit.toolbar_output");
+		if (annotate_mode && v && v[0]) {
+			st.tb_out = grabit_wl_output_by_name(s, v);
+			if (!st.tb_out)
+				log_warn("edit.toolbar_output: output `%s` not found; using primary", v);
+		}
+		v = config_get(cfg, "edit.toolbar_pos");
+		if (annotate_mode && v && v[0]) {
+			char oname[64];
+			int32_t rx, ry;
+			if (edit_toolbar_pos_parse(v, oname, sizeof oname, &rx, &ry)) {
+				struct grabit_output *go = grabit_wl_output_by_name(s, oname);
+				if (go) {
+					st.tb_out = go;
+					st.tb_x = go->x + rx;
+					st.tb_y = go->y + ry;
+					st.tb_moved = true;
+				}
+			}
+		}
 	}
 	if (snap_rects && n_snap_rects > 0) {
 		st.snap_windows = malloc(n_snap_rects * sizeof *st.snap_windows);
@@ -103,21 +124,6 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.nudge_timer_fd = (annotate_mode || st.confirm_mode)
 							? timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)
 							: -1;
-
-	if (annotate_mode) {
-		int32_t cpx = 0, cpy = 0;
-		if (grabit_hyprland_cursorpos(&cpx, &cpy) == 0) {
-			for (size_t i = 0; i < s->n_outputs; i++) {
-				const struct grabit_output *go = s->outputs[i];
-				if (cpx >= go->x && cpy >= go->y &&
-					cpx < go->x + go->logical_width &&
-					cpy < go->y + go->logical_height) {
-					st.tb_out = go;
-					break;
-				}
-			}
-		}
-	}
 
 	st.pointer = wl_seat_get_pointer(s->seat);
 	st.keyboard = wl_seat_get_keyboard(s->seat);
@@ -340,6 +346,14 @@ loop_done:;
 	if (inout_width) *inout_width = st.current_width;
 	if (inout_tool) *inout_tool = (int32_t)st.current_tool;
 	if (out_choices_dirty) *out_choices_dirty = st.edit_choices_dirty;
+
+	if (annotate_mode && cfg && st.tb_moved) {
+		int32_t tx, ty, tw, th;
+		const struct grabit_output *to;
+		region_toolbar_rect(&st, &to, &tx, &ty, &tw, &th);
+		if (to && to->name)
+			persist_toolbar_pos(cfg, to->name, tx - to->x, ty - to->y);
+	}
 
 	st.cleanup = true;
 	if (st.pointer) wl_pointer_release(st.pointer);

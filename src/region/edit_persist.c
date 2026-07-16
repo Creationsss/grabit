@@ -83,3 +83,31 @@ void persist_edit_choices(struct config *cfg, uint32_t color, int32_t width,
 	}
 	if (changed) (void)config_save(cfg);
 }
+
+bool edit_toolbar_pos_parse(const char *s, char *name_out, size_t name_cap,
+							int32_t *rx, int32_t *ry) {
+	const char *colon = strrchr(s, ':');
+	if (!colon || colon == s) return false;
+	size_t nlen = (size_t)(colon - s);
+	if (nlen >= name_cap) return false;
+	memcpy(name_out, s, nlen);
+	name_out[nlen] = '\0';
+	char *end = NULL;
+	long x = strtol(colon + 1, &end, 10);
+	if (end == colon + 1 || *end != ',') return false;
+	const char *ys = end + 1;
+	long y = strtol(ys, &end, 10);
+	if (end == ys || *end != '\0') return false;
+	*rx = (int32_t)x;
+	*ry = (int32_t)y;
+	return true;
+}
+
+void persist_toolbar_pos(struct config *cfg, const char *output,
+						 int32_t rx, int32_t ry) {
+	char val[96];
+	snprintf(val, sizeof val, "%s:%d,%d", output, rx, ry);
+	const char *cur = config_get(cfg, "edit.toolbar_pos");
+	if (cur && strcmp(cur, val) == 0) return;
+	if (config_set(cfg, "edit.toolbar_pos", val) == 0) (void)config_save(cfg);
+}

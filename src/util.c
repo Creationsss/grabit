@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -427,4 +428,10 @@ void grabit_double_fork_detach(void) {
 	if (gp < 0) _exit(2);
 	if (gp != 0) _exit(0);
 	setsid();
+}
+
+int64_t grabit_now_ns(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }

@@ -112,12 +112,17 @@ GRABIT_SRCS := \
 	src/region/wlr_input.c \
 	src/region/wlr_input_state.c \
 	src/record/record.c \
+	src/record/loop.c \
+	src/record/segments.c \
+	src/record/publish.c \
 	src/record/ring.c \
 	src/record/ffmpeg.c \
 	src/record/pid.c \
 	src/record/compose.c \
 	src/record/overlay.c \
 	src/record/controls.c \
+	src/record/controls_input.c \
+	src/record/controls_render.c \
 	src/tray/sni.c \
 	src/tray/tray.c \
 	src/upload/upload.c \

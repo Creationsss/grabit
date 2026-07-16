@@ -16,10 +16,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define GIF_PALETTE_VF                                       \
-	"split[a][b];[a]palettegen=stats_mode=single[p];"        \
-	"[b][p]paletteuse=new=1"
-
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,
@@ -164,7 +160,7 @@ int wait_ffmpeg(pid_t pid) {
 	return ffmpeg_exit_rc(status);
 }
 
-static int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop) {
+int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop) {
 	pid_t pid = fork();
 	if (pid < 0) {
 		log_error("fork: %s", strerror(errno));
@@ -256,64 +252,3 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 	return 0;
 }
 
-int concat_segments(const char *ffmpeg_bin, const char *format,
-					char *const *segs, size_t n, const char *output_path,
-					atomic_int *stop) {
-	char *list_path = NULL;
-	if (grabit_xasprintf(&list_path, "%s.concat.txt", output_path) != 0) return -1;
-	FILE *fp = fopen(list_path, "w");
-	if (!fp) {
-		log_error("concat list %s: %s", list_path, strerror(errno));
-		free(list_path);
-		return -1;
-	}
-	for (size_t i = 0; i < n; i++) {
-		fputs("file '", fp);
-		for (const char *p = segs[i]; *p; p++) {
-			if (*p == '\'')
-				fputs("'\\''", fp);
-			else
-				fputc(*p, fp);
-		}
-		fputs("'\n", fp);
-	}
-	if (fclose(fp) != 0) {
-		log_error("concat list %s: %s", list_path, strerror(errno));
-		unlink(list_path);
-		free(list_path);
-		return -1;
-	}
-
-	bool gif = strcmp(format, "gif") == 0;
-	char *argv[16];
-	size_t i = 0;
-	argv[i++] = (char *)ffmpeg_bin;
-	argv[i++] = (char *)"-nostdin";
-	argv[i++] = (char *)"-loglevel";
-	argv[i++] = (char *)"error";
-	argv[i++] = (char *)"-y";
-	argv[i++] = (char *)"-f";
-	argv[i++] = (char *)"concat";
-	argv[i++] = (char *)"-safe";
-	argv[i++] = (char *)"0";
-	argv[i++] = (char *)"-i";
-	argv[i++] = list_path;
-	if (gif) {
-		argv[i++] = (char *)"-vf";
-		argv[i++] = (char *)GIF_PALETTE_VF;
-	} else {
-		argv[i++] = (char *)"-c";
-		argv[i++] = (char *)"copy";
-	}
-	argv[i++] = (char *)output_path;
-	argv[i] = NULL;
-
-	int rc = ffmpeg_run(ffmpeg_bin, argv, stop);
-	unlink(list_path);
-	free(list_path);
-	if (rc != 0) {
-		log_error("ffmpeg concat failed");
-		return -1;
-	}
-	return 0;
-}

@@ -7,6 +7,10 @@
 #include <stdatomic.h>
 #include <sys/types.h>
 
+#define GIF_PALETTE_VF                                \
+	"split[a][b];[a]palettegen=stats_mode=single[p];" \
+	"[b][p]paletteuse=new=1"
+
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,
@@ -15,13 +19,10 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 
 int wait_ffmpeg(pid_t pid);
 int ffmpeg_exit_rc(int status);
+int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop);
 
 int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 							int max_mb, double duration_secs,
 							atomic_int *stop);
-
-int concat_segments(const char *ffmpeg_bin, const char *format,
-					char *const *segs, size_t n, const char *output_path,
-					atomic_int *stop);
 
 #endif

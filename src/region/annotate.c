@@ -81,6 +81,11 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 		return;
 	}
 
+	cairo_surface_t *layer = cairo_get_target(cr);
+	if (layer == target ||
+		cairo_surface_get_type(layer) != CAIRO_SURFACE_TYPE_IMAGE)
+		layer = NULL;
+
 	double bx0 = x, by0 = y, bx1 = x + w, by1 = y + h;
 	cairo_user_to_device(cr, &bx0, &by0);
 	cairo_user_to_device(cr, &bx1, &by1);
@@ -102,6 +107,12 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 	cairo_set_operator(cr2, CAIRO_OPERATOR_SOURCE);
 	cairo_set_source_surface(cr2, target, -sx0, -sy0);
 	cairo_paint(cr2);
+	if (layer) {
+		cairo_surface_flush(layer);
+		cairo_set_operator(cr2, CAIRO_OPERATOR_OVER);
+		cairo_set_source_surface(cr2, layer, -sx0, -sy0);
+		cairo_paint(cr2);
+	}
 	cairo_destroy(cr2);
 	cairo_surface_flush(snap);
 
@@ -265,16 +276,46 @@ void annotation_paint(cairo_t *cr, const struct annotation *a, double scale) {
 void annotation_list_paint(cairo_t *cr, const struct annotation_list *list,
 						   int32_t origin_x, int32_t origin_y, double scale) {
 	if (!list || list->n == 0) return;
+	cairo_surface_t *target = cairo_get_target(cr);
+	cairo_surface_t *overlay = NULL;
+	if (cairo_surface_get_type(target) == CAIRO_SURFACE_TYPE_IMAGE) {
+		overlay = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+											 cairo_image_surface_get_width(target),
+											 cairo_image_surface_get_height(target));
+		if (cairo_surface_status(overlay) != CAIRO_STATUS_SUCCESS) {
+			cairo_surface_destroy(overlay);
+			overlay = NULL;
+		}
+	}
+
 	cairo_save(cr);
 	cairo_translate(cr, -origin_x * scale, -origin_y * scale);
 	cairo_scale(cr, scale, scale);
-	cairo_push_group(cr);
-	for (size_t i = 0; i < list->n; i++) {
-		annotation_paint(cr, &list->items[i], 1.0);
+	if (!overlay) {
+		cairo_push_group(cr);
+		for (size_t i = 0; i < list->n; i++)
+			annotation_paint(cr, &list->items[i], 1.0);
+		cairo_pop_group_to_source(cr);
+		cairo_paint(cr);
+		cairo_restore(cr);
+		return;
 	}
-	cairo_pop_group_to_source(cr);
+	cairo_restore(cr);
+
+	cairo_t *oc = cairo_create(overlay);
+	cairo_translate(oc, -origin_x * scale, -origin_y * scale);
+	cairo_scale(oc, scale, scale);
+	for (size_t i = 0; i < list->n; i++)
+		annotation_paint_backdrop(oc, &list->items[i], 1.0, target);
+	cairo_destroy(oc);
+	cairo_surface_flush(overlay);
+
+	cairo_save(cr);
+	cairo_identity_matrix(cr);
+	cairo_set_source_surface(cr, overlay, 0, 0);
 	cairo_paint(cr);
 	cairo_restore(cr);
+	cairo_surface_destroy(overlay);
 }
 
 int annotation_list_push(struct annotation_list *list, const struct annotation *a) {

@@ -788,7 +788,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 							  (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 				if (is_hex && st->color_input_len < 6) {
 					st->color_input_buf[st->color_input_len++] =
-						(c >= 'a' && c <= 'f') ? (char)(c - 32) : c;
+						(char)((c >= 'a' && c <= 'f') ? c - 32 : c);
 					st->color_input_buf[st->color_input_len] = '\0';
 				}
 			}

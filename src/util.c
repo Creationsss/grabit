@@ -15,10 +15,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 int grabit_xasprintf(char **out, const char *fmt, ...) {
@@ -150,7 +150,10 @@ int grabit_read_file(const char *path, size_t max_bytes, char **out, size_t *out
 		errno = EFBIG;
 		return -1;
 	}
-	rewind(f);
+	if (fseek(f, 0, SEEK_SET) != 0) {
+		fclose(f);
+		return -1;
+	}
 	char *buf = malloc((size_t)sz + 1);
 	if (!buf) {
 		fclose(f);

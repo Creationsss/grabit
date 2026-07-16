@@ -55,7 +55,7 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	for (int btn = 0; btn < 3; btn++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(btn, &bx, &by, &bw, &bh);
-		bool enabled = (btn == CB_BTN_START) ? c->paused
+		bool enabled = (btn == CB_BTN_START)   ? c->paused
 					   : (btn == CB_BTN_PAUSE) ? !c->paused
 											   : true;
 		double pad = 3.0;

@@ -251,4 +251,3 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 	free(tmp_path);
 	return 0;
 }
-

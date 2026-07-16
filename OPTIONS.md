@@ -236,9 +236,16 @@ grabit --record               # stop
 
 while recording you'll see:
 - a thin red border around the captured region
+- a control bar (start / pause / stop, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
 - a recording icon in your status bar tray (waybar with `tray` module, etc.)
 
-clicking the tray icon stops the recording.
+the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.
+
+pause is also scriptable: sending `SIGUSR1` to the recording process toggles it, so a compositor keybind like `pkill -USR1 -x grabit` pauses/resumes without touching the mouse.
+
+after stopping, encoders may still be flushing buffered frames; grabit shows a "Recording finishing" notification while it waits and stitches, then the usual saved/uploaded notification. heavy CPU load (a game, many pauses) stretches this phase; a faster `recording.preset` like `superfast` shrinks it.
+
+clicking the tray icon also stops the recording.
 
 per-recording overrides:
 - `grabit --record --no-upload`: skip auto-upload even if `default_action=upload`

@@ -9,6 +9,8 @@
 #include "region/region.h"
 
 #include <ctype.h>
+#include <errno.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -532,4 +534,42 @@ void grabit_wl_callback_drop(struct wl_callback **cb) {
 	if (!cb || !*cb) return;
 	wl_callback_destroy(*cb);
 	*cb = NULL;
+}
+
+struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
+	struct grabit_wl_state *s, struct wl_surface *surface,
+	struct wl_output *output, const char *ns, uint32_t kb_interactivity,
+	const struct zwlr_layer_surface_v1_listener *listener, void *data) {
+	struct zwlr_layer_surface_v1 *ls = zwlr_layer_shell_v1_get_layer_surface(
+		s->layer_shell, surface, output,
+		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ns);
+	if (!ls) return NULL;
+	if (listener) zwlr_layer_surface_v1_add_listener(ls, listener, data);
+	zwlr_layer_surface_v1_set_anchor(ls,
+									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+										 ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+										 ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+	zwlr_layer_surface_v1_set_size(ls, 0, 0);
+	zwlr_layer_surface_v1_set_exclusive_zone(ls, -1);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(ls, kb_interactivity);
+	return ls;
+}
+
+int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
+	while (wl_display_prepare_read(s->display) != 0) {
+		if (wl_display_dispatch_pending(s->display) < 0) return -1;
+	}
+	if (wl_display_flush(s->display) < 0 && errno != EAGAIN) {
+		wl_display_cancel_read(s->display);
+		return -1;
+	}
+	struct pollfd pfd = {.fd = wl_display_get_fd(s->display), .events = POLLIN};
+	int pr = poll(&pfd, 1, timeout_ms);
+	if (pr > 0 && (pfd.revents & POLLIN)) {
+		if (wl_display_read_events(s->display) < 0) return -1;
+	} else {
+		wl_display_cancel_read(s->display);
+	}
+	return wl_display_dispatch_pending(s->display) < 0 ? -1 : 0;
 }

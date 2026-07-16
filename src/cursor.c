@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 
+#include <wayland-client.h>
 #include <wayland-cursor.h>
 
 #define DEFAULT_CURSOR_SIZE 24
@@ -36,4 +37,36 @@ struct wl_cursor *grabit_cursor_load_first(struct wl_cursor_theme *theme,
 		if (c) return c;
 	}
 	return NULL;
+}
+
+struct wl_cursor *grabit_cursor_load_hand(struct wl_cursor_theme *theme) {
+	static const char *const hand_names[] = {
+		"pointer",
+		"hand2",
+		"pointing_hand",
+		"hand",
+		"hand1",
+		"left_ptr",
+		"default",
+		NULL,
+	};
+	return grabit_cursor_load_first(theme, hand_names);
+}
+
+void grabit_cursor_apply(struct wl_pointer *p, uint32_t serial,
+						 struct wl_surface *surface, struct wl_cursor *c,
+						 int32_t scale) {
+	if (!p || !surface || !c || c->image_count == 0) return;
+	struct wl_cursor_image *img = c->images[0];
+	struct wl_buffer *buf = wl_cursor_image_get_buffer(img);
+	if (!buf) return;
+	if (scale < 1) scale = 1;
+	wl_pointer_set_cursor(p, serial, surface,
+						  (int32_t)img->hotspot_x / scale,
+						  (int32_t)img->hotspot_y / scale);
+	wl_surface_set_buffer_scale(surface, scale);
+	wl_surface_attach(surface, buf, 0, 0);
+	wl_surface_damage_buffer(surface, 0, 0,
+							 (int32_t)img->width, (int32_t)img->height);
+	wl_surface_commit(surface);
 }

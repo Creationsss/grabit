@@ -169,15 +169,6 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			"left_ptr",
 			NULL,
 		};
-		static const char *const hand_names[] = {
-			"pointer",
-			"hand2",
-			"pointing_hand",
-			"hand",
-			"hand1",
-			"left_ptr",
-			NULL,
-		};
 		static const char *const resize_names[8][4] = {
 			{"nw-resize", "top_left_corner", "size_fdiag", NULL},
 			{"n-resize", "top_side", "size_ver", NULL},
@@ -192,7 +183,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		st.cursor_text = grabit_cursor_load_first(st.cursor_theme, text_names);
 		st.cursor_default = grabit_cursor_load_first(st.cursor_theme, default_names);
 		st.cursor_move = grabit_cursor_load_first(st.cursor_theme, move_names);
-		st.cursor_hand = grabit_cursor_load_first(st.cursor_theme, hand_names);
+		st.cursor_hand = grabit_cursor_load_hand(st.cursor_theme);
 		for (size_t i = 0; i < 8; i++) {
 			st.cursor_resize[i] = grabit_cursor_load_first(st.cursor_theme, resize_names[i]);
 		}
@@ -209,10 +200,10 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		o->idx = i;
 
 		o->surface = wl_compositor_create_surface(s->compositor);
-		o->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			s->layer_shell, o->surface, o->go->wl_output,
-			ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
-			"grabit-region");
+		o->layer_surface = grabit_wl_layer_fullscreen(
+			s, o->surface, o->go->wl_output, "grabit-region",
+			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE,
+			NULL, NULL);
 		if (!o->layer_surface) {
 			log_error("region: layer_surface creation failed for output %zu", i);
 			st.cancelled = true;
@@ -220,17 +211,6 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			break;
 		}
 		region_render_attach_layer(o);
-
-		zwlr_layer_surface_v1_set_anchor(o->layer_surface,
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-		zwlr_layer_surface_v1_set_size(o->layer_surface, 0, 0);
-		zwlr_layer_surface_v1_set_exclusive_zone(o->layer_surface, -1);
-		zwlr_layer_surface_v1_set_keyboard_interactivity(
-			o->layer_surface,
-			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE);
 
 		wl_surface_commit(o->surface);
 	}

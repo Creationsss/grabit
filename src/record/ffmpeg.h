@@ -14,9 +14,14 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 pid_t *child_pid, int *write_fd);
 
 int wait_ffmpeg(pid_t pid);
+int ffmpeg_exit_rc(int status);
 
 int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 							int max_mb, double duration_secs,
 							atomic_int *stop);
+
+int concat_segments(const char *ffmpeg_bin, const char *format,
+					char *const *segs, size_t n, const char *output_path,
+					atomic_int *stop);
 
 #endif

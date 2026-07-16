@@ -23,6 +23,11 @@ static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
 	return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 }
 
+static inline bool rects_overlap(struct rect a, struct rect b) {
+	return a.x < b.x + b.w && b.x < a.x + a.w &&
+		   a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
 static inline int32_t i32min(int32_t a, int32_t b) {
 	return a < b ? a : b;
 }

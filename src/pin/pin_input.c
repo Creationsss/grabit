@@ -25,15 +25,6 @@ void pin_input_load_cursors(struct pin_state *st) {
 	if (!st->wls->shm || !st->wls->compositor) return;
 	st->cursor_theme = grabit_cursor_theme_load(st->wls->shm, st->scale);
 	if (!st->cursor_theme) return;
-	static const char *const hand[] = {
-		"pointer",
-		"hand2",
-		"pointing_hand",
-		"hand",
-		"hand1",
-		"left_ptr",
-		NULL,
-	};
 	static const char *const move[] = {
 		"grab",
 		"openhand",
@@ -51,7 +42,7 @@ void pin_input_load_cursors(struct pin_state *st) {
 		"left_ptr",
 		NULL,
 	};
-	st->cursor_hand = grabit_cursor_load_first(st->cursor_theme, hand);
+	st->cursor_hand = grabit_cursor_load_hand(st->cursor_theme);
 	st->cursor_move = grabit_cursor_load_first(st->cursor_theme, move);
 	st->cursor_grabbing = grabit_cursor_load_first(st->cursor_theme, grabbing);
 	st->cursor_surface = wl_compositor_create_surface(st->wls->compositor);
@@ -69,19 +60,9 @@ void pin_input_destroy_cursors(struct pin_state *st) {
 }
 
 static void apply_cursor(struct pin_state *st, struct wl_cursor *c) {
-	if (!st->pointer || !st->cursor_surface || st->last_pointer_serial == 0) return;
-	if (!c || c->image_count == 0) return;
-	struct wl_cursor_image *img = c->images[0];
-	struct wl_buffer *buf = wl_cursor_image_get_buffer(img);
-	if (!buf) return;
-	int32_t s = st->scale > 0 ? st->scale : 1;
-	wl_pointer_set_cursor(st->pointer, st->last_pointer_serial, st->cursor_surface,
-						  (int32_t)img->hotspot_x / s, (int32_t)img->hotspot_y / s);
-	wl_surface_set_buffer_scale(st->cursor_surface, s);
-	wl_surface_attach(st->cursor_surface, buf, 0, 0);
-	wl_surface_damage_buffer(st->cursor_surface, 0, 0,
-							 (int32_t)img->width, (int32_t)img->height);
-	wl_surface_commit(st->cursor_surface);
+	if (st->last_pointer_serial == 0) return;
+	grabit_cursor_apply(st->pointer, st->last_pointer_serial,
+						st->cursor_surface, c, st->scale);
 }
 
 static void update_cursor(struct pin_state *st);

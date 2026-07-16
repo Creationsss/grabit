@@ -9,13 +9,16 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#define GIF_PALETTE_VF                                       \
+	"split[a][b];[a]palettegen=stats_mode=single[p];"        \
+	"[b][p]paletteuse=new=1"
 
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
@@ -72,8 +75,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 		bool gif = strcmp(format, "gif") == 0;
 		bool webm = strcmp(format, "webm") == 0;
 		argv[i++] = (char *)"-vf";
-		argv[i++] = (char *)(gif ? "split[a][b];[a]palettegen=stats_mode=single[p];"
-								   "[b][p]paletteuse=new=1"
+		argv[i++] = (char *)(gif ? GIF_PALETTE_VF
 								 : "crop=trunc(iw/2)*2:trunc(ih/2)*2,"
 								   "scale=in_range=full:in_color_matrix=bt709:"
 								   "out_range=tv:out_color_matrix=bt709:"
@@ -139,9 +141,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 	return 0;
 }
 
-int wait_ffmpeg(pid_t pid) {
-	int status = 0;
-	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
+int ffmpeg_exit_rc(int status) {
 	if (WIFEXITED(status)) {
 		int code = WEXITSTATUS(status);
 		if (code == 0) return 0;
@@ -156,6 +156,35 @@ int wait_ffmpeg(pid_t pid) {
 		return -1;
 	}
 	return -1;
+}
+
+int wait_ffmpeg(pid_t pid) {
+	int status = 0;
+	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
+	return ffmpeg_exit_rc(status);
+}
+
+static int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop) {
+	pid_t pid = fork();
+	if (pid < 0) {
+		log_error("fork: %s", strerror(errno));
+		return -1;
+	}
+	if (pid == 0) {
+		setpgid(0, 0);
+		int devnull = open("/dev/null", O_RDONLY);
+		if (devnull >= 0) {
+			dup2(devnull, STDIN_FILENO);
+			close(devnull);
+		}
+		execvp(ffmpeg_bin, argv);
+		_exit(127);
+	}
+	(void)setpgid(pid, pid);
+
+	int status = 0;
+	if (grabit_waitpid_intr_stop(pid, &status, stop) != 0) return -1;
+	return ffmpeg_exit_rc(status);
 }
 
 int compress_to_target_size(const char *ffmpeg_bin, const char *path,
@@ -175,60 +204,41 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 	if (grabit_xasprintf(&tmp_path, "%s.compressing.mp4", path) != 0) return -1;
 	(void)unlink(tmp_path);
 
-	pid_t pid = fork();
-	if (pid < 0) {
-		log_error("fork: %s", strerror(errno));
-		free(tmp_path);
-		return -1;
-	}
-	if (pid == 0) {
-		setpgid(0, 0);
-		char bps_s[32];
-		snprintf(bps_s, sizeof bps_s, "%lld", target_bps);
-
-		char *argv[] = {
-			(char *)ffmpeg_bin,
-			(char *)"-loglevel",
-			(char *)"error",
-			(char *)"-y",
-			(char *)"-i",
-			(char *)path,
-			(char *)"-c:v",
-			(char *)"libx264",
-			(char *)"-b:v",
-			bps_s,
-			(char *)"-maxrate",
-			bps_s,
-			(char *)"-bufsize",
-			bps_s,
-			(char *)"-preset",
-			(char *)"medium",
-			(char *)"-pix_fmt",
-			(char *)"yuv420p",
-			(char *)"-color_range",
-			(char *)"tv",
-			(char *)"-colorspace",
-			(char *)"bt709",
-			(char *)"-color_primaries",
-			(char *)"bt709",
-			(char *)"-color_trc",
-			(char *)"iec61966-2-1",
-			(char *)"-an",
-			tmp_path,
-			NULL,
-		};
-		execvp(ffmpeg_bin, argv);
-		_exit(127);
-	}
-	(void)setpgid(pid, pid);
-
-	int status = 0;
-	if (grabit_waitpid_intr_stop(pid, &status, stop) != 0) {
-		unlink(tmp_path);
-		free(tmp_path);
-		return -1;
-	}
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+	char bps_s[32];
+	snprintf(bps_s, sizeof bps_s, "%lld", target_bps);
+	char *argv[] = {
+		(char *)ffmpeg_bin,
+		(char *)"-nostdin",
+		(char *)"-loglevel",
+		(char *)"error",
+		(char *)"-y",
+		(char *)"-i",
+		(char *)path,
+		(char *)"-c:v",
+		(char *)"libx264",
+		(char *)"-b:v",
+		bps_s,
+		(char *)"-maxrate",
+		bps_s,
+		(char *)"-bufsize",
+		bps_s,
+		(char *)"-preset",
+		(char *)"medium",
+		(char *)"-pix_fmt",
+		(char *)"yuv420p",
+		(char *)"-color_range",
+		(char *)"tv",
+		(char *)"-colorspace",
+		(char *)"bt709",
+		(char *)"-color_primaries",
+		(char *)"bt709",
+		(char *)"-color_trc",
+		(char *)"iec61966-2-1",
+		(char *)"-an",
+		tmp_path,
+		NULL,
+	};
+	if (ffmpeg_run(ffmpeg_bin, argv, stop) != 0) {
 		log_error("ffmpeg compress failed");
 		unlink(tmp_path);
 		free(tmp_path);
@@ -243,5 +253,67 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 	}
 	(void)chmod(path, orig_mode);
 	free(tmp_path);
+	return 0;
+}
+
+int concat_segments(const char *ffmpeg_bin, const char *format,
+					char *const *segs, size_t n, const char *output_path,
+					atomic_int *stop) {
+	char *list_path = NULL;
+	if (grabit_xasprintf(&list_path, "%s.concat.txt", output_path) != 0) return -1;
+	FILE *fp = fopen(list_path, "w");
+	if (!fp) {
+		log_error("concat list %s: %s", list_path, strerror(errno));
+		free(list_path);
+		return -1;
+	}
+	for (size_t i = 0; i < n; i++) {
+		fputs("file '", fp);
+		for (const char *p = segs[i]; *p; p++) {
+			if (*p == '\'')
+				fputs("'\\''", fp);
+			else
+				fputc(*p, fp);
+		}
+		fputs("'\n", fp);
+	}
+	if (fclose(fp) != 0) {
+		log_error("concat list %s: %s", list_path, strerror(errno));
+		unlink(list_path);
+		free(list_path);
+		return -1;
+	}
+
+	bool gif = strcmp(format, "gif") == 0;
+	char *argv[16];
+	size_t i = 0;
+	argv[i++] = (char *)ffmpeg_bin;
+	argv[i++] = (char *)"-nostdin";
+	argv[i++] = (char *)"-loglevel";
+	argv[i++] = (char *)"error";
+	argv[i++] = (char *)"-y";
+	argv[i++] = (char *)"-f";
+	argv[i++] = (char *)"concat";
+	argv[i++] = (char *)"-safe";
+	argv[i++] = (char *)"0";
+	argv[i++] = (char *)"-i";
+	argv[i++] = list_path;
+	if (gif) {
+		argv[i++] = (char *)"-vf";
+		argv[i++] = (char *)GIF_PALETTE_VF;
+	} else {
+		argv[i++] = (char *)"-c";
+		argv[i++] = (char *)"copy";
+	}
+	argv[i++] = (char *)output_path;
+	argv[i] = NULL;
+
+	int rc = ffmpeg_run(ffmpeg_bin, argv, stop);
+	unlink(list_path);
+	free(list_path);
+	if (rc != 0) {
+		log_error("ffmpeg concat failed");
+		return -1;
+	}
 	return 0;
 }

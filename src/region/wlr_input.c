@@ -5,6 +5,7 @@
 #include "region/wlr_state.h"
 
 #include "capture/capture.h"
+#include "cursor.h"
 #include "region/annotate.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
@@ -147,19 +148,7 @@ static void lock_or_finish(struct ro_state *st) {
 
 static void apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
 						 struct ro_output *o, struct wl_cursor *c) {
-	if (!c || c->image_count == 0 || !st->cursor_surface) return;
-	struct wl_cursor_image *img = c->images[0];
-	struct wl_buffer *buf = wl_cursor_image_get_buffer(img);
-	if (!buf) return;
-	int32_t scale = o->scale > 0 ? o->scale : 1;
-	int32_t hsx = (int32_t)img->hotspot_x / scale;
-	int32_t hsy = (int32_t)img->hotspot_y / scale;
-	wl_pointer_set_cursor(p, serial, st->cursor_surface, hsx, hsy);
-	wl_surface_set_buffer_scale(st->cursor_surface, scale);
-	wl_surface_attach(st->cursor_surface, buf, 0, 0);
-	wl_surface_damage_buffer(st->cursor_surface, 0, 0,
-							 (int32_t)img->width, (int32_t)img->height);
-	wl_surface_commit(st->cursor_surface);
+	grabit_cursor_apply(p, serial, st->cursor_surface, c, o->scale);
 }
 
 static void slider_set_width_from_cursor(struct ro_state *st) {

@@ -61,7 +61,14 @@ struct grabit_wl_state {
 
 int grabit_wl_init(struct grabit_wl_state *s);
 int grabit_wl_probe(struct grabit_wl_state *s);
+int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms);
 void grabit_wl_finish(struct grabit_wl_state *s);
+
+struct zwlr_layer_surface_v1_listener;
+struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
+	struct grabit_wl_state *s, struct wl_surface *surface,
+	struct wl_output *output, const char *ns, uint32_t kb_interactivity,
+	const struct zwlr_layer_surface_v1_listener *listener, void *data);
 
 struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s);
 struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, int32_t y);

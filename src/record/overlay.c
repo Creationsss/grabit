@@ -179,23 +179,10 @@ struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r) {
 		o->go = s->outputs[i];
 
 		o->surface = wl_compositor_create_surface(s->compositor);
-		o->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			s->layer_shell, o->surface, o->go->wl_output,
-			ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
-			"grabit-overlay");
-		zwlr_layer_surface_v1_add_listener(o->layer_surface, &layer_listener_g, o);
-
-		zwlr_layer_surface_v1_set_anchor(o->layer_surface,
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-											 ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-		zwlr_layer_surface_v1_set_size(o->layer_surface, 0, 0);
-		zwlr_layer_surface_v1_set_exclusive_zone(o->layer_surface, -1);
-		zwlr_layer_surface_v1_set_keyboard_interactivity(
-			o->layer_surface,
-			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
-
+		o->layer_surface = grabit_wl_layer_fullscreen(
+			s, o->surface, o->go->wl_output, "grabit-overlay",
+			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE,
+			&layer_listener_g, o);
 		grabit_wl_clear_input_region(s->compositor, o->surface);
 		wl_surface_commit(o->surface);
 	}

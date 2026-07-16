@@ -12,6 +12,7 @@
 #include "notify/notify.h"
 #include "paths.h"
 #include "record/compose.h"
+#include "record/controls.h"
 #include "record/ffmpeg.h"
 #include "record/overlay.h"
 #include "record/pid.h"
@@ -34,21 +35,29 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-client.h>
 
 static atomic_int g_stop;
+static atomic_int g_pause;
 
 static void on_record_signal(int sig) {
 	(void)sig;
 	atomic_store(&g_stop, 1);
 }
 
+static void on_pause_signal(int sig) {
+	(void)sig;
+	atomic_fetch_xor(&g_pause, 1);
+}
+
 struct prev_sigs {
 	struct sigaction sigint;
 	struct sigaction sigterm;
 	struct sigaction sighup;
+	struct sigaction sigusr1;
 	struct sigaction sigpipe;
 };
 
@@ -60,6 +69,11 @@ static void install_signal_handlers(struct prev_sigs *prev) {
 	sigaction(SIGTERM, &sa, &prev->sigterm);
 	sigaction(SIGHUP, &sa, &prev->sighup);
 
+	struct sigaction pa = {0};
+	pa.sa_handler = on_pause_signal;
+	sigemptyset(&pa.sa_mask);
+	sigaction(SIGUSR1, &pa, &prev->sigusr1);
+
 	struct sigaction ign = {0};
 	ign.sa_handler = SIG_IGN;
 	sigemptyset(&ign.sa_mask);
@@ -70,6 +84,7 @@ static void restore_signal_handlers(const struct prev_sigs *prev) {
 	sigaction(SIGINT, &prev->sigint, NULL);
 	sigaction(SIGTERM, &prev->sigterm, NULL);
 	sigaction(SIGHUP, &prev->sighup, NULL);
+	sigaction(SIGUSR1, &prev->sigusr1, NULL);
 	sigaction(SIGPIPE, &prev->sigpipe, NULL);
 }
 
@@ -135,27 +150,215 @@ static char *build_record_path(struct config *cfg, const struct args *a,
 	return paths_build_output(cfg, a->filename_tpl, ext, dest);
 }
 
-static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
-						struct buf_pool *pool, int fps, bool cursor, struct ring *ring) {
-	int64_t period_ns = 1000000000 / fps;
-	int64_t start_ns = now_ns();
+struct seg_ctx {
+	const char *ffmpeg_bin;
+	const char *format;
+	const char *preset;
+	const char *tune;
+	const char *pix_fmt;
+	int w;
+	int h;
+	int fps;
+	int crf;
+	const char *final_path;
+	char **segs;
+	size_t n_segs;
+	size_t cap_segs;
+	pid_t *pending;
+	size_t n_pending;
+	size_t cap_pending;
+	pid_t pid;
+	int fd;
+	struct ring *ring;
+	pthread_t enc;
+	struct enc_state es;
+	bool enc_running;
+	bool failed;
+};
+
+static int seg_begin(struct seg_ctx *sc) {
+	if (sc->n_segs == sc->cap_segs) {
+		size_t cap = sc->cap_segs ? sc->cap_segs * 2 : 4;
+		char **p = realloc(sc->segs, cap * sizeof *p);
+		if (!p) return -1;
+		sc->segs = p;
+		sc->cap_segs = cap;
+	}
+	char *path = NULL;
+	if (grabit_xasprintf(&path, "%s.seg%zu.%s",
+						 sc->final_path, sc->n_segs, sc->format) != 0)
+		return -1;
+	if (spawn_ffmpeg(sc->ffmpeg_bin, sc->format, sc->preset, sc->tune, sc->pix_fmt,
+					 sc->w, sc->h, sc->fps, sc->crf, path, &sc->pid, &sc->fd) != 0) {
+		free(path);
+		return -1;
+	}
+	sc->segs[sc->n_segs++] = path;
+	ring_reset(sc->ring);
+	sc->es = (struct enc_state){
+		.ring = sc->ring,
+		.write_fd = sc->fd,
+		.stop = &g_stop,
+	};
+	if (pthread_create(&sc->enc, NULL, encoder_thread, &sc->es) != 0) {
+		log_error("pthread_create: %s", strerror(errno));
+		close(sc->fd);
+		sc->fd = -1;
+		(void)wait_ffmpeg(sc->pid);
+		sc->pid = -1;
+		return -1;
+	}
+	sc->enc_running = true;
+	return 0;
+}
+
+static void seg_finish(struct seg_ctx *sc, struct grabit_wl_state *s) {
+	if (!sc->enc_running) return;
+	ring_stop(sc->ring);
+	int64_t t0 = now_ns();
+	if (s) {
+		while (!atomic_load_explicit(&sc->es.done, memory_order_acquire)) {
+			if (grabit_wl_pump(s, 30) != 0) break;
+		}
+	}
+	pthread_join(sc->enc, NULL);
+	sc->enc_running = false;
+	if (sc->fd >= 0) {
+		close(sc->fd);
+		sc->fd = -1;
+	}
+	log_debug("recording: segment drained in %lld ms; ffmpeg finalizes in background",
+			  (long long)((now_ns() - t0) / 1000000));
+	if (sc->n_pending == sc->cap_pending) {
+		size_t cap = sc->cap_pending ? sc->cap_pending * 2 : 4;
+		pid_t *p = realloc(sc->pending, cap * sizeof *p);
+		if (!p) {
+			if (wait_ffmpeg(sc->pid) != 0) sc->failed = true;
+			sc->pid = -1;
+			return;
+		}
+		sc->pending = p;
+		sc->cap_pending = cap;
+	}
+	sc->pending[sc->n_pending++] = sc->pid;
+	sc->pid = -1;
+}
+
+static bool seg_any_pending_alive(struct seg_ctx *sc) {
+	bool alive = false;
+	for (size_t i = 0; i < sc->n_pending; i++) {
+		if (sc->pending[i] <= 0) continue;
+		int status = 0;
+		pid_t r = waitpid(sc->pending[i], &status, WNOHANG);
+		if (r == sc->pending[i]) {
+			if (ffmpeg_exit_rc(status) != 0) sc->failed = true;
+			sc->pending[i] = -1;
+		} else if (r == 0) {
+			alive = true;
+		}
+	}
+	return alive;
+}
+
+static void seg_reap_all(struct seg_ctx *sc) {
+	for (size_t i = 0; i < sc->n_pending; i++) {
+		if (sc->pending[i] <= 0) continue;
+		if (wait_ffmpeg(sc->pending[i]) != 0) sc->failed = true;
+	}
+	sc->n_pending = 0;
+}
+
+static void seg_ctx_free(struct seg_ctx *sc) {
+	for (size_t i = 0; i < sc->n_segs; i++)
+		free(sc->segs[i]);
+	free(sc->segs);
+	sc->segs = NULL;
+	sc->n_segs = sc->cap_segs = 0;
+	free(sc->pending);
+	sc->pending = NULL;
+	sc->n_pending = sc->cap_pending = 0;
+}
+
+static void seg_unlink_all(struct seg_ctx *sc) {
+	for (size_t i = 0; i < sc->n_segs; i++)
+		unlink(sc->segs[i]);
+}
+
+static double capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
+						   struct buf_pool *pool, bool cursor,
+						   struct seg_ctx *sc, struct rec_controls *ctrl) {
+	int64_t period_ns = 1000000000 / sc->fps;
+	struct ring *ring = sc->ring;
+	bool paused = false;
+	int64_t seg_start = now_ns();
+	int64_t active_ns = 0;
 	int64_t frame_idx = 0;
 	int consec_fail = 0;
 	bool direct = rec_layout_is_direct(layout);
 
 	while (!atomic_load_explicit(&g_stop, memory_order_relaxed)) {
-		int64_t deadline = start_ns + frame_idx * period_ns;
-		int64_t cur = now_ns();
-		if (deadline > cur) {
-			struct timespec ts = {
-				.tv_sec = deadline / 1000000000,
-				.tv_nsec = deadline % 1000000000,
-			};
-			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
-			if (atomic_load_explicit(&g_stop, memory_order_relaxed)) break;
-		} else if (cur - deadline > period_ns * 4) {
-			frame_idx = (cur - start_ns) / period_ns;
+		bool want_pause = atomic_load_explicit(&g_pause, memory_order_relaxed) != 0;
+		if (want_pause != paused) {
+			paused = want_pause;
+			controls_set_paused(ctrl, paused);
+			if (paused) {
+				active_ns += now_ns() - seg_start;
+				seg_finish(sc, s);
+				log_info("recording paused");
+			} else {
+				if (seg_begin(sc) != 0) {
+					log_error("recording: could not start a new segment");
+					sc->failed = true;
+					atomic_store_explicit(&g_stop, 1, memory_order_relaxed);
+					break;
+				}
+				seg_start = now_ns();
+				frame_idx = 0;
+				log_info("recording resumed");
+			}
 		}
+
+		int64_t active_now = active_ns + (paused ? 0 : now_ns() - seg_start);
+		controls_tick(ctrl, active_now / 1000000000);
+
+		if (paused) {
+			if (grabit_wl_pump(s, 30) != 0) {
+				log_error("recording: lost wayland connection");
+				atomic_store_explicit(&g_stop, 1, memory_order_relaxed);
+				break;
+			}
+			continue;
+		}
+
+		int64_t deadline = seg_start + frame_idx * period_ns;
+		int64_t cur = now_ns();
+		if (cur - deadline > period_ns * 4)
+			frame_idx = (cur - seg_start) / period_ns;
+		bool interrupted = false;
+		while (cur < deadline) {
+			if (atomic_load_explicit(&g_stop, memory_order_relaxed) ||
+				atomic_load_explicit(&g_pause, memory_order_relaxed) != 0) {
+				interrupted = true;
+				break;
+			}
+			int64_t rem_ms = (deadline - cur) / 1000000;
+			if (rem_ms >= 1) {
+				if (grabit_wl_pump(s, (int)rem_ms) != 0) {
+					log_error("recording: lost wayland connection");
+					atomic_store_explicit(&g_stop, 1, memory_order_relaxed);
+					interrupted = true;
+					break;
+				}
+			} else {
+				struct timespec ts = {
+					.tv_sec = deadline / 1000000000,
+					.tv_nsec = deadline % 1000000000,
+				};
+				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
+			}
+			cur = now_ns();
+		}
+		if (interrupted) continue;
 
 		void *frame_buf = pool_try_acquire(pool);
 		if (!frame_buf) {
@@ -201,7 +404,8 @@ static int capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 		frame_idx++;
 	}
 
-	return 0;
+	if (!paused) active_ns += now_ns() - seg_start;
+	return (double)active_ns / 1e9;
 }
 
 int record_toggle(struct config *cfg, const struct args *a) {
@@ -361,11 +565,34 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	pid_t ffmpeg_pid = -1;
-	int ffmpeg_fd = -1;
-	if (spawn_ffmpeg(ffmpeg_bin, format, preset, tune, pix_fmt,
-					 layout.dst_w, layout.dst_h, fps, crf,
-					 output_path, &ffmpeg_pid, &ffmpeg_fd) != 0) {
+	atomic_store_explicit(&g_stop, 0, memory_order_relaxed);
+	atomic_store_explicit(&g_pause, 0, memory_order_relaxed);
+	struct prev_sigs prev = {0};
+	install_signal_handlers(&prev);
+
+	struct ring ring;
+	ring_init(&ring);
+
+	struct seg_ctx sc = {
+		.ffmpeg_bin = ffmpeg_bin,
+		.format = format,
+		.preset = preset,
+		.tune = tune,
+		.pix_fmt = pix_fmt,
+		.w = layout.dst_w,
+		.h = layout.dst_h,
+		.fps = fps,
+		.crf = crf,
+		.final_path = output_path,
+		.pid = -1,
+		.fd = -1,
+		.ring = &ring,
+	};
+	if (seg_begin(&sc) != 0) {
+		restore_signal_handlers(&prev);
+		ring_destroy(&ring);
+		seg_unlink_all(&sc);
+		seg_ctx_free(&sc);
 		unlink_pid_file();
 		notify_send(&(struct notify_opts){
 			.summary = "Recording failed",
@@ -378,34 +605,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	atomic_store_explicit(&g_stop, 0, memory_order_relaxed);
-	struct prev_sigs prev = {0};
-	install_signal_handlers(&prev);
-
-	struct ring ring;
-	ring_init(&ring);
-	struct enc_state es = {
-		.ring = &ring,
-		.write_fd = ffmpeg_fd,
-		.stop = &g_stop,
-	};
-
-	pthread_t enc;
-	if (pthread_create(&enc, NULL, encoder_thread, &es) != 0) {
-		log_error("pthread_create: %s", strerror(errno));
-		restore_signal_handlers(&prev);
-		ring_destroy(&ring);
-		close(ffmpeg_fd);
-		(void)wait_ffmpeg(ffmpeg_pid);
-		unlink_pid_file();
-		unlink(output_path);
-		free(output_path);
-		rec_layout_free(&layout);
-		grabit_wl_finish(&s);
-		return 1;
-	}
-
-	log_info("recording %dx%d (%zu output%s) @ %d fps → %s; re-run `grabit --record` to stop",
+	log_info("recording %dx%d (%zu output%s) @ %d fps → %s; "
+			 "use the on-screen controls or re-run `grabit --record` to stop "
+			 "(SIGUSR1 toggles pause)",
 			 layout.dst_w, layout.dst_h, layout.n, layout.n == 1 ? "" : "s",
 			 fps, output_path);
 
@@ -414,14 +616,13 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		size_t buf_size = (size_t)layout.dst_stride * (size_t)layout.dst_h;
 		if (pool_init(&pool, POOL_CAP, buf_size) != 0) {
 			log_error("recording: could not allocate frame pool");
-			ring_stop(&ring);
-			pthread_join(enc, NULL);
+			seg_finish(&sc, NULL);
+			seg_reap_all(&sc);
 			restore_signal_handlers(&prev);
 			ring_destroy(&ring);
-			close(ffmpeg_fd);
-			(void)wait_ffmpeg(ffmpeg_pid);
+			seg_unlink_all(&sc);
+			seg_ctx_free(&sc);
 			unlink_pid_file();
-			unlink(output_path);
 			free(output_path);
 			rec_layout_free(&layout);
 			grabit_wl_finish(&s);
@@ -430,29 +631,50 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	struct overlay_state *overlay = overlay_start(&s, r);
+	struct rec_controls *controls = controls_start(&s, r, &g_stop, &g_pause);
 	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 
-	int64_t t0 = now_ns();
-	capture_loop(&s, &layout, &pool, fps, cursor, &ring);
-	int64_t t1 = now_ns();
+	double secs = capture_loop(&s, &layout, &pool, cursor, &sc, controls);
 
 	tray_stop(tray);
+	controls_stop(controls);
 	overlay_stop(overlay);
 
-	ring_stop(&ring);
-	pthread_join(enc, NULL);
-
-	if (ffmpeg_fd >= 0) {
-		close(ffmpeg_fd);
-		ffmpeg_fd = -1;
+	seg_finish(&sc, NULL);
+	if (seg_any_pending_alive(&sc) || sc.n_segs > 1) {
+		log_info("recording: finishing %zu segment%s...",
+				 sc.n_segs, sc.n_segs == 1 ? "" : "s");
+		notify_send(&(struct notify_opts){
+			.summary = "Recording finishing",
+			.body = grabit_basename(output_path),
+		});
 	}
-	int wait_rc = wait_ffmpeg(ffmpeg_pid);
+	seg_reap_all(&sc);
 
-	double secs = (t1 - t0) / 1e9;
+	bool ok = !sc.failed && sc.n_segs > 0;
+	if (ok) {
+		if (sc.n_segs == 1) {
+			if (rename(sc.segs[0], output_path) != 0) {
+				log_error("rename(%s -> %s): %s", sc.segs[0], output_path,
+						  strerror(errno));
+				ok = false;
+			}
+		} else {
+			if (concat_segments(ffmpeg_bin, format, sc.segs, sc.n_segs,
+								output_path, &g_stop) == 0) {
+				seg_unlink_all(&sc);
+			} else {
+				log_error("recording: concat failed; segments kept next to %s",
+						  output_path);
+				ok = false;
+			}
+		}
+	}
+
 	log_info("recording: %zu frames captured, %zu encoded, %zu dropped (%.2fs)",
 			 ring.pushed, ring.popped, ring.dropped, secs);
 
-	if (wait_rc == 0) {
+	if (ok) {
 		int max_mb = read_int_cfg(cfg, "recording.max_size_mb", 0, 0, 100000);
 		if (max_mb > 0 && strcmp(format, "mp4") != 0) {
 			log_debug("recording: max_size_mb only applies to mp4; skipping");
@@ -525,9 +747,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	restore_signal_handlers(&prev);
 	ring_destroy(&ring);
 	pool_destroy(&pool);
+	seg_ctx_free(&sc);
 	unlink_pid_file();
 	free(output_path);
 	rec_layout_free(&layout);
 	grabit_wl_finish(&s);
-	return wait_rc == 0 ? 0 : 1;
+	return ok ? 0 : 1;
 }

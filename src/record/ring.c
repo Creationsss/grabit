@@ -121,6 +121,12 @@ void ring_stop(struct ring *r) {
 	pthread_mutex_unlock(&r->mu);
 }
 
+void ring_reset(struct ring *r) {
+	pthread_mutex_lock(&r->mu);
+	r->stopped = false;
+	pthread_mutex_unlock(&r->mu);
+}
+
 void ring_record_drop(struct ring *r) {
 	pthread_mutex_lock(&r->mu);
 	r->dropped++;
@@ -176,5 +182,6 @@ void *encoder_thread(void *arg) {
 		}
 		frame_release(&f);
 	}
+	atomic_store_explicit(&e->done, 1, memory_order_release);
 	return NULL;
 }

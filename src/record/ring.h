@@ -54,6 +54,7 @@ struct enc_state {
 	int write_fd;
 	bool write_failed;
 	atomic_int *stop;
+	atomic_int done;
 };
 
 void ring_init(struct ring *r);
@@ -61,6 +62,7 @@ void ring_destroy(struct ring *r);
 void ring_push(struct ring *r, const struct frame *f);
 int ring_pop(struct ring *r, struct frame *out);
 void ring_stop(struct ring *r);
+void ring_reset(struct ring *r);
 void ring_record_drop(struct ring *r);
 
 void *encoder_thread(void *arg);

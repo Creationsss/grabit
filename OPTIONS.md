@@ -90,10 +90,14 @@ re-run after adding/removing source files.
 grabit set                    # list all settable keys
 grabit set <key>              # show example/default for that key
 grabit set <key> <value>      # write (validated)
+grabit set <key>=<value>      # same, single-argument form
 grabit get                    # dump current config
 grabit get <key>              # one key
 grabit unset <key>
+grabit help [<subcommand>]    # help for set/get/unset/sxcu/plugin
 ```
+
+every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
 
@@ -160,7 +164,7 @@ unknown header names are forwarded as-is with a warning.
 import any sharex custom uploader file:
 
 ```sh
-grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into config dir
+grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into config dir (alias: install)
 grabit sxcu list                              # registered names (alias: ls)
 grabit sxcu show <name>                       # parsed fields (url, method, headers, ...)
 grabit sxcu remove <name>                     # alias: rm
@@ -193,7 +197,7 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 |---|---|---|
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
-| `notifications` | bool | enable desktop notifications (default `true`) |
+| `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
 | `editor` | string | external editor binary for `-e` text tool (optional) |
@@ -305,7 +309,7 @@ requires `zwp_relative_pointer_manager_v1` for drag (universal in modern wlroots
 grabit --tesseract            # select a region; text lands in clipboard
 ```
 
-requires `tesseract` on `$PATH` and `eng.traineddata` (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`.
+requires `tesseract` on `$PATH` and `eng.traineddata` (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
 
 ### translate
 
@@ -324,7 +328,7 @@ combine `--tesseract` with `--show` to render the result on screen as a transien
 ```sh
 grabit --tesseract --show                 # show the raw OCR
 grabit --tesseract --translate --show     # show the translation
-grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until clicked)
+grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until replaced)
 ```
 
 **`text_card.*`** (configures the text card shown by `--tesseract --show`):
@@ -402,6 +406,10 @@ grabit -e -o                  # annotate, then save
 - **undo** (`u` or `ctrl+z`, hold to repeat) - steps back through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles
+- **arrow keys / shift+arrows** still move and resize the capture region while the editor is open
+- **text tool**: `enter` commits the annotation, clicking anywhere else commits it too, `esc` discards the typed text without leaving the editor
+- **hex field**: the typed value applies on `enter` or when you click elsewhere in the picker; `esc` abandons it
+- **right-click** cancels the selector in every mode, aborting an in-progress drag or text entry first
 
 last-picked color, width, and tool persist via:
 
@@ -436,15 +444,34 @@ presets via `filename_preset`:
 
 `%w`/`%t` resolve to empty on non-hyprland compositors.
 
+## plugins
+
+```sh
+grabit plugin install <git-url>   # clone, build, install (alias: add)
+grabit plugin list                # installed plugins (alias: ls)
+grabit plugin show <name>         # parsed manifest
+grabit plugin update [<name>]     # update one, or all
+grabit plugin remove <name>       # uninstall (alias: rm)
+```
+
+run one by name - a non-flag first argument resolving to an installed plugin execs `grabit-<name>`:
+
+```sh
+grabit <name> [args]              # run the plugin
+grabit -p <name> [args]           # run it and pin its last stdout line as a file
+```
+
+plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
+
 ## flags
 
 action flags:
 
 | flag | meaning |
 |---|---|
-| `-c` | copy to clipboard |
-| `-u` | upload to default service |
-| `-o` / `--output` / `--save` | save and print path |
+| `-c` / `--copy` | copy to clipboard |
+| `-u` / `--upload` | upload to default service; the resulting url is copied to the clipboard and printed to stdout |
+| `-o` / `--output` / `--save` | save and print path. the "Saved" notification and shutter sound only fire when stdout is a tty, so `grabit -o > path.txt` is silent by design |
 | `--<service>` | upload to a specific built-in or sxcu service |
 | `--record` | toggle recording |
 | `--pin` | pin a region to the desktop |
@@ -452,6 +479,10 @@ action flags:
 | `--tesseract` | ocr a region into the clipboard |
 | `--translate[=<lang>]` | with `--tesseract`: translate the ocr text and copy that instead (see ocr/translate section) |
 | `-e` / `--edit` | annotate before the action |
+| `-p <plugin> [args]` | run a plugin and pin its output (see plugins above) |
+| `<plugin> [args]` | bare plugin dispatch (see plugins above) |
+| `-h` / `--help` | print help and exit |
+| `-V` / `--version` | print version and exit |
 
 modifiers:
 
@@ -464,8 +495,11 @@ modifiers:
 | `--format <png\|jpeg\|webp>` (or `--format=<name>`) | per-run output format |
 | `--no-tray` | suppress the recording tray icon |
 | `--no-upload` | with `--record`, skip the auto-upload after recording |
-| `--silent` / `-q` / `--quiet` | suppress info logging (errors still print) |
+| `--silent` / `-q` / `--quiet` | suppress info logging, desktop notifications, and the shutter sound (errors still print; failure notifications are forced and still appear) |
 | `-d` / `--debug` | enable debug logging |
+| `--` | end of options; the next argument is treated as `-f <file>` |
+| `--capture` | during plugin dispatch: force a capture and pass the file to the plugin |
+| `--no-capture` | during plugin dispatch: suppress the manifest's `capture.auto` |
 
 ## environment
 
@@ -473,6 +507,44 @@ modifiers:
 |---|---|
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
-| `XDG_RUNTIME_DIR` | recording pid file + per-pin ipc sockets live here if set, else `/tmp` |
+| `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`); takes precedence over the `capture.backend` config key |
+| `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
+| `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
+| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and the `%w`/`%t` tokens |
+| `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
+| `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
 | `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
+| `NO_COLOR` | if set to any value, disable ansi color in log output |
+| `GRABIT_RECORD_ENC_DELAY_US` | debug knob: throttle the recording encoder drain loop, in microseconds per frame |
+
+set by grabit when dispatching a plugin (read by the plugin, not by you):
+
+| var | effect |
+|---|---|
+| `GRABIT_BIN` | absolute path to the grabit binary |
+| `GRABIT_PLUGIN_NAME` | the plugin's name |
+| `GRABIT_PLUGIN_DIR` | the plugin's install directory |
+| `GRABIT_CACHE_DIR` | per-plugin cache directory |
+
+## files
+
+| path | purpose |
+|---|---|
+| `~/.config/grabit/config.toml` | user config (mode 0600) |
+| `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
+| `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |
+| `~/.config/grabit/plugins/.lock` | plugin install/update lock |
+| `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
+| `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
+| `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp`) |
+| `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit_recording.pid`) |
+| `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |
+
+## exit status
+
+| code | meaning |
+|---|---|
+| `0` | success |
+| `1` | runtime failure (capture, upload, clipboard, plugin, subcommand). cancelling a selection also exits `1`, just without an error notification |
+| `2` | command-line parse or usage error |

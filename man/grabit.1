@@ -1,6 +1,6 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
 .\" Copyright (C) 2026 creations
-.TH GRABIT 1 "2026-07-15" "grabit 0.5.0" "User Commands"
+.TH GRABIT 1 "2026-07-18" "grabit 0.5.1" "User Commands"
 .SH NAME
 grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland compositors
 .SH SYNOPSIS
@@ -52,7 +52,8 @@ Copy the screenshot to the clipboard.
 .BR \-u ", " \-\-upload
 Upload the screenshot to the default service (the
 .B service
-config key).
+config key). On success the resulting URL is copied to the clipboard and
+printed to standard output. Uploaded recordings do the same.
 .TP
 .BI \-\- service
 Upload to a specific built-in service
@@ -67,7 +68,9 @@ or a registered
 uploader.
 .TP
 .BR \-o ", " \-\-output ", " \-\-save
-Capture, save to disk, and print the path to standard output.
+Capture, save to disk, and print the path to standard output. The \(dqSaved\(dq
+notification and shutter sound are emitted only when standard output is a
+terminal, so redirecting the path to a file or pipe is silent by design.
 .TP
 .B \-\-record
 Toggle screen recording (run again to stop). Records a region to MP4/H.264
@@ -105,6 +108,14 @@ on
 .B $PATH
 plus
 .IR eng.traineddata .
+When
+.B ocr.tesseract
+is unset, grabit probes
+.B tesseract\-ocr
+before
+.B tesseract
+on
+.BR $PATH .
 .TP
 .BI \-\-translate [=lang]
 With
@@ -157,6 +168,26 @@ or
 hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
+.PP
+While the
+.B text
+tool is capturing input,
+.B Enter
+commits the annotation, clicking anywhere else commits it too, and
+.B Esc
+discards the typed text without leaving the editor. The color picker's hex
+field behaves the same way: the typed value applies on
+.B Enter
+or when you click elsewhere in the picker, and
+.B Esc
+abandons it. The
+.B arrow keys
+and
+.B Shift+arrows
+still move and resize the capture region while the editor is open, and a
+.B right\-click
+cancels the selector outright (aborting an in-progress drag or text entry
+first, if there is one).
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
@@ -229,7 +260,8 @@ skip the auto-upload after recording even if
 Suppress the SNI tray icon during recording.
 .TP
 .BR \-\-silent ", " \-q ", " \-\-quiet
-Suppress notifications and sound (errors still print).
+Suppress info logging, desktop notifications, and the shutter sound (errors
+still print). Failure notifications are forced and still appear.
 .TP
 .BR \-d ", " \-\-debug
 Enable debug logging to standard error (same as
@@ -246,9 +278,16 @@ Print version and exit.
 Print help and exit.
 .SH SUBCOMMANDS
 .SS Configuration
+Every subcommand below also accepts
+.B \-\-help
+.RB ( \-h )
+directly, equivalent to
+.BR "grabit help " subcommand .
 .TP
 .BI "set " "key value"
-Write a config key (schema-validated).
+Write a config key (schema-validated). The
+.BI "set " key = value
+form is accepted too.
 .TP
 .BI "set " key
 Print the example/default value for that key.
@@ -275,7 +314,9 @@ Print help for a subcommand
 Parse, sanitize, and register a
 .B .sxcu
 uploader; use it as
-.BI \-\- name .
+.BI \-\- name
+(alias:
+.BR install ).
 .TP
 .B sxcu list
 Show registered uploaders (alias:
@@ -290,10 +331,12 @@ Remove an uploader (alias:
 .SS Plugins
 .TP
 .BI "plugin install " git\-url
-Clone, build, and install a plugin.
+Clone, build, and install a plugin (alias:
+.BR add ).
 .TP
 .B plugin list
-List installed plugins.
+List installed plugins (alias:
+.BR ls ).
 .TP
 .BI "plugin show " name
 Print the parsed manifest.
@@ -302,7 +345,8 @@ Print the parsed manifest.
 Update one plugin, or all of them.
 .TP
 .BI "plugin remove " name
-Uninstall a plugin.
+Uninstall a plugin (alias:
+.BR rm ).
 .TP
 .BI name " ..."
 Run the installed plugin
@@ -346,9 +390,6 @@ Active window class (Hyprland IPC; empty elsewhere).
 .B %t
 Active window title (Hyprland IPC; empty elsewhere).
 .TP
-.B %o
-Output name where the capture happened.
-.TP
 .B %%
 Literal
 .BR % .
@@ -383,11 +424,45 @@ or edit the TOML directly. Notable top-level keys:
 .BR filename ,
 .BR filename_preset ,
 .BR format .
+.B save_captures
+is accepted as a legacy alias for
+.BR also_save .
+.B notifications
+carries the same forced-failure caveat as
+.BR \-\-silent .
 Per-service auth tokens go under
 .BI services. name .auth
 or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
+.PP
+Other service keys:
+.B services.zipline.domain
+(zipline endpoint; required for zipline uploads,
+.B /api/upload
+is appended when missing),
+.BI services.zipline.headers. name
+(zipline upload metadata; twelve validated header keys, see
+.BR OPTIONS.md ),
+and
+.B services.nest.folder
+(target folder for nest uploads).
+.PP
+.B capture.backend
+forces the screen-capture protocol:
+.BR auto
+(default),
+.B wlr
+.RB ( zwlr_screencopy ),
+or
+.B ext
+.RB ( ext_image_copy ).
+The
+.B GRABIT_CAPTURE_BACKEND
+environment variable overrides it.
+.B ocr.tesseract
+overrides the tesseract binary path used by
+.BR \-\-tesseract .
 .PP
 Set
 .B region.confirm
@@ -411,9 +486,8 @@ selects the whole monitor under the cursor.
 .PP
 See
 .B OPTIONS.md
-for the full key reference (capture backend, region snap/confirm, encoder
-quality, recording, sound, pin, OCR/translate, preview/text card, edit
-defaults).
+for the full key reference, including region snap/confirm, encoder quality,
+recording, sound, pin, translate, preview/text card, and edit defaults.
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG
@@ -441,6 +515,48 @@ Also set by plugin dispatch: the plugin's name, install directory, and
 per-plugin cache directory. See
 .BR PLUGINS.md .
 .TP
+.B GRABIT_CAPTURE_BACKEND
+Force the capture backend:
+.BR auto ,
+.BR wlr ,
+or
+.BR ext .
+Takes precedence over the
+.B capture.backend
+config key.
+.TP
+.B WAYLAND_DISPLAY
+Wayland socket to connect to. Named in the connection-failure message when
+grabit cannot reach a compositor.
+.TP
+.B HOME
+Required when
+.B XDG_CONFIG_HOME
+is unset: grabit exits with
+.RB \(dq "HOME is not set" \(dq
+if neither is present. Also backs the
+.IR ~/Pictures ,
+.IR ~/Videos ,
+and
+.I ~/.cache
+fallbacks.
+.TP
+.B HYPRLAND_INSTANCE_SIGNATURE
+Set by Hyprland; with
+.B XDG_RUNTIME_DIR
+it locates the Hyprland IPC socket that powers window-title snapping and the
+.BR %w / %t
+filename tokens. Absent elsewhere, those degrade gracefully.
+.TP
+.BR XCURSOR_THEME ", " XCURSOR_SIZE
+Cursor theme and size for the region selector and overlays
+.RI ( XCURSOR_SIZE
+is clamped to 8..256, default 24).
+.TP
+.B GRABIT_RECORD_ENC_DELAY_US
+Debug knob: throttle the recording encoder drain loop by the given number of
+microseconds per frame.
+.TP
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
@@ -459,7 +575,7 @@ else
 Tesseract language-data directory.
 .TP
 .B NO_COLOR
-Disable color in logs (https://no-color.org).
+If set to any value, disable ANSI color in log output.
 .SH FILES
 .TP
 .I ~/.config/grabit/config.toml
@@ -471,11 +587,27 @@ Registered ShareX uploaders.
 .I $XDG_RUNTIME_DIR/grabit-show.pid
 PID file for the on-screen text/preview card.
 .TP
+.I $XDG_RUNTIME_DIR/grabit_recording.pid
+PID file for the active recording (falls back to
+.IR /tmp/grabit_recording.pid ).
+.TP
+.I $XDG_RUNTIME_DIR/grabit/
+Temporary captures for the clipboard and upload flows, removed after use
+(falls back to
+.IR /tmp ).
+.TP
 .I ~/.config/grabit/plugins/<name>/
 Installed plugins (binaries symlinked from
 .IR plugins/.bin/ ;
 per-plugin cache under
 .IR ~/.cache/grabit/plugins/<name>/ ).
+Plugin bookkeeping lives alongside them:
+.I plugins/.lock
+(install/update lock) and per-plugin
+.IR .source ,
+.IR .last_check ,
+.I .update.log
+files.
 .SH EXAMPLES
 .TP
 .B grabit \-c
@@ -513,7 +645,18 @@ Upload an existing file.
 .B grabit \-\-tesseract \-\-translate=ja
 OCR a region and copy the Japanese translation.
 .SH EXIT STATUS
-Returns 0 on success and non-zero on error.
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Runtime failure (capture, upload, clipboard, plugin, or subcommand error).
+Cancelling an interactive selection also exits
+.BR 1 ,
+but without an error notification.
+.TP
+.B 2
+Command-line parse or usage error.
 .SH SEE ALSO
 .BR ffmpeg (1),
 .BR tesseract (1),

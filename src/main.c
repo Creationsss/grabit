@@ -36,7 +36,7 @@
 #include "wl.h"
 
 #ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.5.0"
+#define GRABIT_VERSION "0.0.0"
 #endif
 
 static char g_tmpfile_path[4096] = {0};
@@ -155,7 +155,6 @@ static int print_help(void) {
 		"  %u                uuid v4\n"
 		"  %w                active window class (hyprland)\n"
 		"  %t                active window title (hyprland)\n"
-		"  %o                output name where the capture happened\n"
 		"\n"
 		"First run seeds `default_action=copy` so a bare `grabit` opens the region selector\n"
 		"and copies to the clipboard. Change with: grabit set default_action upload|copy|save|pin\n",

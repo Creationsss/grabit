@@ -9,11 +9,20 @@
 #include <stdbool.h>
 #include <string.h>
 
+static bool is_silent_flag(const char *a) {
+	return strcmp(a, "--silent") == 0 || strcmp(a, "--quiet") == 0 ||
+		   strcmp(a, "-q") == 0;
+}
+
+static bool is_debug_flag(const char *a) {
+	return strcmp(a, "-d") == 0 || strcmp(a, "--debug") == 0;
+}
+
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug) {
 	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--silent") == 0)
+		if (is_silent_flag(argv[i]))
 			*silent = true;
-		else if (strcmp(argv[i], "-d") == 0)
+		else if (is_debug_flag(argv[i]))
 			*debug = true;
 	}
 }
@@ -123,13 +132,11 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->no_upload = true;
 			continue;
 		}
-		if (strcmp(arg, "--silent") == 0 ||
-			strcmp(arg, "--quiet") == 0 ||
-			strcmp(arg, "-q") == 0) {
+		if (is_silent_flag(arg)) {
 			out->silent = true;
 			continue;
 		}
-		if (strcmp(arg, "-d") == 0 || strcmp(arg, "--debug") == 0) {
+		if (is_debug_flag(arg)) {
 			out->debug = true;
 			continue;
 		}

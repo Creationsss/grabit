@@ -129,7 +129,8 @@ static bool valid_service_key(const char *key) {
 
 static bool valid_ocr_key(const char *key) {
 	if (strncmp(key, "ocr.", 4) != 0) return false;
-	return strcmp(key + 4, "tesseract") == 0;
+	const char *leaf = key + 4;
+	return strcmp(leaf, "tesseract") == 0 || strcmp(leaf, "lang") == 0;
 }
 
 static bool valid_edit_key(const char *key) {

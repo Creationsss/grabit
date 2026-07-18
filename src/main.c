@@ -472,6 +472,9 @@ static int run_output(struct config *cfg, const struct args *a) {
 }
 
 static int run_ocr(struct config *cfg, const struct args *a) {
+	const char *lang = config_get(cfg, "ocr.lang");
+	if (!lang || !lang[0]) lang = "eng";
+
 	const char *bin = config_get(cfg, "ocr.tesseract");
 	if (bin && bin[0] && grabit_ocr_check(bin) != 0) {
 		log_error("ocr: configured ocr.tesseract `%s` not found; "
@@ -494,21 +497,24 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 	}
 	if (!bin) {
 		log_error("ocr: tesseract not found in $PATH (install tesseract)");
-		log_error("  also need the english training data: tesseract-data-eng (arch), "
-				  "tesseract-ocr-eng (debian/ubuntu)");
+		log_error("  also need the `%s` training data: tesseract-data-%s (arch), "
+				  "tesseract-ocr-%s (debian/ubuntu)",
+				  lang, lang, lang);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: setup needed",
-			.body = "install tesseract + the english training data",
+			.body = "install tesseract + the matching training data",
 		});
 		return 1;
 	}
-	if (grabit_ocr_has_lang(bin, "eng") != 0) {
-		log_error("ocr: tesseract is installed but the english language data isn't");
-		log_error("  install: tesseract-data-eng (arch), tesseract-ocr-eng (debian/ubuntu)");
-		log_error("  or set TESSDATA_PREFIX to the dir containing eng.traineddata");
+	if (grabit_ocr_has_lang(bin, lang) != 0) {
+		log_error("ocr: tesseract is installed but the `%s` language data isn't", lang);
+		log_error("  install: tesseract-data-%s (arch), tesseract-ocr-%s (debian/ubuntu)",
+				  lang, lang);
+		log_error("  or set TESSDATA_PREFIX to the dir containing %s.traineddata", lang);
+		log_error("  list what's available with: %s --list-langs", bin);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: setup needed",
-			.body = "tesseract eng.traineddata missing; install the language pack",
+			.body = "tesseract language data missing; install the language pack",
 			.force = true,
 		});
 		return 1;
@@ -518,14 +524,14 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 	char *path = acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL);
 	if (!path) return 1;
 
-	char *text = grabit_ocr_run(bin, path);
+	char *text = grabit_ocr_run(bin, path, lang);
 
 	release_source(path, is_temp);
 
 	if (!text) {
 		notify_send(&(struct notify_opts){
 			.summary = "OCR failed",
-			.body = "tesseract returned no output; check that eng.traineddata is installed",
+			.body = "tesseract returned no output; check the language data is installed",
 			.force = true,
 		});
 		return 1;

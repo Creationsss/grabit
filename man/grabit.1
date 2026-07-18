@@ -106,9 +106,9 @@ and copy the text to the clipboard. Requires
 .B tesseract
 on
 .B $PATH
-plus
-.IR eng.traineddata .
-When
+plus the traineddata for the language being read
+.RB ( eng
+by default). When
 .B ocr.tesseract
 is unset, grabit probes
 .B tesseract\-ocr
@@ -116,6 +116,11 @@ before
 .B tesseract
 on
 .BR $PATH .
+Set
+.B ocr.lang
+to OCR another language, combining several with
+.RB \(dq + \(dq
+.RB ( "grabit set ocr.lang eng+deu" ).
 .TP
 .BI \-\-translate [=lang]
 With
@@ -462,7 +467,12 @@ The
 environment variable overrides it.
 .B ocr.tesseract
 overrides the tesseract binary path used by
-.BR \-\-tesseract .
+.BR \-\-tesseract ,
+and
+.B ocr.lang
+selects the OCR language
+.RB ( eng
+by default).
 .PP
 Set
 .B region.confirm

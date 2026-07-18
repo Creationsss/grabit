@@ -13,59 +13,73 @@
   }:
     utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-    in {
-      packages.default = pkgs.stdenv.mkDerivation rec {
-        pname = "grabit";
-        version = "0.4.0";
 
-        src = ./.;
+      version = let
+        lines = pkgs.lib.splitString "\n" (builtins.readFile ./Makefile);
+        hits =
+          builtins.filter (m: m != null)
+          (map (builtins.match "VERSION[[:space:]]*:=[[:space:]]*([^[:space:]]+)[[:space:]]*") lines);
+      in
+        builtins.head (builtins.head hits);
 
-        nativeBuildInputs = with pkgs; [
-          pkg-config
-          wayland-scanner
-          makeWrapper
-        ];
+      runtimeDeps = with pkgs; [
+        ffmpeg-headless
+        tesseract
+        translate-shell
+      ];
 
-        buildInputs = with pkgs; [
-          json_c
-          curl
-          file
-          wayland
-          wayland-protocols
-          cairo
-          libxkbcommon
-          dbus
-          libjpeg
-          libwebp
-        ];
+      mkGrabit = {wrapped ? true}:
+        pkgs.stdenv.mkDerivation {
+          pname =
+            if wrapped
+            then "grabit"
+            else "grabit-minimal";
+          inherit version;
 
-        runtimeDeps = with pkgs; [
-          ffmpeg
-          tesseract
-          translate-shell
-          xdg-utils
-        ];
+          src = ./.;
 
-        installPhase = ''
-          runHook preInstall
-          mkdir -p $out/bin
-          make install PREFIX=$out
-          runHook postInstall
-        '';
+          nativeBuildInputs = with pkgs;
+            [
+              pkg-config
+              wayland-scanner
+            ]
+            ++ pkgs.lib.optional wrapped pkgs.makeWrapper;
 
-        postFixup = ''
-          wrapProgram $out/bin/grabit \
-            --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
-        '';
+          buildInputs = with pkgs; [
+            json_c
+            curl
+            file
+            wayland
+            cairo
+            libxkbcommon
+            dbus
+            libjpeg
+            libwebp
+          ];
 
-        meta = with pkgs.lib; {
-          description = "screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.";
-          homepage = "https://heliopolis.live/creations/grabit";
-          license = licenses.agpl3Plus;
-          platforms = platforms.linux;
-          mainProgram = "grabit";
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out/bin
+            make install PREFIX=$out
+            runHook postInstall
+          '';
+
+          postFixup = pkgs.lib.optionalString wrapped ''
+            wrapProgram $out/bin/grabit \
+              --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
+          '';
+
+          meta = with pkgs.lib; {
+            description = "screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.";
+            homepage = "https://heliopolis.live/creations/grabit";
+            license = licenses.agpl3Plus;
+            platforms = platforms.linux;
+            mainProgram = "grabit";
+          };
         };
-      };
+    in {
+      packages.default = mkGrabit {};
+      packages.minimal = mkGrabit {wrapped = false;};
 
       devShells.default = pkgs.mkShell {
         inputsFrom = [self.packages.${system}.default];

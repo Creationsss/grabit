@@ -95,11 +95,12 @@ int grabit_ocr_has_lang(const char *bin, const char *lang) {
 	return found;
 }
 
-char *grabit_ocr_run(const char *bin, const char *path) {
+char *grabit_ocr_run(const char *bin, const char *path, const char *lang) {
 	if (!bin || !bin[0] || !path || !path[0]) return NULL;
+	if (!lang || !lang[0]) lang = "eng";
 
 	char *argv[] = {(char *)bin, (char *)path, (char *)"stdout",
-					(char *)"-l", (char *)"eng", NULL};
+					(char *)"-l", (char *)lang, NULL};
 	struct grabit_buf buf = {0};
 	int status = 0;
 	if (grabit_spawn_capture(argv, false, 0, &buf, NULL, &status) != 0) {

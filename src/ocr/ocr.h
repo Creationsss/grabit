@@ -6,7 +6,7 @@
 
 int grabit_ocr_check(const char *bin);
 int grabit_ocr_has_lang(const char *bin, const char *lang);
-char *grabit_ocr_run(const char *bin, const char *path);
+char *grabit_ocr_run(const char *bin, const char *path, const char *lang);
 
 char *grabit_translate(const char *text, const char *target);
 

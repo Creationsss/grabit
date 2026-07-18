@@ -90,6 +90,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"webp.quality",
 	"webp.lossless",
 	"ocr.tesseract",
+	"ocr.lang",
 	"capture.backend",
 	"capture.cursor",
 	"region.window_snap",
@@ -284,6 +285,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			*def_out = "tesseract";
 			return 0;
 		}
+		if (strcmp(leaf, "lang") == 0) {
+			*example_out = "eng | deu | jpn | eng+deu";
+			*def_out = "eng";
+			return 0;
+		}
 	}
 	if (strcmp(key, "capture.backend") == 0) {
 		*example_out = "auto|wlr|ext";
@@ -462,6 +468,7 @@ void cfg_help_print_all_keys(void) {
 	}
 	puts("");
 	print_key_with_default("ocr.tesseract", find_default("ocr.tesseract"));
+	print_key_with_default("ocr.lang", find_default("ocr.lang"));
 	puts("");
 	print_key_with_default("capture.backend", find_default("capture.backend"));
 	print_key_with_default("capture.cursor", find_default("capture.cursor"));

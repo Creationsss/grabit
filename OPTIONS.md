@@ -49,7 +49,7 @@ required:
 - libxkbcommon
 - libdbus-1
 
-build-time only (data, no link): `wayland-protocols`, `wayland-scanner`.
+build-time only: `wayland-scanner` (protocol xml is vendored under `protocols/`).
 
 optional (auto-detected via pkg-config):
 - `libjpeg` (or `libjpeg-turbo`) - enables JPEG output (`format = jpeg`).
@@ -309,7 +309,17 @@ requires `zwp_relative_pointer_manager_v1` for drag (universal in modern wlroots
 grabit --tesseract            # select a region; text lands in clipboard
 ```
 
-requires `tesseract` on `$PATH` and `eng.traineddata` (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
+requires `tesseract` on `$PATH` and the training data for the language you OCR in (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
+
+| key | default | notes |
+|---|---|---|
+| `ocr.tesseract` | `tesseract` | path to the tesseract binary |
+| `ocr.lang` | `eng` | language passed to tesseract's `-l`. combine with `+` (e.g. `eng+deu`). needs the matching traineddata installed; list what you have with `tesseract --list-langs` |
+
+```sh
+grabit set ocr.lang deu                   # ocr german
+grabit set ocr.lang eng+deu               # both at once
+```
 
 ### translate
 

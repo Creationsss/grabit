@@ -96,7 +96,8 @@ char *grabit_translate_libre(const char *text, const char *target,
 	struct grabit_buf resp = {0};
 
 	size_t ulen = strlen(url);
-	while (ulen > 0 && url[ulen - 1] == '/') ulen--;
+	while (ulen > 0 && url[ulen - 1] == '/')
+		ulen--;
 	static const char PATH[] = "/translate";
 	size_t plen = sizeof PATH - 1;
 	bool has_path = ulen >= plen && strncmp(url + ulen - plen, PATH, plen) == 0;

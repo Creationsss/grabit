@@ -133,7 +133,8 @@ char *grabit_translate_deepl(const char *text, const char *target,
 		log_error("translate: out of memory");
 		goto done;
 	}
-	for (char *p = upper; *p; p++) *p = (char)toupper((unsigned char)*p);
+	for (char *p = upper; *p; p++)
+		*p = (char)toupper((unsigned char)*p);
 	enc_lang = curl_easy_escape(c, upper, 0);
 	if (!enc_lang) {
 		log_error("translate: out of memory");
@@ -142,7 +143,8 @@ char *grabit_translate_deepl(const char *text, const char *target,
 
 	if (url && url[0]) {
 		size_t ulen = strlen(url);
-		while (ulen > 0 && url[ulen - 1] == '/') ulen--;
+		while (ulen > 0 && url[ulen - 1] == '/')
+			ulen--;
 		static const char PATH[] = "/v2/translate";
 		size_t plen = sizeof PATH - 1;
 		bool has_path = ulen >= plen && strncmp(url + ulen - plen, PATH, plen) == 0;

@@ -85,7 +85,8 @@ static void clip_close_inherited_fds(void) {
 	}
 	long max = sysconf(_SC_OPEN_MAX);
 	if (max < 0 || max > 4096) max = 4096;
-	for (int fd = STDERR_FILENO + 1; fd < max; fd++) close(fd);
+	for (int fd = STDERR_FILENO + 1; fd < max; fd++)
+		close(fd);
 }
 
 __attribute__((noreturn)) static void clip_child(const void *bytes, size_t size,

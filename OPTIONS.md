@@ -453,6 +453,8 @@ grabit -e -o                  # annotate, then save
 - **hex field**: the typed value applies on `enter` or when you click elsewhere in the picker; `esc` abandons it
 - **right-click** cancels the selector in every mode, aborting an in-progress drag or text entry first
 
+by default the capture region stays adjustable after you drag it out, so you can keep tweaking it while annotating. set `edit.instant_capture true` to invert that: annotate first, then the drag (or window-snap click, or `ctrl+a`) that sets the region captures immediately.
+
 last-picked color, width, and tool persist via:
 
 | key | default | notes |
@@ -461,6 +463,7 @@ last-picked color, width, and tool persist via:
 | `edit.width` | `4` | integer 1-20 |
 | `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `ellipse`, `arrow`, `blur`, `text`, `eraser` - the editor reopens with your last-used tool |
 | `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
+| `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable. lets you annotate first and finish with one drag (or a window-snap click, or `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.toolbar_output` | (empty) | output name the toolbar opens on, e.g. `DP-1`; empty picks the primary monitor |
 | `edit.toolbar_pos` | (empty) | last parked toolbar spot as `<output>:<x>,<y>`, written automatically when you drag the toolbar; ignored if that output is gone |
 

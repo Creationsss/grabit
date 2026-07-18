@@ -139,7 +139,8 @@ static bool valid_edit_key(const char *key) {
 	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
 		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "default") == 0 ||
 		   strcmp(leaf, "toolbar_output") == 0 ||
-		   strcmp(leaf, "toolbar_pos") == 0;
+		   strcmp(leaf, "toolbar_pos") == 0 ||
+		   strcmp(leaf, "instant_capture") == 0;
 }
 
 static bool valid_jpeg_key(const char *key) {

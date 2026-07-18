@@ -138,7 +138,9 @@ static void refresh_cursor(struct ro_state *st, struct wl_pointer *p) {
 }
 
 static void lock_or_finish(struct ro_state *st) {
-	if (region_editing(st) || st->confirm_mode) {
+	bool keep = st->confirm_mode ||
+				(region_editing(st) && !st->edit_instant);
+	if (keep) {
 		st->region_locked = true;
 		if (st->pointer) refresh_cursor(st, st->pointer);
 	} else {

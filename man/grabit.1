@@ -203,6 +203,17 @@ hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
 .PP
+By default the capture region stays adjustable once dragged out, so it can be
+tweaked while annotating. Set
+.B edit.instant_capture
+to
+.B true
+to invert that: annotate first, and the drag (or window-snap click, or
+.BR Ctrl+A )
+that sets the region captures immediately.
+.B region.confirm
+takes precedence if both are set.
+.PP
 While the
 .B text
 tool is capturing input,

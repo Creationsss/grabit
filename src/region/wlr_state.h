@@ -131,6 +131,7 @@ struct ro_state {
 
 	bool annotate_mode;
 	bool confirm_mode;
+	bool edit_instant;
 	bool region_locked;
 	enum tool_kind current_tool;
 

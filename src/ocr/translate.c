@@ -55,7 +55,17 @@ static int reap_with_grace(pid_t pid, int *status) {
 	return grabit_waitpid_intr(pid, status);
 }
 
-char *grabit_translate(const char *text, const char *target) {
+char *grabit_translate(const char *text, const char *target,
+					   const struct grabit_translate_opts *opts) {
+	const char *backend = opts && opts->backend ? opts->backend : "trans";
+	if (strcmp(backend, "libretranslate") == 0)
+		return grabit_translate_libre(text, target, opts->url, opts->api_key);
+	if (strcmp(backend, "deepl") == 0)
+		return grabit_translate_deepl(text, target, opts->url, opts->api_key);
+	return grabit_translate_trans(text, target);
+}
+
+char *grabit_translate_trans(const char *text, const char *target) {
 	if (!text || !target || !target[0]) return NULL;
 	if (!grabit_in_path(TRANS_BIN)) {
 		log_error("translate: `%s` not found in $PATH (install translate-shell)", TRANS_BIN);

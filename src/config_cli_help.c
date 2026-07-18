@@ -96,6 +96,9 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"region.window_snap",
 	"region.confirm",
 	"translate.target",
+	"translate.backend",
+	"translate.url",
+	"translate.api_key",
 	"text_card.dismiss_secs",
 	"text_card.position",
 	"text_card.output",
@@ -326,6 +329,21 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "en";
 		return 0;
 	}
+	if (strcmp(key, "translate.backend") == 0) {
+		*example_out = "trans|libretranslate|deepl";
+		*def_out = "trans";
+		return 0;
+	}
+	if (strcmp(key, "translate.url") == 0) {
+		*example_out = "http://localhost:5000";
+		*def_out = "(unset)";
+		return 0;
+	}
+	if (strcmp(key, "translate.api_key") == 0) {
+		*example_out = "<libretranslate api key, if the server needs one>";
+		*def_out = "(unset)";
+		return 0;
+	}
 	if (strcmp(key, "text_card.dismiss_secs") == 0) {
 		*example_out = "0-600 (0 = stay until replaced)";
 		*def_out = "8";
@@ -475,6 +493,9 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("region.window_snap", find_default("region.window_snap"));
 	print_key_with_default("region.confirm", find_default("region.confirm"));
 	print_key_with_default("translate.target", find_default("translate.target"));
+	print_key_with_default("translate.backend", find_default("translate.backend"));
+	print_key_with_default("translate.url", find_default("translate.url"));
+	print_key_with_default("translate.api_key", find_default("translate.api_key"));
 	print_key_with_default("text_card.dismiss_secs", find_default("text_card.dismiss_secs"));
 	print_key_with_default("text_card.position", find_default("text_card.position"));
 	print_key_with_default("text_card.output", find_default("text_card.output"));

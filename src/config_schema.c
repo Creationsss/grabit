@@ -162,7 +162,9 @@ static bool valid_sound_key(const char *key) {
 
 static bool valid_translate_key(const char *key) {
 	if (strncmp(key, "translate.", 10) != 0) return false;
-	return strcmp(key + 10, "target") == 0;
+	const char *leaf = key + 10;
+	return strcmp(leaf, "target") == 0 || strcmp(leaf, "backend") == 0 ||
+		   strcmp(leaf, "url") == 0 || strcmp(leaf, "api_key") == 0;
 }
 
 static bool valid_text_card_key(const char *key) {

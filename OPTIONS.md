@@ -327,9 +327,41 @@ grabit set ocr.lang eng+deu               # both at once
 grabit --tesseract --translate            # uses `translate.target` (default en)
 grabit --tesseract --translate=ja         # per-run target override
 grabit set translate.target de            # set a default target
+grabit set translate.backend libretranslate
+grabit set translate.url http://localhost:5000
 ```
 
-`--translate` pipes the OCR result through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`, source auto-detected) and copies the translation to the clipboard instead of the raw OCR text. install `translate-shell` from your distro to enable it. if `trans` is missing or the translate call fails/times out (20s cap), grabit falls back to copying the raw OCR text and fires a notification.
+`--translate` translates the OCR result and copies that to the clipboard instead of the raw OCR text. if the translate call fails or times out, grabit falls back to copying the raw OCR text and fires a notification.
+
+> **privacy:** translating sends your OCR'd screen text to whatever server the backend talks to. `trans` sends it to google. `libretranslate` sends it wherever `translate.url` points - use your own instance to keep it on your machine.
+
+| key | default | notes |
+|---|---|---|
+| `translate.target` | `en` | iso-639-1 target code; source is auto-detected |
+| `translate.backend` | `trans` | `trans`, `libretranslate`, or `deepl` |
+| `translate.url` | (unset) | server url. required for `libretranslate`; optional override for `deepl`. the api path is appended if you leave it off |
+| `translate.api_key` | (unset) | api key. required for `deepl`, optional for `libretranslate`. `GRABIT_TRANSLATE_KEY` overrides it |
+
+- `trans` pipes the text through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`). install `translate-shell` from your distro to enable it; if it is missing grabit copies the raw OCR text.
+- `libretranslate` POSTs to a [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) server (`/translate`, json in, json out). no extra binary needed, and pointing it at a local instance means the text never leaves your machine:
+
+```sh
+docker run --rm -p 5000:5000 libretranslate/libretranslate --load-only en,es
+grabit set translate.backend libretranslate
+grabit set translate.url http://localhost:5000
+```
+
+- `deepl` POSTs to the [DeepL API](https://developers.deepl.com) with your own key. grabit picks the endpoint from the key: keys ending in `:fx` are Free plan and go to `api-free.deepl.com`, everything else goes to `api.deepl.com`. override with `translate.url` if needed.
+
+```sh
+export GRABIT_TRANSLATE_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
+grabit set translate.backend deepl
+grabit set translate.target EN-US            # deepl codes: EN-US, PT-BR, ZH-HANS, DE ...
+```
+
+  deepl language codes are not plain iso-639-1 - regional variants like `EN-US`, `EN-GB`, `PT-BR`, `ZH-HANS` and `ES-419` are passed through as you set them (upper-cased). grabit reports quota exhaustion (`http 456`), rate limiting (`429`), and key/endpoint problems (`403`) distinctly.
+
+  **note:** per DeepL's Pro license §3.3.2 the free API tier "reserves the right to perpetually store any Content or Processed Content", while paid tiers store only temporarily. if you are OCR'ing sensitive screen content, prefer a paid key or a self-hosted libretranslate instance.
 
 ### show on screen
 
@@ -525,6 +557,7 @@ modifiers:
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
 | `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
+| `GRABIT_TRANSLATE_KEY` | api key for the `libretranslate` backend; overrides `translate.api_key` |
 | `NO_COLOR` | if set to any value, disable ansi color in log output |
 | `GRABIT_RECORD_ENC_DELAY_US` | debug knob: throttle the recording encoder drain loop, in microseconds per frame |
 

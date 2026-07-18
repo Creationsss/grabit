@@ -125,15 +125,44 @@ to OCR another language, combining several with
 .BI \-\-translate [=lang]
 With
 .BR \-\-tesseract :
-pipe the OCR text through translate-shell's
-.B trans
-binary and copy the translation instead.
+translate the OCR text and copy the translation instead.
 .I lang
 is the target language (default
 .BR en ;
-source auto-detected). Falls back to raw OCR if
+source auto-detected). Falls back to raw OCR if the call fails (20s cap).
+.B translate.backend
+picks the translator:
 .B trans
-is missing or the call fails (20s cap).
+(default) shells out to translate-shell's
+.B trans
+binary, while
+.B libretranslate
+POSTs to the LibreTranslate server named by
+.B translate.url
+.RI ( /translate
+is appended if omitted), and
+.B deepl
+POSTs to the DeepL API using
+.B translate.api_key
+.RB ( GRABIT_TRANSLATE_KEY
+overrides it). Neither needs an external binary. For
+.BR deepl ,
+the endpoint follows the key: keys ending in
+.B :fx
+are Free plan and use
+.IR api\-free.deepl.com ,
+others use
+.IR api.deepl.com ;
+.B translate.url
+overrides that. DeepL target codes are not plain ISO\-639\-1 and may carry a
+regional suffix
+.RB ( EN\-US ", " PT\-BR ", " ZH\-HANS ).
+.PP
+Translating sends the OCR'd text to whichever server the backend uses:
+.B trans
+sends it to Google, and DeepL's free API tier reserves the right to store
+submitted content perpetually, so prefer a paid key or a self-hosted
+LibreTranslate instance for sensitive screen content.
 .TP
 .B \-\-show
 With
@@ -583,6 +612,13 @@ else
 .TP
 .B TESSDATA_PREFIX
 Tesseract language-data directory.
+.TP
+.B GRABIT_TRANSLATE_KEY
+API key for the
+.B libretranslate
+backend, overriding the
+.B translate.api_key
+config key.
 .TP
 .B NO_COLOR
 If set to any value, disable ANSI color in log output.

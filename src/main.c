@@ -550,15 +550,27 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		const char *target = a->translate_to;
 		if (!target || !target[0]) target = config_get(cfg, "translate.target");
 		if (!target || !target[0]) target = "en";
-		if (!grabit_in_path("trans")) {
+		const char *backend = config_get(cfg, "translate.backend");
+		if (!backend || !backend[0]) backend = "trans";
+		const char *api_key = getenv("GRABIT_TRANSLATE_KEY");
+		if (!api_key || !api_key[0]) api_key = config_get(cfg, "translate.api_key");
+		struct grabit_translate_opts topts = {
+			.backend = backend,
+			.url = config_get(cfg, "translate.url"),
+			.api_key = api_key,
+		};
+		if (strcmp(backend, "trans") == 0 && !grabit_in_path("trans")) {
 			log_warn("translate: `trans` not in $PATH; copying raw OCR text");
+			log_warn("  install translate-shell, or point grabit at a libretranslate server:");
+			log_warn("    grabit set translate.backend libretranslate");
+			log_warn("    grabit set translate.url http://localhost:5000");
 			notify_send(&(struct notify_opts){
 				.summary = "Translate skipped",
 				.body = "translate-shell not installed; raw OCR copied",
 				.force = true,
 			});
 		} else {
-			char *translated_text = grabit_translate(text, target);
+			char *translated_text = grabit_translate(text, target, &topts);
 			if (!translated_text) {
 				log_warn("translate: failed; copying raw OCR text");
 				notify_send(&(struct notify_opts){

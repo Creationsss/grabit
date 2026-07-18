@@ -7,8 +7,10 @@
 #include "log.h"
 #include "wl.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -35,12 +37,20 @@ static void source_send(void *data, struct zwlr_data_control_source_v1 *src,
 
 	signal(SIGPIPE, SIG_IGN);
 
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags >= 0 && (flags & O_NONBLOCK)) fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+
 	const uint8_t *p = st->bytes;
 	size_t left = st->size;
 	while (left > 0) {
 		ssize_t w = write(fd, p, left);
 		if (w < 0) {
 			if (errno == EINTR) continue;
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				struct pollfd pfd = {.fd = fd, .events = POLLOUT};
+				if (poll(&pfd, 1, -1) < 0 && errno != EINTR) break;
+				continue;
+			}
 			break;
 		}
 		if (w == 0) break;
@@ -61,9 +71,27 @@ static const struct zwlr_data_control_source_v1_listener source_listener_g = {
 	.cancelled = source_cancelled,
 };
 
+static void clip_close_inherited_fds(void) {
+	DIR *d = opendir("/proc/self/fd");
+	if (d) {
+		int dfd = dirfd(d);
+		struct dirent *e;
+		while ((e = readdir(d))) {
+			int fd = atoi(e->d_name);
+			if (fd > STDERR_FILENO && fd != dfd) close(fd);
+		}
+		closedir(d);
+		return;
+	}
+	long max = sysconf(_SC_OPEN_MAX);
+	if (max < 0 || max > 4096) max = 4096;
+	for (int fd = STDERR_FILENO + 1; fd < max; fd++) close(fd);
+}
+
 __attribute__((noreturn)) static void clip_child(const void *bytes, size_t size,
 												 const char *const *mimes, size_t n_mimes) {
 	setsid();
+	clip_close_inherited_fds();
 
 	int devnull = open("/dev/null", O_RDWR | O_CLOEXEC);
 	if (devnull >= 0) {
@@ -97,6 +125,12 @@ __attribute__((noreturn)) static void clip_child(const void *bytes, size_t size,
 	}
 
 	zwlr_data_control_device_v1_set_selection(dev, src);
+
+	int devnull2 = open("/dev/null", O_WRONLY | O_CLOEXEC);
+	if (devnull2 >= 0) {
+		dup2(devnull2, STDERR_FILENO);
+		close(devnull2);
+	}
 
 	while (!st.cancelled) {
 		if (wl_display_dispatch(s.display) < 0) break;

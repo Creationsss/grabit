@@ -6,6 +6,7 @@
 
 #include "clipboard/clipboard_internal.h"
 #include "log.h"
+#include "mime.h"
 #include "util.h"
 
 #include <errno.h>
@@ -43,13 +44,12 @@ int clipboard_set_image_file(const char *path) {
 		return -1;
 	}
 
-	static const char *const IMAGE_MIMES[] = {
-		"image/png",
-	};
-	int rc = clipboard_send_bytes(buf, sz,
-								  IMAGE_MIMES,
-								  sizeof IMAGE_MIMES / sizeof IMAGE_MIMES[0]);
+	char *mime = mime_for_file(path);
+	const char *img_mime = (mime && mime_is_image(mime)) ? mime : "image/png";
+	const char *mimes[] = {img_mime};
+	int rc = clipboard_send_bytes(buf, sz, mimes, 1);
 
+	free(mime);
 	free(buf);
 	return rc;
 }

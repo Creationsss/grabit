@@ -25,10 +25,21 @@ void pin_input_load_cursors(struct pin_state *st) {
 	st->cursor_theme = grabit_cursor_theme_load(st->wls->shm, st->cursor_scale);
 	if (!st->cursor_theme) return;
 	static const char *const move[] = {
-		"grab", "openhand", "fleur", "move", "all-scroll", "left_ptr", NULL,
+		"grab",
+		"openhand",
+		"fleur",
+		"move",
+		"all-scroll",
+		"left_ptr",
+		NULL,
 	};
 	static const char *const grabbing[] = {
-		"grabbing", "closedhand", "fleur", "move", "left_ptr", NULL,
+		"grabbing",
+		"closedhand",
+		"fleur",
+		"move",
+		"left_ptr",
+		NULL,
 	};
 	st->cursor_hand = grabit_cursor_load_hand(st->cursor_theme);
 	st->cursor_move = grabit_cursor_load_first(st->cursor_theme, move);

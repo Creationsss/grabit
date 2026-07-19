@@ -101,7 +101,7 @@ struct transient_extras {
 };
 
 static void place_transient(struct pin_state *st, const struct grabit_output *o,
-						   const char *pos) {
+							const char *pos) {
 	if (!pos || !pos[0]) pos = "top-right";
 	bool is_top = strncmp(pos, "top", 3) == 0;
 	bool is_bottom = strncmp(pos, "bottom", 6) == 0;

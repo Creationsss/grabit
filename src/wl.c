@@ -238,7 +238,6 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 			reg, name, &zxdg_output_manager_v1_interface, v);
 		return;
 	}
-
 }
 
 static void registry_global_remove(void *data, struct wl_registry *reg, uint32_t name) {

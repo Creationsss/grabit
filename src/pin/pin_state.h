@@ -11,51 +11,63 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
+#include "region/region.h"
+
 struct grabit_output;
 struct grabit_wl_state;
 struct zwlr_layer_surface_v1;
-struct zwp_relative_pointer_v1;
 struct wl_cursor;
 struct wl_cursor_theme;
+struct pin_state;
+
+struct pin_output {
+	struct pin_state *st;
+	struct grabit_output *go;
+	struct wl_surface *surface;
+	struct zwlr_layer_surface_v1 *layer;
+	struct wl_buffer *buffer;
+	void *buf_data;
+	size_t buf_size;
+	cairo_surface_t *dst;
+	int32_t width;
+	int32_t height;
+	int32_t pixel_w;
+	int32_t pixel_h;
+	int32_t scale;
+	bool configured;
+	bool dirty;
+	struct rect shown;
+	struct wl_callback *frame_cb;
+};
 
 struct pin_state {
 	struct grabit_wl_state *wls;
-	struct grabit_output *out;
+
+	struct pin_output *outs;
+	size_t n;
+	struct rect bounds;
 
 	cairo_surface_t *image;
 	int32_t img_w;
 	int32_t img_h;
 
-	struct wl_surface *surface;
-	struct zwlr_layer_surface_v1 *layer_surface;
 	struct wl_pointer *pointer;
-	struct zwp_relative_pointer_v1 *relative_pointer;
 
+	int32_t px;
+	int32_t py;
 	int32_t width;
 	int32_t height;
-	int32_t scale;
-	int32_t pixel_width;
-	int32_t pixel_height;
-	int stride;
-	size_t buf_size;
-	void *buf_data;
-	struct wl_buffer *buffer;
-	cairo_surface_t *dst_surface;
-	bool configured;
 
 	bool input_grabbed;
+	bool clickable;
 	bool finished;
 
-	int32_t margin_x;
-	int32_t margin_y;
-
-	int32_t cursor_sx;
-	int32_t cursor_sy;
+	struct pin_output *ptr_on;
+	int32_t cx;
+	int32_t cy;
 	bool dragging;
-	bool pointer_in_surface;
-	int32_t pending_dx_fixed;
-	int32_t pending_dy_fixed;
-	struct wl_callback *drag_frame_cb;
+	int32_t grab_dx;
+	int32_t grab_dy;
 
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_surface *cursor_surface;
@@ -64,6 +76,7 @@ struct pin_state {
 	struct wl_cursor *cursor_grabbing;
 	struct wl_cursor *current_cursor;
 	uint32_t last_pointer_serial;
+	int32_t cursor_scale;
 
 	int ipc_fd;
 	char ipc_path[256];
@@ -71,9 +84,6 @@ struct pin_state {
 	bool transient;
 	int dismiss_timer_fd;
 	int dismiss_secs;
-
-	const char *transient_position;
-	const char *transient_output_name;
 
 	const char *hover_caption;
 	bool hover_active;
@@ -88,15 +98,19 @@ struct pin_state {
 #define PIN_CLOSE_BTN_INSET 4
 #define PIN_TRANSIENT_MARGIN 20
 
-int pin_render_alloc_buffer(struct pin_state *st);
-void pin_render_free_buffer(struct pin_state *st);
-void pin_render_paint(struct pin_state *st);
-void pin_render_repaint_button_area(struct pin_state *st);
-void pin_render_attach_layer(struct pin_state *st);
-void pin_surface_recreate(struct pin_state *st);
+static inline struct rect pin_rect(const struct pin_state *st) {
+	return (struct rect){st->px, st->py, st->width, st->height};
+}
+
+int pin_render_output_alloc(struct pin_output *o);
+void pin_render_output_free(struct pin_output *o);
+void pin_render_output_redraw(struct pin_output *o);
+void pin_render_redraw_all(struct pin_state *st);
+void pin_render_attach_layer(struct pin_output *o);
 
 void pin_input_attach(struct pin_state *st);
-void pin_input_apply_region(struct pin_state *st);
+void pin_input_apply_region(struct pin_output *o);
+void pin_input_apply_regions(struct pin_state *st);
 void pin_input_load_cursors(struct pin_state *st);
 void pin_input_destroy_cursors(struct pin_state *st);
 void pin_input_refresh_cursor(struct pin_state *st);

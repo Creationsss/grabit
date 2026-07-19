@@ -51,7 +51,6 @@ WL_PROTOCOLS := \
 	wlr-layer-shell-unstable-v1 \
 	xdg-output-unstable-v1 \
 	xdg-shell \
-	relative-pointer-unstable-v1 \
 	ext-image-capture-source-v1 \
 	ext-image-copy-capture-v1 \
 	ext-foreign-toplevel-list-v1

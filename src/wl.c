@@ -19,7 +19,6 @@
 
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
-#include "relative-pointer-unstable-v1-client-protocol.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
@@ -240,11 +239,6 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		return;
 	}
 
-	if (strcmp(interface, zwp_relative_pointer_manager_v1_interface.name) == 0) {
-		s->relative_pointer_manager = wl_registry_bind(
-			reg, name, &zwp_relative_pointer_manager_v1_interface, 1);
-		return;
-	}
 }
 
 static void registry_global_remove(void *data, struct wl_registry *reg, uint32_t name) {
@@ -386,7 +380,6 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	s->outputs = NULL;
 	s->n_outputs = s->cap_outputs = 0;
 
-	if (s->relative_pointer_manager) zwp_relative_pointer_manager_v1_destroy(s->relative_pointer_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);

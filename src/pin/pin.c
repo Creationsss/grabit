@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
@@ -26,7 +27,6 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
-#include "relative-pointer-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static volatile sig_atomic_t g_term = 0;
@@ -100,37 +100,28 @@ struct transient_extras {
 	const char *click_open;
 };
 
-void pin_surface_recreate(struct pin_state *st) {
-	grabit_wl_callback_drop(&st->drag_frame_cb);
-	pin_render_free_buffer(st);
-	if (st->layer_surface) zwlr_layer_surface_v1_destroy(st->layer_surface);
-	if (st->surface) wl_surface_destroy(st->surface);
-	st->configured = false;
-	st->pointer_in_surface = false;
-	int32_t new_scale = (st->out && st->out->scale > 0) ? st->out->scale : 1;
-	if (new_scale != st->scale) {
-		st->scale = new_scale;
-		pin_input_destroy_cursors(st);
-		pin_input_load_cursors(st);
-	}
+static void place_transient(struct pin_state *st, const struct grabit_output *o,
+						   const char *pos) {
+	if (!pos || !pos[0]) pos = "top-right";
+	bool is_top = strncmp(pos, "top", 3) == 0;
+	bool is_bottom = strncmp(pos, "bottom", 6) == 0;
+	bool is_left = strstr(pos, "left") != NULL;
+	bool is_right = strstr(pos, "right") != NULL;
+	int32_t m = PIN_TRANSIENT_MARGIN;
 
-	st->surface = wl_compositor_create_surface(st->wls->compositor);
-	st->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-		st->wls->layer_shell, st->surface,
-		st->out ? st->out->wl_output : NULL,
-		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
-	pin_render_attach_layer(st);
-	zwlr_layer_surface_v1_set_size(st->layer_surface,
-								   (uint32_t)st->width, (uint32_t)st->height);
-	zwlr_layer_surface_v1_set_anchor(st->layer_surface,
-									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
-	zwlr_layer_surface_v1_set_margin(st->layer_surface,
-									 st->margin_y, 0, 0, st->margin_x);
-	zwlr_layer_surface_v1_set_exclusive_zone(st->layer_surface, -1);
-	zwlr_layer_surface_v1_set_keyboard_interactivity(
-		st->layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
-	wl_surface_commit(st->surface);
+	if (is_left)
+		st->px = o->x + m;
+	else if (is_right)
+		st->px = o->x + o->logical_width - st->width - m;
+	else
+		st->px = o->x + (o->logical_width - st->width) / 2;
+
+	if (is_top)
+		st->py = o->y + m;
+	else if (is_bottom)
+		st->py = o->y + o->logical_height - st->height - m;
+	else
+		st->py = o->y + (o->logical_height - st->height) / 2;
 }
 
 static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
@@ -162,18 +153,18 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	st.image = img;
 	st.img_w = cairo_image_surface_get_width(img);
 	st.img_h = cairo_image_surface_get_height(img);
-	st.scale = 1;
+	st.cursor_scale = 1;
 	st.ipc_fd = -1;
 	st.dismiss_timer_fd = -1;
 	st.dismiss_secs = dismiss_secs;
 	st.transient = transient;
 	if (transient && te && te->hover_caption && te->hover_caption[0]) {
 		st.hover_caption = te->hover_caption;
-		st.input_grabbed = true;
+		st.clickable = true;
 	}
 	if (transient && te && te->click_open && te->click_open[0]) {
 		st.click_open = te->click_open;
-		st.input_grabbed = true;
+		st.clickable = true;
 	}
 
 	struct grabit_output *target = NULL;
@@ -188,80 +179,57 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		}
 	}
 	if (!target) target = grabit_wl_primary_output(&wls);
-	st.out = target;
 
-	if (target && target->scale > 0) st.scale = target->scale;
-
+	int32_t tscale = target->scale > 0 ? target->scale : 1;
 	if (have_rect) {
 		st.width = r.w;
 		st.height = r.h;
 	} else {
-		st.width = st.img_w / st.scale;
-		st.height = st.img_h / st.scale;
+		st.width = st.img_w / tscale;
+		st.height = st.img_h / tscale;
 		if (st.width <= 0) st.width = st.img_w;
 		if (st.height <= 0) st.height = st.img_h;
 	}
 
-	if (have_rect && target) {
-		st.margin_x = r.x - target->x;
-		st.margin_y = r.y - target->y;
-		if (st.margin_x < 0) st.margin_x = 0;
-		if (st.margin_y < 0) st.margin_y = 0;
+	if (have_rect) {
+		st.px = r.x;
+		st.py = r.y;
 	} else if (transient) {
-		st.margin_x = PIN_TRANSIENT_MARGIN;
-		st.margin_y = PIN_TRANSIENT_MARGIN;
+		place_transient(&st, target, te ? te->position : NULL);
 	} else {
-		int32_t out_w = target ? target->logical_width : 1920;
-		int32_t out_h = target ? target->logical_height : 1080;
-		compute_centered_jitter(st.width, st.height, out_w, out_h,
-								&st.margin_x, &st.margin_y);
+		int32_t mx = 0, my = 0;
+		compute_centered_jitter(st.width, st.height, target->logical_width,
+								target->logical_height, &mx, &my);
+		st.px = target->x + mx;
+		st.py = target->y + my;
 	}
 
-	st.surface = wl_compositor_create_surface(wls.compositor);
-	st.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-		wls.layer_shell, st.surface,
-		target ? target->wl_output : NULL,
-		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
+	grabit_wl_outputs_bbox(&wls, &st.bounds);
 
-	pin_render_attach_layer(&st);
+	st.outs = calloc(wls.n_outputs, sizeof *st.outs);
+	if (!st.outs) {
+		grabit_wl_finish(&wls);
+		return 1;
+	}
+	for (size_t i = 0; i < wls.n_outputs; i++) {
+		if (transient && wls.outputs[i] != target) continue;
+		struct pin_output *o = &st.outs[st.n++];
+		o->st = &st;
+		o->go = wls.outputs[i];
+		o->scale = o->go->scale > 0 ? o->go->scale : 1;
+		if (o->scale > st.cursor_scale) st.cursor_scale = o->scale;
+		o->surface = wl_compositor_create_surface(wls.compositor);
+		o->layer = grabit_wl_layer_fullscreen(
+			&wls, o->surface, o->go->wl_output, "grabit-pin",
+			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE, NULL, NULL);
+		if (!o->layer) continue;
+		pin_render_attach_layer(o);
+		grabit_wl_clear_input_region(wls.compositor, o->surface);
+		wl_surface_commit(o->surface);
+	}
+
 	pin_input_attach(&st);
 	pin_input_load_cursors(&st);
-
-	zwlr_layer_surface_v1_set_size(st.layer_surface,
-								   (uint32_t)st.width, (uint32_t)st.height);
-	uint32_t anchor;
-	int32_t mt = 0, mr = 0, mb = 0, ml = 0;
-	if (!transient) {
-		anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-				 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
-		mt = st.margin_y;
-		ml = st.margin_x;
-	} else {
-		const char *pos = (te && te->position) ? te->position : "top-right";
-		bool is_top = strncmp(pos, "top", 3) == 0;
-		bool is_bottom = strncmp(pos, "bottom", 6) == 0;
-		bool is_left = strstr(pos, "left") != NULL;
-		bool is_right = strstr(pos, "right") != NULL;
-		anchor = 0;
-		if (is_top) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
-		if (is_bottom) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-		if (is_left) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
-		if (is_right) anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-		if (anchor == 0) anchor = 0; /* "center": no anchor */
-		mt = is_top ? PIN_TRANSIENT_MARGIN : 0;
-		mb = is_bottom ? PIN_TRANSIENT_MARGIN : 0;
-		ml = is_left ? PIN_TRANSIENT_MARGIN : 0;
-		mr = is_right ? PIN_TRANSIENT_MARGIN : 0;
-	}
-	zwlr_layer_surface_v1_set_anchor(st.layer_surface, anchor);
-	zwlr_layer_surface_v1_set_margin(st.layer_surface, mt, mr, mb, ml);
-	zwlr_layer_surface_v1_set_exclusive_zone(st.layer_surface, -1);
-	zwlr_layer_surface_v1_set_keyboard_interactivity(
-		st.layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
-
-	grabit_wl_clear_input_region(wls.compositor, st.surface);
-
-	wl_surface_commit(st.surface);
 
 	if (!transient) {
 		if (pin_ipc_open(&st) != 0) {
@@ -340,12 +308,14 @@ static int pin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 out:
 	if (st.dismiss_timer_fd >= 0) close(st.dismiss_timer_fd);
 	pin_ipc_close(&st);
-	grabit_wl_callback_drop(&st.drag_frame_cb);
-	pin_render_free_buffer(&st);
 	pin_input_destroy_cursors(&st);
-	if (st.layer_surface) zwlr_layer_surface_v1_destroy(st.layer_surface);
-	if (st.surface) wl_surface_destroy(st.surface);
-	if (st.relative_pointer) zwp_relative_pointer_v1_destroy(st.relative_pointer);
+	for (size_t i = 0; i < st.n; i++) {
+		struct pin_output *o = &st.outs[i];
+		pin_render_output_free(o);
+		if (o->layer) zwlr_layer_surface_v1_destroy(o->layer);
+		if (o->surface) wl_surface_destroy(o->surface);
+	}
+	free(st.outs);
 	if (st.pointer) wl_pointer_release(st.pointer);
 	wl_display_roundtrip(wls.display);
 	grabit_wl_finish(&wls);

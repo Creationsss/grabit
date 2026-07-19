@@ -15,7 +15,6 @@ struct zwlr_data_control_manager_v1;
 struct zwlr_layer_shell_v1;
 struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
-struct zwp_relative_pointer_manager_v1;
 struct ext_image_copy_capture_manager_v1;
 struct ext_output_image_capture_source_manager_v1;
 struct wl_compositor;
@@ -50,7 +49,6 @@ struct grabit_wl_state {
 	struct zwlr_data_control_manager_v1 *data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
-	struct zwp_relative_pointer_manager_v1 *relative_pointer_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
 	struct ext_output_image_capture_source_manager_v1 *ext_source_manager;
 

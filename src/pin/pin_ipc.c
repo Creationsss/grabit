@@ -97,18 +97,16 @@ void pin_ipc_handle(struct pin_state *st) {
 		if (strcmp(buf, "grab") == 0) {
 			if (!st->input_grabbed) {
 				st->input_grabbed = true;
-				pin_input_apply_region(st);
-				pin_render_repaint_button_area(st);
+				pin_input_apply_regions(st);
+				pin_render_redraw_all(st);
 				pin_input_refresh_cursor(st);
 			}
 		} else if (strcmp(buf, "release") == 0) {
 			if (st->input_grabbed) {
 				st->input_grabbed = false;
 				st->dragging = false;
-				st->pending_dx_fixed = 0;
-				st->pending_dy_fixed = 0;
-				pin_input_apply_region(st);
-				pin_render_repaint_button_area(st);
+				pin_input_apply_regions(st);
+				pin_render_redraw_all(st);
 				pin_input_refresh_cursor(st);
 			}
 		} else if (strcmp(buf, "close") == 0) {

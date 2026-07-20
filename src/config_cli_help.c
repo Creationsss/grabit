@@ -85,6 +85,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"edit.tool",
 	"edit.default",
 	"edit.instant_capture",
+	"edit.start_with_tool",
 	"edit.toolbar_output",
 	"edit.toolbar_pos",
 	"jpeg.quality",
@@ -243,6 +244,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			return 0;
 		}
 		if (strcmp(leaf, "instant_capture") == 0) {
+			*example_out = "true|false";
+			*def_out = "false";
+			return 0;
+		}
+		if (strcmp(leaf, "start_with_tool") == 0) {
 			*example_out = "true|false";
 			*def_out = "false";
 			return 0;
@@ -479,6 +485,7 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("edit.tool", find_default("edit.tool"));
 	print_key_with_default("edit.default", find_default("edit.default"));
 	print_key_with_default("edit.instant_capture", find_default("edit.instant_capture"));
+	print_key_with_default("edit.start_with_tool", find_default("edit.start_with_tool"));
 	print_key_with_default("edit.toolbar_output", find_default("edit.toolbar_output"));
 	print_key_with_default("edit.toolbar_pos", find_default("edit.toolbar_pos"));
 	puts("");

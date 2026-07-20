@@ -205,16 +205,27 @@ hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
 .PP
-By default the capture region stays adjustable once dragged out, so it can be
-tweaked while annotating. Set
+The editor opens in region-select mode; the
+.B select region
+tool is also bound to
+.BR q .
+Set
 .B edit.instant_capture
 to
 .B true
-to invert that: annotate first, and the drag (or window-snap click, or
+to capture immediately when the region is set (drag, window-snap click, or
 .BR Ctrl+A )
-that sets the region captures immediately.
+instead of leaving it adjustable;
 .B region.confirm
-takes precedence if both are set.
+takes precedence if both are set. Set
+.B edit.start_with_tool
+to
+.B true
+to open the editor already in the last-used
+.B edit.tool
+instead of region-select \(en press
+.B q
+to reach region-select when ready.
 .PP
 While the
 .B text

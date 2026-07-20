@@ -75,9 +75,9 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st.confirm_mode = true;
 		v = config_get(cfg, "edit.instant_capture");
-		if (v && strcmp(v, "true") == 0) {
-			st.edit_instant = true;
-		}
+		if (v && strcmp(v, "true") == 0) st.edit_instant = true;
+		v = config_get(cfg, "edit.start_with_tool");
+		if (annotate_mode && v && strcmp(v, "true") == 0) st.region_locked = true;
 		v = config_get(cfg, "edit.toolbar_output");
 		if (annotate_mode && v && v[0]) {
 			st.tb_out = grabit_wl_output_by_name(s, v);

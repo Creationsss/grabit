@@ -870,6 +870,13 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 
+	if (!st->ctrl_held && (sym == XKB_KEY_q || sym == XKB_KEY_Q)) {
+		mode_enter_region(st);
+		if (st->pointer) refresh_cursor(st, st->pointer);
+		region_render_request_redraw_all(st);
+		return;
+	}
+
 	int32_t pick = -1;
 	if (sym >= XKB_KEY_1 && sym <= XKB_KEY_9)
 		pick = (int32_t)(sym - XKB_KEY_1);

@@ -212,7 +212,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 static const char *tooltip_text(enum tb_action act) {
 	switch (act) {
 	case TB_REGION:
-		return "Select region  (drag to set the capture area)";
+		return "Select region (q, drag to set the capture area)";
 	case TB_EDIT:
 		return "Move/resize annotations  (s)";
 	case TB_TOOL_PEN:

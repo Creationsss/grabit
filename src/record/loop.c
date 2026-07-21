@@ -4,9 +4,11 @@
 #define _XOPEN_SOURCE 700
 #include "record/loop.h"
 
+#include "cursor.h"
 #include "log.h"
 #include "record/compose.h"
 #include "record/controls.h"
+#include "record/controls_internal.h"
 #include "record/ring.h"
 #include "record/segments.h"
 #include "util.h"
@@ -82,7 +84,7 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 	int consec_fail = 0;
 	bool direct = rec_layout_is_direct(layout);
 
-	struct rect bar_history[5];
+	struct rect bar_history[12];
 	memset(bar_history, 0, sizeof(bar_history));
 	int bar_idx = 0;
 
@@ -174,54 +176,114 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 		if (ctrl && bg_buf) {
 
 			bar_history[bar_idx] = controls_bar_rect(ctrl);
-			bar_idx = (bar_idx + 1) % 5;
+			bar_idx = (bar_idx + 1) % 12;
 
-			int32_t min_x = INT32_MAX, min_y = INT32_MAX;
-			int32_t max_r = 0, max_b = 0;
-			for (int i = 0; i < 5; i++) {
+			struct rect mask = {0, 0, 0, 0};
+			for (int i = 0; i < 12; i++) {
 				if (bar_history[i].w > 0) {
-					if (bar_history[i].x < min_x) min_x = bar_history[i].x;
-					if (bar_history[i].y < min_y) min_y = bar_history[i].y;
-					if (bar_history[i].x + bar_history[i].w > max_r) max_r = bar_history[i].x + bar_history[i].w;
-					if (bar_history[i].y + bar_history[i].h > max_b) max_b = bar_history[i].y + bar_history[i].h;
+					mask = rect_union(mask, bar_history[i]);
 				}
 			}
 
-			if (min_x < INT32_MAX) {
-				struct rect mask = {min_x, min_y, max_r - min_x, max_b - min_y};
+			if (mask.w > 0) {
+				mask.x -= 16;
+				mask.y -= 16;
+				mask.w += 32;
+				mask.h += 32;
+
 				int32_t lx = i32max(mask.x, region.x);
 				int32_t ly = i32max(mask.y, region.y);
 				int32_t rx = i32min(mask.x + mask.w, region.x + region.w);
 				int32_t ry = i32min(mask.y + mask.h, region.y + region.h);
 
 				if (lx < rx && ly < ry) {
+					double scale_x = (double)layout->dst_w / region.w;
+					double scale_y = (double)layout->dst_h / region.h;
+
 					int32_t ox = lx - region.x;
 					int32_t oy = ly - region.y;
 					int32_t ow = rx - lx;
 					int32_t oh = ry - ly;
 
-					if (ox >= 0 && oy >= 0 && ox + ow <= layout->dst_w && oy + oh <= layout->dst_h) {
+					int32_t pox = (int32_t)(ox * scale_x);
+					int32_t poy = (int32_t)(oy * scale_y);
+					int32_t pow = (int32_t)(ow * scale_x);
+					int32_t poh = (int32_t)(oh * scale_y);
+
+					if (pox >= 0 && poy >= 0 && pox + pow <= layout->dst_w && poy + poh <= layout->dst_h) {
 						for (int32_t y = 0; y < layout->dst_h; y++) {
-							if (y < oy || y >= oy + oh) {
+							if (y < poy || y >= poy + poh) {
 								memcpy((uint8_t *)bg_buf + y * layout->dst_stride,
 									   (uint8_t *)frame_buf + y * layout->dst_stride, (size_t)layout->dst_w * 4);
 							} else {
-								if (ox > 0)
+								if (pox > 0)
 									memcpy((uint8_t *)bg_buf + y * layout->dst_stride,
-										   (uint8_t *)frame_buf + y * layout->dst_stride, (size_t)ox * 4);
-								if (ox + ow < layout->dst_w)
-									memcpy((uint8_t *)bg_buf + y * layout->dst_stride + (size_t)(ox + ow) * 4,
-										   (uint8_t *)frame_buf + y * layout->dst_stride + (size_t)(ox + ow) * 4,
-										   (size_t)(layout->dst_w - (ox + ow)) * 4);
+										   (uint8_t *)frame_buf + y * layout->dst_stride, (size_t)pox * 4);
+								if (pox + pow < layout->dst_w)
+									memcpy((uint8_t *)bg_buf + y * layout->dst_stride + (size_t)(pox + pow) * 4,
+										   (uint8_t *)frame_buf + y * layout->dst_stride + (size_t)(pox + pow) * 4,
+										   (size_t)(layout->dst_w - (pox + pow)) * 4);
 							}
 						}
-						for (int32_t y = oy; y < oy + oh; y++) {
-							memcpy((uint8_t *)frame_buf + y * layout->dst_stride + (size_t)ox * 4,
-								   (uint8_t *)bg_buf + y * layout->dst_stride + (size_t)ox * 4, (size_t)ow * 4);
+						for (int32_t y = poy; y < poy + poh; y++) {
+							memcpy((uint8_t *)frame_buf + y * layout->dst_stride + (size_t)pox * 4,
+								   (uint8_t *)bg_buf + y * layout->dst_stride + (size_t)pox * 4, (size_t)pow * 4);
 						}
 					}
 				} else {
 					memcpy(bg_buf, frame_buf, (size_t)layout->dst_stride * (size_t)layout->dst_h);
+				}
+
+				if (cursor && ctrl) {
+					struct rect crect = controls_cursor_rect(ctrl);
+					if (crect.w > 0) {
+						int32_t clx = i32max(crect.x, lx);
+						int32_t cly = i32max(crect.y, ly);
+						int32_t crx = i32min(crect.x + crect.w, rx);
+						int32_t cry = i32min(crect.y + crect.h, ry);
+						if (clx < crx && cly < cry) {
+							const struct raw_cursor_image *img = ctrl->cursor_hand ? &ctrl->raw_cursor_hand : &ctrl->raw_cursor_default;
+							if (img && img->pixels) {
+								double scale_x = (double)layout->dst_w / region.w;
+								double scale_y = (double)layout->dst_h / region.h;
+
+								int32_t pcx = (int32_t)(((double)(ctrl->cx - region.x)) * scale_x) - img->hotspot_x;
+								int32_t pcy = (int32_t)(((double)(ctrl->cy - region.y)) * scale_y) - img->hotspot_y;
+
+								int32_t pox = (int32_t)(((double)(lx - region.x)) * scale_x);
+								int32_t poy = (int32_t)(((double)(ly - region.y)) * scale_y);
+								int32_t pow = (int32_t)(((double)(rx - lx)) * scale_x);
+								int32_t poh = (int32_t)(((double)(ry - ly)) * scale_y);
+
+								for (int32_t cyi = 0; cyi < img->height; cyi++) {
+									int32_t dst_y = pcy + cyi;
+									if (dst_y < poy || dst_y >= poy + poh || dst_y < 0 || dst_y >= layout->dst_h) continue;
+									for (int32_t cxi = 0; cxi < img->width; cxi++) {
+										int32_t dst_x = pcx + cxi;
+										if (dst_x < pox || dst_x >= pox + pow || dst_x < 0 || dst_x >= layout->dst_w) continue;
+
+										uint32_t src_px = img->pixels[cyi * img->width + cxi];
+										uint8_t sa = (src_px >> 24) & 0xff;
+										if (sa == 0) continue;
+
+										uint8_t *dst = (uint8_t *)frame_buf + (size_t)dst_y * (size_t)layout->dst_stride + (size_t)dst_x * 4;
+										if (sa == 255) {
+											dst[0] = src_px & 0xff;
+											dst[1] = (src_px >> 8) & 0xff;
+											dst[2] = (src_px >> 16) & 0xff;
+											dst[3] = 255;
+										} else {
+											uint8_t inv_a = 255 - sa;
+											dst[0] = (src_px & 0xff) + (dst[0] * inv_a) / 255;
+											dst[1] = ((src_px >> 8) & 0xff) + (dst[1] * inv_a) / 255;
+											dst[2] = ((src_px >> 16) & 0xff) + (dst[2] * inv_a) / 255;
+											dst[3] = sa + (dst[3] * inv_a) / 255;
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		}

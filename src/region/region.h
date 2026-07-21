@@ -36,6 +36,16 @@ static inline int32_t i32max(int32_t a, int32_t b) {
 	return a > b ? a : b;
 }
 
+static inline struct rect rect_union(struct rect a, struct rect b) {
+	if (a.w <= 0 || a.h <= 0) return b;
+	if (b.w <= 0 || b.h <= 0) return a;
+	int32_t x1 = i32min(a.x, b.x);
+	int32_t y1 = i32min(a.y, b.y);
+	int32_t x2 = i32max(a.x + a.w, b.x + b.w);
+	int32_t y2 = i32max(a.y + a.h, b.y + b.h);
+	return (struct rect){x1, y1, x2 - x1, y2 - y1};
+}
+
 static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 	r.x = i32max(b.x, i32min(r.x, b.x + b.w - r.w));
 	r.y = i32max(b.y, i32min(r.y, b.y + b.h - r.h));

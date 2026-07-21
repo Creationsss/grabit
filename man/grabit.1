@@ -698,7 +698,20 @@ If set to any value, disable ANSI color in log output.
 .SH FILES
 .TP
 .I ~/.config/grabit/config.toml
-User configuration (TOML).
+User configuration (TOML). Only ever written by
+.BR "grabit set" / unset ,
+so it is safe to keep in version control.
+.TP
+.I $XDG_STATE_HOME/grabit/state.toml
+Machine-local state grabit writes on its own: the last-used
+.BR edit.color ", " edit.width ", " edit.tool
+and the editor toolbar position
+.RB ( edit.toolbar_pos ).
+Falls back to
+.IR ~/.local/state/grabit/state.toml .
+These override the matching
+.B edit.*
+keys in config.toml, which then act only as an initial value.
 .TP
 .I ~/.config/grabit/uploaders/<name>.sxcu
 Registered ShareX uploaders.

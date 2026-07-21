@@ -698,7 +698,8 @@ static int run_pin(struct config *cfg, const struct args *a) {
 
 static int run(const struct args *a) {
 	struct config cfg;
-	if (config_load(&cfg) != 0) return 1;
+	if (config_load_full(&cfg) != 0) return 1;
+	config_state_migrate(&cfg);
 	notify_init(&cfg, a->silent);
 
 	const char *backend_pref = config_get(&cfg, "capture.backend");
@@ -826,7 +827,7 @@ static int try_dispatch_plugin(const char *name, int argc, char **argv) {
 	bool cap_cfg_loaded = false;
 	bool cap_is_temp = false;
 	if (want_capture) {
-		if (config_load(&cap_cfg) != 0) {
+		if (config_load_full(&cap_cfg) != 0) {
 			log_error("plugin: --capture: config_load failed");
 			exit(1);
 		}

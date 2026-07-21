@@ -68,20 +68,15 @@ void persist_edit_choices(struct config *cfg, uint32_t color, int32_t width,
 	snprintf(wn, sizeof wn, "%d", width);
 	const char *tn = (tool >= 0 && tool < TOOL_COUNT) ? grabit_tool_names[tool]
 													  : grabit_tool_names[TOOL_PEN];
-	const char *cur_c = config_get(cfg, "edit.color");
-	const char *cur_w = config_get(cfg, "edit.width");
-	const char *cur_t = config_get(cfg, "edit.tool");
-	bool changed = false;
-	if (!cur_c || strcmp(cur_c, cn) != 0) {
-		if (config_set(cfg, "edit.color", cn) == 0) changed = true;
+	const char *keys[] = {"edit.color", "edit.width", "edit.tool"};
+	const char *vals[] = {cn, wn, tn};
+	for (size_t i = 0; i < 3; i++) {
+		const char *cur = config_get(cfg, keys[i]);
+		if (!cur || strcmp(cur, vals[i]) != 0) {
+			(void)config_state_put(cfg, keys, vals, 3);
+			return;
+		}
 	}
-	if (!cur_w || strcmp(cur_w, wn) != 0) {
-		if (config_set(cfg, "edit.width", wn) == 0) changed = true;
-	}
-	if (!cur_t || strcmp(cur_t, tn) != 0) {
-		if (config_set(cfg, "edit.tool", tn) == 0) changed = true;
-	}
-	if (changed) (void)config_save(cfg);
 }
 
 bool edit_toolbar_pos_parse(const char *s, char *name_out, size_t name_cap,
@@ -107,7 +102,9 @@ void persist_toolbar_pos(struct config *cfg, const char *output,
 						 int32_t rx, int32_t ry) {
 	char val[96];
 	snprintf(val, sizeof val, "%s:%d,%d", output, rx, ry);
-	const char *cur = config_get(cfg, "edit.toolbar_pos");
+	const char *key = "edit.toolbar_pos";
+	const char *cur = config_get(cfg, key);
 	if (cur && strcmp(cur, val) == 0) return;
-	if (config_set(cfg, "edit.toolbar_pos", val) == 0) (void)config_save(cfg);
+	const char *valp = val;
+	(void)config_state_put(cfg, &key, &valp, 1);
 }

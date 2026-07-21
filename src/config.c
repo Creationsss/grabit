@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "vendor/tomlc99/toml.h"
 
@@ -209,6 +210,96 @@ int config_load(struct config *c) {
 		return -1;
 	}
 	return 0;
+}
+
+int config_load_full(struct config *c) {
+	if (config_load(c) != 0) return -1;
+	config_state_overlay(c);
+	return 0;
+}
+
+static int state_read(struct config *c) {
+	memset(c, 0, sizeof *c);
+	const char *file = paths_state_file();
+	FILE *f = fopen(file, "r");
+	if (!f) return 1;
+	char errbuf[256];
+	toml_table_t *root = toml_parse_file(f, errbuf, sizeof errbuf);
+	fclose(f);
+	if (!root) {
+		log_warn("state %s could not be parsed (%s); ignoring", file, errbuf);
+		return 1;
+	}
+	int rc = flatten_table(root, "", c);
+	toml_free(root);
+	if (rc != 0) {
+		config_free(c);
+		return -1;
+	}
+	return 0;
+}
+
+static int state_write_from(struct config *cfg) {
+	struct config st = {0};
+	for (size_t i = 0; i < cfg->n; i++) {
+		if (!cfg_is_state_key(cfg->kvs[i].key)) continue;
+		if (cfg_kv_upsert(&st, cfg->kvs[i].key, cfg->kvs[i].val) != 0) {
+			config_free(&st);
+			return -1;
+		}
+	}
+	int rc = config_state_save(&st);
+	config_free(&st);
+	return rc;
+}
+
+void config_state_overlay(struct config *cfg) {
+	struct config st;
+	if (state_read(&st) != 0) return;
+	for (size_t i = 0; i < st.n; i++) {
+		if (!cfg_is_state_key(st.kvs[i].key)) {
+			log_warn("state: ignoring non-state key `%s` in %s", st.kvs[i].key,
+					 paths_state_file());
+			continue;
+		}
+		(void)cfg_kv_upsert(cfg, st.kvs[i].key, st.kvs[i].val);
+	}
+	config_free(&st);
+	cfg->overlaid = true;
+}
+
+void config_state_migrate(struct config *cfg) {
+	struct config st;
+	int rc = state_read(&st);
+	if (rc == 0) config_free(&st);
+	if (rc != 1) return;
+
+	bool any = false;
+	for (size_t i = 0; i < cfg->n && !any; i++)
+		any = cfg_is_state_key(cfg->kvs[i].key);
+	if (!any) return;
+
+	if (state_write_from(cfg) != 0) return;
+	log_info("edit state moved to %s", paths_state_file());
+	log_info("  the edit.* entries in %s are now just a starting point and"
+			 " can be removed", paths_config_file());
+}
+
+int config_state_put(struct config *cfg, const char *const *keys,
+					 const char *const *vals, size_t n) {
+	for (size_t i = 0; i < n; i++) {
+		if (config_set(cfg, keys[i], vals[i]) != 0) return -1;
+	}
+	return state_write_from(cfg);
+}
+
+int config_state_clear(const char *key) {
+	struct config st;
+	if (state_read(&st) != 0) return 0;
+	int rc = 0;
+	if (cfg_kv_remove(&st, key, false) > 0) rc = config_state_save(&st);
+	config_free(&st);
+	return rc;
 }
 
 size_t cfg_kv_remove(struct config *c, const char *key, bool prefix) {

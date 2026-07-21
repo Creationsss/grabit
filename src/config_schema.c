@@ -31,6 +31,14 @@ static const char *BOOL_KEYS[] = {
 	NULL,
 };
 
+static const char *STATE_KEYS[] = {
+	"edit.color",
+	"edit.width",
+	"edit.tool",
+	"edit.toolbar_pos",
+	NULL,
+};
+
 static const char *KNOWN_TOP[] = {
 	"default_action",
 	"notifications",
@@ -96,6 +104,10 @@ bool cfg_in_list(const char *needle, const char **list) {
 
 bool cfg_is_bool_key(const char *key) {
 	return cfg_in_list(key, BOOL_KEYS);
+}
+
+bool cfg_is_state_key(const char *key) {
+	return cfg_in_list(key, STATE_KEYS);
 }
 
 bool cfg_is_known_service(const char *s) {

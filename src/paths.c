@@ -23,31 +23,46 @@
 
 static char *g_config_dir;
 static char *g_config_file;
+static char *g_state_dir;
+static char *g_state_file;
 
-const char *paths_config_dir(void) {
-	if (g_config_dir) return g_config_dir;
-
-	const char *xdg = getenv("XDG_CONFIG_HOME");
+static const char *xdg_dir(char **cache, const char *env, const char *home_rel) {
+	if (*cache) return *cache;
+	const char *xdg = getenv(env);
 	int rc;
 	if (xdg && xdg[0] == '/') {
-		rc = grabit_xasprintf(&g_config_dir, "%s/grabit", xdg);
+		rc = grabit_xasprintf(cache, "%s/grabit", xdg);
 	} else {
 		const char *home = getenv("HOME");
 		if (!home || home[0] != '/') {
 			die("HOME is not set");
 		}
-		rc = grabit_xasprintf(&g_config_dir, "%s/.config/grabit", home);
+		rc = grabit_xasprintf(cache, "%s/%s/grabit", home, home_rel);
 	}
-	if (rc != 0 || !g_config_dir) die("out of memory");
-	return g_config_dir;
+	if (rc != 0 || !*cache) die("out of memory");
+	return *cache;
+}
+
+static const char *cached_join(char **cache, const char *dir, const char *name) {
+	if (*cache) return *cache;
+	if (grabit_xasprintf(cache, "%s/%s", dir, name) != 0) die("out of memory");
+	return *cache;
+}
+
+const char *paths_config_dir(void) {
+	return xdg_dir(&g_config_dir, "XDG_CONFIG_HOME", ".config");
 }
 
 const char *paths_config_file(void) {
-	if (g_config_file) return g_config_file;
-	if (grabit_xasprintf(&g_config_file, "%s/config.toml", paths_config_dir()) != 0) {
-		die("out of memory");
-	}
-	return g_config_file;
+	return cached_join(&g_config_file, paths_config_dir(), "config.toml");
+}
+
+const char *paths_state_dir(void) {
+	return xdg_dir(&g_state_dir, "XDG_STATE_HOME", ".local/state");
+}
+
+const char *paths_state_file(void) {
+	return cached_join(&g_state_file, paths_state_dir(), "state.toml");
 }
 
 int paths_mkdir_p(const char *path) {

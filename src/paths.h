@@ -10,6 +10,8 @@ struct config;
 
 const char *paths_config_dir(void);
 const char *paths_config_file(void);
+const char *paths_state_dir(void);
+const char *paths_state_file(void);
 
 int paths_mkdir_p(const char *path);
 

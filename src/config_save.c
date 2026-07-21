@@ -5,6 +5,7 @@
 #include "config.h"
 
 #include "config_internal.h"
+#include "log.h"
 #include "paths.h"
 #include "util.h"
 
@@ -77,7 +78,27 @@ static int kv_strcmp_cmp(const void *a, const void *b) {
 	return strcmp(ka->key, kb->key);
 }
 
+static int config_write_to(struct config *c, const char *path);
+
 int config_save(struct config *c) {
+	if (c->overlaid) {
+		log_error("refusing to write state-overlaid config to %s",
+				  paths_config_file());
+		return -1;
+	}
+	return config_write_to(c, paths_config_file());
+}
+
+int config_state_save(struct config *c) {
+	const char *dir = paths_state_dir();
+	if (paths_mkdir_p(dir) != 0) {
+		log_error("mkdir -p %s: %s", dir, strerror(errno));
+		return -1;
+	}
+	return config_write_to(c, paths_state_file());
+}
+
+static int config_write_to(struct config *c, const char *path) {
 	if (c->n > 1) qsort(c->kvs, c->n, sizeof *c->kvs, gcfg_cmp_kv);
 
 	struct grabit_buf out = {0};
@@ -135,7 +156,7 @@ int config_save(struct config *c) {
 	}
 
 	if (out.len == 0) grabit_buf_putc(&out, '\n');
-	int rc = paths_atomic_write(paths_config_file(), out.data, out.len);
+	int rc = paths_atomic_write(path, out.data, out.len);
 	grabit_buf_free(&out);
 	(void)current_section_len;
 	if (c->n > 1) qsort(c->kvs, c->n, sizeof *c->kvs, kv_strcmp_cmp);

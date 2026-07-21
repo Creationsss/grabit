@@ -99,6 +99,12 @@ grabit help [<subcommand>]    # help for set/get/unset/sxcu/plugin
 
 every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
+### config vs state
+
+`~/.config/grabit/config.toml` is yours: grabit only writes it when you run `set` or `unset`.
+
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, and the editor toolbar position (`edit.toolbar_pos`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
+
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
 
 ### auth tokens

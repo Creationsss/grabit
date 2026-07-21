@@ -239,7 +239,7 @@ grabit --record               # stop
 
 while recording you'll see:
 - a thin red border around the captured region
-- a control bar (start / pause / stop, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
+- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
 - a recording icon in your status bar tray (waybar with `tray` module, etc.)
 
 the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.

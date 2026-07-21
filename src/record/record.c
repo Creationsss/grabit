@@ -26,6 +26,7 @@
 #include "wl.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -169,6 +170,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	atomic_store_explicit(&grabit_rec_stop, 0, memory_order_relaxed);
 	atomic_store_explicit(&grabit_rec_pause, 0, memory_order_relaxed);
+	atomic_store_explicit(&grabit_rec_abort, 0, memory_order_relaxed);
 	struct prev_sigs prev = {0};
 	record_signals_install(&prev);
 
@@ -211,17 +213,56 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			 layout.dst_w, layout.dst_h, layout.n, layout.n == 1 ? "" : "s",
 			 fps, output_path);
 
+	void *bg_buf = calloc(1, (size_t)layout.dst_stride * (size_t)layout.dst_h);
+	if (bg_buf) {
+		if (rec_layout_is_direct(&layout)) {
+			rec_layout_capture_direct_into(&s, &layout, rec_cfg_cursor(cfg),
+										   bg_buf, layout.dst_stride, layout.dst_h);
+		} else {
+			rec_layout_capture_compose(&s, &layout, rec_cfg_cursor(cfg), bg_buf);
+		}
+	}
+
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
-		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause);
+		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
 	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 
 	double secs = rec_capture_loop(&s, &layout, &pool, rec_cfg_cursor(cfg),
-								   &sc, controls);
+								   &sc, controls, r, bg_buf);
+
+	bool aborted = atomic_load_explicit(&grabit_rec_abort, memory_order_relaxed) != 0;
 
 	tray_stop(tray);
 	controls_stop(controls);
 	overlay_stop(overlay);
+	free(bg_buf);
+
+	if (aborted) {
+		/* Kill ffmpeg immediately — don't let it finalize. */
+		seg_finish(&sc, NULL);
+		for (size_t i = 0; i < sc.n_pending; i++) {
+			if (sc.pending[i] > 0) kill(sc.pending[i], SIGKILL);
+		}
+		seg_reap_all(&sc);
+		seg_unlink_all(&sc);
+		if (output_path) unlink(output_path);
+
+		notify_send(&(struct notify_opts){
+			.summary = "Recording Aborted",
+			.force = true,
+		});
+
+		record_signals_restore(&prev);
+		ring_destroy(&ring);
+		pool_destroy(&pool);
+		seg_ctx_free(&sc);
+		unlink_pid_file();
+		free(output_path);
+		rec_layout_free(&layout);
+		grabit_wl_finish(&s);
+		return 0;
+	}
 
 	seg_finish(&sc, NULL);
 	if (seg_any_pending_alive(&sc) || sc.n_segs > 1) {

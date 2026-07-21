@@ -12,7 +12,7 @@
 #include <wayland-client.h>
 
 static int btn_at(int32_t x, int32_t y) {
-	for (int b = 0; b < 3; b++) {
+	for (int b = 0; b < 4; b++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(b, &bx, &by, &bw, &bh);
 		if (rect_contains((struct rect){bx, by, bw, bh}, x, y)) return b;
@@ -105,6 +105,10 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		atomic_store(c->pause_flag, 1);
 		break;
 	case CB_BTN_STOP:
+		atomic_store(c->stop_flag, 1);
+		break;
+	case CB_BTN_ABORT:
+		atomic_store(c->abort_flag, 1);
 		atomic_store(c->stop_flag, 1);
 		break;
 	default:

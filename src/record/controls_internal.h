@@ -32,6 +32,7 @@ struct zwlr_layer_surface_v1;
 #define CB_BTN_START 0
 #define CB_BTN_PAUSE 1
 #define CB_BTN_STOP 2
+#define CB_BTN_ABORT 3
 
 struct ctl_output {
 	struct rec_controls *st;
@@ -66,6 +67,7 @@ struct rec_controls {
 
 	atomic_int *stop_flag;
 	atomic_int *pause_flag;
+	atomic_int *abort_flag;
 	bool paused;
 	int64_t secs;
 
@@ -87,8 +89,7 @@ static inline struct rect ctl_bar_rect(const struct rec_controls *c) {
 }
 
 static inline int32_t ctl_bar_width(void) {
-	return CB_PAD + CB_DOT_W + 4 + CB_TIME_W + CB_SEC_GAP +
-		   3 * CB_BTN + 2 * CB_GAP + CB_PAD;
+	return CB_PAD + CB_DOT_W + 4 + CB_TIME_W + 4 * CB_BTN + 3 * CB_GAP + CB_PAD;
 }
 
 void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h);

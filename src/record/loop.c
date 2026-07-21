@@ -13,12 +13,15 @@
 #include "wl.h"
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include <wayland-client.h>
 
 atomic_int grabit_rec_stop;
 atomic_int grabit_rec_pause;
+atomic_int grabit_rec_abort;
 
 static void on_stop_signal(int sig) {
 	(void)sig;
@@ -68,7 +71,8 @@ static int pump_or_stop(struct grabit_wl_state *s, int timeout_ms) {
 
 double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						struct buf_pool *pool, bool cursor,
-						struct seg_ctx *sc, struct rec_controls *ctrl) {
+						struct seg_ctx *sc, struct rec_controls *ctrl,
+						struct rect region, void *bg_buf) {
 	int64_t period_ns = 1000000000 / sc->fps;
 	struct ring *ring = sc->ring;
 	bool paused = false;
@@ -77,6 +81,10 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 	int64_t frame_idx = 0;
 	int consec_fail = 0;
 	bool direct = rec_layout_is_direct(layout);
+
+	struct rect bar_history[5];
+	memset(bar_history, 0, sizeof(bar_history));
+	int bar_idx = 0;
 
 	while (!atomic_load_explicit(&grabit_rec_stop, memory_order_relaxed)) {
 		bool want_pause =
@@ -162,6 +170,61 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 			continue;
 		}
 		consec_fail = 0;
+
+		if (ctrl && bg_buf) {
+
+			bar_history[bar_idx] = controls_bar_rect(ctrl);
+			bar_idx = (bar_idx + 1) % 5;
+
+			int32_t min_x = INT32_MAX, min_y = INT32_MAX;
+			int32_t max_r = 0, max_b = 0;
+			for (int i = 0; i < 5; i++) {
+				if (bar_history[i].w > 0) {
+					if (bar_history[i].x < min_x) min_x = bar_history[i].x;
+					if (bar_history[i].y < min_y) min_y = bar_history[i].y;
+					if (bar_history[i].x + bar_history[i].w > max_r) max_r = bar_history[i].x + bar_history[i].w;
+					if (bar_history[i].y + bar_history[i].h > max_b) max_b = bar_history[i].y + bar_history[i].h;
+				}
+			}
+
+			if (min_x < INT32_MAX) {
+				struct rect mask = {min_x, min_y, max_r - min_x, max_b - min_y};
+				int32_t lx = i32max(mask.x, region.x);
+				int32_t ly = i32max(mask.y, region.y);
+				int32_t rx = i32min(mask.x + mask.w, region.x + region.w);
+				int32_t ry = i32min(mask.y + mask.h, region.y + region.h);
+
+				if (lx < rx && ly < ry) {
+					int32_t ox = lx - region.x;
+					int32_t oy = ly - region.y;
+					int32_t ow = rx - lx;
+					int32_t oh = ry - ly;
+
+					if (ox >= 0 && oy >= 0 && ox + ow <= layout->dst_w && oy + oh <= layout->dst_h) {
+						for (int32_t y = 0; y < layout->dst_h; y++) {
+							if (y < oy || y >= oy + oh) {
+								memcpy((uint8_t *)bg_buf + y * layout->dst_stride,
+									   (uint8_t *)frame_buf + y * layout->dst_stride, (size_t)layout->dst_w * 4);
+							} else {
+								if (ox > 0)
+									memcpy((uint8_t *)bg_buf + y * layout->dst_stride,
+										   (uint8_t *)frame_buf + y * layout->dst_stride, (size_t)ox * 4);
+								if (ox + ow < layout->dst_w)
+									memcpy((uint8_t *)bg_buf + y * layout->dst_stride + (size_t)(ox + ow) * 4,
+										   (uint8_t *)frame_buf + y * layout->dst_stride + (size_t)(ox + ow) * 4,
+										   (size_t)(layout->dst_w - (ox + ow)) * 4);
+							}
+						}
+						for (int32_t y = oy; y < oy + oh; y++) {
+							memcpy((uint8_t *)frame_buf + y * layout->dst_stride + (size_t)ox * 4,
+								   (uint8_t *)bg_buf + y * layout->dst_stride + (size_t)ox * 4, (size_t)ow * 4);
+						}
+					}
+				} else {
+					memcpy(bg_buf, frame_buf, (size_t)layout->dst_stride * (size_t)layout->dst_h);
+				}
+			}
+		}
 
 		struct frame f = {
 			.data = frame_buf,

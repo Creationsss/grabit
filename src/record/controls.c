@@ -105,16 +105,23 @@ static bool place_bar(struct grabit_wl_state *s, struct rect r,
 }
 
 struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
-									atomic_int *stop_flag, atomic_int *pause_flag) {
+									atomic_int *stop_flag, atomic_int *pause_flag,
+									atomic_int *abort_flag) {
 	if (!s || !s->layer_shell || !s->compositor || !s->shm || s->n_outputs == 0)
 		return NULL;
 
 	int32_t w = ctl_bar_width(), h = CB_H;
 	int32_t bx = 0, by = 0;
 	if (!place_bar(s, r, w, h, &bx, &by)) {
-		log_info("recording: no room for the control bar outside the region; "
-				 "re-run `grabit --record` to stop");
-		return NULL;
+		/* Fallback: place bar at top-centre of the output containing the
+		 * recording region's centre.  The bar will overlap the region, but
+		 * the per-frame mask keeps it out of the capture. */
+		const struct grabit_output *fb =
+			grabit_wl_output_at(s, r.x + r.w / 2, r.y + r.h / 2);
+		if (!fb) fb = grabit_wl_primary_output(s);
+		if (!fb) return NULL;
+		bx = fb->x + (fb->logical_width - w) / 2;
+		by = fb->y + CB_EDGE_GAP;
 	}
 
 	struct rec_controls *c = calloc(1, sizeof *c);
@@ -126,6 +133,7 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 	c->by = by;
 	c->stop_flag = stop_flag;
 	c->pause_flag = pause_flag;
+	c->abort_flag = abort_flag;
 	grabit_wl_outputs_bbox(s, &c->bounds);
 
 	c->outs = calloc(s->n_outputs, sizeof *c->outs);
@@ -195,4 +203,9 @@ void controls_stop(struct rec_controls *c) {
 	free(c->outs);
 	if (c->wls && c->wls->display) wl_display_roundtrip(c->wls->display);
 	free(c);
+}
+
+struct rect controls_bar_rect(const struct rec_controls *c) {
+	if (!c) return (struct rect){0, 0, 0, 0};
+	return ctl_bar_rect(c);
 }

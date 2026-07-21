@@ -117,16 +117,11 @@ void region_toolbar_rect(const struct ro_state *st,
 	*h = th;
 
 	if (st->tb_moved) {
-		int32_t xx = st->tb_x;
-		int32_t yy = st->tb_y;
-		int32_t x_hi = o->x + o->logical_width - tw;
-		int32_t y_hi = o->y + o->logical_height - th;
-		if (xx > x_hi) xx = x_hi;
-		if (xx < o->x) xx = o->x;
-		if (yy > y_hi) yy = y_hi;
-		if (yy < o->y) yy = o->y;
-		*x = xx;
-		*y = yy;
+		struct rect b = st->bounds;
+		if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
+		struct rect r = rect_clamp_into((struct rect){st->tb_x, st->tb_y, tw, th}, b);
+		*x = r.x;
+		*y = r.y;
 		return;
 	}
 

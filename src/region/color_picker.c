@@ -49,12 +49,14 @@ void region_color_picker_rect(const struct ro_state *st,
 	int32_t total_h = color_picker_total_h();
 	int32_t btn_cx = tx + bx + bw / 2;
 	int32_t want_x = btn_cx - pw / 2;
-	int32_t out_left = o->x + 8;
-	int32_t out_right = o->x + o->logical_width - 8;
+	struct rect b = st->bounds;
+	if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
+	int32_t out_left = b.x + 8;
+	int32_t out_right = b.x + b.w - 8;
 	if (want_x < out_left) want_x = out_left;
 	if (want_x + pw > out_right) want_x = out_right - pw;
 	int32_t want_y = ty - COLOR_PICKER_GAP - total_h;
-	if (want_y < o->y + 8) want_y = ty + th + COLOR_PICKER_GAP;
+	if (want_y < b.y + 8) want_y = ty + th + COLOR_PICKER_GAP;
 	*out_x = want_x;
 	*out_y = want_y;
 	*out_w = pw;
@@ -302,14 +304,7 @@ void region_color_picker_render(cairo_t *cr, const struct ro_output *o) {
 	int32_t px, py, pw, ph;
 	region_color_picker_rect(o->st, &px, &py, &pw, &ph);
 	if (pw <= 0 || ph <= 0) return;
-	int32_t tx, ty, tw, th;
-	const struct grabit_output *go;
-	region_toolbar_rect(o->st, &go, &tx, &ty, &tw, &th);
-	(void)tx;
-	(void)ty;
-	(void)tw;
-	(void)th;
-	if (!go || go != o->go) return;
+	if (!grabit_output_overlaps(o->go, (struct rect){px, py, pw, ph})) return;
 
 	int32_t S = o->scale;
 	double dx = (double)(px - o->go->x) * S;

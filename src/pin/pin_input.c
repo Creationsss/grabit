@@ -96,12 +96,10 @@ static bool in_close_button(const struct pin_state *st) {
 }
 
 static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
-	int32_t x_hi = st->bounds.x + st->bounds.w - st->width;
-	int32_t y_hi = st->bounds.y + st->bounds.h - st->height;
-	if (x > x_hi) x = x_hi;
-	if (x < st->bounds.x) x = st->bounds.x;
-	if (y > y_hi) y = y_hi;
-	if (y < st->bounds.y) y = st->bounds.y;
+	struct rect r = rect_clamp_into((struct rect){x, y, st->width, st->height},
+									st->bounds);
+	x = r.x;
+	y = r.y;
 	if (x == st->px && y == st->py) return;
 	st->px = x;
 	st->py = y;

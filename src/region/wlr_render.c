@@ -175,9 +175,8 @@ static void render_bottom_hint(cairo_t *cr, const struct ro_output *o, const cha
 	double ty = (double)o->pixel_height - 24.0 * S;
 	if (region_editing(o->st)) {
 		int32_t tbx, tby, tbw, tbh;
-		const struct grabit_output *to;
-		region_toolbar_rect(o->st, &to, &tbx, &tby, &tbw, &tbh);
-		if (to == o->go) {
+		region_toolbar_rect(o->st, NULL, &tbx, &tby, &tbw, &tbh);
+		if (grabit_output_overlaps(o->go, (struct rect){tbx, tby, tbw, tbh})) {
 			double tb_top = (double)(tby - o->go->y) * S;
 			double tb_bot = (double)(tby + tbh - o->go->y) * S;
 			double pill_top = ty - hext.height - pad;

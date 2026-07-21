@@ -82,6 +82,7 @@ struct rect;
 bool grabit_output_rect_intersect(const struct grabit_output *o, const struct rect *r,
 								  int32_t *out_x, int32_t *out_y,
 								  int32_t *out_w, int32_t *out_h);
+bool grabit_output_overlaps(const struct grabit_output *o, struct rect r);
 
 struct wl_compositor;
 struct wl_surface;

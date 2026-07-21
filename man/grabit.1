@@ -178,8 +178,10 @@ make it the default with
 .BR "grabit set edit.default true" .
 A toolbar opens at the top of the primary monitor (override with
 .BR edit.toolbar_output );
-drag it by its background to park it anywhere, and the parked spot is
-remembered across runs
+drag it by its background to park it anywhere, including onto another
+monitor unless
+.B edit.toolbar_output
+pins it to one; the parked spot is remembered across runs
 .RB ( edit.toolbar_pos )
 as long as that output is still connected. The editor starts in
 region-select mode, but picking any tool switches to drawing immediately, so

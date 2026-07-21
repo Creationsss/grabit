@@ -528,6 +528,10 @@ void grabit_wl_callback_drop(struct wl_callback **cb) {
 	*cb = NULL;
 }
 
+bool grabit_output_overlaps(const struct grabit_output *o, struct rect r) {
+	return grabit_output_rect_intersect(o, &r, NULL, NULL, NULL, NULL);
+}
+
 struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
 	struct grabit_wl_state *s, struct wl_surface *surface,
 	struct wl_output *output, const char *ns, uint32_t kb_interactivity,

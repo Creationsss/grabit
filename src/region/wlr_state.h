@@ -173,6 +173,7 @@ struct ro_state {
 	int32_t tb_grab_dx;
 	int32_t tb_grab_dy;
 	const struct grabit_output *tb_out;
+	const struct grabit_output *tb_lock;
 	bool eyedropper_mode;
 	bool color_picker_open;
 	bool color_picker_dragging;

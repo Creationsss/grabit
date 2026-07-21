@@ -141,9 +141,8 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 	int32_t S = o->scale;
 	int32_t tx, ty, tw, th;
-	const struct grabit_output *to;
-	region_toolbar_rect(o->st, &to, &tx, &ty, &tw, &th);
-	if (!to || to != o->go) return;
+	region_toolbar_rect(o->st, NULL, &tx, &ty, &tw, &th);
+	if (!grabit_output_overlaps(o->go, (struct rect){tx, ty, tw, th})) return;
 
 	double bx0 = (double)(tx - o->go->x) * S;
 	double by0 = (double)(ty - o->go->y) * S;
@@ -267,9 +266,8 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	if (!text) return;
 
 	int32_t tx, ty, tw, th;
-	const struct grabit_output *to;
-	region_toolbar_rect(st, &to, &tx, &ty, &tw, &th);
-	if (!to || to != o->go) return;
+	region_toolbar_rect(st, NULL, &tx, &ty, &tw, &th);
+	if (!grabit_output_overlaps(o->go, (struct rect){tx, ty, tw, th})) return;
 
 	int32_t S = o->scale;
 	double bx0 = (double)(tx - o->go->x) * S;

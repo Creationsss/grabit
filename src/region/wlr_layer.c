@@ -82,6 +82,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		v = config_get(cfg, "edit.toolbar_output");
 		if (annotate_mode && v && v[0]) {
 			st.tb_out = grabit_wl_output_by_name(s, v);
+			st.tb_lock = st.tb_out;
 			if (!st.tb_out)
 				log_warn("edit.toolbar_output: output `%s` not found; using primary", v);
 		}
@@ -330,8 +331,10 @@ loop_done:;
 		int32_t tx, ty, tw, th;
 		const struct grabit_output *to;
 		region_toolbar_rect(&st, &to, &tx, &ty, &tw, &th);
-		if (to && to->name)
-			persist_toolbar_pos(cfg, to->name, tx - to->x, ty - to->y);
+		const struct grabit_output *anchor = grabit_wl_output_at(s, tx, ty);
+		if (!anchor) anchor = to;
+		if (anchor && anchor->name)
+			persist_toolbar_pos(cfg, anchor->name, tx - anchor->x, ty - anchor->y);
 	}
 
 	st.cleanup = true;

@@ -39,12 +39,9 @@ static struct ctl_output *find_by_surface(struct rec_controls *c,
 }
 
 static void bar_move_to(struct rec_controls *c, int32_t x, int32_t y) {
-	int32_t x_hi = c->bounds.x + c->bounds.w - c->bw;
-	int32_t y_hi = c->bounds.y + c->bounds.h - c->bh;
-	if (x > x_hi) x = x_hi;
-	if (x < c->bounds.x) x = c->bounds.x;
-	if (y > y_hi) y = y_hi;
-	if (y < c->bounds.y) y = c->bounds.y;
+	struct rect r = rect_clamp_into((struct rect){x, y, c->bw, c->bh}, c->bounds);
+	x = r.x;
+	y = r.y;
 	if (x == c->bx && y == c->by) return;
 	c->bx = x;
 	c->by = y;

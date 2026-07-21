@@ -198,7 +198,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
 
 	if (st->tb_dragging) {
-		st->tb_out = st->cursor_on->go;
+		if (!st->tb_lock) st->tb_out = st->cursor_on->go;
 		st->tb_x = st->cursor_x - st->tb_grab_dx;
 		st->tb_y = st->cursor_y - st->tb_grab_dy;
 		st->tb_moved = true;

@@ -19,5 +19,6 @@ void controls_set_paused(struct rec_controls *c, bool paused);
 void controls_tick(struct rec_controls *c, int64_t secs);
 void controls_stop(struct rec_controls *c);
 struct rect controls_bar_rect(const struct rec_controls *c);
+struct rect controls_cursor_rect(const struct rec_controls *c);
 
 #endif

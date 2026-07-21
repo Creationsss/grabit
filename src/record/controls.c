@@ -167,9 +167,12 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 		c->cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
 		if (c->cursor_theme) {
 			c->cursor_hand = grabit_cursor_load_hand(c->cursor_theme);
-			if (c->cursor_hand)
+			c->cursor_default = grabit_cursor_load_default(c->cursor_theme);
+			if (c->cursor_hand || c->cursor_default)
 				c->cursor_surface = wl_compositor_create_surface(s->compositor);
 		}
+		grabit_cursor_read_raw(c->cursor_hand ? c->cursor_hand->name : "left_ptr", max_scale, &c->raw_cursor_hand);
+		grabit_cursor_read_raw(c->cursor_default ? c->cursor_default->name : "left_ptr", max_scale, &c->raw_cursor_default);
 	}
 
 	wl_display_roundtrip(s->display);
@@ -193,6 +196,8 @@ void controls_stop(struct rec_controls *c) {
 	if (c->pointer) wl_pointer_release(c->pointer);
 	if (c->cursor_surface) wl_surface_destroy(c->cursor_surface);
 	if (c->cursor_theme) wl_cursor_theme_destroy(c->cursor_theme);
+	grabit_cursor_free_raw(&c->raw_cursor_hand);
+	grabit_cursor_free_raw(&c->raw_cursor_default);
 	for (size_t i = 0; i < c->n; i++) {
 		struct ctl_output *o = &c->outs[i];
 		grabit_wl_callback_drop(&o->frame_cb);
@@ -208,4 +213,11 @@ void controls_stop(struct rec_controls *c) {
 struct rect controls_bar_rect(const struct rec_controls *c) {
 	if (!c) return (struct rect){0, 0, 0, 0};
 	return ctl_bar_rect(c);
+}
+
+struct rect controls_cursor_rect(const struct rec_controls *c) {
+	if (!c || !c->ptr_on) return (struct rect){0, 0, 0, 0};
+	const struct raw_cursor_image *img = c->cursor_hand ? &c->raw_cursor_hand : &c->raw_cursor_default;
+	if (!img->pixels) return (struct rect){0, 0, 0, 0};
+	return (struct rect){c->cx - img->hotspot_x, c->cy - img->hotspot_y, img->width, img->height};
 }

@@ -4,6 +4,9 @@
 #ifndef GRABIT_RECORD_CONTROLS_INTERNAL_H
 #define GRABIT_RECORD_CONTROLS_INTERNAL_H
 
+#include "cursor.h"
+#include "wl.h"
+
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -81,6 +84,9 @@ struct rec_controls {
 
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor_hand;
+	struct wl_cursor *cursor_default;
+	struct raw_cursor_image raw_cursor_hand;
+	struct raw_cursor_image raw_cursor_default;
 	struct wl_surface *cursor_surface;
 };
 

@@ -48,7 +48,10 @@ static void maybe_compress(struct config *cfg, const struct publish_opts *po) {
 void record_publish(struct config *cfg, const struct publish_opts *po) {
 	maybe_compress(cfg, po);
 
-	if (po->keep_locally) log_info("saved: %s", po->output_path);
+	if (po->keep_locally) {
+		puts(po->output_path);
+		fflush(stdout);
+	}
 	if (!po->upload_service) {
 		notify_send(&(struct notify_opts){
 			.summary = "Recording saved",

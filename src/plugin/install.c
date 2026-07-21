@@ -259,7 +259,7 @@ int plugin_remove(const char *name) {
 	if (grabit_xasprintf(&plugin_dir, "%s/%s", root, name) != 0) goto out;
 	struct stat st;
 	if (stat(plugin_dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
-		log_info("plugin: %s is not installed", name);
+		log_info("plugin: %s not installed", name);
 		ret = 0;
 		goto out;
 	}

@@ -68,17 +68,17 @@ static void print_keys_row(struct config *c, const char *key) {
 	const char *cur = config_get(c, key);
 	const char *def = region_keybind_default(key);
 	if (cur && *cur)
-		printf("  %-22s %s\n", key, cur);
+		printf("  %-28s %s\n", key, cur);
 	else
-		printf("  %-22s %s  (default)\n", key, def ? def : "");
+		printf("  %-28s %s  (default)\n", key, def ? def : "");
 }
 
 static int cmd_set_keys_list(void) {
 	struct config c;
 	config_load(&c);
-	puts("keybinds — set one with `grabit set <key> \"<bindings>\"`,");
-	puts("capture it with `--watch`, restore it with `--reset`");
-	puts("(`grabit set keys --reset` resets every one):");
+	puts("keybinds (set one with `grabit set <key> \"<bindings>\"`, capture it");
+	puts("with `--watch`, restore it with `--reset`, or reset all with");
+	puts("`grabit set keys --reset`):");
 	for (int a = 0; a < KA_COUNT; a++)
 		print_keys_row(&c, region_keybind_action_key(a));
 	for (int t = 0; t < TOOL_COUNT; t++) {
@@ -118,7 +118,19 @@ static int cmd_set_reset(const char *key) {
 }
 
 int cmd_set(int argc, char **argv) {
-	if (argc == 0 || (argc == 1 && is_help_arg(argv[0]))) {
+	if (argc == 1 && is_help_arg(argv[0])) {
+		puts("Usage: grabit set <key> <value>    write a config key (validated)");
+		puts("       grabit set <key>=<value>    same, single argument");
+		puts("       grabit set <key>            show a key's value and default");
+		puts("       grabit set <key> --watch    bind a keys.* action by pressing it");
+		puts("       grabit set <key> --reset    restore a keys.* default");
+		puts("       grabit set keys --reset     restore every keybind");
+		puts("       grabit set                  list every settable key");
+		puts("");
+		puts("grabit get <key> reads a key back; grabit unset <key> removes it.");
+		return 0;
+	}
+	if (argc == 0) {
 		cfg_help_print_all_keys();
 		return 0;
 	}
@@ -163,21 +175,18 @@ int cmd_set(int argc, char **argv) {
 
 	if (argc == 1) {
 		const char *ex = NULL, *def = NULL;
-		if (cfg_help_example_for_key(argv[0], &ex, &def) != 0) {
-			log_error("unknown key: %s", argv[0]);
+		bool have_ex = cfg_help_example_for_key(argv[0], &ex, &def) == 0;
+		if (!have_ex && !cfg_key_is_known(argv[0])) {
+			log_error("unknown config key: `%s`", argv[0]);
 			const char *hint = cfg_help_suggest_key(argv[0]);
-			if (hint) log_info("did you mean: %s ?", hint);
-			log_info("run `grabit set` to see all keys");
+			if (hint) log_info("did you mean: `%s`?", hint);
 			return 2;
 		}
-		printf("%s = ", argv[0]);
-		bool starred = cfg_help_print_example(ex, def);
-		printf("\n");
-		if (def) {
-			if (starred)
-				printf("(* = default)\n");
-			else
-				printf("default: %s\n", def);
+		if (have_ex) {
+			printf("%s = ", argv[0]);
+			cfg_help_print_example(ex, NULL);
+			printf("\n");
+			if (def) printf("default: %s\n", def);
 		}
 
 		struct config c = {0};
@@ -219,8 +228,13 @@ int cmd_get(int argc, char **argv) {
 		const char *v = config_get(&c, argv[0]);
 		if (v) {
 			puts(v);
+		} else if (!cfg_key_is_known(argv[0])) {
+			log_error("unknown config key: `%s`", argv[0]);
+			const char *hint = cfg_help_suggest_key(argv[0]);
+			if (hint) log_info("did you mean: `%s`?", hint);
+			rc = 2;
 		} else {
-			log_error("not set: %s", argv[0]);
+			log_error("not set: `%s`", argv[0]);
 			rc = 1;
 		}
 	}

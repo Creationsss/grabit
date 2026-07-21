@@ -38,7 +38,6 @@ void sxcu_free(struct sxcu_uploader *u) {
 	free(u->file_form_name);
 	free(u->data);
 	free(u->url_expr);
-	free(u->thumb_expr);
 	free(u->del_expr);
 	free(u->err_expr);
 	sxcu_kv_free(u->params, u->n_params);
@@ -163,10 +162,6 @@ static int parse_regex_list(struct json_object *root, struct sxcu_uploader *out)
 static int parse_with_source(const char *json, const char *src,
 							 struct sxcu_uploader *out);
 
-int sxcu_parse_string(const char *json, struct sxcu_uploader *out) {
-	return parse_with_source(json, NULL, out);
-}
-
 static int parse_with_source(const char *json, const char *src,
 							 struct sxcu_uploader *out) {
 	const char *label = src ? src : "<input>";
@@ -201,7 +196,6 @@ static int parse_with_source(const char *json, const char *src,
 	out->file_form_name = grabit_json_get_string(root, "FileFormName");
 	out->data = grabit_json_get_string(root, "Data");
 	out->url_expr = grabit_json_get_string(root, "URL");
-	out->thumb_expr = grabit_json_get_string(root, "ThumbnailURL");
 	out->del_expr = grabit_json_get_string(root, "DeletionURL");
 	out->err_expr = grabit_json_get_string(root, "ErrorMessage");
 
@@ -211,8 +205,6 @@ static int parse_with_source(const char *json, const char *src,
 	if (parse_regex_list(root, out) != 0) goto fail;
 
 	char *dest = grabit_json_get_string(root, "DestinationType");
-	out->is_image_uploader = !dest || strstr(dest, "ImageUploader") ||
-							 strstr(dest, "FileUploader");
 	free(dest);
 
 	json_object_put(root);

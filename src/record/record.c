@@ -205,7 +205,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		goto err_pipeline;
 	}
 
-	log_info("recording %dx%d (%zu output%s) @ %d fps → %s; "
+	log_info("recording %dx%d (%zu output%s) @ %d fps -> %s; "
 			 "use the on-screen controls or re-run `grabit --record` to stop "
 			 "(SIGUSR1 toggles pause)",
 			 layout.dst_w, layout.dst_h, layout.n, layout.n == 1 ? "" : "s",

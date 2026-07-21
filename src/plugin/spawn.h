@@ -7,6 +7,5 @@
 #include <stddef.h>
 
 int plugin_run_in(const char *cwd, char *const argv[]);
-int plugin_read_first_line(const char *path, char *out, size_t cap);
 
 #endif

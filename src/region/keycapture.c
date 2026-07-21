@@ -308,7 +308,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 		}
 	}
 
-	log_info("watching for `%s` — press keys/mouse buttons, Enter saves, Esc cancels",
+	log_info("watching for `%s`: press keys/mouse buttons, Enter saves, Esc cancels",
 			 action_key);
 
 	while (!st.done && grabit_wl_pump(s, -1) >= 0)

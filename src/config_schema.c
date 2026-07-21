@@ -27,6 +27,8 @@ static const char *BOOL_KEYS[] = {
 	"region.confirm",
 	"services.zipline.chunked",
 	"edit.default",
+	"edit.instant_capture",
+	"edit.start_with_tool",
 	"preview.enabled",
 	NULL,
 };
@@ -45,7 +47,6 @@ static const char *KNOWN_TOP[] = {
 	"save_captures",
 	"also_save",
 	"save_dir",
-	"editor",
 	"filename",
 	"filename_preset",
 	"service",
@@ -67,6 +68,7 @@ static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NUL
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_edit_color[] = {"red", "yellow", "green", "blue", "black", "white", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
+static const char *VALS_translate_backend[] = {"trans", "libretranslate", "deepl", NULL};
 
 static const char *VALS_zl_format[] = {"random", "date", "uuid", "name", "gfycat", NULL};
 static const char *VALS_zl_compress[] = {"jpg", "png", "webp", "jxl", NULL};
@@ -383,10 +385,11 @@ static const char *VALS_show_position[] = {
 };
 
 int config_set(struct config *c, const char *key, const char *value) {
+	if (strcmp(key, "save_captures") == 0) key = "also_save";
 	if (!cfg_key_is_known(key)) {
-		log_error("unknown config key: %s", key);
+		log_error("unknown config key: `%s`", key);
 		const char *hint = cfg_help_suggest_key(key);
-		if (hint) log_info("did you mean: %s ?", hint);
+		if (hint) log_info("did you mean: `%s`?", hint);
 		return -1;
 	}
 	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
@@ -403,7 +406,7 @@ int config_set(struct config *c, const char *key, const char *value) {
 		validate_int_in_range(key, value, 0, 100) != 0) return -1;
 	if (strcmp(key, "recording.fps") == 0 &&
 		validate_int_in_range(key, value, 1, 120) != 0) return -1;
-	if (strcmp(key, "show.dismiss_secs") == 0 &&
+	if (strcmp(key, "text_card.dismiss_secs") == 0 &&
 		validate_int_in_range(key, value, 0, 600) != 0) return -1;
 	if (strcmp(key, "preview.size") == 0 &&
 		validate_int_in_range(key, value, 100, 800) != 0) return -1;
@@ -414,8 +417,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
 		return -1;
 	}
-	if (strcmp(key, "show.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
-		log_error("show.position must be one of "
+	if (strcmp(key, "text_card.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
+		log_error("text_card.position must be one of "
 				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
 		return -1;
 	}
@@ -457,6 +460,11 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
 		return -1;
 	}
+	if (strcmp(key, "translate.backend") == 0 &&
+		!cfg_in_list(value, VALS_translate_backend)) {
+		log_error("translate.backend must be one of trans|libretranslate|deepl");
+		return -1;
+	}
 	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
@@ -472,7 +480,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strncmp(key, "keys.", 5) == 0 && !region_keybind_validate(value)) {
 		log_error("%s must be a comma-separated list of keys, e.g. "
-				  "\"Return, Ctrl+c\" or \"Escape, mouse:right\"", key);
+				  "\"Return, Ctrl+c\" or \"Escape, mouse:right\"",
+				  key);
 		return -1;
 	}
 
@@ -487,9 +496,6 @@ int config_set(struct config *c, const char *key, const char *value) {
 		if (!normalized) {
 			log_error("out of memory");
 			return -1;
-		}
-		if (strcmp(normalized, value) != 0) {
-			log_info("zipline: normalized domain to %s", normalized);
 		}
 		value = normalized;
 	}

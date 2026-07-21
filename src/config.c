@@ -166,7 +166,6 @@ int config_load(struct config *c) {
 			return -1;
 		}
 		log_info("no config found at %s; wrote sensible defaults.", file);
-		log_info("configure with: grabit set <key> <value>");
 		return 0;
 	}
 
@@ -282,7 +281,8 @@ void config_state_migrate(struct config *cfg) {
 	if (state_write_from(cfg) != 0) return;
 	log_info("edit state moved to %s", paths_state_file());
 	log_info("  the edit.* entries in %s are now just a starting point and"
-			 " can be removed", paths_config_file());
+			 " can be removed",
+			 paths_config_file());
 }
 
 int config_state_put(struct config *cfg, const char *const *keys,

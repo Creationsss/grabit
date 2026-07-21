@@ -41,7 +41,7 @@ dispatch looks only at the first argument, and only when it doesn't start with `
 
 - runs the plugin (with its forwarded argv) under a pipe. stdout is buffered up to 16 MiB (truncated with a warning beyond that); stderr streams through untouched.
 - after the plugin exits, takes the last newline-terminated chunk of stdout (trimmed) as a file path and execs `grabit --pin -f <path>`.
-- if the plugin exits non-zero: any captured stdout is flushed to stderr (framed with `--- plugin <name> stdout ---`) and grabit exits with the plugin's exit code (1 if it died to a signal).
+- if the plugin exits non-zero: any captured stdout is flushed to stderr and grabit exits with the plugin's exit code (1 if it died to a signal).
 - if stdout is empty: errors with `plugin: <name> produced no output to pin` and exits 1.
 - `capture.auto` and `--capture`/`--no-capture` do not apply under `-p`; those args are forwarded to the plugin verbatim.
 
@@ -81,10 +81,10 @@ name = "myplugin"
 
 [prebuilt]
 url = "https://example.com/myplugin-x86_64"
-sha256 = "<hex>"                         # optional but strongly recommended
+sha256 = "<hex>"                         # required
 ```
 
-omitting `sha256` skips integrity verification - a hostile mirror or MitM could substitute a binary undetected. there is no GPG / signature support. the hex comparison is case-insensitive. urls must be http(s); downloads follow at most 8 redirects and time out after 300s.
+`sha256` is mandatory: a `[prebuilt]` manifest without it is rejected, since the binary is fetched over the network and cannot be trusted without a pinned hash. there is no GPG / signature support. the hex comparison is case-insensitive. urls must be https; downloads follow at most 8 redirects and time out after 300s.
 
 ### optional tables
 
@@ -117,7 +117,7 @@ description = "extra subcommand"
    - different URL → error: run `grabit plugin remove <name>` first.
 5. renames temp dir to `~/.config/grabit/plugins/<manifest.name>/`.
 6. `[build]`: runs `cmd` via `/bin/sh -c` from the plugin dir.
-   `[prebuilt]`: fetches `url`, verifies `sha256` if set, `chmod +x`.
+   `[prebuilt]`: fetches `url`, verifies `sha256`, `chmod +x`.
 7. creates the `grabit-<name>` symlink in `.bin/`.
 8. writes `.source` (kind/url/sha256) and touches `.last_check`.
 

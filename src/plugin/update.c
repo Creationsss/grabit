@@ -184,9 +184,7 @@ void plugin_maybe_auto_update(const char *name) {
 					strcmp(source_kind, "prebuilt") == 0;
 	plugin_touch_check(plugin_dir);
 	if (!prebuilt) {
-		log_info("plugin: %s may have updates; run `grabit plugin update %s` "
-				 "(git plugins are not auto-updated, since that would build and run "
-				 "code from the remote unattended)",
+		log_info("plugin: %s may have updates; run `grabit plugin update %s`",
 				 name, name);
 		goto out;
 	}

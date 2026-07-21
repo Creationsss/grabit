@@ -88,9 +88,8 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 						 name, PLUGIN_OUTPUT_CAP >> 20);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 		if (out.data && out.data[0]) {
-			fprintf(stderr, "--- plugin %s stdout ---\n%s", name, out.data);
+			fputs(out.data, stderr);
 			if (out.len > 0 && out.data[out.len - 1] != '\n') fputc('\n', stderr);
-			fputs("--- end ---\n", stderr);
 		}
 		grabit_buf_free(&out);
 		return WIFEXITED(status) ? WEXITSTATUS(status) : 1;

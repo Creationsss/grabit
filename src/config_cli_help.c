@@ -23,7 +23,6 @@ static const struct example TOP_EXAMPLES[] = {
 	{"notifications", "true|false", "true"},
 	{"also_save", "true|false (alias: save_captures)", "false"},
 	{"save_dir", "~/Pictures", NULL},
-	{"editor", "satty | swappy | gimp | krita | kolourpaint", NULL},
 	{"filename", "%Y-%m-%d-%H-%M-%S", NULL},
 	{"filename_preset", "date|random|uuid|timestamp", "date"},
 	{"service", "zipline|nest|fakecrime|ez|guns|pixelvault", NULL},
@@ -64,7 +63,6 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"notifications",
 	"also_save",
 	"save_dir",
-	"editor",
 	"filename",
 	"filename_preset",
 	"service",
@@ -374,12 +372,10 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	}
 	if (strcmp(key, "translate.url") == 0) {
 		*example_out = "http://localhost:5000";
-		*def_out = "(unset)";
 		return 0;
 	}
 	if (strcmp(key, "translate.api_key") == 0) {
 		*example_out = "<libretranslate api key, if the server needs one>";
-		*def_out = "(unset)";
 		return 0;
 	}
 	if (strcmp(key, "text_card.dismiss_secs") == 0) {
@@ -447,6 +443,13 @@ bool cfg_help_print_example(const char *example, const char *def) {
 	return starred;
 }
 
+static void print_key_line(const char *key, const char *note) {
+	if (note)
+		printf("  %-28s (%s)\n", key, note);
+	else
+		printf("  %s\n", key);
+}
+
 static void print_key_with_default(const char *key, const char *def) {
 	if (def)
 		printf("  %-28s default: %s\n", key, def);
@@ -460,91 +463,98 @@ static const char *find_default(const char *key) {
 	return NULL;
 }
 
+static const char *const G_TOP[] = {
+	"default_action",
+	"notifications",
+	"also_save",
+	"save_dir",
+	"filename",
+	"filename_preset",
+	"service",
+	"format",
+	NULL,
+};
+static const char *const G_RECORDING[] = {
+	"recording.fps",
+	"recording.format",
+	"recording.crf",
+	"recording.preset",
+	"recording.tune",
+	"recording.pix_fmt",
+	"recording.max_size_mb",
+	"recording.cursor",
+	"recording.ffmpeg",
+	NULL,
+};
+static const char *const G_SOUND[] = {"sound.enabled", "sound.player", "sound.file", NULL};
+static const char *const G_EDIT[] = {
+	"edit.color",
+	"edit.width",
+	"edit.tool",
+	"edit.default",
+	"edit.instant_capture",
+	"edit.start_with_tool",
+	"edit.toolbar_output",
+	"edit.toolbar_pos",
+	NULL,
+};
+static const char *const G_ENCODER[] = {"jpeg.quality", "webp.quality", "webp.lossless", NULL};
+static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
+static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor", NULL};
+static const char *const G_REGION[] = {"region.window_snap", "region.confirm", NULL};
+static const char *const G_TRANSLATE[] = {
+	"translate.target",
+	"translate.backend",
+	"translate.url",
+	"translate.api_key",
+	NULL,
+};
+static const char *const G_TEXT_CARD[] = {
+	"text_card.dismiss_secs",
+	"text_card.position",
+	"text_card.output",
+	NULL,
+};
+static const char *const G_PREVIEW[] = {
+	"preview.enabled",
+	"preview.size",
+	"preview.position",
+	"preview.output",
+	"preview.dismiss_secs",
+	NULL,
+};
+
+static const char *const *const KEY_GROUPS[] = {
+	G_TOP,
+	G_RECORDING,
+	G_SOUND,
+	G_EDIT,
+	G_ENCODER,
+	G_OCR,
+	G_CAPTURE,
+	G_REGION,
+	G_TRANSLATE,
+	G_TEXT_CARD,
+	G_PREVIEW,
+	NULL,
+};
+
 void cfg_help_print_all_keys(void) {
-	puts("keys (run `grabit set <key>` for example values):");
-	puts("");
-	for (size_t i = 0; i < TOP_EXAMPLES_N; i++) {
-		print_key_with_default(TOP_EXAMPLES[i].key, TOP_EXAMPLES[i].def);
-		if (strcmp(TOP_EXAMPLES[i].key, "also_save") == 0)
-			puts("    (legacy alias: save_captures)");
+	puts("settable config keys (run `grabit set <key>` for values and defaults):");
+	for (size_t g = 0; KEY_GROUPS[g]; g++) {
+		puts("");
+		for (size_t i = 0; KEY_GROUPS[g][i]; i++)
+			print_key_with_default(KEY_GROUPS[g][i], find_default(KEY_GROUPS[g][i]));
 	}
 	puts("");
-	puts("  services.<svc>.auth     (svc: zipline|nest|fakecrime|ez|guns|pixelvault)");
-	puts("  services.zipline.domain");
-	puts("  services.zipline.chunked");
-	puts("  services.zipline.chunk_size");
-	puts("  services.nest.folder");
+	print_key_line("services.<svc>.auth", "svc: zipline|nest|fakecrime|ez|guns|pixelvault");
+	print_key_line("services.zipline.domain", NULL);
+	print_key_line("services.zipline.chunked", NULL);
+	print_key_line("services.zipline.chunk_size", NULL);
+	print_key_line("services.nest.folder", NULL);
+	print_key_line("services.zipline.headers.<name>", "zipline upload metadata");
 	puts("");
-	puts("  services.zipline.headers.<name>:");
-	for (size_t i = 0; i < gcfg_zl_headers_n; i++) {
-		printf("    %s\n", gcfg_zl_headers[i].name);
-	}
+	print_key_line("keys.<action>", "run `grabit set keys` to list every binding");
 	puts("");
-	static const char *const RECORDING_KEYS[] = {
-		"recording.fps",
-		"recording.format",
-		"recording.crf",
-		"recording.preset",
-		"recording.tune",
-		"recording.pix_fmt",
-		"recording.max_size_mb",
-		"recording.cursor",
-		"recording.ffmpeg",
-		NULL,
-	};
-	for (size_t i = 0; RECORDING_KEYS[i]; i++) {
-		print_key_with_default(RECORDING_KEYS[i], find_default(RECORDING_KEYS[i]));
-	}
-	puts("");
-	static const char *const SOUND_KEYS[] = {
-		"sound.enabled",
-		"sound.player",
-		"sound.file",
-		NULL,
-	};
-	for (size_t i = 0; SOUND_KEYS[i]; i++) {
-		print_key_with_default(SOUND_KEYS[i], find_default(SOUND_KEYS[i]));
-	}
-	puts("");
-	print_key_with_default("edit.color", find_default("edit.color"));
-	print_key_with_default("edit.width", find_default("edit.width"));
-	print_key_with_default("edit.tool", find_default("edit.tool"));
-	print_key_with_default("edit.default", find_default("edit.default"));
-	print_key_with_default("edit.instant_capture", find_default("edit.instant_capture"));
-	print_key_with_default("edit.start_with_tool", find_default("edit.start_with_tool"));
-	print_key_with_default("edit.toolbar_output", find_default("edit.toolbar_output"));
-	print_key_with_default("edit.toolbar_pos", find_default("edit.toolbar_pos"));
-	puts("");
-	static const char *const ENCODER_KEYS[] = {
-		"jpeg.quality",
-		"webp.quality",
-		"webp.lossless",
-		NULL,
-	};
-	for (size_t i = 0; ENCODER_KEYS[i]; i++) {
-		print_key_with_default(ENCODER_KEYS[i], find_default(ENCODER_KEYS[i]));
-	}
-	puts("");
-	print_key_with_default("ocr.tesseract", find_default("ocr.tesseract"));
-	print_key_with_default("ocr.lang", find_default("ocr.lang"));
-	puts("");
-	print_key_with_default("capture.backend", find_default("capture.backend"));
-	print_key_with_default("capture.cursor", find_default("capture.cursor"));
-	print_key_with_default("region.window_snap", find_default("region.window_snap"));
-	print_key_with_default("region.confirm", find_default("region.confirm"));
-	print_key_with_default("translate.target", find_default("translate.target"));
-	print_key_with_default("translate.backend", find_default("translate.backend"));
-	print_key_with_default("translate.url", find_default("translate.url"));
-	print_key_with_default("translate.api_key", find_default("translate.api_key"));
-	print_key_with_default("text_card.dismiss_secs", find_default("text_card.dismiss_secs"));
-	print_key_with_default("text_card.position", find_default("text_card.position"));
-	print_key_with_default("text_card.output", find_default("text_card.output"));
-	puts("");
-	print_key_with_default("preview.enabled", find_default("preview.enabled"));
-	print_key_with_default("preview.size", find_default("preview.size"));
-	print_key_with_default("preview.position", find_default("preview.position"));
-	print_key_with_default("preview.output", find_default("preview.output"));
-	print_key_with_default("preview.dismiss_secs", find_default("preview.dismiss_secs"));
-	puts("");
-	puts("  keys.<action>           (run `grabit set keys` to list every binding)");
+	puts("`also_save` is also accepted as `save_captures`.");
 }

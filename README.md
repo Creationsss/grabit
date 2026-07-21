@@ -36,7 +36,12 @@ make
 sudo make install
 ```
 
-deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon libdbus-1`. optional: `libjpeg` `libwebp` (jpeg/webp output). runtime: `ffmpeg` (for `--record`), `tesseract` (for `--tesseract`).
+build deps:
+
+`json-c` `libcurl` `libmagic` `wayland-client` `wayland-cursor` `cairo` `libxkbcommon` `libdbus-1`
+
+optional: `libjpeg` `libwebp` for jpeg/webp output.
+runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
 
 ## demo
 
@@ -46,19 +51,19 @@ deps: `json-c libcurl libmagic wayland-client wayland-cursor cairo libxkbcommon 
   <img src="https://atums.world/u/eb03253f-9e88-4703-aed2-afa7eca2377a.png" width="220" alt="color picker">
 </p>
 
-- **region selector** with live freeze (drag, or click a window on hyprland to snap); pointer included by default (`capture.cursor`)
-- **confirm mode** (`region.confirm`) - flameshot-style: adjust the selection with handles, arrow keys (hold to accelerate), or dragging, then enter / ctrl+c / double-click to capture
-- **`--fullscreen`** / `-F` grabs a whole monitor - one monitor grabs directly, multiple opens a monitor picker (`--fullscreen=<n|name>` skips it, `--fullscreen=all` stitches every monitor); works with `--record` too
-- **annotator** opened with `-e` - pen, marker, line, rect, ellipse, arrow, blur, text, eraser; scroll wheel sizes strokes and text
-- **color picker** with hex input + eyedropper that samples from the freeze
-- **`--record`** toggles region recording with a live overlay + tray icon; mp4, webm, or gif via `recording.format` ([mp4](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
-- **`--pin`** pins captures to the desktop - click-through, stackable, draggable across monitors when grabbed
-- **uploads** to zipline, nest, fakecrime, ez, guns, pixelvault, or any sharex `.sxcu` uploader; zipline supports chunked uploads (`--chunked`) with automatic fallback when cloudflare rejects large files
-- **`--tesseract --translate[=<lang>]`** OCRs the region and pipes through translate-shell before copying
+- **region selector** with live freeze; drag, or click a window to snap on hyprland
+- **confirm mode** flameshot-style: adjust the selection before capturing
+- **`-F`/`--fullscreen`** grabs one monitor, or every monitor stitched together
+- **annotator** (`-e`): pen, marker, line, rect, ellipse, arrow, blur, text, eraser
+- **color picker** with hex input and an eyedropper that samples the freeze
+- **`--record`** region recording with overlay and tray icon; mp4, webm, or gif ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
+- **`--pin`** pins captures to the desktop: click-through, stackable, draggable
+- **uploads** to six built-in hosts or any sharex `.sxcu` uploader
+- **`--tesseract --translate`** OCRs a region and copies the translation
 
 ## docs
 
-- [OPTIONS.md](OPTIONS.md) - usage, configuration, auth tokens, sharex uploaders, recording/pin/ocr/edit, filename templates, env vars, build targets
+- [OPTIONS.md](OPTIONS.md) - configuration keys, auth tokens, sharex uploaders, keybinds, filename templates
 - [PLUGINS.md](PLUGINS.md) - plugin cli, manifest format, helper header
 
 ## source

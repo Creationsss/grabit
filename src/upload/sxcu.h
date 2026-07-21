@@ -41,7 +41,6 @@ struct sxcu_uploader {
 	char *file_form_name;
 	char *data;
 	char *url_expr;
-	char *thumb_expr;
 	char *del_expr;
 	char *err_expr;
 	struct sxcu_kv *params;
@@ -52,11 +51,9 @@ struct sxcu_uploader {
 	size_t n_args;
 	char **regex_list;
 	size_t n_regex_list;
-	bool is_image_uploader;
 };
 
 int sxcu_parse_file(const char *path, struct sxcu_uploader *out);
-int sxcu_parse_string(const char *json, struct sxcu_uploader *out);
 void sxcu_free(struct sxcu_uploader *u);
 
 const char *sxcu_method_str(enum sxcu_method m);

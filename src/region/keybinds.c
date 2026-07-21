@@ -77,14 +77,22 @@ static bool parse_mouse_button(const char *name, uint32_t *out) {
 		*out = (uint32_t)n;
 		return true;
 	}
-	if (strcasecmp(name, "left") == 0) *out = BTN_LEFT;
-	else if (strcasecmp(name, "right") == 0) *out = BTN_RIGHT;
-	else if (strcasecmp(name, "middle") == 0) *out = BTN_MIDDLE;
-	else if (strcasecmp(name, "back") == 0) *out = BTN_BACK;
-	else if (strcasecmp(name, "forward") == 0) *out = BTN_FORWARD;
-	else if (strcasecmp(name, "side") == 0) *out = BTN_SIDE;
-	else if (strcasecmp(name, "extra") == 0) *out = BTN_EXTRA;
-	else return false;
+	if (strcasecmp(name, "left") == 0)
+		*out = BTN_LEFT;
+	else if (strcasecmp(name, "right") == 0)
+		*out = BTN_RIGHT;
+	else if (strcasecmp(name, "middle") == 0)
+		*out = BTN_MIDDLE;
+	else if (strcasecmp(name, "back") == 0)
+		*out = BTN_BACK;
+	else if (strcasecmp(name, "forward") == 0)
+		*out = BTN_FORWARD;
+	else if (strcasecmp(name, "side") == 0)
+		*out = BTN_SIDE;
+	else if (strcasecmp(name, "extra") == 0)
+		*out = BTN_EXTRA;
+	else
+		return false;
 	return true;
 }
 
@@ -93,9 +101,12 @@ static bool eat_mod(const char **p, uint8_t *mods) {
 		const char *name;
 		uint8_t bit;
 	} prefixes[] = {
-		{"ctrl+", KB_MOD_CTRL},	  {"control+", KB_MOD_CTRL},
-		{"shift+", KB_MOD_SHIFT}, {"alt+", KB_MOD_ALT},
-		{"super+", KB_MOD_SUPER}, {"logo+", KB_MOD_SUPER},
+		{"ctrl+", KB_MOD_CTRL},
+		{"control+", KB_MOD_CTRL},
+		{"shift+", KB_MOD_SHIFT},
+		{"alt+", KB_MOD_ALT},
+		{"super+", KB_MOD_SUPER},
+		{"logo+", KB_MOD_SUPER},
 		{"meta+", KB_MOD_ALT},
 	};
 	for (size_t i = 0; i < sizeof prefixes / sizeof prefixes[0]; i++) {
@@ -300,11 +311,16 @@ uint8_t region_xkb_mods(struct xkb_state *state) {
 void region_keybind_format(const struct keybind *b, char *out, size_t n) {
 	if (b->is_button) {
 		const char *name = NULL;
-		if (b->button == BTN_LEFT) name = "left";
-		else if (b->button == BTN_RIGHT) name = "right";
-		else if (b->button == BTN_MIDDLE) name = "middle";
-		if (name) snprintf(out, n, "mouse:%s", name);
-		else snprintf(out, n, "mouse:%u", b->button);
+		if (b->button == BTN_LEFT)
+			name = "left";
+		else if (b->button == BTN_RIGHT)
+			name = "right";
+		else if (b->button == BTN_MIDDLE)
+			name = "middle";
+		if (name)
+			snprintf(out, n, "mouse:%s", name);
+		else
+			snprintf(out, n, "mouse:%u", b->button);
 		return;
 	}
 	char keyname[64];

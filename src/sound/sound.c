@@ -53,7 +53,7 @@ void grabit_sound_play(struct config *cfg) {
 			log_error("sound: no audio player found in $PATH (tried pw-play, paplay, play, aplay)");
 			log_error("  install one or set: grabit set sound.player <path>");
 			notify_send(&(struct notify_opts){
-				.summary = "grabit: setup needed",
+				.summary = "grabit: no audio player",
 				.body = "no audio player found; see terminal for details",
 			});
 			g_warned_player = true;
@@ -67,7 +67,7 @@ void grabit_sound_play(struct config *cfg) {
 			log_error("sound: no sound file found in standard freedesktop paths");
 			log_error("  install sound-theme-freedesktop or set: grabit set sound.file <path>");
 			notify_send(&(struct notify_opts){
-				.summary = "grabit: setup needed",
+				.summary = "grabit: no sound file",
 				.body = "no sound file found; see terminal for details",
 			});
 			g_warned_file = true;

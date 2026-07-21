@@ -75,117 +75,111 @@ static int print_version(void) {
 static int print_help(void) {
 	fputs(
 		"Usage: grabit [options]\n"
+		"       grabit <set|get|unset|sxcu|plugin> ...\n"
+		"       grabit help <topic>\n"
 		"\n"
-		"Capture & output:\n"
-		"  -c, --copy        Copy screenshot to clipboard\n"
-		"  -u, --upload      Upload screenshot to default service\n"
-		"  --chunked         Upload to zipline in chunks (see services.zipline.chunked)\n"
-		"  --<service>       Upload to a specific service\n"
-		"                    (zipline|nest|fakecrime|ez|guns|pixelvault)\n"
-		"  -o, --output, --save\n"
-		"                    Capture and print path to stdout\n"
-		"  -f <file>         Use <file> instead of taking a screenshot\n"
-		"  --tesseract       Capture, OCR, copy text to clipboard\n"
-		"  --translate[=<target-lang>]\n"
-		"                    With --tesseract: pipe OCR through `trans` and copy the\n"
-		"                    translation. <target-lang> is where to translate TO (source is\n"
-		"                    auto-detected). Falls back to raw OCR if `trans` is missing or\n"
-		"                    the translate call fails. Needs translate-shell installed.\n"
-		"  --record          Toggle screen recording (re-run to stop)\n"
-		"                    With --no-upload: skip auto-upload even if default_action=upload\n"
-		"                    With --<service>: upload to that service after recording\n"
-		"  --no-upload       Skip auto-upload after --record\n"
-		"  --no-tray         Skip SNI tray during recording\n"
-		"  --pin             Capture and pin to desktop (click-through; stack any number)\n"
-		"  --show            With --tesseract: show the OCR/translate result on screen as\n"
-		"                    a click-through text card instead of copying. Auto-dismisses\n"
-		"                    after `text_card.dismiss_secs` (default 8s); a second --show\n"
-		"                    replaces the previous card.\n"
-		"  --grab            Make pinned screenshots clickable (click closes one; drag to move)\n"
-		"                    Pair with a hold-bind, e.g. hyprland:\n"
-		"                      bindrn = SUPER SHIFT, mouse:272, exec, grabit --grab\n"
-		"                      bindrn = SUPER SHIFT, mouse:272, release, exec, grabit --release\n"
-		"  --release         Restore pinned screenshots to click-through\n"
-		"  --close-all       Dismiss every pinned screenshot\n"
-		"  -e, --edit        Open the in-tree annotation editor before the action\n"
-		"                    Set as default with: grabit set edit.default true\n"
-		"  -F, --fullscreen  Capture a whole monitor instead of dragging a region.\n",
+		"Actions:\n"
+		"  -c, --copy          copy to clipboard\n"
+		"  -u, --upload        upload to the default service\n"
+		"  --<service>         upload to zipline|nest|fakecrime|ez|guns|pixelvault|<sxcu>\n"
+		"  -o, --output        capture, save, print the path\n"
+		"  --record            toggle screen recording\n"
+		"  --pin               pin a capture to the desktop\n"
+		"  --grab, --release, --close-all   manage existing pins\n"
+		"  --tesseract         OCR a region to the clipboard\n"
+		"  --translate[=lang]  with --tesseract: copy the translation instead\n"
+		"\n"
+		"Modifiers:\n"
+		"  -e, --edit          annotate before the action\n"
+		"  -F, --fullscreen[=<n|name|all>]  capture a whole monitor\n"
+		"  -f <file>           use an existing file instead of capturing\n"
+		"  --format <fmt>      png|jpeg|webp\n"
+		"  --filename <tpl>    per-run filename template\n"
+		"  --cursor            include the pointer this run\n"
+		"  --chunked           chunked zipline upload\n"
+		"  --show              with --tesseract: show the result on screen\n"
+		"  --no-upload         with --record: skip the auto-upload\n"
+		"  --no-tray           with --record: no tray icon\n"
+		"  --silent, -q        no sound, no info logs, only failure notifications\n"
+		"  -d, --debug         debug logging to stderr\n"
+		"  --                  next argument is treated as -f <file>\n"
+		"  -V, --version       print version\n"
+		"  -h, --help          print this help\n"
+		"\n"
+		"Subcommands:\n"
+		"  set, get, unset     configuration\n"
+		"  sxcu                ShareX uploaders\n"
+		"  plugin              plugins\n"
+		"  <name> ...          run an installed plugin (-p pins its output)\n"
+		"\n"
+		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples>\n"
+		"Full documentation: man grabit\n",
 		stdout);
+	return 0;
+}
+
+static int print_help_topics(void) {
 	fputs(
-		"                    One monitor: grabs it directly. Multiple: hover a monitor\n"
-		"                    and click to pick it (drag still works for a custom region).\n"
-		"                    Skip the picker with --fullscreen=<n> (1-based),\n"
-		"                    --fullscreen=<name> (e.g. --fullscreen=DP-1), or grab every\n"
-		"                    monitor stitched together with --fullscreen=all. Works with\n"
-		"                    -c/-u/-o/--pin/--tesseract/--record and pairs with -e.\n"
-		"  --cursor          Include the mouse pointer even if capture.cursor=false\n"
-		"  --silent, -q, --quiet  Suppress notifications and sound\n"
-		"  -d, --debug       Enable debug logging to stderr\n"
-		"  --filename <tpl>  Per-run filename template\n"
-		"  --format <fmt>    Output format: png|jpeg|webp (default png)\n"
-		"  --                End-of-options; following arg is treated as -f <file>\n"
+		"Usage: grabit help <topic>\n"
 		"\n"
-		"Config (run `grabit set --help` for details):\n"
-		"  set <key> <val>   Write a config key (validated)\n"
-		"  set <key> --watch Capture a keys.* binding by pressing it\n"
-		"  set <key> --reset Reset a keys.* binding (or `keys` for all) to default\n"
-		"  set <key>         Print example value for that key\n"
-		"  set               List all available keys\n"
-		"  get [<key>]       Print one config key, or every set key\n"
-		"  unset <key>       Remove a config key\n"
+		"  set, get, unset   configuration commands\n"
+		"  sxcu              ShareX (.sxcu) uploaders\n"
+		"  plugin            plugin management\n"
+		"  filename          filename template tokens\n"
+		"  env               environment variables\n"
+		"  examples          common invocations\n"
 		"\n"
-		"Custom uploaders (ShareX .sxcu):\n"
-		"  sxcu add <file>   Register a .sxcu uploader (use as --<name>)\n"
-		"  sxcu list         Show registered uploaders (alias: ls)\n"
-		"  sxcu show <name>  Print parsed fields\n"
-		"  sxcu remove <name>  Remove an uploader (alias: rm)\n"
-		"\n"
-		"Plugins:\n"
-		"  plugin install <git-url>  Clone, build, and install a plugin\n"
-		"  plugin list               List installed plugins\n"
-		"  plugin show <name>        Print parsed manifest\n"
-		"  plugin update [<name>]    Update one plugin or all\n"
-		"  plugin remove <name>      Uninstall a plugin\n"
-		"  <name> ...                Run installed plugin `grabit-<name>`\n"
-		"                            (auto-updates in background per manifest)\n"
-		"  -p <name> ...             Run plugin, pin its last stdout line as a file\n"
-		"\n"
-		"Filename templates (--filename or `filename` config key):\n"
-		"  %Y %m %d %H %M %S strftime fields\n"
-		"  %s                unix timestamp\n"
-		"  %r[N]             random alphanumeric, N chars (default 12)\n"
-		"  %u                uuid v4\n"
-		"  %w                active window class (hyprland)\n"
-		"  %t                active window title (hyprland)\n"
-		"\n"
-		"First run seeds `default_action=copy` so a bare `grabit` opens the region selector\n"
-		"and copies to the clipboard. Change with: grabit set default_action upload|copy|save|pin\n",
+		"grabit --help lists every flag; man grabit is the full reference.\n",
 		stdout);
+	return 0;
+}
+
+static int print_help_filename(void) {
 	fputs(
+		"Filename templates (--filename, or the `filename` config key):\n"
 		"\n"
-		"Examples:\n"
-		"  grabit -c                       region screenshot to clipboard\n"
-		"  grabit -u                       upload using `service` config\n"
-		"  grabit --zipline                upload to a specific service\n"
-		"  grabit -o > shot.txt            save and print path\n"
-		"  grabit -e -u                    annotate, then upload\n"
-		"  grabit --record                 start recording (re-run to stop)\n"
-		"  grabit --pin                    pin a region to the desktop\n"
-		"  grabit -f shot.png --zipline    upload an existing file\n"
-		"  grabit --format jpeg -o         save as JPEG instead of PNG\n"
-		"  grabit help <subcommand>        help for set/get/unset/sxcu/plugin\n"
+		"  %Y %m %d %H %M %S   strftime fields\n"
+		"  %s                  unix timestamp\n"
+		"  %r[N]               random alphanumeric, N chars (default 12)\n"
+		"  %u                  uuid v4\n"
+		"  %w                  active window class (hyprland)\n"
+		"  %t                  active window title (hyprland)\n"
+		"  %%                  a literal percent sign\n"
 		"\n"
-		"Misc:\n"
-		"  -V, --version     Print version and exit\n"
-		"  -h, --help        Print this help and exit\n"
-		"\n"
+		"`filename_preset` (date|random|uuid|timestamp) sets a ready-made template.\n",
+		stdout);
+	return 0;
+}
+
+static int print_help_env(void) {
+	fputs(
 		"Environment:\n"
-		"  GRABIT_DEBUG=1            Same as -d\n"
-		"  GRABIT_<SERVICE>_AUTH     Auth token (overrides config). Service is one of\n"
+		"\n"
+		"  GRABIT_DEBUG=1            same as -d\n"
+		"  GRABIT_<SERVICE>_AUTH     auth token, overrides config. <SERVICE> is one of\n"
 		"                            ZIPLINE, NEST, FAKECRIME, EZ, GUNS, PIXELVAULT.\n"
-		"                            Example: export GRABIT_ZIPLINE_AUTH=\"$(pass show grabit/zipline)\"\n"
-		"  GRABIT_BIN                Set by plugin dispatch; absolute path to grabit\n"
-		"  NO_COLOR                  Disable color in logs (https://no-color.org)\n",
+		"  GRABIT_TRANSLATE_KEY      api key for the deepl/libretranslate backends\n"
+		"  GRABIT_CAPTURE_BACKEND    force a capture backend (wlr|ext)\n"
+		"  GRABIT_BIN                set by plugin dispatch; absolute path to grabit\n"
+		"  NO_COLOR                  disable color in logs\n"
+		"\n"
+		"XDG_CONFIG_HOME and XDG_STATE_HOME choose where config.toml and state.toml\n"
+		"live. man grabit lists the rest.\n",
+		stdout);
+	return 0;
+}
+
+static int print_help_examples(void) {
+	fputs(
+		"Examples:\n"
+		"\n"
+		"  grabit -c                     region screenshot to the clipboard\n"
+		"  grabit -u                     upload using the `service` config key\n"
+		"  grabit -o > shot.txt          save and print the path\n"
+		"  grabit -e -u                  annotate, then upload\n"
+		"  grabit -F -o                  capture a whole monitor\n"
+		"  grabit --record               start recording (run again to stop)\n"
+		"  grabit -f shot.png --zipline  upload an existing file\n",
 		stdout);
 	return 0;
 }
@@ -483,7 +477,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 				  "unset with: grabit unset ocr.tesseract",
 				  bin);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: setup needed",
+			.summary = "grabit: tesseract not found",
 			.body = "configured tesseract not found; see terminal for details",
 		});
 		return 1;
@@ -503,7 +497,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 				  "tesseract-ocr-%s (debian/ubuntu)",
 				  lang, lang, lang);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: setup needed",
+			.summary = "grabit: tesseract not installed",
 			.body = "install tesseract + the matching training data",
 		});
 		return 1;
@@ -515,7 +509,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		log_error("  or set TESSDATA_PREFIX to the dir containing %s.traineddata", lang);
 		log_error("  list what's available with: %s --list-langs", bin);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: setup needed",
+			.summary = "grabit: language data missing",
 			.body = "tesseract language data missing; install the language pack",
 			.force = true,
 		});
@@ -759,10 +753,9 @@ static int run(const struct args *a) {
 		break;
 	default:
 		log_error("no action specified; try -u, -c, -o, --pin, --record, or --tesseract");
-		log_info("(or set a default with: grabit set default_action upload)");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: setup needed",
-			.body = "no action; run `grabit set default_action upload|copy|save|pin`",
+			.summary = "grabit: no action set",
+			.body = "run `grabit set default_action upload|copy|save|pin`",
 		});
 		rc = 1;
 		break;
@@ -877,8 +870,11 @@ int main(int argc, char **argv) {
 		if (strcmp(first, "--version") == 0 || strcmp(first, "-V") == 0) return print_version();
 		if (strcmp(first, "--help") == 0 || strcmp(first, "-h") == 0) return print_help();
 		if (strcmp(first, "help") == 0) {
-			if (argc < 3) return print_help();
+			if (argc < 3) return print_help_topics();
 			const char *sub = argv[2];
+			if (strcmp(sub, "filename") == 0) return print_help_filename();
+			if (strcmp(sub, "env") == 0) return print_help_env();
+			if (strcmp(sub, "examples") == 0) return print_help_examples();
 			static char *help_argv[] = {(char *)"--help", NULL};
 			if (strcmp(sub, "set") == 0) return cmd_set(1, help_argv);
 			if (strcmp(sub, "get") == 0) return cmd_get(1, help_argv);
@@ -886,7 +882,8 @@ int main(int argc, char **argv) {
 			if (strcmp(sub, "sxcu") == 0) return cmd_sxcu(1, help_argv);
 			if (strcmp(sub, "plugin") == 0) return cmd_plugin(1, help_argv);
 			log_error("no help topic for `%s`", sub);
-			return 1;
+			print_help_topics();
+			return 2;
 		}
 		if (strcmp(first, "set") == 0) return cmd_set(argc - 2, argv + 2);
 		if (strcmp(first, "get") == 0) return cmd_get(argc - 2, argv + 2);
@@ -896,7 +893,7 @@ int main(int argc, char **argv) {
 		if (strcmp(first, "-p") == 0) {
 			if (argc < 3) {
 				log_error("usage: grabit -p <plugin> [args]");
-				return 1;
+				return 2;
 			}
 			return plugin_dispatch_pin(argv[2], argc - 2, argv + 2);
 		}

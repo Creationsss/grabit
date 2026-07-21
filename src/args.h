@@ -22,7 +22,6 @@ enum action {
 struct args {
 	enum action action;
 	bool silent;
-	bool debug;
 	bool edit;
 	bool no_tray;
 	bool no_upload;

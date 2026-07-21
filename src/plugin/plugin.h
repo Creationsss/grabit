@@ -43,7 +43,6 @@ int plugin_foreach_installed(int (*fn)(const char *name, void *ud), void *ud);
 
 bool plugin_name_is_valid(const char *name);
 int plugin_resolve(const char *name, char *path_out, size_t cap);
-bool plugin_is_installed(const char *name);
 
 int plugin_install_git(const char *url);
 int plugin_remove(const char *name);

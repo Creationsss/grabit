@@ -80,7 +80,7 @@ static const char INTROSPECT_XML[] =
 
 static void notify_tray_unavailable(const char *body) {
 	notify_send(&(struct notify_opts){
-		.summary = "grabit: setup needed",
+		.summary = "grabit: tray unavailable",
 		.body = body,
 	});
 }

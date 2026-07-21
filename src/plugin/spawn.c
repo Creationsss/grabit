@@ -24,16 +24,3 @@ int plugin_run_in(const char *cwd, char *const argv[]) {
 	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
 	return (WIFEXITED(status) && WEXITSTATUS(status) == 0) ? 0 : -1;
 }
-
-int plugin_read_first_line(const char *path, char *out, size_t cap) {
-	FILE *f = fopen(path, "r");
-	if (!f) return -1;
-	if (!fgets(out, (int)cap, f)) {
-		fclose(f);
-		return -1;
-	}
-	fclose(f);
-	char *nl = strchr(out, '\n');
-	if (nl) *nl = '\0';
-	return 0;
-}

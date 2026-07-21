@@ -90,8 +90,3 @@ int plugin_resolve(const char *name, char *path_out, size_t cap) {
 	if (access(path_out, X_OK) != 0) return -1;
 	return 0;
 }
-
-bool plugin_is_installed(const char *name) {
-	char path[PLUGIN_PATH_MAX];
-	return plugin_resolve(name, path, sizeof path) == 0;
-}

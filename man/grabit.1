@@ -1,8 +1,8 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
 .\" Copyright (C) 2026 creations
-.TH GRABIT 1 "2026-07-18" "grabit 0.5.1" "User Commands"
+.TH GRABIT 1 "2026-07-20" "grabit 0.5.1" "User Commands"
 .SH NAME
-grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland compositors
+grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .SH SYNOPSIS
 .B grabit
 .RI [ options ]
@@ -27,9 +27,7 @@ grabit \- screenshot, screen-recording, OCR, and uploader for wlroots Wayland co
 .SH DESCRIPTION
 .B grabit
 captures region screenshots, records the screen, performs OCR, and uploads the
-result, with a native freeze + region selector (no
-.BR slurp / grim
-shellouts). It uses
+result, with a native freeze + region selector. It uses
 .B zwlr_screencopy_v1
 when advertised, otherwise falls back to
 .B ext_image_copy_capture_v1
@@ -147,22 +145,14 @@ POSTs to the DeepL API using
 .RB ( GRABIT_TRANSLATE_KEY
 overrides it). Neither needs an external binary. For
 .BR deepl ,
-the endpoint follows the key: keys ending in
-.B :fx
-are Free plan and use
-.IR api\-free.deepl.com ,
-others use
-.IR api.deepl.com ;
+the endpoint is derived from the key and
 .B translate.url
-overrides that. DeepL target codes are not plain ISO\-639\-1 and may carry a
-regional suffix
-.RB ( EN\-US ", " PT\-BR ", " ZH\-HANS ).
+overrides it. See
+.B OPTIONS.md
+for DeepL target codes.
 .PP
-Translating sends the OCR'd text to whichever server the backend uses:
-.B trans
-sends it to Google, and DeepL's free API tier reserves the right to store
-submitted content perpetually, so prefer a paid key or a self-hosted
-LibreTranslate instance for sensitive screen content.
+Translating sends the OCR'd text to a third-party server unless you use a
+self-hosted LibreTranslate instance.
 .TP
 .B \-\-show
 With
@@ -206,48 +196,6 @@ or
 hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
-.PP
-The editor opens in region-select mode; the
-.B select region
-tool is also bound to
-.BR q .
-Set
-.B edit.instant_capture
-to
-.B true
-to capture immediately when the region is set (drag, window-snap click, or
-.BR Ctrl+A )
-instead of leaving it adjustable;
-.B region.confirm
-takes precedence if both are set. Set
-.B edit.start_with_tool
-to
-.B true
-to open the editor already in the last-used
-.B edit.tool
-instead of region-select \(en press
-.B q
-to reach region-select when ready.
-.PP
-While the
-.B text
-tool is capturing input,
-.B Enter
-commits the annotation, clicking anywhere else commits it too, and
-.B Esc
-discards the typed text without leaving the editor. The color picker's hex
-field behaves the same way: the typed value applies on
-.B Enter
-or when you click elsewhere in the picker, and
-.B Esc
-abandons it. The
-.B arrow keys
-and
-.B Shift+arrows
-still move and resize the capture region while the editor is open, and a
-.B right\-click
-cancels the selector outright (aborting an in-progress drag or text entry
-first, if there is one).
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
@@ -480,7 +428,6 @@ or edit the TOML directly. Notable top-level keys:
 .BR notifications ,
 .BR also_save ,
 .BR save_dir ,
-.BR editor ,
 .BR filename ,
 .BR filename_preset ,
 .BR format .
@@ -507,96 +454,6 @@ is appended when missing),
 and
 .B services.nest.folder
 (target folder for nest uploads).
-.PP
-.B capture.backend
-forces the screen-capture protocol:
-.BR auto
-(default),
-.B wlr
-.RB ( zwlr_screencopy ),
-or
-.B ext
-.RB ( ext_image_copy ).
-The
-.B GRABIT_CAPTURE_BACKEND
-environment variable overrides it.
-.B ocr.tesseract
-overrides the tesseract binary path used by
-.BR \-\-tesseract ,
-and
-.B ocr.lang
-selects the OCR language
-.RB ( eng
-by default).
-.PP
-Set
-.B region.confirm
-to
-.B true
-to keep the selection adjustable after releasing the drag (flameshot-style):
-resize it with the handles or
-.BR Shift+arrows ,
-move it by dragging inside it or with the
-.B arrow keys
-(hold to accelerate),
-drag outside it to start over, then press
-.BR Enter ,
-press
-.BR Ctrl+C ,
-or double-click inside it to capture;
-.B Esc
-cancels. In any selector,
-.B Ctrl+A
-selects the whole monitor under the cursor.
-.PP
-Every selector/editor key and mouse action is rebindable under the
-.B keys.*
-namespace. Each value is a comma-separated list of bindings, and the action
-fires when any of them matches. A binding is either a key name with optional
-.BR Ctrl+ / Shift+ / Alt+ / Super+
-modifiers (xkb keysyms such as
-.BR Return ", " Escape ", " KP_Enter ", " a ", " F1 )
-or a mouse button written
-.BR mouse: \fIbutton\fR,
-where
-.I button
-is a name
-.RB ( left ", " right ", " middle ", " back ", " forward ", " side ", " extra )
-or a raw evdev code
-.RB ( mouse:272 " = left, " mouse:273 " = right, same numbering as hyprland/sway).
-The thumb-button names are device-dependent \(en most mice report them as
-.B side
-(back) and
-.B extra
-(forward); if a named binding does not fire, bind the code shown by
-.B wev
-instead. For example
-.B "keys.confirm = \(dqReturn, KP_Enter, mouse:right, Ctrl+c\(dq"
-makes a right\-click save the capture. The left mouse button is always the
-draw/select button and cannot be rebound. Actions:
-.BR keys.confirm ", " keys.cancel ", " keys.select_all ", " keys.undo ", "
-.BR keys.edit_mode ", " keys.region_mode ", " keys.nudge_left / right / up / down ,
-and
-.BR keys.tool.\fIname\fR
-(pen, marker, line, rect, ellipse, arrow, blur, text, eraser).
-.PP
-Rather than typing bindings by hand,
-.B grabit set \fIkeys.key\fB \-\-watch
-(or
-.BR \-w )
-captures them interactively in the terminal: grabit starts listening, each key
-or mouse button you press is echoed as it is captured,
-.B Enter
-saves and
-.B Esc
-cancels. The captured set replaces the action's current bindings. This is the
-reliable way to bind an unusual mouse button, as it records the exact code the
-device emits. The left mouse button is reserved and ignored.
-.PP
-.B grabit set \fIkeys.key\fB \-\-reset
-restores a binding to its built-in default (by dropping the config entry), and
-.B grabit set keys \-\-reset
-resets every keybind at once.
 .PP
 See
 .B OPTIONS.md
@@ -667,10 +524,6 @@ Cursor theme and size for the region selector and overlays
 .RI ( XCURSOR_SIZE
 is clamped to 8..256, default 24).
 .TP
-.B GRABIT_RECORD_ENC_DELAY_US
-Debug knob: throttle the recording encoder drain loop by the given number of
-microseconds per frame.
-.TP
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
@@ -690,8 +543,10 @@ Tesseract language-data directory.
 .TP
 .B GRABIT_TRANSLATE_KEY
 API key for the
+.B deepl
+and
 .B libretranslate
-backend, overriding the
+backends, overriding the
 .B translate.api_key
 config key.
 .TP
@@ -700,9 +555,13 @@ If set to any value, disable ANSI color in log output.
 .SH FILES
 .TP
 .I ~/.config/grabit/config.toml
-User configuration (TOML). Only ever written by
-.BR "grabit set" / unset ,
-so it is safe to keep in version control.
+User configuration (TOML), mode 0600. Only ever written by
+.BR "grabit set" / unset .
+It may hold upload tokens under
+.BR services. \fIname\fB .auth ,
+so use the
+.B GRABIT_ \fISERVICE\fB _AUTH
+environment variables instead if you track it in version control.
 .TP
 .I $XDG_STATE_HOME/grabit/state.toml
 Machine-local state grabit writes on its own: the last-used
@@ -805,10 +664,6 @@ in the source tree.
 Report issues at
 .br
 https://heliopolis.live/creations/grabit
-.PP
-GitHub mirror:
-.br
-https://github.com/Creationsss/grabit
 .SH LICENSE
 AGPL-3.0-or-later.
 .SH AUTHOR

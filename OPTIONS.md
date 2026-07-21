@@ -17,49 +17,14 @@ grabit -f file.png -u         # upload an existing file
 
 first run writes a default config to `~/.config/grabit/config.toml`.
 
-## features
-
-- region screenshots with native freeze + selector (no `slurp`/`grim` shellouts); uses `zwlr_screencopy_v1` if advertised, else falls back to `ext_image_copy_capture_v1` (KDE Plasma 6)
-- on hyprland, the region selector highlights the window under the cursor as a snap target - click to capture it, or drag for a freeform region
-- screen recording to mp4/h.264, webm/vp9, or gif with live overlay + sni tray icon
-- ocr (capture → text → clipboard) via tesseract
-- in-tree annotation editor (`--edit`): pen, rect, ellipse, arrow, blur, text, eraser, hsl color picker + eyedropper, hex input
-- pin captures to the desktop (always-on-top, click-through, draggable when grabbed)
-- six built-in uploaders: zipline, nest, fakecrime, ez, guns, pixelvault
-- import any sharex `.sxcu` uploader
-- filename templates
-- toml config + `grabit set/get/unset` schema-validated cli
-- plugin system (`grabit plugin install <git-url>`)
-
 ## build
+
+dependencies and per-distro install are in `README.md`.
 
 ```sh
 make
 ./build/grabit --version
 ```
-
-### deps
-
-required:
-- json-c
-- libcurl
-- libmagic
-- wayland-client + wayland-cursor
-- cairo
-- libxkbcommon
-- libdbus-1
-
-build-time only: `wayland-scanner` (protocol xml is vendored under `protocols/`).
-
-optional (auto-detected via pkg-config):
-- `libjpeg` (or `libjpeg-turbo`) - enables JPEG output (`format = jpeg`).
-- `libwebp` - enables WebP output (`format = webp`).
-
-runtime (no link-time deps, looked up via `$PATH`):
-- `ffmpeg` for `--record`
-- `tesseract` + the english training data for `--tesseract`
-
-config parser (`tomlc99`) is vendored under `src/vendor/`.
 
 ### targets
 
@@ -183,19 +148,11 @@ grabit --<name>                               # screenshot + upload
 grabit -f file.png --<name>                   # upload an existing file
 ```
 
-supported sxcu fields: `RequestURL`, `RequestMethod`, `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `ErrorMessage`, `RegexList`, `DestinationType`.
+supported sxcu fields: `RequestURL`, `RequestMethod`, `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `ErrorMessage`, `RegexList`.
 
-placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}`, `{select:a|b|c}`, `{prompt:label|default}` (alias `{inputbox:label|default}`). response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}`, `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
+placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` and `{select:a|b|c}` (both expand to the first alternative), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}`, `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
 
 auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.auth` config needed.
-
-### default action
-
-if no `-c`/`-u`/`-o`/`--<service>` is passed, falls back to:
-
-```sh
-grabit set default_action copy        # one of: copy, upload, save, pin
-```
 
 ### top-level keys
 
@@ -206,7 +163,6 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
-| `editor` | string | external editor binary for `-e` text tool (optional) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
 | `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
@@ -404,7 +360,7 @@ grabit set translate.target EN-US            # deepl codes: EN-US, PT-BR, ZH-HAN
 
   deepl language codes are not plain iso-639-1 - regional variants like `EN-US`, `EN-GB`, `PT-BR`, `ZH-HANS` and `ES-419` are passed through as you set them (upper-cased). grabit reports quota exhaustion (`http 456`), rate limiting (`429`), and key/endpoint problems (`403`) distinctly.
 
-  **note:** per DeepL's Pro license §3.3.2 the free API tier "reserves the right to perpetually store any Content or Processed Content", while paid tiers store only temporarily. if you are OCR'ing sensitive screen content, prefer a paid key or a self-hosted libretranslate instance.
+  **note:** the deepl free tier may retain submitted content; prefer a paid key or a self-hosted libretranslate instance for sensitive screen content.
 
 ### show on screen
 
@@ -442,9 +398,8 @@ the preview is the scaled screenshot with a thin dark border. hovering over it o
 
 only one preview card is on screen at a time.
 
-the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen. if no monitor is connected at all, grabit fires a "show failed: no monitor is connected" notification and exits.
+the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
 
-note: tesseract is currently invoked with `-l eng`, so non-latin source scripts (japanese, chinese, cyrillic, etc.) won't OCR cleanly and the translation will reflect that. results are best when the source is a latin-script language that `tesseract-data-eng` can still read passably (spanish, french, german, etc.).
 
 ## fullscreen
 
@@ -555,44 +510,6 @@ grabit -p <name> [args]           # run it and pin its last stdout line as a fil
 
 plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
 
-## flags
-
-action flags:
-
-| flag | meaning |
-|---|---|
-| `-c` / `--copy` | copy to clipboard |
-| `-u` / `--upload` | upload to default service; the resulting url is copied to the clipboard and printed to stdout |
-| `-o` / `--output` / `--save` | save and print path. the "Saved" notification and shutter sound only fire when stdout is a tty, so `grabit -o > path.txt` is silent by design |
-| `--<service>` | upload to a specific built-in or sxcu service |
-| `--record` | toggle recording |
-| `--pin` | pin a region to the desktop |
-| `--grab` / `--release` / `--close-all` | manage existing pins |
-| `--tesseract` | ocr a region into the clipboard |
-| `--translate[=<lang>]` | with `--tesseract`: translate the ocr text and copy that instead (see ocr/translate section) |
-| `-e` / `--edit` | annotate before the action |
-| `-p <plugin> [args]` | run a plugin and pin its output (see plugins above) |
-| `<plugin> [args]` | bare plugin dispatch (see plugins above) |
-| `-h` / `--help` | print help and exit |
-| `-V` / `--version` | print version and exit |
-
-modifiers:
-
-| flag | meaning |
-|---|---|
-| `-F` / `--fullscreen` | capture a whole monitor; multi-monitor opens a monitor picker (see fullscreen section). works with `--record` too |
-| `--fullscreen=<n\|name>` | capture a specific monitor directly by 1-based number or output name (e.g. `--fullscreen=DP-1`), no picker |
-| `-f <file>` | use an existing file instead of capturing |
-| `--filename <tpl>` (or `--filename=<tpl>`) | per-run filename template |
-| `--format <png\|jpeg\|webp>` (or `--format=<name>`) | per-run output format |
-| `--no-tray` | suppress the recording tray icon |
-| `--no-upload` | with `--record`, skip the auto-upload after recording |
-| `--silent` / `-q` / `--quiet` | suppress info logging, desktop notifications, and the shutter sound (errors still print; failure notifications are forced and still appear) |
-| `-d` / `--debug` | enable debug logging |
-| `--` | end of options; the next argument is treated as `-f <file>` |
-| `--capture` | during plugin dispatch: force a capture and pass the file to the plugin |
-| `--no-capture` | during plugin dispatch: suppress the manifest's `capture.auto` |
-
 ## environment
 
 | var | effect |
@@ -607,7 +524,7 @@ modifiers:
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
 | `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
-| `GRABIT_TRANSLATE_KEY` | api key for the `libretranslate` backend; overrides `translate.api_key` |
+| `GRABIT_TRANSLATE_KEY` | api key for the `deepl` and `libretranslate` backends; overrides `translate.api_key` |
 | `NO_COLOR` | if set to any value, disable ansi color in log output |
 | `GRABIT_RECORD_ENC_DELAY_US` | debug knob: throttle the recording encoder drain loop, in microseconds per frame |
 
@@ -634,10 +551,3 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit_recording.pid`) |
 | `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |
 
-## exit status
-
-| code | meaning |
-|---|---|
-| `0` | success |
-| `1` | runtime failure (capture, upload, clipboard, plugin, subcommand). cancelling a selection also exits `1`, just without an error notification |
-| `2` | command-line parse or usage error |

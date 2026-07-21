@@ -221,6 +221,43 @@ grabit set default_action copy        # one of: copy, upload, save, pin
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 
+### keybinds
+
+every key and mouse action in the selector/editor is rebindable under the `keys.*` namespace. each value is a comma-separated list of bindings, and an action fires when any of its bindings match. a binding is either a key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` modifiers (key names are xkb keysyms, e.g. `Return`, `Escape`, `KP_Enter`, `Left`, `space`, `a`, `F1`), or a mouse button. letters match case-insensitively; the left mouse button is always the draw/select button and cannot be rebound.
+
+mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, `right`, `middle`, `back`, `forward`, `side`, `extra`) or a raw evdev button code (`mouse:272` = left, `273` = right, `274` = middle, same numbering as hyprland/sway). the names `back`/`forward`/`side`/`extra` are device-dependent: most mice report the two thumb buttons as `side` (physical back) and `extra` (physical forward), not `back`/`forward`. if a named binding does not fire, find the real code with `wev` or `libinput debug-events` and bind that number.
+
+| key | default | action |
+|---|---|---|
+| `keys.confirm` | `Return, KP_Enter, Ctrl+c` | capture/save the selection (copy/upload path chosen elsewhere) |
+| `keys.cancel` | `Escape, mouse:right` | cancel; while dragging/typing it aborts that instead |
+| `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
+| `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
+| `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
+| `keys.region_mode` | `q` | switch back to region-select |
+| `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
+| `keys.tool.<name>` | `p, 1` … `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, ellipse, arrow, blur, text, eraser |
+
+example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
+
+```sh
+grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+c"
+grabit set keys.cancel "Escape"
+```
+
+instead of typing bindings by hand, `--watch` (or `-w`) captures them live in the terminal: grabit starts listening, you press the keys and mouse buttons you want, and each one is echoed as it is captured. `Enter` saves and `Esc` cancels. the captured set replaces the action's current bindings. this is the reliable way to bind an odd mouse button, since it records the exact code the device emits. the left mouse button is reserved (draw/select) and is ignored; to bind `Enter` or `Esc` themselves, set them by hand.
+
+```sh
+grabit set keys.confirm --watch     # press right mouse, then Enter -> keys.confirm = mouse:right
+```
+
+`--reset` restores defaults by dropping the config entry (an unset binding falls back to its compiled-in default). reset one action, or the whole `keys` namespace at once:
+
+```sh
+grabit set keys.confirm --reset     # keys.confirm back to its default
+grabit set keys --reset             # every keybind back to defaults
+```
+
 ### encoder options
 
 | key | default | notes |

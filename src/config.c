@@ -211,6 +211,26 @@ int config_load(struct config *c) {
 	return 0;
 }
 
+size_t cfg_kv_remove(struct config *c, const char *key, bool prefix) {
+	size_t klen = strlen(key);
+	size_t removed = 0;
+	for (size_t i = 0; i < c->n;) {
+		bool match = prefix ? strncmp(c->kvs[i].key, key, klen) == 0
+							: strcmp(c->kvs[i].key, key) == 0;
+		if (!match) {
+			i++;
+			continue;
+		}
+		free(c->kvs[i].key);
+		free(c->kvs[i].val);
+		if (i + 1 < c->n)
+			memmove(&c->kvs[i], &c->kvs[i + 1], (c->n - i - 1) * sizeof *c->kvs);
+		c->n--;
+		removed++;
+	}
+	return removed;
+}
+
 void config_free(struct config *c) {
 	if (!c) return;
 	for (size_t i = 0; i < c->n; i++) {

@@ -547,10 +547,59 @@ cancels. In any selector,
 .B Ctrl+A
 selects the whole monitor under the cursor.
 .PP
+Every selector/editor key and mouse action is rebindable under the
+.B keys.*
+namespace. Each value is a comma-separated list of bindings, and the action
+fires when any of them matches. A binding is either a key name with optional
+.BR Ctrl+ / Shift+ / Alt+ / Super+
+modifiers (xkb keysyms such as
+.BR Return ", " Escape ", " KP_Enter ", " a ", " F1 )
+or a mouse button written
+.BR mouse: \fIbutton\fR,
+where
+.I button
+is a name
+.RB ( left ", " right ", " middle ", " back ", " forward ", " side ", " extra )
+or a raw evdev code
+.RB ( mouse:272 " = left, " mouse:273 " = right, same numbering as hyprland/sway).
+The thumb-button names are device-dependent \(en most mice report them as
+.B side
+(back) and
+.B extra
+(forward); if a named binding does not fire, bind the code shown by
+.B wev
+instead. For example
+.B "keys.confirm = \(dqReturn, KP_Enter, mouse:right, Ctrl+c\(dq"
+makes a right\-click save the capture. The left mouse button is always the
+draw/select button and cannot be rebound. Actions:
+.BR keys.confirm ", " keys.cancel ", " keys.select_all ", " keys.undo ", "
+.BR keys.edit_mode ", " keys.region_mode ", " keys.nudge_left / right / up / down ,
+and
+.BR keys.tool.\fIname\fR
+(pen, marker, line, rect, ellipse, arrow, blur, text, eraser).
+.PP
+Rather than typing bindings by hand,
+.B grabit set \fIkeys.key\fB \-\-watch
+(or
+.BR \-w )
+captures them interactively in the terminal: grabit starts listening, each key
+or mouse button you press is echoed as it is captured,
+.B Enter
+saves and
+.B Esc
+cancels. The captured set replaces the action's current bindings. This is the
+reliable way to bind an unusual mouse button, as it records the exact code the
+device emits. The left mouse button is reserved and ignored.
+.PP
+.B grabit set \fIkeys.key\fB \-\-reset
+restores a binding to its built-in default (by dropping the config entry), and
+.B grabit set keys \-\-reset
+resets every keybind at once.
+.PP
 See
 .B OPTIONS.md
-for the full key reference, including region snap/confirm, encoder quality,
-recording, sound, pin, translate, preview/text card, and edit defaults.
+for the full key reference, including region snap/confirm, keybinds, encoder
+quality, recording, sound, pin, translate, preview/text card, and edit defaults.
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG

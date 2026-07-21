@@ -18,9 +18,14 @@
 int gcfg_cmp_kv(const void *a, const void *b) {
 	const struct kv *ka = a;
 	const struct kv *kb = b;
-	bool ad = strchr(ka->key, '.') != NULL;
-	bool bd = strchr(kb->key, '.') != NULL;
-	if (ad != bd) return ad ? 1 : -1;
+	const char *da = strrchr(ka->key, '.');
+	const char *db = strrchr(kb->key, '.');
+	size_t ta = da ? (size_t)(da - ka->key) : 0;
+	size_t tb = db ? (size_t)(db - kb->key) : 0;
+	size_t n = ta < tb ? ta : tb;
+	int c = strncmp(ka->key, kb->key, n);
+	if (c) return c;
+	if (ta != tb) return ta < tb ? -1 : 1;
 	return strcmp(ka->key, kb->key);
 }
 

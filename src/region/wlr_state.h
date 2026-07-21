@@ -12,6 +12,7 @@
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "region/keybinds.h"
 #include "region/region.h"
 
 struct grabit_wl_state;
@@ -157,6 +158,7 @@ struct ro_state {
 	bool edit_choices_dirty;
 	bool shift_held;
 	bool ctrl_held;
+	struct region_keymap keys;
 	int handle_dragging;
 	bool moving_region;
 	bool region_moved;

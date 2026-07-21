@@ -68,6 +68,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	grabit_wl_outputs_bbox(s, &st.bounds);
 
 	st.snap_hover = -1;
+	region_keymap_init(&st.keys, cfg);
 	bool snap_enabled = true;
 	if (cfg) {
 		const char *v = config_get(cfg, "region.window_snap");
@@ -158,12 +159,6 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			"left_ptr",
 			NULL,
 		};
-		static const char *const default_names[] = {
-			"left_ptr",
-			"default",
-			"arrow",
-			NULL,
-		};
 		static const char *const move_names[] = {
 			"fleur",
 			"move",
@@ -185,7 +180,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		};
 		st.cursor = grabit_cursor_load_first(st.cursor_theme, cross_names);
 		st.cursor_text = grabit_cursor_load_first(st.cursor_theme, text_names);
-		st.cursor_default = grabit_cursor_load_first(st.cursor_theme, default_names);
+		st.cursor_default = grabit_cursor_load_default(st.cursor_theme);
 		st.cursor_move = grabit_cursor_load_first(st.cursor_theme, move_names);
 		st.cursor_hand = grabit_cursor_load_hand(st.cursor_theme);
 		for (size_t i = 0; i < 8; i++) {

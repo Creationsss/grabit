@@ -13,7 +13,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include <linux/input-event-codes.h>
@@ -328,25 +327,53 @@ static bool toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	return true;
 }
 
+static bool region_abort_active(struct ro_state *st, struct wl_pointer *p) {
+	if (region_drag_active(st) || st->text_input_active) {
+		region_drag_abort(st);
+		if (p) refresh_cursor(st, p);
+		region_render_request_redraw_all(st);
+		return true;
+	}
+	return false;
+}
+
+static void region_do_confirm(struct ro_state *st) {
+	if (st->has_selection) {
+		st->finished = true;
+	} else if (!region_editing(st)) {
+		st->cancelled = true;
+		st->finished = true;
+	}
+}
+
+static uint32_t region_nudge_for_key(struct ro_state *st, xkb_keysym_t sym,
+									 uint8_t mods) {
+	if (region_key_action(&st->keys, KA_NUDGE_LEFT, sym, mods)) return NUDGE_LEFT;
+	if (region_key_action(&st->keys, KA_NUDGE_RIGHT, sym, mods)) return NUDGE_RIGHT;
+	if (region_key_action(&st->keys, KA_NUDGE_UP, sym, mods)) return NUDGE_UP;
+	if (region_key_action(&st->keys, KA_NUDGE_DOWN, sym, mods)) return NUDGE_DOWN;
+	return 0;
+}
+
 static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 						   uint32_t time, uint32_t button, uint32_t state) {
-	(void)p;
 	(void)serial;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
 
-	if (button == BTN_RIGHT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-		if (region_drag_active(st) || st->text_input_active) {
-			region_drag_abort(st);
-			refresh_cursor(st, p);
-			region_render_request_redraw_all(st);
-			return;
+	if (button != BTN_LEFT) {
+		if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
+		if (region_button_action(&st->keys, KA_CANCEL, button)) {
+			if (!region_abort_active(st, p)) {
+				st->cancelled = true;
+				st->finished = true;
+			}
+		} else if (region_button_action(&st->keys, KA_CONFIRM, button)) {
+			if (!region_drag_active(st) && !st->text_input_active)
+				region_do_confirm(st);
 		}
-		st->cancelled = true;
-		st->finished = true;
 		return;
 	}
-	if (button != BTN_LEFT) return;
 
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED && st->tb_dragging) {
 		st->tb_dragging = false;
@@ -652,18 +679,7 @@ static void keyboard_keymap(void *data, struct wl_keyboard *kb,
 		close(fd);
 		return;
 	}
-	void *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-	close(fd);
-	if (map_str == MAP_FAILED) return;
-
-	if (st->xkb_state) xkb_state_unref(st->xkb_state);
-	if (st->xkb_keymap) xkb_keymap_unref(st->xkb_keymap);
-
-	size_t klen = size > 0 ? size - 1 : 0;
-	st->xkb_keymap = xkb_keymap_new_from_buffer(
-		st->xkb_ctx, map_str, klen, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
-	munmap(map_str, size);
-	st->xkb_state = st->xkb_keymap ? xkb_state_new(st->xkb_keymap) : NULL;
+	region_xkb_keymap_from_fd(st->xkb_ctx, fd, size, &st->xkb_keymap, &st->xkb_state);
 }
 
 static void keyboard_enter(void *data, struct wl_keyboard *kb, uint32_t serial,
@@ -684,33 +700,6 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (st->cleanup) return;
 	region_nudge_disarm(st);
 	region_undo_disarm(st);
-}
-
-static int32_t tool_for_letter(xkb_keysym_t sym) {
-	static const char keys[] = "pmlroabte";
-	if (sym >= XKB_KEY_A && sym <= XKB_KEY_Z) sym += XKB_KEY_a - XKB_KEY_A;
-	if (sym < XKB_KEY_a || sym > XKB_KEY_z) return -1;
-	const char *p = strchr(keys, (int)sym);
-	return p ? (int32_t)(p - keys) : -1;
-}
-
-static uint32_t nudge_dir_for_sym(xkb_keysym_t sym) {
-	switch (sym) {
-	case XKB_KEY_Left:
-	case XKB_KEY_KP_Left:
-		return NUDGE_LEFT;
-	case XKB_KEY_Right:
-	case XKB_KEY_KP_Right:
-		return NUDGE_RIGHT;
-	case XKB_KEY_Up:
-	case XKB_KEY_KP_Up:
-		return NUDGE_UP;
-	case XKB_KEY_Down:
-	case XKB_KEY_KP_Down:
-		return NUDGE_DOWN;
-	default:
-		return 0;
-	}
 }
 
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {
@@ -750,10 +739,10 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (!st->xkb_state) return;
 	xkb_keysym_t sym = xkb_state_key_get_one_sym(st->xkb_state, key + 8);
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-		if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
-			sym == XKB_KEY_z || sym == XKB_KEY_Z)
+		uint8_t rmods = region_xkb_mods(st->xkb_state);
+		if (region_key_action(&st->keys, KA_UNDO, sym, rmods))
 			region_undo_disarm(st);
-		uint32_t dir = nudge_dir_for_sym(sym);
+		uint32_t dir = region_nudge_for_key(st, sym, rmods);
 		if (dir) region_nudge_release(st, dir);
 		return;
 	}
@@ -799,31 +788,20 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 
-	if (sym == XKB_KEY_Escape) {
-		if (region_drag_active(st)) {
-			region_drag_abort(st);
-			if (st->pointer) refresh_cursor(st, st->pointer);
-			region_render_request_redraw_all(st);
-			return;
-		}
-		st->cancelled = true;
-		st->finished = true;
-		return;
-	}
-	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
-		if (st->has_selection) {
-			st->finished = true;
-		} else if (!region_editing(st)) {
+	uint8_t mods = region_xkb_mods(st->xkb_state);
+
+	if (region_key_action(&st->keys, KA_CANCEL, sym, mods)) {
+		if (!region_abort_active(st, st->pointer)) {
 			st->cancelled = true;
 			st->finished = true;
 		}
 		return;
 	}
-	if (st->ctrl_held && (sym == XKB_KEY_c || sym == XKB_KEY_C)) {
-		if (st->has_selection) st->finished = true;
+	if (region_key_action(&st->keys, KA_CONFIRM, sym, mods)) {
+		region_do_confirm(st);
 		return;
 	}
-	if (st->ctrl_held && (sym == XKB_KEY_a || sym == XKB_KEY_A)) {
+	if (region_key_action(&st->keys, KA_SELECT_ALL, sym, mods)) {
 		if (region_drag_active(st) || st->n_outs == 0) return;
 		struct rect mon;
 		grabit_output_rect(st->cursor_on ? st->cursor_on->go : st->outs[0].go, &mon);
@@ -842,7 +820,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 
 	if (st->region_locked && st->has_selection && !region_drag_active(st)) {
-		uint32_t dir = nudge_dir_for_sym(sym);
+		uint32_t dir = region_nudge_for_key(st, sym, mods);
 		if (dir) {
 			region_nudge_press(st, dir);
 			region_render_request_redraw_all(st);
@@ -852,8 +830,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (!region_editing(st)) return;
 
-	if (sym == XKB_KEY_u || sym == XKB_KEY_U ||
-		(st->ctrl_held && (sym == XKB_KEY_z || sym == XKB_KEY_Z))) {
+	if (region_key_action(&st->keys, KA_UNDO, sym, mods)) {
 		if (region_drag_active(st)) return;
 		region_undo_pop(st);
 		region_undo_arm(st);
@@ -863,26 +840,21 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (region_drag_active(st)) return;
 
-	if (!st->ctrl_held && (sym == XKB_KEY_s || sym == XKB_KEY_S)) {
+	if (region_key_action(&st->keys, KA_EDIT_MODE, sym, mods)) {
 		mode_enter_anno_edit(st);
 		if (st->pointer) refresh_cursor(st, st->pointer);
 		region_render_request_redraw_all(st);
 		return;
 	}
 
-	if (!st->ctrl_held && (sym == XKB_KEY_q || sym == XKB_KEY_Q)) {
+	if (region_key_action(&st->keys, KA_REGION_MODE, sym, mods)) {
 		mode_enter_region(st);
 		if (st->pointer) refresh_cursor(st, st->pointer);
 		region_render_request_redraw_all(st);
 		return;
 	}
 
-	int32_t pick = -1;
-	if (sym >= XKB_KEY_1 && sym <= XKB_KEY_9)
-		pick = (int32_t)(sym - XKB_KEY_1);
-	else if (sym >= XKB_KEY_KP_1 && sym <= XKB_KEY_KP_9)
-		pick = (int32_t)(sym - XKB_KEY_KP_1);
-	if (pick < 0 && !st->ctrl_held) pick = tool_for_letter(sym);
+	int32_t pick = region_key_tool(&st->keys, sym, mods);
 	if (pick >= 0 && pick < TOOL_COUNT) {
 		mode_select_tool(st, (enum tool_kind)pick);
 		if (st->pointer) refresh_cursor(st, st->pointer);

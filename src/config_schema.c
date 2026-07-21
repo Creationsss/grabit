@@ -6,6 +6,7 @@
 
 #include "config_internal.h"
 #include "log.h"
+#include "region/keybinds.h"
 #include "region/region.h"
 #include "upload/upload.h"
 #include "util.h"
@@ -197,6 +198,10 @@ static bool valid_region_key(const char *key) {
 	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0;
 }
 
+static bool valid_keys_key(const char *key) {
+	return region_keybind_default(key) != NULL;
+}
+
 static bool valid_recording_key(const char *key) {
 	if (strncmp(key, "recording.", 10) != 0) return false;
 	const char *leaf = key + 10;
@@ -214,7 +219,7 @@ bool cfg_key_is_known(const char *key) {
 		   valid_jpeg_key(key) || valid_webp_key(key) ||
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key);
+		   valid_preview_key(key) || valid_keys_key(key);
 }
 
 static const char *VALS_x264_tune[] = {
@@ -451,6 +456,11 @@ int config_set(struct config *c, const char *key, const char *value) {
 		validate_int_in_range(key, value, 1, 20) != 0) return -1;
 	if (cfg_is_bool_key(key) && strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
 		log_error("%s must be true or false", key);
+		return -1;
+	}
+	if (strncmp(key, "keys.", 5) == 0 && !region_keybind_validate(value)) {
+		log_error("%s must be a comma-separated list of keys, e.g. "
+				  "\"Return, Ctrl+c\" or \"Escape, mouse:right\"", key);
 		return -1;
 	}
 

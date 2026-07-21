@@ -127,6 +127,8 @@ static int print_help(void) {
 		"\n"
 		"Config (run `grabit set --help` for details):\n"
 		"  set <key> <val>   Write a config key (validated)\n"
+		"  set <key> --watch Capture a keys.* binding by pressing it\n"
+		"  set <key> --reset Reset a keys.* binding (or `keys` for all) to default\n"
 		"  set <key>         Print example value for that key\n"
 		"  set               List all available keys\n"
 		"  get [<key>]       Print one config key, or every set key\n"

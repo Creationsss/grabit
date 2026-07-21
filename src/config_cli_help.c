@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "config_internal.h"
 
+#include "region/keybinds.h"
 #include "util.h"
 
 #include <stdbool.h>
@@ -97,6 +98,25 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"capture.cursor",
 	"region.window_snap",
 	"region.confirm",
+	"keys.confirm",
+	"keys.cancel",
+	"keys.select_all",
+	"keys.undo",
+	"keys.edit_mode",
+	"keys.region_mode",
+	"keys.nudge_left",
+	"keys.nudge_right",
+	"keys.nudge_up",
+	"keys.nudge_down",
+	"keys.tool.pen",
+	"keys.tool.marker",
+	"keys.tool.line",
+	"keys.tool.rect",
+	"keys.tool.ellipse",
+	"keys.tool.arrow",
+	"keys.tool.blur",
+	"keys.tool.text",
+	"keys.tool.eraser",
 	"translate.target",
 	"translate.backend",
 	"translate.url",
@@ -149,6 +169,12 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			*def_out = TOP_EXAMPLES[i].def;
 			return 0;
 		}
+	}
+	const char *kb_def = region_keybind_default(key);
+	if (kb_def) {
+		*example_out = kb_def;
+		*def_out = kb_def;
+		return 0;
 	}
 	if (strncmp(key, "services.", 9) == 0) {
 		const char *rest = key + 9;
@@ -519,4 +545,6 @@ void cfg_help_print_all_keys(void) {
 	print_key_with_default("preview.position", find_default("preview.position"));
 	print_key_with_default("preview.output", find_default("preview.output"));
 	print_key_with_default("preview.dismiss_secs", find_default("preview.dismiss_secs"));
+	puts("");
+	puts("  keys.<action>           (run `grabit set keys` to list every binding)");
 }

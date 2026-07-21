@@ -39,6 +39,16 @@ struct wl_cursor *grabit_cursor_load_first(struct wl_cursor_theme *theme,
 	return NULL;
 }
 
+struct wl_cursor *grabit_cursor_load_default(struct wl_cursor_theme *theme) {
+	static const char *const default_names[] = {
+		"left_ptr",
+		"default",
+		"arrow",
+		NULL,
+	};
+	return grabit_cursor_load_first(theme, default_names);
+}
+
 struct wl_cursor *grabit_cursor_load_hand(struct wl_cursor_theme *theme) {
 	static const char *const hand_names[] = {
 		"pointer",

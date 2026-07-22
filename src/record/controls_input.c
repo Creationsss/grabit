@@ -5,7 +5,7 @@
 #include "record/controls_internal.h"
 
 #include "cursor.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <linux/input-event-codes.h>
 

@@ -9,7 +9,7 @@
 
 #include "cairo_util.h"
 #include "util/util.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <math.h>
 #include <stdint.h>

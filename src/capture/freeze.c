@@ -7,7 +7,7 @@
 #include "capture/save.h"
 #include "log.h"
 #include "region/region.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdint.h>
 #include <stdlib.h>

@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "util/util.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdint.h>

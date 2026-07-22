@@ -11,7 +11,7 @@
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <errno.h>
 #include <poll.h>

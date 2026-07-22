@@ -5,7 +5,7 @@
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <math.h>
 

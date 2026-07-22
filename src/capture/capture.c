@@ -5,7 +5,7 @@
 
 #include "capture/backend.h"
 #include "log.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdlib.h>

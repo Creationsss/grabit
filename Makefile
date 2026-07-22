@@ -95,7 +95,9 @@ GRABIT_SRCS := \
 	src/template.c \
 	src/hyprland.c \
 	src/mime.c \
-	src/wl.c \
+	src/wl/wl.c \
+	src/wl/output.c \
+	src/wl/registry.c \
 	src/capture/capture.c \
 	src/capture/pixels.c \
 	src/capture/wlr_screencopy.c \

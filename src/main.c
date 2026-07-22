@@ -33,7 +33,7 @@
 #include "sound/sound.h"
 #include "upload/upload.h"
 #include "util/util.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #ifndef GRABIT_VERSION
 #define GRABIT_VERSION "0.0.0"

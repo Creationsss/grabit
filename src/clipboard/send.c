@@ -5,7 +5,7 @@
 #include "clipboard/clipboard_internal.h"
 
 #include "log.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <dirent.h>
 #include <errno.h>

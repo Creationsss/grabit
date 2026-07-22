@@ -9,7 +9,7 @@
 #include "region/annotate.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdint.h>
 #include <string.h>

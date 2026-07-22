@@ -8,7 +8,7 @@
 #include "capture/pixels.h"
 #include "log.h"
 #include "region/region.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdlib.h>
 #include <string.h>

@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "notify/notify.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdint.h>

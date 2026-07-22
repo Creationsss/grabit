@@ -48,6 +48,7 @@ endif
 WL_PROTOCOLS := \
 	wlr-screencopy-unstable-v1 \
 	wlr-data-control-unstable-v1 \
+	ext-data-control-v1 \
 	wlr-layer-shell-unstable-v1 \
 	xdg-output-unstable-v1 \
 	xdg-shell \
@@ -91,6 +92,7 @@ GRABIT_SRCS := \
 	src/capture/pixels.c \
 	src/capture/wlr_screencopy.c \
 	src/capture/ext_image_copy.c \
+	src/capture/kwin_screenshot.c \
 	src/capture/save.c \
 	src/capture/jpeg.c \
 	src/capture/webp.c \
@@ -106,7 +108,9 @@ GRABIT_SRCS := \
 	src/region/edit_persist.c \
 	src/util/json_path.c \
 	src/clipboard/clipboard.c \
+	src/clipboard/send.c \
 	src/clipboard/wlr_data_control.c \
+	src/clipboard/ext_data_control.c \
 	src/notify/dbus.c \
 	src/region/wlr_layer.c \
 	src/region/wlr_render.c \

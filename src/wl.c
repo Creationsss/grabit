@@ -5,6 +5,7 @@
 
 #include "wl.h"
 
+#include "capture/capture.h"
 #include "log.h"
 #include "region/region.h"
 
@@ -17,6 +18,7 @@
 
 #include <wayland-client.h>
 
+#include "ext-data-control-v1-client-protocol.h"
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
@@ -218,6 +220,13 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		return;
 	}
 
+	if (strcmp(interface, ext_data_control_manager_v1_interface.name) == 0) {
+		uint32_t v = version > 1 ? 1 : version;
+		s->ext_data_control_manager = wl_registry_bind(
+			reg, name, &ext_data_control_manager_v1_interface, v);
+		return;
+	}
+
 	if (strcmp(interface, zwlr_data_control_manager_v1_interface.name) == 0) {
 		uint32_t v = version > 2 ? 2 : version;
 		s->data_control_manager = wl_registry_bind(
@@ -290,8 +299,7 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 		log_error("compositor doesn't advertise wl_compositor");
 		goto fail;
 	}
-	bool have_ext = s->ext_copy_manager && s->ext_source_manager;
-	if (!s->screencopy_manager && !have_ext) {
+	if (!capture_backend_available(s)) {
 		const char *de = getenv("XDG_CURRENT_DESKTOP");
 		char de_up[64] = {0};
 		if (de) {
@@ -299,19 +307,25 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 				de_up[i] = (char)toupper((unsigned char)de[i]);
 		}
 		const char *known = NULL;
-		if (strstr(de_up, "GNOME"))
-			known = "GNOME (Mutter)";
-		else if (strstr(de_up, "KDE"))
+		const char *alt = NULL;
+		const char *note = NULL;
+		if (strstr(de_up, "KDE")) {
 			known = "KDE Plasma (KWin)";
-		else if (strstr(de_up, "COSMIC"))
+			alt = "spectacle";
+			note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
+		} else if (strstr(de_up, "GNOME")) {
+			known = "GNOME (Mutter)";
+			alt = "gnome-screenshot, flameshot, or ksnip";
+		} else if (strstr(de_up, "COSMIC")) {
 			known = "Cosmic";
+		}
 		log_error("compositor advertises no screen-capture protocol");
 		log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
-		if (known) {
-			log_error("  %s isn't supported", known);
-		}
-		log_error("  works on: hyprland, sway, niri, river, kde plasma 6");
-		log_error("  on gnome try: gnome-screenshot, flameshot, or ksnip");
+		if (known)
+			log_error("  %s implements neither, so grabit cannot capture here", known);
+		if (note) log_error("  %s", note);
+		log_error("  works on: hyprland, sway, niri, river");
+		if (alt) log_error("  on this desktop try: %s", alt);
 		goto fail;
 	}
 
@@ -382,6 +396,7 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);
+	if (s->ext_data_control_manager) ext_data_control_manager_v1_destroy(s->ext_data_control_manager);
 	if (s->screencopy_manager) zwlr_screencopy_manager_v1_destroy(s->screencopy_manager);
 	if (s->ext_copy_manager) ext_image_copy_capture_manager_v1_destroy(s->ext_copy_manager);
 	if (s->ext_source_manager) ext_output_image_capture_source_manager_v1_destroy(s->ext_source_manager);

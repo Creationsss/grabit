@@ -190,6 +190,21 @@ int grabit_runtime_dir(char *out, size_t cap) {
 	return (n > 0 && (size_t)n < cap) ? 0 : -1;
 }
 
+int grabit_write_all(int fd, const void *buf, size_t n) {
+	const uint8_t *p = buf;
+	while (n > 0) {
+		ssize_t w = write(fd, p, n);
+		if (w < 0) {
+			if (errno == EINTR) continue;
+			return -1;
+		}
+		if (w == 0) return -1;
+		p += w;
+		n -= (size_t)w;
+	}
+	return 0;
+}
+
 bool grabit_process_alive(pid_t pid) {
 	if (pid <= 0) return false;
 	if (kill(pid, 0) == 0) return true;

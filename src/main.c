@@ -67,7 +67,7 @@ static void install_signal_handlers(void) {
 
 static int print_version(void) {
 	puts("grabit " GRABIT_VERSION);
-	puts("capture backends: wlr-screencopy, ext-image-copy (KDE Plasma 6)");
+	puts("capture backends: wlr-screencopy, ext-image-copy, kwin-screenshot (KDE, no recording)");
 	puts("Copyright (C) 2026 creations. AGPL-3.0-or-later.");
 	return 0;
 }
@@ -159,7 +159,9 @@ static int print_help_env(void) {
 		"  GRABIT_<SERVICE>_AUTH     auth token, overrides config. <SERVICE> is one of\n"
 		"                            ZIPLINE, NEST, FAKECRIME, EZ, GUNS, PIXELVAULT.\n"
 		"  GRABIT_TRANSLATE_KEY      api key for the deepl/libretranslate backends\n"
-		"  GRABIT_CAPTURE_BACKEND    force a capture backend (wlr|ext)\n"
+		"  GRABIT_LOG_FILE=0         disable the log file (stderr only)\n"
+		"  GRABIT_CAPTURE_BACKEND    force a capture backend (wlr|ext|kwin)\n"
+		"  GRABIT_CLIPBOARD_BACKEND  force a clipboard backend (ext|wlr)\n"
 		"  GRABIT_BIN                set by plugin dispatch; absolute path to grabit\n"
 		"  NO_COLOR                  disable color in logs\n"
 		"\n"
@@ -282,7 +284,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 			grabit_wl_finish(&s);
 			notify_send(&(struct notify_opts){
 				.summary = "grabit: fullscreen failed",
-				.body = "no matching monitor; see terminal for details",
+				.body = "no matching monitor",
 				.force = true,
 			});
 			return NULL;
@@ -295,7 +297,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: capture failed",
-			.body = "could not build output path; see terminal for details",
+			.body = "could not build output path",
 			.force = true,
 		});
 		return NULL;
@@ -332,7 +334,6 @@ static char *capture_to_file(const struct args *a, struct config *cfg,
 		if (rc != GRABIT_CAPTURE_CANCELLED) {
 			notify_send(&(struct notify_opts){
 				.summary = "grabit: capture failed",
-				.body = "see terminal for details",
 				.force = true,
 			});
 		}
@@ -431,7 +432,7 @@ static int run_copy(struct config *cfg, const struct args *a) {
 	} else {
 		notify_send(&(struct notify_opts){
 			.summary = "Clipboard write failed",
-			.body = "wayland clipboard rejected the image; see terminal for details",
+			.body = "wayland clipboard rejected the image",
 			.force = true,
 		});
 	}
@@ -478,7 +479,8 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 				  bin);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: tesseract not found",
-			.body = "configured tesseract not found; see terminal for details",
+			.body = "configured tesseract not found",
+			.log_hint = true,
 		});
 		return 1;
 	}
@@ -571,7 +573,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 				log_warn("translate: failed; copying raw OCR text");
 				notify_send(&(struct notify_opts){
 					.summary = "Translate failed",
-					.body = "see terminal for details; raw OCR copied",
+					.body = "raw OCR copied",
 					.force = true,
 				});
 			} else {
@@ -588,7 +590,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 			log_error("ocr: text card render failed");
 			notify_send(&(struct notify_opts){
 				.summary = "Show failed",
-				.body = "could not render OCR text card; see terminal for details",
+				.body = "could not render OCR text card",
 				.force = true,
 			});
 			free(png_path);
@@ -618,7 +620,7 @@ static int run_ocr(struct config *cfg, const struct args *a) {
 		log_error("ocr: clipboard write failed");
 		notify_send(&(struct notify_opts){
 			.summary = "Clipboard write failed",
-			.body = "OCR text not copied; see terminal for details",
+			.body = "OCR text not copied",
 			.force = true,
 		});
 		free(text);
@@ -695,10 +697,6 @@ static int run(const struct args *a) {
 	if (config_load_full(&cfg) != 0) return 1;
 	config_state_migrate(&cfg);
 	notify_init(&cfg, a->silent);
-
-	const char *backend_pref = config_get(&cfg, "capture.backend");
-	if (backend_pref && backend_pref[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
-		setenv("GRABIT_CAPTURE_BACKEND", backend_pref, 1);
 
 	enum action eff = a->action;
 	if (eff == ACTION_NONE) {

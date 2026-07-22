@@ -75,7 +75,7 @@ static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 		struct rect fs_rect;
 		int plan = grabit_wl_fullscreen_plan(s, a->fullscreen_target, &fs_rect);
 		if (plan < 0) {
-			fail_notify("no matching monitor; see terminal for details");
+			fail_notify("no matching monitor");
 			rc = -1;
 		} else if (plan == 0) {
 			*out = fs_rect;
@@ -128,6 +128,15 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
+	if (!capture_is_streaming_capable(&s)) {
+		log_error("recording needs a frame-streaming capture protocol");
+		log_error("  KWin's org.kde.KWin.ScreenShot2 is single-shot, so only "
+				  "screenshots work on KDE Plasma");
+		fail_notify("recording is not supported on KDE Plasma");
+		grabit_wl_finish(&s);
+		return 1;
+	}
+
 	struct rect r = {0};
 	int rc = pick_region(&s, cfg, a, &r);
 	if (rc != 0 || r.w <= 0 || r.h <= 0) {
@@ -152,7 +161,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	output_path = build_record_path(cfg, a, format, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
-		fail_notify("could not build output path; see terminal for details");
+		fail_notify("could not build output path");
 		goto err_layout;
 	}
 
@@ -162,7 +171,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			fail_notify("another recording is already starting");
 		} else {
 			log_error("could not write recording pidfile: %s", strerror(errno));
-			fail_notify("could not write pid file; see terminal for details");
+			fail_notify("could not write pid file");
 		}
 		goto err_path;
 	}
@@ -201,7 +210,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 	if (pool_init(&pool, POOL_CAP, buf_size) != 0) {
 		log_error("recording: could not allocate frame pool");
-		fail_notify("could not allocate the frame pool; see terminal");
+		fail_notify("could not allocate the frame pool");
 		goto err_pipeline;
 	}
 

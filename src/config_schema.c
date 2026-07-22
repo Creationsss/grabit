@@ -17,6 +17,7 @@
 
 static const char *BOOL_KEYS[] = {
 	"notifications",
+	"log_file",
 	"save_captures",
 	"also_save",
 	"webp.lossless",
@@ -44,6 +45,7 @@ static const char *STATE_KEYS[] = {
 static const char *KNOWN_TOP[] = {
 	"default_action",
 	"notifications",
+	"log_file",
 	"save_captures",
 	"also_save",
 	"save_dir",
@@ -371,7 +373,7 @@ static int validate_edit_color(const char *value) {
 	return 0;
 }
 
-static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", NULL};
+static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", "kwin", NULL};
 
 static const char *VALS_show_position[] = {
 	"top-left",
@@ -397,7 +399,7 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
-		log_error("capture.backend must be one of auto|wlr|ext");
+		log_error("capture.backend must be one of auto|wlr|ext|kwin");
 		return -1;
 	}
 	if (strcmp(key, "jpeg.quality") == 0 &&

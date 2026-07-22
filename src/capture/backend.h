@@ -32,4 +32,9 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 							  uint32_t *out_format,
 							  struct pixels_pool *cache);
 
+bool grabit_kwin_screenshot_available(void);
+int grabit_kwin_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
+							 bool overlay_cursor,
+							 struct image *out);
+
 #endif

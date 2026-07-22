@@ -138,8 +138,18 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 static int seed_defaults(struct config *c) {
 	if (cfg_kv_upsert(c, "default_action", "copy") != 0) return -1;
 	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
+	if (cfg_kv_upsert(c, "log_file", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
 	return 0;
+}
+
+static void config_apply_runtime(struct config *c) {
+	const char *v = config_get(c, "log_file");
+	if (v && strcmp(v, "false") == 0) log_file_disable();
+
+	v = config_get(c, "capture.backend");
+	if (v && v[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
+		setenv("GRABIT_CAPTURE_BACKEND", v, 1);
 }
 
 int config_load(struct config *c) {
@@ -166,6 +176,7 @@ int config_load(struct config *c) {
 			return -1;
 		}
 		log_info("no config found at %s; wrote sensible defaults.", file);
+		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -199,6 +210,7 @@ int config_load(struct config *c) {
 			config_free(c);
 			return -1;
 		}
+		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -208,6 +220,7 @@ int config_load(struct config *c) {
 		config_free(c);
 		return -1;
 	}
+	config_apply_runtime(c);
 	return 0;
 }
 

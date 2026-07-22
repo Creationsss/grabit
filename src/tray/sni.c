@@ -82,6 +82,7 @@ static void notify_tray_unavailable(const char *body) {
 	notify_send(&(struct notify_opts){
 		.summary = "grabit: tray unavailable",
 		.body = body,
+		.log_hint = true,
 	});
 }
 
@@ -332,7 +333,7 @@ int sni_run(volatile sig_atomic_t *stop) {
 	if (rc != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
 		log_warn("tray: could not claim bus name %s: %s", name,
 				 err.message ? err.message : "unknown");
-		notify_tray_unavailable("tray unavailable; see terminal for details");
+		notify_tray_unavailable("tray unavailable");
 		dbus_error_free(&err);
 		dbus_connection_close(bus);
 		dbus_connection_unref(bus);
@@ -341,7 +342,7 @@ int sni_run(volatile sig_atomic_t *stop) {
 
 	if (!dbus_connection_register_object_path(bus, ITEM_PATH, &item_vtable, &props)) {
 		log_warn("tray: could not register SNI object path");
-		notify_tray_unavailable("tray unavailable; see terminal for details");
+		notify_tray_unavailable("tray unavailable");
 		dbus_connection_close(bus);
 		dbus_connection_unref(bus);
 		dbus_error_free(&err);
@@ -368,11 +369,11 @@ int sni_run(volatile sig_atomic_t *stop) {
 		if (strstr(ename, "ServiceUnknown") || strstr(ename, "NameHasNoOwner")) {
 			log_warn("tray: no SNI host running (install a status bar with tray support, "
 					 "e.g. waybar with tray module; or pass --no-tray to silence)");
-			notify_tray_unavailable("no tray host running; see terminal for details");
+			notify_tray_unavailable("no tray host running");
 		} else {
 			log_warn("tray: register failed: %s",
 					 err.message ? err.message : "unknown");
-			notify_tray_unavailable("tray register failed; see terminal for details");
+			notify_tray_unavailable("tray register failed");
 		}
 		dbus_error_free(&err);
 		dbus_connection_close(bus);

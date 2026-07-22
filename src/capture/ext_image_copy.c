@@ -164,7 +164,7 @@ static void warn_rotation_once(uint32_t transform) {
 			 transform);
 	notify_send(&(struct notify_opts){
 		.summary = "grabit: rotated output",
-		.body = "the KDE capture backend doesn't yet apply output rotation; "
+		.body = "the ext-image-copy backend doesn't yet apply output rotation; "
 				"the screenshot may be skewed",
 	});
 }

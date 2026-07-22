@@ -12,6 +12,7 @@
 
 struct zwlr_screencopy_manager_v1;
 struct zwlr_data_control_manager_v1;
+struct ext_data_control_manager_v1;
 struct zwlr_layer_shell_v1;
 struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
@@ -47,6 +48,7 @@ struct grabit_wl_state {
 
 	struct zwlr_screencopy_manager_v1 *screencopy_manager;
 	struct zwlr_data_control_manager_v1 *data_control_manager;
+	struct ext_data_control_manager_v1 *ext_data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;

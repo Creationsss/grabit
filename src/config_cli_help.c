@@ -21,6 +21,7 @@ struct example {
 static const struct example TOP_EXAMPLES[] = {
 	{"default_action", "upload|copy|save|pin", "copy"},
 	{"notifications", "true|false", "true"},
+	{"log_file", "true|false", "true"},
 	{"also_save", "true|false (alias: save_captures)", "false"},
 	{"save_dir", "~/Pictures", NULL},
 	{"filename", "%Y-%m-%d-%H-%M-%S", NULL},
@@ -61,6 +62,7 @@ static const char *zl_header_example(const struct zl_hdr *h) {
 static const char *const ALL_KNOWN_KEYS[] = {
 	"default_action",
 	"notifications",
+	"log_file",
 	"also_save",
 	"save_dir",
 	"filename",
@@ -331,7 +333,7 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		}
 	}
 	if (strcmp(key, "capture.backend") == 0) {
-		*example_out = "auto|wlr|ext";
+		*example_out = "auto|wlr|ext|kwin";
 		*def_out = "auto";
 		return 0;
 	}
@@ -466,6 +468,7 @@ static const char *find_default(const char *key) {
 static const char *const G_TOP[] = {
 	"default_action",
 	"notifications",
+	"log_file",
 	"also_save",
 	"save_dir",
 	"filename",

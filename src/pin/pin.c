@@ -351,7 +351,8 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 	if (probe_layer_shell() != 0) {
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: layer-shell unsupported",
-			.body = "compositor lacks layer-shell; see terminal for details",
+			.body = "compositor lacks layer-shell",
+			.log_hint = true,
 		});
 		return -1;
 	}

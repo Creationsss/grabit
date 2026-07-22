@@ -131,6 +131,7 @@ GRABIT_SRCS := \
 	src/clipboard/ext_data_control.c \
 	src/notify/dbus.c \
 	src/region/wlr_layer.c \
+	src/region/select_state.c \
 	src/region/wlr_render.c \
 	src/region/wlr_input.c \
 	src/region/wlr_input_state.c \

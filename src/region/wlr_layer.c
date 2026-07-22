@@ -69,49 +69,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 
 	st.snap_hover = -1;
 	region_keymap_init(&st.keys, cfg);
-	bool snap_enabled = true;
-	if (cfg) {
-		const char *v = config_get(cfg, "region.window_snap");
-		if (v && strcmp(v, "false") == 0) snap_enabled = false;
-		v = config_get(cfg, "region.confirm");
-		if (v && strcmp(v, "true") == 0) st.confirm_mode = true;
-		v = config_get(cfg, "edit.instant_capture");
-		if (v && strcmp(v, "true") == 0) st.edit_instant = true;
-		v = config_get(cfg, "edit.start_with_tool");
-		if (annotate_mode && v && strcmp(v, "true") == 0) st.region_locked = true;
-		v = config_get(cfg, "edit.toolbar_output");
-		if (annotate_mode && v && v[0]) {
-			st.tb_out = grabit_wl_output_by_name(s, v);
-			st.tb_lock = st.tb_out;
-			if (!st.tb_out)
-				log_warn("edit.toolbar_output: output `%s` not found; using primary", v);
-		}
-		v = config_get(cfg, "edit.toolbar_pos");
-		if (annotate_mode && v && v[0]) {
-			char oname[64];
-			int32_t rx, ry;
-			if (edit_toolbar_pos_parse(v, oname, sizeof oname, &rx, &ry)) {
-				struct grabit_output *go = grabit_wl_output_by_name(s, oname);
-				if (go) {
-					st.tb_out = go;
-					st.tb_x = go->x + rx;
-					st.tb_y = go->y + ry;
-					st.tb_moved = true;
-				}
-			}
-		}
-	}
-	if (snap_rects && n_snap_rects > 0) {
-		st.snap_windows = malloc(n_snap_rects * sizeof *st.snap_windows);
-		if (st.snap_windows) {
-			memcpy(st.snap_windows, snap_rects, n_snap_rects * sizeof *st.snap_windows);
-			st.n_snap_windows = n_snap_rects;
-		}
-	} else if (snap_enabled) {
-		if (grabit_hyprland_clients(&st.snap_windows, &st.n_snap_windows) != 0) {
-			log_debug("region: window snap disabled (no hyprland ipc)");
-		}
-	}
+	gregion_apply_config(&st, cfg, annotate_mode, s, snap_rects, n_snap_rects);
 
 	st.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!st.xkb_ctx) {
@@ -193,27 +151,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		st.cursor_surface = wl_compositor_create_surface(s->compositor);
 	}
 
-	for (size_t i = 0; i < st.n_outs; i++) {
-		struct ro_output *o = &st.outs[i];
-		o->st = &st;
-		o->go = s->outputs[i];
-		o->idx = i;
-
-		o->surface = wl_compositor_create_surface(s->compositor);
-		o->layer_surface = grabit_wl_layer_fullscreen(
-			s, o->surface, o->go->wl_output, "grabit-region",
-			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE,
-			NULL, NULL);
-		if (!o->layer_surface) {
-			log_error("region: layer_surface creation failed for output %zu", i);
-			st.cancelled = true;
-			st.finished = true;
-			break;
-		}
-		region_render_attach_layer(o);
-
-		wl_surface_commit(o->surface);
-	}
+	gregion_create_surfaces(&st, s);
 
 	if (preset && preset->w > 0 && preset->h > 0) {
 		st.sel_x = preset->x;
@@ -337,46 +275,7 @@ loop_done:;
 			persist_toolbar_pos(cfg, anchor->name, tx - anchor->x, ty - anchor->y);
 	}
 
-	st.cleanup = true;
-	if (st.pointer) wl_pointer_release(st.pointer);
-	if (st.keyboard) wl_keyboard_release(st.keyboard);
-	st.pointer = NULL;
-	st.keyboard = NULL;
-	wl_display_roundtrip(s->display);
-
-	for (size_t i = 0; i < st.n_outs; i++) {
-		struct ro_output *o = &st.outs[i];
-		grabit_wl_callback_drop(&o->frame_cb);
-		if (o->surface && o->buffer) {
-			wl_surface_attach(o->surface, NULL, 0, 0);
-			wl_surface_commit(o->surface);
-		}
-	}
-	wl_display_roundtrip(s->display);
-
-	for (size_t i = 0; i < st.n_outs; i++) {
-		struct ro_output *o = &st.outs[i];
-		region_render_free_buffer(o);
-		if (o->layer_surface) zwlr_layer_surface_v1_destroy(o->layer_surface);
-		if (o->surface) wl_surface_destroy(o->surface);
-	}
-	free(st.outs);
-	free(st.snap_windows);
-
-	region_color_picker_release_cache(&st);
-
-	if (st.cursor_surface) wl_surface_destroy(st.cursor_surface);
-	if (st.cursor_theme) wl_cursor_theme_destroy(st.cursor_theme);
-
-	if (st.xkb_state) xkb_state_unref(st.xkb_state);
-	if (st.xkb_keymap) xkb_keymap_unref(st.xkb_keymap);
-	if (st.xkb_ctx) xkb_context_unref(st.xkb_ctx);
-
-	free(st.pen_points);
-	free(st.undo_items);
-	if (st.undo_timer_fd >= 0) close(st.undo_timer_fd);
-	if (st.tooltip_timer_fd >= 0) close(st.tooltip_timer_fd);
-	if (st.nudge_timer_fd >= 0) close(st.nudge_timer_fd);
+	gregion_select_teardown(&st, s);
 
 	return rc;
 }

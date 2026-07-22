@@ -20,75 +20,6 @@
 #define SXCU_MAX_TEMPLATE_DEPTH 8
 #define SXCU_REGEX_INLINE_GROUPS 8
 
-static const char B64[] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-static char *base64_encode(const char *src) {
-	if (!src) return strdup("");
-	size_t len = strlen(src);
-	size_t out_len = ((len + 2) / 3) * 4;
-	char *out = malloc(out_len + 1);
-	if (!out) return NULL;
-	size_t i, o = 0;
-	for (i = 0; i + 2 < len; i += 3) {
-		uint32_t t = ((uint8_t)src[i] << 16) | ((uint8_t)src[i + 1] << 8) | (uint8_t)src[i + 2];
-		out[o++] = B64[(t >> 18) & 0x3F];
-		out[o++] = B64[(t >> 12) & 0x3F];
-		out[o++] = B64[(t >> 6) & 0x3F];
-		out[o++] = B64[t & 0x3F];
-	}
-	if (i < len) {
-		uint32_t a = (uint8_t)src[i];
-		uint32_t b = (i + 1 < len) ? (uint8_t)src[i + 1] : 0;
-		uint32_t t = (a << 16) | (b << 8);
-		out[o++] = B64[(t >> 18) & 0x3F];
-		out[o++] = B64[(t >> 12) & 0x3F];
-		out[o++] = (i + 1 < len) ? B64[(t >> 6) & 0x3F] : '=';
-		out[o++] = '=';
-	}
-	out[o] = '\0';
-	return out;
-}
-
-static char *first_pipe_part(const char *arg) {
-	const char *bar = strchr(arg, '|');
-	return bar ? strndup(arg, (size_t)(bar - arg)) : strdup(arg);
-}
-
-static bool all_digits(const char *s) {
-	if (!*s) return false;
-	for (; *s; s++) {
-		if (*s < '0' || *s > '9') return false;
-	}
-	return true;
-}
-
-static const char *find_close(const char *s, char close, char open) {
-	if (open == close) {
-		for (const char *p = s; *p; p++) {
-			if (*p == '\\' && p[1]) {
-				p++;
-				continue;
-			}
-			if (*p == close) return p;
-		}
-		return NULL;
-	}
-	int depth = 1;
-	for (const char *p = s; *p; p++) {
-		if (*p == '\\' && p[1]) {
-			p++;
-			continue;
-		}
-		if (*p == open)
-			depth++;
-		else if (*p == close) {
-			if (--depth == 0) return p;
-		}
-	}
-	return NULL;
-}
-
 struct ctx {
 	const char *file_path;
 	const char *body;
@@ -139,7 +70,7 @@ static char *match_regex_text(const char *body, const char *pattern, int group_i
 static char *do_regex(const char *arg, struct ctx *c) {
 	if (!arg || !c->body) return NULL;
 	const char *bar = strrchr(arg, '|');
-	if (bar && !all_digits(bar + 1)) bar = NULL;
+	if (bar && !gsxcu_all_digits(bar + 1)) bar = NULL;
 	int group = 0;
 	const char *pattern = arg;
 	char *pattern_alloc = NULL;
@@ -186,9 +117,9 @@ static char *expand_token(const char *name, const char *arg, struct ctx *c) {
 	if (strcmp(name, "filename") == 0)
 		return strdup(c->file_path ? grabit_basename(c->file_path) : "");
 	if (strcmp(name, "input") == 0) return strdup("");
-	if (strcmp(name, "base64") == 0) return base64_encode(arg ? arg : "");
+	if (strcmp(name, "base64") == 0) return gsxcu_base64_encode(arg ? arg : "");
 	if ((strcmp(name, "random") == 0 || strcmp(name, "select") == 0) && arg)
-		return first_pipe_part(arg);
+		return gsxcu_first_pipe_part(arg);
 	if (strcmp(name, "prompt") == 0 || strcmp(name, "inputbox") == 0) {
 		const char *bar = arg ? strchr(arg, '|') : NULL;
 		return strdup(bar ? bar + 1 : "");
@@ -217,7 +148,7 @@ static int expand_into(const char *tmpl, struct ctx *c, struct grabit_buf *out, 
 			close = '}';
 		else if (*p == '$')
 			close = '$';
-		const char *end = close ? find_close(p + 1, close, *p) : NULL;
+		const char *end = close ? gsxcu_find_close(p + 1, close, *p) : NULL;
 		if (!end) {
 			if (grabit_buf_putc(out, *p) != 0) return -1;
 			p++;

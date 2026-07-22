@@ -22,6 +22,8 @@ extern const struct zl_hdr gcfg_zl_headers[];
 extern const size_t gcfg_zl_headers_n;
 
 const struct zl_hdr *gcfg_zl_find(const char *name);
+int gcfg_validate_zl_header(const char *hdr, const char *value);
+char *gcfg_normalize_zipline_domain(const char *value);
 int gcfg_cmp_kv(const void *a, const void *b);
 
 struct config;
@@ -36,6 +38,8 @@ bool cfg_key_is_known(const char *key);
 
 void cfg_help_print_all_keys(void);
 int cfg_help_example_for_key(const char *key, const char **example_out, const char **def_out);
+int gcfg_help_example_grouped(const char *key, const char **example_out,
+							  const char **def_out);
 bool cfg_help_print_example(const char *example, const char *def);
 const char *cfg_help_suggest_key(const char *input);
 

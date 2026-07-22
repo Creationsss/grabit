@@ -6,7 +6,7 @@
 
 #include "args.h"
 #include "capture/capture.h"
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"

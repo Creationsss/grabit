@@ -5,7 +5,7 @@
 #include "upload/upload.h"
 
 #include "args.h"
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "upload/sxcu.h"

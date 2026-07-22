@@ -3,7 +3,7 @@
 
 #include "notify/notify.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 
 #include <stdbool.h>

@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/edit_persist.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "region/region.h"
 #include "util.h"
 

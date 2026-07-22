@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "paths.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "hyprland.h"
 #include "log.h"
 #include "template.h"

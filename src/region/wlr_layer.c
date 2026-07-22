@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/region.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "cursor.h"
 #include "hyprland.h"
 #include "log.h"

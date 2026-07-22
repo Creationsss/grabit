@@ -79,11 +79,15 @@ GRABIT_SRCS := \
 	src/paths.c \
 	src/util.c \
 	src/cursor.c \
-	src/config.c \
-	src/config_save.c \
-	src/config_schema.c \
-	src/config_cli.c \
-	src/config_cli_help.c \
+	src/config/config.c \
+	src/config/save.c \
+	src/config/schema.c \
+	src/config/keys.c \
+	src/config/zipline.c \
+	src/config/cli.c \
+	src/config/cli_help.c \
+	src/config/help_examples.c \
+	src/config/help_groups.c \
 	src/template.c \
 	src/hyprland.c \
 	src/mime.c \
@@ -93,6 +97,7 @@ GRABIT_SRCS := \
 	src/capture/wlr_screencopy.c \
 	src/capture/ext_image_copy.c \
 	src/capture/kwin_screenshot.c \
+	src/capture/kwin_reply.c \
 	src/capture/save.c \
 	src/capture/png.c \
 	src/capture/jpeg.c \
@@ -135,6 +140,7 @@ GRABIT_SRCS := \
 	src/upload/zipline.c \
 	src/upload/sxcu_parse.c \
 	src/upload/sxcu_template.c \
+	src/upload/sxcu_tmpl_util.c \
 	src/upload/sxcu_request.c \
 	src/upload/sxcu_upload.c \
 	src/upload/sxcu_dir.c \

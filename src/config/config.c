@@ -2,9 +2,9 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
-#include "config.h"
+#include "config/config.h"
 
-#include "config_internal.h"
+#include "config/internal.h"
 #include "log.h"
 #include "paths.h"
 #include "util.h"

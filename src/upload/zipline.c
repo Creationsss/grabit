@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "upload/zipline.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "mime.h"
 #include "upload/upload.h"

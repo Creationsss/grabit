@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/keybinds.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 
 #include <ctype.h>

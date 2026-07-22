@@ -16,7 +16,7 @@
 #include "capture/freeze.h"
 #include "capture/save.h"
 #include "clipboard/clipboard.h"
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "mime.h"
 #include "notify/notify.h"

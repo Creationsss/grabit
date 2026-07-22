@@ -121,4 +121,14 @@ void pin_ipc_handle(struct pin_state *st);
 
 int pin_ipc_broadcast(const char *msg);
 
+struct transient_extras {
+	const char *position;
+	const char *output_name;
+	const char *hover_caption;
+	const char *click_open;
+};
+
+int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
+			  bool transient, int dismiss_secs, const struct transient_extras *te);
+
 #endif

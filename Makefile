@@ -169,6 +169,7 @@ GRABIT_SRCS := \
 	src/ocr/translate_deepl.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
+	src/pin/spawn.c \
 	src/pin/pin_render.c \
 	src/pin/pin_input.c \
 	src/pin/pin_ipc.c \

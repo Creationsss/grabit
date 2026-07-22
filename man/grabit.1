@@ -492,6 +492,13 @@ Also set by plugin dispatch: the plugin's name, install directory, and
 per-plugin cache directory. See
 .BR PLUGINS.md .
 .TP
+.B png.level
+PNG zlib compression, 0\-9, default
+.BR 1 .
+PNG is lossless, so this trades encode time against file size only. Level 6 (the
+old behaviour) costs roughly 2\-6x the encode time of level 1 for about 15\-20%
+less size, and dominates the wall time of a screenshot.
+.TP
 .B GRABIT_LOG_FILE
 Set to
 .B 0

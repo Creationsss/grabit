@@ -28,7 +28,7 @@ CFLAGS  += -std=c17 $(WARN) $(HARDEN) \
 LDFLAGS ?=
 LDLIBS  ?=
 
-PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo xkbcommon dbus-1
+PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo libpng xkbcommon dbus-1
 
 CFLAGS    += $(shell $(PKG_CONFIG) --cflags $(PKGS_CORE)) -pthread
 LDLIBS    += $(shell $(PKG_CONFIG) --libs   $(PKGS_CORE)) -lmagic -lrt -lm -pthread
@@ -94,6 +94,7 @@ GRABIT_SRCS := \
 	src/capture/ext_image_copy.c \
 	src/capture/kwin_screenshot.c \
 	src/capture/save.c \
+	src/capture/png.c \
 	src/capture/jpeg.c \
 	src/capture/webp.c \
 	src/capture/transform.c \

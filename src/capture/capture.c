@@ -99,6 +99,21 @@ int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 	}
 }
 
+int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,
+						 size_t n, bool overlay_cursor, struct image *out) {
+	if (!s || !outs || !out || n == 0) return -1;
+	if (resolve_backend(s) == CAP_WLR)
+		return grabit_wlr_capture_many(s, outs, n, overlay_cursor, out);
+	for (size_t i = 0; i < n; i++) {
+		if (capture_output_full(s, outs[i], overlay_cursor, &out[i]) != 0) {
+			for (size_t j = 0; j < i; j++)
+				image_free(&out[j]);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,
 							   int32_t x, int32_t y, int32_t w, int32_t h,
 							   bool overlay_cursor,

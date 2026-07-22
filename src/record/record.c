@@ -208,7 +208,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
 		goto err_pipeline;
 	}
-	if (pool_init(&pool, POOL_CAP, buf_size) != 0) {
+	size_t pool_slots = pool_slots_for(buf_size);
+	log_debug("recording: frame pool %zu x %zu KiB", pool_slots, buf_size / 1024);
+	if (pool_init(&pool, pool_slots, buf_size) != 0) {
 		log_error("recording: could not allocate frame pool");
 		fail_notify("could not allocate the frame pool");
 		goto err_pipeline;

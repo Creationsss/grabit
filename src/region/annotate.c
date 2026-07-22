@@ -81,7 +81,7 @@ static void paint_blur(cairo_t *cr, double x, double y, double w, double h,
 		return;
 	}
 
-	cairo_surface_t *layer = cairo_get_target(cr);
+	cairo_surface_t *layer = cairo_get_group_target(cr);
 	if (layer == target ||
 		cairo_surface_get_type(layer) != CAIRO_SURFACE_TYPE_IMAGE)
 		layer = NULL;

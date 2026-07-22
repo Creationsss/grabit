@@ -89,6 +89,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"edit.start_with_tool",
 	"edit.toolbar_output",
 	"edit.toolbar_pos",
+	"png.level",
 	"jpeg.quality",
 	"webp.quality",
 	"webp.lossless",
@@ -304,6 +305,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 			return 0;
 		}
 	}
+	if (strcmp(key, "png.level") == 0) {
+		*example_out = "0-9";
+		*def_out = "1";
+		return 0;
+	}
 	if (strcmp(key, "jpeg.quality") == 0) {
 		*example_out = "1..100";
 		*def_out = "90";
@@ -501,7 +507,8 @@ static const char *const G_EDIT[] = {
 	"edit.toolbar_pos",
 	NULL,
 };
-static const char *const G_ENCODER[] = {"jpeg.quality", "webp.quality", "webp.lossless", NULL};
+static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quality",
+										"webp.lossless", NULL};
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.confirm", NULL};

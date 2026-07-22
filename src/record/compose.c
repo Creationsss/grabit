@@ -55,16 +55,29 @@ int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout
 		int32_t ix, iy, iw, ih;
 		if (!grabit_output_rect_intersect(o, &r, &ix, &iy, &iw, &ih)) continue;
 
+		int32_t dx = (ix - r.x) * max_scale;
+		int32_t dy = (iy - r.y) * max_scale;
+		if (dx + iw * max_scale > dst_w) iw = (dst_w - dx) / max_scale;
+		if (dy + ih * max_scale > dst_h) ih = (dst_h - dy) / max_scale;
+		if (iw <= 0 || ih <= 0) continue;
+
 		struct rec_slice *sl = &out->slices[k++];
 		sl->out = o;
 		sl->src_x = ix - o->x;
 		sl->src_y = iy - o->y;
 		sl->src_w = iw;
 		sl->src_h = ih;
-		sl->dst_x = (ix - r.x) * max_scale;
-		sl->dst_y = (iy - r.y) * max_scale;
+		sl->dst_x = dx;
+		sl->dst_y = dy;
 		sl->dst_w = iw * max_scale;
 		sl->dst_h = ih * max_scale;
+	}
+	if (k == 0) {
+		free(out->slices);
+		free(out->slice_caches);
+		out->slices = NULL;
+		out->slice_caches = NULL;
+		return -1;
 	}
 	out->n = k;
 	out->dst_w = dst_w;

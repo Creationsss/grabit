@@ -6,6 +6,7 @@
 #include "cairo_util.h"
 #include "capture/capture.h"
 #include "log.h"
+#include "pin/preview.h"
 #include "region/annotate.h"
 #include "region/region.h"
 #include "util.h"
@@ -108,15 +109,6 @@ int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 	return 0;
 }
 
-int grabit_save_png_surface(cairo_surface_t *surface, const char *path) {
-	cairo_status_t st = cairo_surface_write_to_png(surface, path);
-	if (st != CAIRO_STATUS_SUCCESS) {
-		log_error("cairo_surface_write_to_png(%s): %s", path, cairo_status_to_string(st));
-		return -1;
-	}
-	return 0;
-}
-
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
 									const struct rect *region, int32_t scale,
@@ -149,9 +141,12 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 		break;
 	case GRABIT_FMT_PNG:
 	default:
-		rc = grabit_save_png_surface(dst, path);
+		rc = grabit_save_png_surface(dst, path, opts->png_level);
 		break;
 	}
+
+	if (rc == 0 && opts->preview_path && opts->preview_width > 0)
+		(void)pin_preview_render_surface(dst, opts->preview_width, opts->preview_path);
 
 	cairo_surface_destroy(dst);
 	return rc;

@@ -39,6 +39,9 @@ int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 						bool overlay_cursor,
 						struct image *out);
 
+int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,
+						 size_t n, bool overlay_cursor, struct image *out);
+
 struct pixels_pool;
 
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,

@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "pin/preview.h"
 
+#include "capture/save.h"
 #include "log.h"
 
 #include <stdbool.h>
@@ -11,23 +12,14 @@
 
 #include <cairo/cairo.h>
 
-int pin_preview_render_png(const char *src_image_path, int target_w,
-						   const char *out_path) {
-	if (!src_image_path || !out_path || target_w <= 0) return -1;
+int pin_preview_render_surface(cairo_surface_t *src, int target_w,
+							   const char *out_path) {
+	if (!src || !out_path || target_w <= 0) return -1;
+	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) return -1;
 
-	cairo_surface_t *src = cairo_image_surface_create_from_png(src_image_path);
-	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) {
-		log_error("preview: load %s: %s", src_image_path,
-				  cairo_status_to_string(cairo_surface_status(src)));
-		cairo_surface_destroy(src);
-		return -1;
-	}
 	int src_w = cairo_image_surface_get_width(src);
 	int src_h = cairo_image_surface_get_height(src);
-	if (src_w <= 0 || src_h <= 0) {
-		cairo_surface_destroy(src);
-		return -1;
-	}
+	if (src_w <= 0 || src_h <= 0) return -1;
 
 	double scale = (double)target_w / (double)src_w;
 	if (scale > 1.0) scale = 1.0;
@@ -43,7 +35,6 @@ int pin_preview_render_png(const char *src_image_path, int target_w,
 	cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, dst_w, dst_h);
 	if (cairo_surface_status(dst) != CAIRO_STATUS_SUCCESS) {
 		cairo_surface_destroy(dst);
-		cairo_surface_destroy(src);
 		return -1;
 	}
 	cairo_t *cr = cairo_create(dst);
@@ -58,13 +49,23 @@ int pin_preview_render_png(const char *src_image_path, int target_w,
 	cairo_paint(cr);
 	cairo_restore(cr);
 	cairo_destroy(cr);
-	cairo_surface_destroy(src);
 
-	cairo_status_t st = cairo_surface_write_to_png(dst, out_path);
+	int rc = grabit_save_png_surface(dst, out_path, 1);
 	cairo_surface_destroy(dst);
-	if (st != CAIRO_STATUS_SUCCESS) {
-		log_error("preview: write_to_png %s: %s", out_path, cairo_status_to_string(st));
+	return rc;
+}
+
+int pin_preview_render_png(const char *src_image_path, int target_w,
+						   const char *out_path) {
+	if (!src_image_path) return -1;
+	cairo_surface_t *src = cairo_image_surface_create_from_png(src_image_path);
+	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) {
+		log_error("preview: load %s: %s", src_image_path,
+				  cairo_status_to_string(cairo_surface_status(src)));
+		cairo_surface_destroy(src);
 		return -1;
 	}
-	return 0;
+	int rc = pin_preview_render_surface(src, target_w, out_path);
+	cairo_surface_destroy(src);
+	return rc;
 }

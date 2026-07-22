@@ -161,6 +161,11 @@ static bool valid_edit_key(const char *key) {
 		   strcmp(leaf, "start_with_tool") == 0;
 }
 
+static bool valid_png_key(const char *key) {
+	if (strncmp(key, "png.", 4) != 0) return false;
+	return strcmp(key + 4, "level") == 0;
+}
+
 static bool valid_jpeg_key(const char *key) {
 	if (strncmp(key, "jpeg.", 5) != 0) return false;
 	return strcmp(key + 5, "quality") == 0;
@@ -232,7 +237,7 @@ bool cfg_key_is_known(const char *key) {
 	return valid_top_key(key) || valid_service_key(key) ||
 		   valid_recording_key(key) || valid_ocr_key(key) ||
 		   valid_sound_key(key) || valid_edit_key(key) ||
-		   valid_jpeg_key(key) || valid_webp_key(key) ||
+		   valid_png_key(key) || valid_jpeg_key(key) || valid_webp_key(key) ||
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
 		   valid_preview_key(key) || valid_keys_key(key);
@@ -402,6 +407,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("capture.backend must be one of auto|wlr|ext|kwin");
 		return -1;
 	}
+	if (strcmp(key, "png.level") == 0 &&
+		validate_int_in_range(key, value, 0, 9) != 0) return -1;
 	if (strcmp(key, "jpeg.quality") == 0 &&
 		validate_int_in_range(key, value, 1, 100) != 0) return -1;
 	if (strcmp(key, "webp.quality") == 0 &&

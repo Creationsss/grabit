@@ -32,26 +32,50 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	bool forced_only = forced_region && !annotate;
 	if (forced_only) r = *forced_region;
 
+	struct grabit_output **want = calloc(s->n_outputs, sizeof *want);
+	size_t *want_idx = calloc(s->n_outputs, sizeof *want_idx);
+	struct image *shot = calloc(s->n_outputs, sizeof *shot);
+	size_t n_want = 0;
+	if (!want || !want_idx || !shot) {
+		log_error("freeze: out of memory");
+		free(want);
+		free(want_idx);
+		free(shot);
+		goto cleanup;
+	}
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		if (forced_only) {
 			int32_t ix, iy, iw, ih;
-			if (!grabit_output_rect_intersect(s->outputs[i], &r, &ix, &iy, &iw, &ih)) {
-				captured = i + 1;
+			if (!grabit_output_rect_intersect(s->outputs[i], &r, &ix, &iy, &iw, &ih))
 				continue;
-			}
 		}
-		if (capture_output_full(s, s->outputs[i], cursor, &frozen[i]) != 0) {
-			log_error("freeze: capture of %s failed",
-					  s->outputs[i]->name ? s->outputs[i]->name : "?");
-			goto cleanup;
-		}
-		captured = i + 1;
+		want_idx[n_want] = i;
+		want[n_want++] = s->outputs[i];
+	}
+	captured = s->n_outputs;
+
+	if (n_want > 0 && capture_outputs_full(s, want, n_want, cursor, shot) != 0) {
+		log_error("freeze: capture failed");
+		free(want);
+		free(want_idx);
+		free(shot);
+		goto cleanup;
+	}
+	for (size_t k = 0; k < n_want; k++)
+		frozen[want_idx[k]] = shot[k];
+	free(want);
+	free(shot);
+
+	for (size_t k = 0; k < n_want; k++) {
+		size_t i = want_idx[k];
 		if (image_apply_transform(&frozen[i], s->outputs[i]->transform) != 0) {
 			log_error("freeze: transform of %s failed; aborting capture",
 					  s->outputs[i]->name ? s->outputs[i]->name : "?");
+			free(want_idx);
 			goto cleanup;
 		}
 	}
+	free(want_idx);
 
 	if (!forced_only &&
 		region_select(s, cfg, frozen, annotate, &r, annotate ? &annos : NULL,

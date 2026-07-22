@@ -40,6 +40,7 @@
 #endif
 
 static char g_tmpfile_path[4096] = {0};
+static char *g_preview_png;
 
 static void register_tmpfile(const char *path) {
 	if (!path) return;
@@ -198,20 +199,30 @@ static int read_int_cfg_clamp(struct config *cfg, const char *key,
 	return (int)n;
 }
 
+static bool preview_enabled(struct config *cfg) {
+	const char *en = config_get(cfg, "preview.enabled");
+	return en && strcmp(en, "true") == 0;
+}
+
+static int preview_width(struct config *cfg) {
+	return read_int_cfg_clamp(cfg, "preview.size", 300, 100, 800);
+}
+
 static void maybe_show_preview(struct config *cfg, const char *image_path,
 							   const char *caption, const char *click_open) {
 	if (!image_path) return;
-	const char *en = config_get(cfg, "preview.enabled");
-	if (!en || strcmp(en, "true") != 0) return;
+	if (!preview_enabled(cfg)) return;
 
-	char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+	bool prerendered = g_preview_png && access(g_preview_png, R_OK) == 0;
+	char *png_path = prerendered ? g_preview_png
+								 : paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
 	if (!png_path) return;
 
-	int width = read_int_cfg_clamp(cfg, "preview.size", 300, 100, 800);
+	int width = preview_width(cfg);
 	const char *pos = config_get(cfg, "preview.position");
 	if (!pos || !pos[0]) pos = "bottom-right";
 
-	if (pin_preview_render_png(image_path, width, png_path) == 0) {
+	if (prerendered || pin_preview_render_png(image_path, width, png_path) == 0) {
 		struct pin_show_opts opts = {
 			.dismiss_secs = read_int_cfg_clamp(cfg, "preview.dismiss_secs", 5, 0, 600),
 			.position = pos,
@@ -222,7 +233,12 @@ static void maybe_show_preview(struct config *cfg, const char *image_path,
 		pin_spawn_show(cfg, png_path, &opts);
 	}
 	(void)unlink(png_path);
-	free(png_path);
+	if (png_path == g_preview_png) {
+		free(g_preview_png);
+		g_preview_png = NULL;
+	} else {
+		free(png_path);
+	}
 }
 
 static int resolve_save_opts(const struct args *a, struct config *cfg,
@@ -234,6 +250,13 @@ static int resolve_save_opts(const struct args *a, struct config *cfg,
 	if (grabit_format_from_name(fmt_name, &out->format) != 0) {
 		log_error("unknown format `%s` (expected png|jpeg|webp)", fmt_name);
 		return -1;
+	}
+	out->png_level = read_int_cfg_clamp(cfg, "png.level", 1, 0, 9);
+	if (preview_enabled(cfg)) {
+		free(g_preview_png);
+		g_preview_png = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+		out->preview_path = g_preview_png;
+		out->preview_width = preview_width(cfg);
 	}
 	out->jpeg_quality = read_int_cfg_clamp(cfg, "jpeg.quality", 90, 1, 100);
 	out->webp_quality = read_int_cfg_clamp(cfg, "webp.quality", 85, 0, 100);

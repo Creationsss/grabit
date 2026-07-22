@@ -225,6 +225,7 @@ grabit set keys --reset             # every keybind back to defaults
 
 | key | default | notes |
 |---|---|---|
+| `png.level` | `1` | PNG zlib compression 0–9. `1` is the default because PNG is lossless: higher levels only shrink the file, and level 6 (what cairo used before) costs roughly 2–6x the encode time for ~15–20% less size. Raise it if you care more about upload size than shutter latency. |
 | `jpeg.quality` | `90` | JPEG quality 1–100 |
 | `webp.quality` | `85` | WebP quality 0–100 (ignored when `webp.lossless = true`) |
 | `webp.lossless` | `false` | use WebP lossless mode |

@@ -14,6 +14,14 @@
 #include <time.h>
 #include <unistd.h>
 
+size_t pool_slots_for(size_t buf_size) {
+	if (buf_size == 0) return POOL_CAP;
+	size_t n = POOL_MAX_BYTES / buf_size;
+	if (n > POOL_CAP) n = POOL_CAP;
+	if (n < POOL_MIN) n = POOL_MIN;
+	return n;
+}
+
 int pool_init(struct buf_pool *p, size_t n, size_t buf_size) {
 	if (n == 0 || n > POOL_CAP) return -1;
 	memset(p, 0, sizeof *p);

@@ -100,7 +100,23 @@ void region_render_free_buffer(struct ro_output *o) {
 static void anno_cache_ensure(struct ro_output *o) {
 	const struct annotation_list *annos = o->st->out_annos;
 	int32_t S = o->scale;
-	struct rect sel = {o->st->sel_x, o->st->sel_y, o->st->sel_w, o->st->sel_h};
+	int32_t skip = region_anno_dragging(o->st) ? o->st->sel_anno : -1;
+
+	bool samples_backdrop = false;
+	for (size_t i = 0; i < annos->n; i++) {
+		if (annos->items[i].tool == TOOL_BLUR) {
+			samples_backdrop = true;
+			break;
+		}
+	}
+	struct rect sel = {0};
+	if (samples_backdrop) {
+		sel.x = o->st->sel_x;
+		sel.y = o->st->sel_y;
+		sel.w = o->st->sel_w;
+		sel.h = o->st->sel_h;
+	}
+
 	if (o->anno_cache &&
 		(cairo_image_surface_get_width(o->anno_cache) != o->pixel_width ||
 		 cairo_image_surface_get_height(o->anno_cache) != o->pixel_height)) {
@@ -108,6 +124,7 @@ static void anno_cache_ensure(struct ro_output *o) {
 		o->anno_cache = NULL;
 	}
 	if (o->anno_cache && o->anno_cache_gen == annos->gen &&
+		o->anno_cache_skip == skip &&
 		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
 		return;
 	if (!o->anno_cache) {
@@ -119,7 +136,6 @@ static void anno_cache_ensure(struct ro_output *o) {
 			return;
 		}
 	}
-	int32_t skip = region_anno_dragging(o->st) ? o->st->sel_anno : -1;
 	cairo_t *cc = cairo_create(o->anno_cache);
 	cairo_set_operator(cc, CAIRO_OPERATOR_CLEAR);
 	cairo_paint(cc);
@@ -133,6 +149,7 @@ static void anno_cache_ensure(struct ro_output *o) {
 	cairo_surface_flush(o->anno_cache);
 	o->anno_cache_gen = annos->gen;
 	o->anno_cache_sel = sel;
+	o->anno_cache_skip = skip;
 }
 
 static void anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {
@@ -245,19 +262,6 @@ static void output_redraw(struct ro_output *o) {
 
 	cairo_t *cr = cairo_create(o->cairo_dst);
 
-	if (o->cairo_frozen_pat) {
-		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-		cairo_set_source(cr, o->cairo_frozen_pat);
-		cairo_paint(cr);
-		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
-		cairo_paint(cr);
-	} else {
-		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
-		cairo_paint(cr);
-	}
-
 	int32_t sel_l = 0, sel_t = 0, sel_r = 0, sel_b = 0;
 	bool sel_visible = false;
 	int32_t draw_x = 0, draw_y = 0, draw_w = 0, draw_h = 0;
@@ -290,18 +294,25 @@ static void output_redraw(struct ro_output *o) {
 		sel_r = i32min(pw, sx + sw);
 		sel_b = i32min(ph, sy + sh);
 		sel_visible = (sel_r > sel_l && sel_b > sel_t);
+	}
 
-		if (sel_visible) {
-			cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-			if (o->cairo_frozen_pat) {
-				cairo_set_source(cr, o->cairo_frozen_pat);
-			} else {
-				cairo_set_source_rgba(cr, 0, 0, 0, 0);
-			}
-			cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
-			cairo_fill(cr);
-			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-		}
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	if (o->cairo_frozen_pat)
+		cairo_set_source(cr, o->cairo_frozen_pat);
+	else
+		cairo_set_source_rgba(cr, 0, 0, 0, 0);
+	cairo_paint(cr);
+
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
+	if (sel_visible) {
+		cairo_rectangle(cr, 0, 0, pw, ph);
+		cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+		cairo_fill(cr);
+		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+	} else {
+		cairo_paint(cr);
 	}
 
 	if (region_editing(o->st)) {

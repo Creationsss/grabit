@@ -74,6 +74,11 @@ $(WL_PROTO_DIR):
 
 GRABIT_SRCS := \
 	src/main.c \
+	src/app/help.c \
+	src/app/source.c \
+	src/app/actions.c \
+	src/app/ocr.c \
+	src/app/dispatch.c \
 	src/args.c \
 	src/log.c \
 	src/paths.c \
@@ -102,6 +107,7 @@ GRABIT_SRCS := \
 	src/capture/pixels.c \
 	src/capture/wlr_screencopy.c \
 	src/capture/ext_image_copy.c \
+	src/capture/ext_session.c \
 	src/capture/kwin_screenshot.c \
 	src/capture/kwin_reply.c \
 	src/capture/save.c \

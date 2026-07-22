@@ -8,6 +8,7 @@
 #include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
+#include "upload/internal.h"
 #include "upload/sxcu.h"
 #include "upload/zipline.h"
 #include "util/json_path.h"
@@ -25,148 +26,6 @@
 #ifndef GRABIT_VERSION
 #define GRABIT_VERSION "0.0.0"
 #endif
-
-struct service {
-	const char *name;
-	const char *url;
-	const char *auth_name;
-	const char *json_path;
-	bool auth_in_form;
-};
-
-static const struct service SERVICES[] = {
-	{"zipline", NULL, "authorization", "files[0].url", false},
-	{"nest", "https://nest.rip/api/files/upload", "Authorization", "fileURL", false},
-	{"fakecrime", "https://upload.fakecrime.bio", "Secret", "url|data.url", false},
-	{"ez", "https://api.e-z.host/files", "key", "imageUrl", false},
-	{"guns", "https://guns.lol/api/upload", "key", "link", true},
-	{"pixelvault", "https://pixelvault.co/", "Authorization", "resource", false},
-};
-static const size_t N_SERVICES = sizeof SERVICES / sizeof SERVICES[0];
-
-static void build_auth_keys(const char *service, char *env_key, size_t env_cap,
-							char *cfg_key, size_t cfg_cap) {
-	snprintf(env_key, env_cap, "GRABIT_%s_AUTH", service);
-	for (char *p = env_key + 7; *p; p++)
-		*p = (char)toupper((unsigned char)*p);
-	snprintf(cfg_key, cfg_cap, "services.%s.auth", service);
-}
-
-static const char *resolve_auth(struct config *cfg, const char *service) {
-	char env_key[64], cfg_key[64];
-	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
-	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
-	if (!auth || !auth[0]) {
-		log_error("no auth token for %s.", service);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
-		return NULL;
-	}
-	return auth;
-}
-
-static const struct service *find_service(const char *name) {
-	for (size_t i = 0; i < N_SERVICES; i++) {
-		if (strcmp(SERVICES[i].name, name) == 0) return &SERVICES[i];
-	}
-	return NULL;
-}
-
-bool upload_service_known(const char *name) {
-	if (!name) return false;
-	return find_service(name) != NULL || sxcu_dir_has(name);
-}
-
-int upload_suggest_service(const char *input, char *out, size_t cap) {
-	if (!input || !out || cap == 0) return -1;
-	const char *best = NULL;
-	size_t best_dist = (size_t)-1;
-	for (size_t i = 0; i < N_SERVICES; i++) {
-		size_t d = grabit_edit_distance(input, SERVICES[i].name);
-		if (d < best_dist) {
-			best_dist = d;
-			best = SERVICES[i].name;
-		}
-	}
-	char **names = NULL;
-	size_t n = 0;
-	int rc = -1;
-	if (sxcu_dir_list(&names, &n) == 0) {
-		for (size_t i = 0; i < n; i++) {
-			size_t d = grabit_edit_distance(input, names[i]);
-			if (d < best_dist) {
-				best_dist = d;
-				best = names[i];
-			}
-		}
-	}
-	size_t in_len = strlen(input);
-	size_t max_allowed = in_len / 3 + 1;
-	if (max_allowed < 2) max_allowed = 2;
-	if (best && best_dist <= max_allowed) {
-		snprintf(out, cap, "%s", best);
-		rc = 0;
-	}
-	for (size_t i = 0; i < n; i++)
-		free(names[i]);
-	free(names);
-	return rc;
-}
-
-int upload_preflight(struct config *cfg, const struct args *a, const char **service_out) {
-	const char *service = a->service;
-	if (!service) service = config_get(cfg, "service");
-	if (!service || !service[0]) {
-		log_error("no service: pass --<service> or `grabit set service <name>`");
-		notify_send(&(struct notify_opts){
-			.summary = "grabit: no upload service",
-			.body = "run: grabit set service zipline (or nest, fakecrime, ez, guns, pixelvault)",
-		});
-		return -1;
-	}
-	if (!upload_service_known(service)) {
-		log_error("unknown service: %s", service);
-		notify_send(&(struct notify_opts){
-			.summary = "grabit: unknown service",
-			.body = "valid services: zipline, nest, fakecrime, ez, guns, pixelvault",
-		});
-		return -1;
-	}
-
-	if (!find_service(service) && sxcu_dir_has(service)) {
-		if (service_out) *service_out = service;
-		return 0;
-	}
-
-	if (!resolve_auth(cfg, service)) {
-		char body[160];
-		snprintf(body, sizeof body, "run: grabit set services.%s.auth <token>", service);
-		notify_send(&(struct notify_opts){
-			.summary = "grabit: missing auth token",
-			.body = body,
-		});
-		return -1;
-	}
-
-	if (strcmp(service, "zipline") == 0) {
-		const char *domain = config_get(cfg, "services.zipline.domain");
-		if (!domain || !domain[0]) {
-			log_error("zipline requires services.zipline.domain (e.g. https://example.com/api/upload)");
-			log_error("    grabit set services.zipline.domain https://<host>/api/upload");
-			notify_send(&(struct notify_opts){
-				.summary = "grabit: zipline domain not set",
-				.body = "run: grabit set services.zipline.domain https://<host>/api/upload",
-			});
-			return -1;
-		}
-	}
-
-	*service_out = service;
-	return 0;
-}
 
 size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user) {
 	struct grabit_buf *b = user;
@@ -253,111 +112,11 @@ struct curl_slist *upload_header_append(struct curl_slist *list, const char *nam
 	return next ? next : list;
 }
 
-void upload_log_response_body(const char *body) {
-	if (!body || !body[0]) return;
-	enum { BODY_MAX = 512 };
-	size_t len = strlen(body);
-	if (len <= BODY_MAX) {
-		log_error("response: %s", body);
-		return;
-	}
-	log_error("response (truncated, %zu bytes): %.*s…", len, (int)BODY_MAX, body);
-}
-
-static const char *http_friendly(long code) {
-	switch (code) {
-	case 401:
-		return "authentication failed - check your auth token";
-	case 403:
-		return "forbidden - check permissions on the upload endpoint";
-	case 404:
-		return "endpoint not found - check the upload URL";
-	case 413:
-		return "file too large - try compressing";
-	case 422:
-		return "file rejected (invalid format or validation failure)";
-	case 429:
-		return "rate limited - try again in a bit";
-	case 500:
-	case 502:
-	case 503:
-	case 504:
-		return "server error - try again later";
-	case 0:
-		return "no response from server";
-	default:
-		return NULL;
-	}
-}
-
-static const char *curl_friendly(int code) {
-	switch (code) {
-	case CURLE_COULDNT_RESOLVE_HOST:
-		return "couldn't resolve host - check your network";
-	case CURLE_COULDNT_CONNECT:
-		return "couldn't connect to server";
-	case CURLE_OPERATION_TIMEDOUT:
-		return "upload timed out";
-	case CURLE_RECV_ERROR:
-	case CURLE_SEND_ERROR:
-		return "connection dropped mid-upload";
-	case CURLE_SSL_CONNECT_ERROR:
-	case CURLE_PEER_FAILED_VERIFICATION:
-		return "TLS connection failed";
-	default:
-		return NULL;
-	}
-}
-
-void upload_log_http_failure(long code, const char *body) {
-	const char *summary = http_friendly(code);
-	if (summary)
-		log_error("upload failed (HTTP %ld): %s", code, summary);
-	else
-		log_error("upload failed (HTTP %ld)", code);
-	if (!summary || code == 0) upload_log_response_body(body);
-}
-
-void upload_log_curl_failure(int code) {
-	const char *friendly = curl_friendly(code);
-	if (friendly)
-		log_error("upload: %s (%s)", friendly, curl_easy_strerror((CURLcode)code));
-	else
-		log_error("curl: %s", curl_easy_strerror((CURLcode)code));
-}
-
-void upload_friendly_error(const struct upload_result *r, char *out, size_t cap) {
-	if (!out || cap == 0) return;
-	if (!r) {
-		snprintf(out, cap, "upload failed");
-		return;
-	}
-	if (r->curl_code != 0) {
-		const char *s = curl_friendly(r->curl_code);
-		snprintf(out, cap, "%s", s ? s : curl_easy_strerror((CURLcode)r->curl_code));
-		return;
-	}
-	const char *s = http_friendly(r->http_code);
-	if (s)
-		snprintf(out, cap, "%s", s);
-	else
-		snprintf(out, cap, "upload failed (HTTP %ld)", r->http_code);
-}
-
-void upload_result_free(struct upload_result *r) {
-	if (!r) return;
-	free(r->url);
-	free(r->body);
-	r->url = r->body = NULL;
-	r->http_code = 0;
-	r->curl_code = 0;
-}
-
 int upload_perform(const char *service_name, const char *file_path,
 				   struct config *cfg, bool chunked, struct upload_result *out) {
 	upload_result_free(out);
 
-	const struct service *svc = find_service(service_name);
+	const struct service *svc = gup_find_service(service_name);
 	if (!svc) {
 		struct sxcu_uploader u = {0};
 		if (sxcu_dir_lookup(service_name, &u) == 0) {
@@ -378,7 +137,7 @@ int upload_perform(const char *service_name, const char *file_path,
 		}
 	}
 
-	const char *auth = resolve_auth(cfg, svc->name);
+	const char *auth = gup_resolve_auth(cfg, svc->name);
 	if (!auth) return -1;
 
 	if (strcmp(svc->name, "zipline") == 0) {

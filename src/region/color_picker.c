@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 #include "region/wlr_state.h"
-#include "util.h"
+#include "util/util.h"
 
 #include "cairo_util.h"
 

@@ -8,7 +8,7 @@
 #include "cursor.h"
 #include "hyprland.h"
 #include "log.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <stdlib.h>

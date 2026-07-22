@@ -5,7 +5,7 @@
 
 #include "log.h"
 
-#include "util.h"
+#include "util/util.h"
 
 #include <fcntl.h>
 #include <stdarg.h>

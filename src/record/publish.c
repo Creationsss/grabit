@@ -10,7 +10,7 @@
 #include "record/ffmpeg.h"
 #include "record/rec_cfg.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -8,7 +8,7 @@
 #include "mime.h"
 #include "upload/sxcu_request.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdio.h>

@@ -32,7 +32,7 @@
 #include "region/region.h"
 #include "sound/sound.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #ifndef GRABIT_VERSION

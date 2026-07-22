@@ -6,7 +6,7 @@
 
 #include "config/config.h"
 #include "region/region.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdio.h>

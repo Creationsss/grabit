@@ -5,7 +5,7 @@
 #include "template.h"
 
 #include "log.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <ctype.h>
 #include <errno.h>

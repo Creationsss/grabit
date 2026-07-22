@@ -5,7 +5,7 @@
 #include "config/internal.h"
 
 #include "region/keybinds.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stddef.h>

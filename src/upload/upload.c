@@ -10,8 +10,8 @@
 #include "notify/notify.h"
 #include "upload/sxcu.h"
 #include "upload/zipline.h"
-#include "util.h"
 #include "util/json_path.h"
+#include "util/util.h"
 
 #include <ctype.h>
 #include <stdbool.h>

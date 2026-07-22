@@ -9,7 +9,7 @@
 #include "record/controls.h"
 #include "record/ring.h"
 #include "record/segments.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <stdint.h>

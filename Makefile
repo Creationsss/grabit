@@ -77,9 +77,13 @@ GRABIT_SRCS := \
 	src/args.c \
 	src/log.c \
 	src/paths.c \
-	src/util.c \
+	src/util/util.c \
+	src/util/buf.c \
+	src/util/shm.c \
+	src/util/proc.c \
 	src/cursor.c \
 	src/config/config.c \
+	src/config/kv.c \
 	src/config/save.c \
 	src/config/schema.c \
 	src/config/keys.c \

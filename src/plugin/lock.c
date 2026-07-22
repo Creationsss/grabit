@@ -7,7 +7,7 @@
 #include "log.h"
 #include "paths.h"
 #include "plugin/plugin.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <fcntl.h>

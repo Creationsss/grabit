@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "notify/notify.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <dirent.h>
 #include <errno.h>

@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "cairo_util.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <math.h>

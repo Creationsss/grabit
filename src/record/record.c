@@ -22,7 +22,7 @@
 #include "region/region.h"
 #include "tray/tray.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <errno.h>

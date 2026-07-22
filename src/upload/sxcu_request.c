@@ -6,7 +6,7 @@
 
 #include "upload/sxcu.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdlib.h>
 #include <string.h>

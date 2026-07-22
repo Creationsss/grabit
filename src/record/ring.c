@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "record/ring.h"
 
-#include "util.h"
+#include "util/util.h"
 
 #include "log.h"
 

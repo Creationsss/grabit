@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/spawn.h"
 
-#include "util.h"
+#include "util/util.h"
 
 #include <stdio.h>
 #include <string.h>

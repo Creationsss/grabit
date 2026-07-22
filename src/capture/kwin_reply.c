@@ -4,7 +4,7 @@
 #include "capture/kwin_internal.h"
 
 #include "log.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdint.h>

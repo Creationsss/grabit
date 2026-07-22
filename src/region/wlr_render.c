@@ -9,7 +9,7 @@
 #include "log.h"
 #include "region/annotate.h"
 #include "region/wlr_input_state.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <math.h>

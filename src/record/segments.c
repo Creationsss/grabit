@@ -6,7 +6,7 @@
 
 #include "log.h"
 #include "record/ffmpeg.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <errno.h>

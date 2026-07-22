@@ -10,7 +10,7 @@
 #include "plugin/lock.h"
 #include "plugin/spawn.h"
 #include "plugin/state.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <dirent.h>
 #include <errno.h>

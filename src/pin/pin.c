@@ -8,7 +8,7 @@
 #include "notify/notify.h"
 #include "pin/pin_state.h"
 #include "region/region.h"
-#include "util.h"
+#include "util/util.h"
 #include "wl.h"
 
 #include <errno.h>

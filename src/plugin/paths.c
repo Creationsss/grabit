@@ -5,7 +5,7 @@
 #include "plugin/plugin.h"
 
 #include "paths.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <dirent.h>
 #include <stdbool.h>

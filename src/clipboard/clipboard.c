@@ -7,7 +7,7 @@
 #include "clipboard/clipboard_internal.h"
 #include "log.h"
 #include "mime.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdlib.h>

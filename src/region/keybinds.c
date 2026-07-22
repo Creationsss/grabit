@@ -183,21 +183,55 @@ static void parse_list(const char *value, struct keybind_list *list) {
 	}
 }
 
-static void load(struct config *cfg, const char *key, const char *def,
+static bool load(struct config *cfg, const char *key, const char *def,
 				 struct keybind_list *list) {
 	const char *v = cfg ? config_get(cfg, key) : NULL;
-	if (!v || !*v) v = def;
+	bool explicit_bind = v && *v;
+	if (!explicit_bind) v = def;
 	parse_list(v, list);
-	if (list->n == 0) parse_list(def, list);
+	if (list->n == 0) {
+		parse_list(def, list);
+		explicit_bind = false;
+	}
+	return explicit_bind;
+}
+
+static bool bind_eq(const struct keybind *a, const struct keybind *b) {
+	if (a->is_button != b->is_button) return false;
+	if (a->is_button) return a->button == b->button;
+	return a->sym == b->sym && a->mods == b->mods;
+}
+
+static void list_drop(struct keybind_list *list, const struct keybind *b) {
+	uint8_t w = 0;
+	for (uint8_t i = 0; i < list->n; i++) {
+		if (bind_eq(&list->items[i], b)) continue;
+		list->items[w++] = list->items[i];
+	}
+	list->n = w;
 }
 
 void region_keymap_init(struct region_keymap *km, struct config *cfg) {
+	bool set_a[KA_COUNT];
+	bool set_t[TOOL_COUNT];
+
 	for (int a = 0; a < KA_COUNT; a++)
-		load(cfg, ACTION_KEYS[a], ACTION_DEFAULTS[a], &km->actions[a]);
+		set_a[a] = load(cfg, ACTION_KEYS[a], ACTION_DEFAULTS[a], &km->actions[a]);
 	for (int t = 0; t < TOOL_COUNT; t++) {
 		char key[64];
 		snprintf(key, sizeof key, "keys.tool.%s", grabit_tool_names[t]);
-		load(cfg, key, TOOL_DEFAULTS[t], &km->tools[t]);
+		set_t[t] = load(cfg, key, TOOL_DEFAULTS[t], &km->tools[t]);
+	}
+
+	for (int a = 0; a < KA_COUNT; a++) {
+		if (!set_a[a]) continue;
+		for (uint8_t i = 0; i < km->actions[a].n; i++) {
+			const struct keybind b = km->actions[a].items[i];
+			for (int o = 0; o < KA_COUNT; o++)
+				if (o != a && !set_a[o]) list_drop(&km->actions[o], &b);
+			for (int o = 0; o < TOOL_COUNT; o++)
+				if (!set_t[o]) list_drop(&km->tools[o], &b);
+		}
 	}
 }
 

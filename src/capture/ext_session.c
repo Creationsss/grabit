@@ -5,6 +5,7 @@
 
 #include "capture/pixels.h"
 #include "log.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -21,6 +22,11 @@ static void sess_buffer_size(void *data,
 							 uint32_t w, uint32_t h) {
 	(void)sess;
 	struct ec_session *es = data;
+	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE) {
+		log_error("ext-image-copy: bogus buffer size %ux%u", w, h);
+		es->status = -1;
+		return;
+	}
 	es->width = (int32_t)w;
 	es->height = (int32_t)h;
 	es->have_size = true;

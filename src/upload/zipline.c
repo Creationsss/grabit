@@ -128,7 +128,7 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 				headers = upload_header_append(headers, "x-zipline-p-identifier",
 											   identifier, &oom);
 			snprintf(range, sizeof range, "bytes %lld-%lld/%lld",
-					 start, start + (long long)send, total);
+					 start, start + (long long)send - 1, total);
 			headers = upload_header_append(headers, "content-range", range, &oom);
 
 			curl_mime *mime = curl_mime_init(c);

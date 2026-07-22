@@ -85,6 +85,7 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 	if (s->xdg_output_manager) {
 		for (size_t i = 0; i < s->n_outputs; i++) {
 			struct grabit_output *o = s->outputs[i];
+			if (o->dead || !o->wl_output) continue;
 			o->xdg_output = zxdg_output_manager_v1_get_xdg_output(
 				s->xdg_output_manager, o->wl_output);
 			zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);

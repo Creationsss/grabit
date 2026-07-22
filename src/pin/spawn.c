@@ -51,8 +51,13 @@ static void kill_previous_show(void) {
 static void write_show_pid_self(void) {
 	char path[1024];
 	show_pid_path(path, sizeof path);
-	FILE *f = fopen(path, "w");
-	if (!f) return;
+	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
+	if (fd < 0) return;
+	FILE *f = fdopen(fd, "w");
+	if (!f) {
+		close(fd);
+		return;
+	}
 	fprintf(f, "%ld\n", (long)getpid());
 	fclose(f);
 }

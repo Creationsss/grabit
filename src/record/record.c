@@ -204,6 +204,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	struct buf_pool pool = {0};
 	size_t buf_size = (size_t)layout.dst_stride * (size_t)layout.dst_h;
+	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 	if (seg_begin(&sc) != 0) {
 		fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
 		goto err_pipeline;
@@ -225,7 +226,6 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
 		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause);
-	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 
 	double secs = rec_capture_loop(&s, &layout, &pool, rec_cfg_cursor(cfg),
 								   &sc, controls);
@@ -278,6 +278,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	return ok ? 0 : 1;
 
 err_pipeline:
+	tray_stop(tray);
 	seg_finish(&sc, NULL);
 	seg_reap_all(&sc);
 	record_signals_restore(&prev);

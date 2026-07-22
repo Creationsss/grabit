@@ -30,6 +30,7 @@ struct ctx {
 	size_t n_regex_list;
 	struct json_object *json_root;
 	bool json_parsed;
+	bool unresolved;
 };
 
 static int expand_into(const char *tmpl, struct ctx *c, struct grabit_buf *out, int depth);
@@ -194,6 +195,7 @@ static int expand_into(const char *tmpl, struct ctx *c, struct grabit_buf *out, 
 			put_rc = grabit_buf_puts(out, replacement);
 			free(replacement);
 		} else {
+			c->unresolved = true;
 			put_rc = grabit_buf_putc(out, *p) != 0 ||
 					 grabit_buf_putn(out, p + 1, tok_len) != 0 ||
 					 grabit_buf_putc(out, close) != 0;
@@ -235,5 +237,9 @@ char *sxcu_expand_response(const char *tmpl, const char *body,
 	};
 	char *out = do_expand(tmpl, &c);
 	if (c.json_root) json_object_put(c.json_root);
+	if (c.unresolved) {
+		free(out);
+		return NULL;
+	}
 	return out;
 }

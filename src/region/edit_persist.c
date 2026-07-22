@@ -16,7 +16,7 @@
 #define EDIT_DEFAULT_COLOR 0xff3030u
 #define EDIT_DEFAULT_WIDTH 4
 #define EDIT_MIN_WIDTH 1
-#define EDIT_MAX_WIDTH 20
+#define EDIT_MAX_WIDTH 12
 
 static const struct {
 	const char *name;

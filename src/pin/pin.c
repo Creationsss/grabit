@@ -45,8 +45,13 @@ static void compute_centered_jitter(int32_t img_w, int32_t img_h,
 	int32_t jy = (int32_t)((seed * 40503u) % 241u) - 120;
 	int32_t mx = cx + jx;
 	int32_t my = cy + jy;
+	int32_t max_x = out_w - img_w, max_y = out_h - img_h;
+	if (max_x < 0) max_x = 0;
+	if (max_y < 0) max_y = 0;
 	if (mx < 0) mx = 0;
 	if (my < 0) my = 0;
+	if (mx > max_x) mx = max_x;
+	if (my > max_y) my = max_y;
 	*mx_out = mx;
 	*my_out = my;
 }

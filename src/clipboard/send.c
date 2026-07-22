@@ -5,6 +5,7 @@
 #include "clipboard/clipboard_internal.h"
 
 #include "log.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <dirent.h>
@@ -106,6 +107,8 @@ static void clip_close_inherited_fds(int keep_fd) {
 __attribute__((noreturn)) static void clip_child(const struct clip_payload *pay,
 												 int ready_fd) {
 	setsid();
+	pid_t gc = fork();
+	if (gc != 0) _exit(gc < 0 ? 1 : 0);
 	log_file_close();
 	clip_close_inherited_fds(ready_fd);
 
@@ -188,6 +191,8 @@ int clipboard_send_bytes(const void *bytes, size_t size,
 		if (have_pipe) close(ready[0]);
 		clip_child(&pay, have_pipe ? ready[1] : -1);
 	}
+
+	grabit_waitpid_intr(pid, NULL);
 
 	if (!have_pipe) return 0;
 

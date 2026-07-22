@@ -100,8 +100,17 @@ int grabit_runtime_dir(char *out, size_t cap) {
 			return (n > 0 && (size_t)n < cap) ? 0 : -1;
 		}
 	}
-	int n = snprintf(out, cap, "/tmp");
-	return (n > 0 && (size_t)n < cap) ? 0 : -1;
+	char dir[64];
+	int n = snprintf(dir, sizeof dir, "/tmp/grabit-%u", (unsigned)getuid());
+	if (n <= 0 || (size_t)n >= sizeof dir) return -1;
+	if (mkdir(dir, 0700) != 0 && errno != EEXIST) return -1;
+	struct stat st;
+	if (lstat(dir, &st) != 0) return -1;
+	if (!S_ISDIR(st.st_mode) || st.st_uid != getuid() ||
+		(st.st_mode & 0777) != 0700)
+		return -1;
+	int m = snprintf(out, cap, "%s", dir);
+	return (m > 0 && (size_t)m < cap) ? 0 : -1;
 }
 
 int grabit_write_all(int fd, const void *buf, size_t n) {

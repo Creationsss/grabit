@@ -90,7 +90,7 @@ void pin_ipc_handle(struct pin_state *st) {
 			if (errno == EINTR) continue;
 			return;
 		}
-		if (n == 0) return;
+		if (n == 0) continue;
 		buf[n] = '\0';
 		char *nl = strchr(buf, '\n');
 		if (nl) *nl = '\0';
@@ -165,7 +165,7 @@ int pin_ipc_broadcast(const char *msg) {
 		memcpy(addr.sun_path, path, strlen(path) + 1);
 
 		size_t mlen = strlen(msg);
-		if (sendto(fd, msg, mlen, 0,
+		if (sendto(fd, msg, mlen, MSG_DONTWAIT,
 				   (struct sockaddr *)&addr, sizeof addr) == (ssize_t)mlen) {
 			sent++;
 		}

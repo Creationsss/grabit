@@ -141,6 +141,7 @@ GRABIT_SRCS := \
 	src/record/controls_input.c \
 	src/record/controls_render.c \
 	src/tray/sni.c \
+	src/tray/sni_props.c \
 	src/tray/tray.c \
 	src/upload/upload.c \
 	src/upload/services.c \

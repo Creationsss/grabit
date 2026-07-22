@@ -219,22 +219,22 @@ static int kwin_capture(const char *output_name, bool cursor, struct image *out)
 		goto cleanup;
 	}
 	uint32_t resolved;
-	bool swap_rb;
-	if (!pixels_accept_format(shm_fmt, &resolved, &swap_rb)) {
+	enum pixels_conv conv;
+	if (!pixels_accept_format(shm_fmt, &resolved, &conv)) {
 		log_error("kwin-screenshot: unsupported pixel format %s",
 				  pixels_shm_format_name(shm_fmt));
 		goto cleanup;
 	}
 
-	if (swap_rb) {
+	if (conv != PIX_COPY) {
 		pixels_copy(buf.data, (int32_t)meta.stride, buf.data, (int32_t)meta.stride,
-					(int32_t)meta.width, (int32_t)meta.height, true, false);
+					(int32_t)meta.width, (int32_t)meta.height, conv, false);
 	}
 
 	out->width = (int32_t)meta.width;
 	out->height = (int32_t)meta.height;
 	out->stride = (int32_t)meta.stride;
-	out->format = pixels_resolved_format(resolved, swap_rb);
+	out->format = pixels_resolved_format(resolved, conv);
 	out->bytes = buf.data;
 	out->size = (size_t)meta.stride * meta.height;
 	buf.data = NULL;

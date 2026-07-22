@@ -48,8 +48,9 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 
 	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
 
+	uint32_t bpp = (uint32_t)pixels_conv_src_bpp(c->fmt.conv);
 	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE ||
-		stride < (uint32_t)w * 4u) {
+		stride < (uint32_t)w * bpp) {
 		log_error("wlr-screencopy: bogus geometry %ux%u stride=%u", w, h, stride);
 		c->status = -1;
 		return;
@@ -187,7 +188,7 @@ int grabit_wlr_capture_many(struct grabit_wl_state *s, struct grabit_output *con
 		if (rc == 0 && cs[i].status == 1 && cs[i].buf.map) {
 			if (pixels_image_from_buf(&out[i], cs[i].buf.map, cs[i].buf.map_size,
 									  cs[i].width, cs[i].height, cs[i].stride,
-									  cs[i].fmt.format, cs[i].fmt.swap_rb,
+									  cs[i].fmt.format, cs[i].fmt.conv,
 									  cs[i].y_invert) != 0)
 				rc = -1;
 		} else {
@@ -229,9 +230,9 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 					  c.width, c.height, dst_stride, dst_h);
 		} else {
 			pixels_copy(dst, dst_stride, c.buf.map, c.stride,
-						c.width, c.height, c.fmt.swap_rb, c.y_invert);
+						c.width, c.height, c.fmt.conv, c.y_invert);
 			if (out_format)
-				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.swap_rb);
+				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.conv);
 			rc = 0;
 		}
 	}

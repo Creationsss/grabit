@@ -23,7 +23,6 @@ static void sess_buffer_size(void *data,
 	struct ec_session *es = data;
 	es->width = (int32_t)w;
 	es->height = (int32_t)h;
-	es->stride = (int32_t)w * 4;
 	es->have_size = true;
 }
 

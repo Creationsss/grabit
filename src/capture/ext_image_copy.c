@@ -103,6 +103,7 @@ static int alloc_buffer(struct ec_state *c) {
 		pixels_log_advertised("ext-image-copy", es->fmt.advertised, es->fmt.n);
 		return -1;
 	}
+	es->stride = es->width * pixels_conv_src_bpp(es->fmt.conv);
 	return pixels_pool_acquire(c->wls->shm, "grabit-ext-image-copy", c->pool,
 							   es->width, es->height, es->stride, es->fmt.format,
 							   &c->buf);
@@ -159,7 +160,7 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 	if (do_capture(s, o, overlay_cursor, NULL, &c) == 0) {
 		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
 								   c.sess->width, c.sess->height, c.sess->stride,
-								   c.sess->fmt.format, c.sess->fmt.swap_rb, false);
+								   c.sess->fmt.format, c.sess->fmt.conv, false);
 	}
 
 	cleanup_state(&c);
@@ -190,9 +191,9 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 			const uint8_t *src = (const uint8_t *)c.buf.map +
 								 (size_t)y * (size_t)c.sess->stride + (size_t)x * 4;
 			pixels_copy(dst, dst_stride, src, c.sess->stride, w, h,
-						c.sess->fmt.swap_rb, false);
+						c.sess->fmt.conv, false);
 			if (out_format)
-				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.swap_rb);
+				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.conv);
 			rc = 0;
 		}
 	}

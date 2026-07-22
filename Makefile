@@ -120,11 +120,15 @@ GRABIT_SRCS := \
 	src/region/annotate_paint.c \
 	src/region/annotate_blur.c \
 	src/region/toolbar.c \
+	src/region/toolbar_tooltip.c \
 	src/region/toolbar_layout.c \
 	src/region/toolbar_icons.c \
 	src/region/color_picker.c \
+	src/region/color_picker_render.c \
 	src/region/keybinds.c \
+	src/region/keybinds_parse.c \
 	src/region/keycapture.c \
+	src/region/keycapture_input.c \
 	src/region/edit_persist.c \
 	src/util/json_path.c \
 	src/clipboard/clipboard.c \
@@ -136,6 +140,15 @@ GRABIT_SRCS := \
 	src/region/select_state.c \
 	src/region/wlr_render.c \
 	src/region/wlr_input.c \
+	src/region/input_keyboard.c \
+	src/region/input_pointer.c \
+	src/region/input_button.c \
+	src/region/input_press.c \
+	src/region/input_gesture.c \
+	src/region/input_nudge.c \
+	src/region/input_undo.c \
+	src/region/render_frame.c \
+	src/region/render_buffer.c \
 	src/region/wlr_input_state.c \
 	src/record/record.c \
 	src/record/loop.c \

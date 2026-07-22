@@ -117,6 +117,8 @@ GRABIT_SRCS := \
 	src/capture/transform.c \
 	src/capture/freeze.c \
 	src/region/annotate.c \
+	src/region/annotate_paint.c \
+	src/region/annotate_blur.c \
 	src/region/toolbar.c \
 	src/region/toolbar_layout.c \
 	src/region/toolbar_icons.c \

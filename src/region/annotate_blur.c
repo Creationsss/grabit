@@ -66,8 +66,9 @@ static cairo_surface_t *ganno_snap_region(cairo_t *cr, cairo_surface_t *backdrop
 }
 
 void ganno_paint_pixelate(cairo_t *cr, double x, double y, double w, double h,
-						  double scale, cairo_surface_t *backdrop) {
-	double cell = 12.0 * scale;
+						  double scale, int32_t strength, cairo_surface_t *backdrop) {
+	if (strength < 1) strength = 1;
+	double cell = strength * 4.0 * scale;
 	if (cell < 6.0) cell = 6.0;
 	cairo_save(cr);
 	cairo_rectangle(cr, x, y, w, h);
@@ -188,7 +189,7 @@ static void ganno_box_blur(cairo_surface_t *s, int radius, int passes) {
 }
 
 void ganno_paint_blur(cairo_t *cr, double x, double y, double w, double h,
-					  double scale, cairo_surface_t *backdrop) {
+					  double scale, int32_t strength, cairo_surface_t *backdrop) {
 	cairo_save(cr);
 	cairo_rectangle(cr, x, y, w, h);
 	cairo_clip(cr);
@@ -201,7 +202,8 @@ void ganno_paint_blur(cairo_t *cr, double x, double y, double w, double h,
 		return;
 	}
 
-	int radius = (int)(7.0 * scale + 0.5);
+	if (strength < 1) strength = 1;
+	int radius = (int)(strength * 2.5 * scale + 0.5);
 	if (radius < 2) radius = 2;
 	ganno_box_blur(snap, radius, 3);
 	cairo_surface_mark_dirty(snap);

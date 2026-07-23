@@ -280,6 +280,11 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			region_render_request_redraw_all(st);
 			return;
 		}
+		if (st->current_tool == TOOL_COUNTER) {
+			region_place_counter(st);
+			region_render_request_redraw_all(st);
+			return;
+		}
 		st->drawing = true;
 		st->draw_x0 = st->cursor_x;
 		st->draw_y0 = st->cursor_y;

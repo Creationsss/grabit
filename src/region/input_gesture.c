@@ -173,6 +173,13 @@ void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 	}
 }
 
+static void region_annotation_commit(struct ro_state *st, struct annotation *a) {
+	if (annotation_list_push(st->out_annos, a) != 0)
+		annotation_free(a);
+	else
+		gist_undo_record_anno(st);
+}
+
 void region_commit_drawing(struct ro_state *st) {
 	struct annotation a = {0};
 	a.tool = st->current_tool;
@@ -200,10 +207,7 @@ void region_commit_drawing(struct ro_state *st) {
 		a.y1 = y1;
 	}
 
-	if (annotation_list_push(st->out_annos, &a) != 0)
-		annotation_free(&a);
-	else
-		gist_undo_record_anno(st);
+	region_annotation_commit(st, &a);
 	st->drawing = false;
 }
 
@@ -221,11 +225,30 @@ void region_commit_text(struct ro_state *st) {
 	a.y0 = st->text_y;
 	st->text_buf[st->text_len] = '\0';
 	a.text = strdup(st->text_buf);
-	if (!a.text || annotation_list_push(st->out_annos, &a) != 0) {
+	if (!a.text)
 		annotation_free(&a);
-	} else {
-		gist_undo_record_anno(st);
-	}
+	else
+		region_annotation_commit(st, &a);
 	st->text_input_active = false;
 	st->text_len = 0;
+}
+
+void region_place_counter(struct ro_state *st) {
+	if (!st->out_annos) return;
+	int n = 0;
+	for (size_t i = 0; i < st->out_annos->n; i++)
+		if (st->out_annos->items[i].tool == TOOL_COUNTER) n++;
+	char buf[16];
+	snprintf(buf, sizeof buf, "%d", n + 1);
+	struct annotation a = {0};
+	a.tool = TOOL_COUNTER;
+	a.color = st->current_color;
+	a.font_size = st->current_font;
+	a.x0 = st->cursor_x;
+	a.y0 = st->cursor_y;
+	a.text = strdup(buf);
+	if (!a.text)
+		annotation_free(&a);
+	else
+		region_annotation_commit(st, &a);
 }

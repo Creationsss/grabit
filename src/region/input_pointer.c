@@ -134,21 +134,15 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 	int32_t n = (int32_t)(st->scroll_accum / 10.0);
 	if (n == 0) return;
 	st->scroll_accum -= n * 10.0;
-	if (st->current_tool == TOOL_TEXT || st->text_input_active) {
-		int32_t f = st->current_font - n * 2;
-		if (f < FONT_MIN) f = FONT_MIN;
-		if (f > FONT_MAX) f = FONT_MAX;
-		if (f == st->current_font) return;
-		st->current_font = f;
-		region_render_request_redraw_all(st);
-		return;
-	}
-	int32_t w = st->current_width - n;
-	if (w < WIDTH_MIN) w = WIDTH_MIN;
-	if (w > WIDTH_MAX) w = WIDTH_MAX;
-	if (w == st->current_width) return;
-	st->current_width = w;
-	st->edit_choices_dirty = true;
+	int32_t lo, hi;
+	int32_t *f = region_slider_field(st, &lo, &hi);
+	int32_t step = region_tool_uses_font(st) ? 2 : 1;
+	int32_t v = *f - n * step;
+	if (v < lo) v = lo;
+	if (v > hi) v = hi;
+	if (v == *f) return;
+	*f = v;
+	if (!region_tool_uses_font(st)) st->edit_choices_dirty = true;
 	region_render_request_redraw_all(st);
 }
 

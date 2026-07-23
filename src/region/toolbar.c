@@ -65,7 +65,7 @@ static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
 	cairo_fill(cr);
 }
 
-static void paint_slider(cairo_t *cr, const struct ro_state *st, int32_t S,
+static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 						 double bxi, double bwi, double cyi) {
 	double pad_in = 10.0 * S;
 	double tk_x0 = bxi + pad_in;
@@ -77,12 +77,13 @@ static void paint_slider(cairo_t *cr, const struct ro_state *st, int32_t S,
 	cairo_line_to(cr, tk_x1, cyi);
 	cairo_stroke(cr);
 
-	int32_t w = st->current_width;
-	if (w < WIDTH_MIN) w = WIDTH_MIN;
-	if (w > WIDTH_MAX) w = WIDTH_MAX;
-	double frac = (double)(w - WIDTH_MIN) / (double)(WIDTH_MAX - WIDTH_MIN);
+	int32_t lo, hi;
+	int32_t val = *region_slider_field(st, &lo, &hi);
+	if (val < lo) val = lo;
+	if (val > hi) val = hi;
+	double frac = (double)(val - lo) / (double)(hi - lo);
 	double kx = tk_x0 + frac * (tk_x1 - tk_x0);
-	double kr = ((double)w * 0.45 + 3.0) * S;
+	double kr = (3.0 + frac * 6.0) * S;
 	cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
 	cairo_arc(cr, kx, cyi, kr, 0, 2.0 * M_PI);
 	cairo_fill(cr);
@@ -126,6 +127,9 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 		break;
 	case TB_TOOL_TEXT:
 		toolbar_icon_text(cr, cxi, cyi, s_icon);
+		break;
+	case TB_TOOL_COUNTER:
+		toolbar_icon_counter(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_ERASER:
 		toolbar_icon_eraser(cr, cxi, cyi, s_icon);

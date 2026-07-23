@@ -230,6 +230,22 @@ static inline bool region_editing(const struct ro_state *st) {
 	return st->annotate_mode && st->out_annos;
 }
 
+static inline bool region_tool_uses_font(const struct ro_state *st) {
+	return st->current_tool == TOOL_TEXT || st->current_tool == TOOL_COUNTER ||
+		   st->text_input_active;
+}
+
+static inline int32_t *region_slider_field(struct ro_state *st, int32_t *lo, int32_t *hi) {
+	if (region_tool_uses_font(st)) {
+		*lo = FONT_MIN;
+		*hi = FONT_MAX;
+		return &st->current_font;
+	}
+	*lo = WIDTH_MIN;
+	*hi = WIDTH_MAX;
+	return &st->current_width;
+}
+
 #define ANNO_DRAG_NONE (-1)
 #define ANNO_DRAG_MOVE 4
 

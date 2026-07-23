@@ -23,6 +23,7 @@ const char *const grabit_tool_names[] = {
 	"blur",
 	"pixelate",
 	"text",
+	"counter",
 	"eraser",
 	NULL,
 };
@@ -54,6 +55,14 @@ bool annotation_list_pop_take(struct annotation_list *list, struct annotation *o
 	*out = list->items[--list->n];
 	list->gen++;
 	return true;
+}
+
+int32_t annotation_counter_radius(const struct annotation *a) {
+	return a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT;
+}
+
+int32_t annotation_width(const struct annotation *a) {
+	return a->width > 0 ? a->width : ANNO_DEFAULT_WIDTH;
 }
 
 void annotation_free(struct annotation *a) {
@@ -89,6 +98,12 @@ void annotation_update_bbox(struct annotation *a) {
 		maxx = a->x0 + len * fs * 3 / 5;
 		miny = a->y0 - fs;
 		maxy = a->y0 + fs / 4;
+	} else if (a->tool == TOOL_COUNTER) {
+		int32_t r = annotation_counter_radius(a);
+		minx = a->x0 - r;
+		maxx = a->x0 + r;
+		miny = a->y0 - r;
+		maxy = a->y0 + r;
 	} else {
 		minx = i32min(a->x0, a->x1);
 		maxx = i32max(a->x0, a->x1);

@@ -43,6 +43,7 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 }
 
 #define ANNO_DEFAULT_FONT 18
+#define ANNO_DEFAULT_WIDTH 3
 
 enum tool_kind {
 	TOOL_PEN = 0,
@@ -54,6 +55,7 @@ enum tool_kind {
 	TOOL_BLUR,
 	TOOL_PIXELATE,
 	TOOL_TEXT,
+	TOOL_COUNTER,
 	TOOL_ERASER,
 	TOOL_COUNT,
 };

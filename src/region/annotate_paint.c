@@ -58,7 +58,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 							   cairo_surface_t *backdrop) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	double w = (a->width > 0 ? a->width : 3) * scale;
+	double w = annotation_width(a) * scale;
 
 	switch (a->tool) {
 	case TOOL_RECT: {
@@ -134,10 +134,11 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
 		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
 		if (rw < 2.0 || rh < 2.0) break;
+		int32_t strength = annotation_width(a);
 		if (a->tool == TOOL_BLUR)
-			ganno_paint_blur(cr, x, y, rw, rh, scale, backdrop);
+			ganno_paint_blur(cr, x, y, rw, rh, scale, strength, backdrop);
 		else
-			ganno_paint_pixelate(cr, x, y, rw, rh, scale, backdrop);
+			ganno_paint_pixelate(cr, x, y, rw, rh, scale, strength, backdrop);
 		break;
 	}
 	case TOOL_TEXT: {
@@ -148,6 +149,38 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_set_font_size(cr, font_px);
 		ganno_set_color(cr, a->color);
 		cairo_move_to(cr, a->x0, a->y0);
+		cairo_show_text(cr, a->text);
+		break;
+	}
+	case TOOL_COUNTER: {
+		if (!a->text || !a->text[0]) break;
+		double R = annotation_counter_radius(a) * scale;
+		ganno_set_color(cr, a->color);
+		cairo_new_sub_path(cr);
+		cairo_arc(cr, a->x0, a->y0, R, 0, 2.0 * M_PI);
+		cairo_fill(cr);
+
+		double lum = (0.299 * ((a->color >> 16) & 0xff) +
+					  0.587 * ((a->color >> 8) & 0xff) +
+					  0.114 * (a->color & 0xff)) /
+					 255.0;
+		if (lum > 0.6)
+			cairo_set_source_rgba(cr, 0, 0, 0, 1);
+		else
+			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
+							   CAIRO_FONT_WEIGHT_BOLD);
+		double fs = R * 1.35;
+		cairo_set_font_size(cr, fs);
+		cairo_text_extents_t ext;
+		cairo_text_extents(cr, a->text, &ext);
+		double maxw = R * 1.5;
+		if (ext.width > maxw && ext.width > 0) {
+			cairo_set_font_size(cr, fs * maxw / ext.width);
+			cairo_text_extents(cr, a->text, &ext);
+		}
+		cairo_move_to(cr, a->x0 - ext.x_advance / 2.0,
+					  a->y0 - ext.height / 2.0 - ext.y_bearing);
 		cairo_show_text(cr, a->text);
 		break;
 	}

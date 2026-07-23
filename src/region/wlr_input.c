@@ -162,5 +162,7 @@ void ginp_slider_set_width_from_cursor(struct ro_state *st) {
 	double frac = sw > 0 ? (double)(st->cursor_x - sx) / (double)sw : 0;
 	if (frac < 0) frac = 0;
 	if (frac > 1) frac = 1;
-	st->current_width = WIDTH_MIN + (int32_t)(frac * (WIDTH_MAX - WIDTH_MIN) + 0.5);
+	int32_t lo, hi;
+	int32_t *f = region_slider_field(st, &lo, &hi);
+	*f = lo + (int32_t)(frac * (hi - lo) + 0.5);
 }

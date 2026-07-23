@@ -18,8 +18,8 @@ plugin system, live magnifier.
 
 ## Annotation editor
 
-- [ ] **Step / number counter** (S–M) — auto-incrementing badges (①②③) for tutorials.
-      Most-cited missing tool. Has it: ShareX, ksnip, Satty. New `TOOL_COUNTER`.
+- [x] **Step / number counter** (done) — `TOOL_COUNTER`, click-to-stamp numbered badge
+      (key `c`); auto-numbers from the count of existing counters, contrast-aware text.
 - [x] **Pixelate** (done) — the old "blur" tool was already a mosaic; it is now `TOOL_PIXELATE`
       (default `x, 0`), and `TOOL_BLUR` is a real gaussian blur. Two distinct redaction styles.
 - [x] **Redo** (done) — `keys.redo` (default `Ctrl+y, Ctrl+Shift+z`); inverse-item redo stack

@@ -168,6 +168,22 @@ void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s) {
 	cairo_show_text(cr, "Aa");
 }
 
+void toolbar_icon_counter(cairo_t *cr, double cx, double cy, double s) {
+	double r = s * 0.42;
+	cairo_set_line_width(cr, s * 0.12);
+	cairo_new_sub_path(cr);
+	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
+	cairo_stroke(cr);
+	cairo_select_font_face(cr, "sans-serif",
+						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, s * 0.6);
+	cairo_text_extents_t ext;
+	cairo_text_extents(cr, "1", &ext);
+	cairo_move_to(cr, cx - ext.x_advance / 2.0,
+				  cy - ext.height / 2.0 - ext.y_bearing);
+	cairo_show_text(cr, "1");
+}
+
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.0 * (s / 24.0);
 	cairo_set_line_width(cr, w);

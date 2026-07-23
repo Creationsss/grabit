@@ -26,6 +26,8 @@ bool annotation_list_pop_take(struct annotation_list *list, struct annotation *o
 void annotation_free(struct annotation *a);
 
 void annotation_update_bbox(struct annotation *a);
+int32_t annotation_counter_radius(const struct annotation *a);
+int32_t annotation_width(const struct annotation *a);
 int annotation_corner_mask(const struct annotation *a);
 bool annotation_hit(const struct annotation *a, int32_t x, int32_t y);
 void annotation_translate(struct annotation *a, int32_t dx, int32_t dy);

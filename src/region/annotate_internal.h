@@ -10,8 +10,8 @@
 
 void ganno_set_color(cairo_t *cr, uint32_t color);
 void ganno_paint_blur(cairo_t *cr, double x, double y, double w, double h,
-					  double scale, cairo_surface_t *backdrop);
+					  double scale, int32_t strength, cairo_surface_t *backdrop);
 void ganno_paint_pixelate(cairo_t *cr, double x, double y, double w, double h,
-						  double scale, cairo_surface_t *backdrop);
+						  double scale, int32_t strength, cairo_surface_t *backdrop);
 
 #endif

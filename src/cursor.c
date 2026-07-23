@@ -166,36 +166,40 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 
 	const char *home = getenv("HOME");
 	char path[512];
-	const char *bases[] = {
-		"~/.icons",
-		"~/.local/share/icons",
-		"/usr/share/icons",
-		"/usr/share/pixmaps",
-		"/usr/local/share/icons"};
-
-	for (int i = 0; i < 5; i++) {
-		const char *base = bases[i];
-		if (base[0] == '~') {
-			if (!home) continue;
-			snprintf(path, sizeof path, "%s%s/%s/cursors/%s", home, base + 1, theme, name);
-		} else {
-			snprintf(path, sizeof path, "%s/%s/cursors/%s", base, theme, name);
+	
+	const char *themes[] = {theme, "default", "Adwaita", "breeze_cursors", "DMZ-White"};
+	
+	for (int t = 0; t < 5; t++) {
+		if (t > 0 && strcmp(theme, themes[t]) == 0) continue;
+		
+		const char *search_path = getenv("XCURSOR_PATH");
+		if (!search_path || !*search_path) {
+			search_path = "~/.icons:~/.local/share/icons:/usr/share/icons:/usr/share/pixmaps";
 		}
-		if (load_xcursor_file(path, target_size, out)) return;
-	}
-
-	const char *fallbacks[] = {"default", "Adwaita", "breeze_cursors", "DMZ-White"};
-	for (int f = 0; f < 4; f++) {
-		if (f == 0 && strcmp(theme, "default") == 0) continue;
-		for (int i = 0; i < 5; i++) {
-			const char *base = bases[i];
-			if (base[0] == '~') {
+		
+		char paths[2048];
+		strncpy(paths, search_path, sizeof(paths) - 1);
+		paths[sizeof(paths) - 1] = '\0';
+		
+		char *saveptr1;
+		for (char *p = strtok_r(paths, ":", &saveptr1); p != NULL; p = strtok_r(NULL, ":", &saveptr1)) {
+			if (p[0] == '~') {
 				if (!home) continue;
-				snprintf(path, sizeof path, "%s%s/%s/cursors/%s", home, base + 1, fallbacks[f], name);
+				snprintf(path, sizeof path, "%s%s/%s/cursors/%s", home, p + 1, themes[t], name);
 			} else {
-				snprintf(path, sizeof path, "%s/%s/cursors/%s", base, fallbacks[f], name);
+				snprintf(path, sizeof path, "%s/%s/cursors/%s", p, themes[t], name);
 			}
 			if (load_xcursor_file(path, target_size, out)) return;
+		}
+		
+		const char *xdg_data = getenv("XDG_DATA_DIRS");
+		if (xdg_data && *xdg_data) {
+			strncpy(paths, xdg_data, sizeof(paths) - 1);
+			paths[sizeof(paths) - 1] = '\0';
+			for (char *p = strtok_r(paths, ":", &saveptr1); p != NULL; p = strtok_r(NULL, ":", &saveptr1)) {
+				snprintf(path, sizeof path, "%s/icons/%s/cursors/%s", p, themes[t], name);
+				if (load_xcursor_file(path, target_size, out)) return;
+			}
 		}
 	}
 }

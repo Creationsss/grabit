@@ -217,7 +217,17 @@ struct rect controls_bar_rect(const struct rec_controls *c) {
 
 struct rect controls_cursor_rect(const struct rec_controls *c) {
 	if (!c || !c->ptr_on) return (struct rect){0, 0, 0, 0};
-	const struct raw_cursor_image *img = c->cursor_hand ? &c->raw_cursor_hand : &c->raw_cursor_default;
+	bool over_btn = false;
+	if (c->cx >= c->bx && c->cx < c->bx + c->bw &&
+		c->cy >= c->by && c->cy < c->by + c->bh) {
+		int rx = c->cx - c->bx;
+		int ry = c->cy - c->by;
+		if (ry >= 4 && ry < 36 && rx >= 4 && rx < c->bw - 4) {
+			over_btn = true;
+		}
+	}
+	const struct raw_cursor_image *img = over_btn ? &c->raw_cursor_hand : &c->raw_cursor_default;
+	if (!img->pixels) img = over_btn ? &c->raw_cursor_default : &c->raw_cursor_hand;
 	if (!img->pixels) return (struct rect){0, 0, 0, 0};
 	return (struct rect){c->cx - img->hotspot_x, c->cy - img->hotspot_y, img->width, img->height};
 }

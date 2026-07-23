@@ -260,6 +260,7 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 								}
 							}
 							const struct raw_cursor_image *img = over_btn ? &ctrl->raw_cursor_hand : &ctrl->raw_cursor_default;
+							if (!img->pixels) img = over_btn ? &ctrl->raw_cursor_default : &ctrl->raw_cursor_hand;
 							if (img && img->pixels) {
 								double scale_x = (double)layout->dst_w / region.w;
 								double scale_y = (double)layout->dst_h / region.h;

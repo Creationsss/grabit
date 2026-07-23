@@ -230,6 +230,12 @@ static void keyboard_modifiers(void *data, struct wl_keyboard *kb, uint32_t seri
 							 st->xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0;
 		st->ctrl_held = xkb_state_mod_name_is_active(
 							st->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0;
+		bool alt_now = xkb_state_mod_name_is_active(
+						   st->xkb_state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0;
+		if (alt_now != st->alt_held) {
+			st->alt_held = alt_now;
+			region_render_request_redraw_all(st);
+		}
 		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
 	}
 }

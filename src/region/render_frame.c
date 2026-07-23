@@ -245,6 +245,8 @@ void gren_output_redraw(struct ro_output *o) {
 		region_toolbar_tooltip_render(cr, o);
 	}
 
+	if (region_magnifier_active(o)) region_magnifier_render(cr, o);
+
 	cairo_destroy(cr);
 	cairo_surface_flush(o->cairo_dst);
 

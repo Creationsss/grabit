@@ -125,6 +125,7 @@ GRABIT_SRCS := \
 	src/region/toolbar_icons.c \
 	src/region/color_picker.c \
 	src/region/color_picker_render.c \
+	src/region/magnifier_render.c \
 	src/region/keybinds.c \
 	src/region/keybinds_parse.c \
 	src/region/keycapture.c \

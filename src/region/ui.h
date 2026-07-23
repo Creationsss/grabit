@@ -80,6 +80,9 @@ void region_color_picker_release_cache(struct ro_state *st);
 void region_toolbar_render(cairo_t *cr, const struct ro_output *o);
 void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
 
+bool region_magnifier_active(const struct ro_output *o);
+void region_magnifier_render(cairo_t *cr, const struct ro_output *o);
+
 void region_render_attach_layer(struct ro_output *o);
 void region_render_free_buffer(struct ro_output *o);
 void region_render_request_redraw_all(struct ro_state *st);

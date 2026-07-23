@@ -99,13 +99,14 @@ void gren_output_redraw(struct ro_output *o) {
 				gren_anno_cache_paint(cr, o->anno_cache);
 			} else {
 				for (size_t i = 0; i < o->st->out_annos->n; i++) {
-					if (anno_drag && (int32_t)i == o->st->sel_anno) continue;
+					if (anno_drag && o->st->out_annos->items[i].selected) continue;
 					annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
 				}
 			}
 			if (anno_drag) {
-				const struct annotation *da = region_anno_selected(o->st);
-				if (da) annotation_paint(cr, da, 1.0);
+				for (size_t i = 0; i < o->st->out_annos->n; i++)
+					if (o->st->out_annos->items[i].selected)
+						annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
 			}
 			if (o->st->drawing) {
 				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;

@@ -82,11 +82,12 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			region_apply_handle_drag(st);
 		} else if (st->anno_drag == ANNO_DRAG_MOVE) {
-			struct annotation *a = region_anno_selected(st);
-			if (a) {
-				annotation_translate(a, st->cursor_x - st->anno_last_x,
-									 st->cursor_y - st->anno_last_y);
-			}
+			int32_t dx = st->cursor_x - st->anno_last_x;
+			int32_t dy = st->cursor_y - st->anno_last_y;
+			if (st->out_annos)
+				for (size_t i = 0; i < st->out_annos->n; i++)
+					if (st->out_annos->items[i].selected)
+						annotation_translate(&st->out_annos->items[i], dx, dy);
 			st->anno_last_x = st->cursor_x;
 			st->anno_last_y = st->cursor_y;
 		} else if (st->anno_drag >= 0) {
@@ -134,6 +135,33 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 	int32_t n = (int32_t)(st->scroll_accum / 10.0);
 	if (n == 0) return;
 	st->scroll_accum -= n * 10.0;
+
+	if (st->anno_edit_mode && region_has_selection(st) && st->out_annos) {
+		if (!st->resizing_anno) {
+			region_undo_group_begin(st);
+			for (size_t i = 0; i < st->out_annos->n; i++)
+				if (st->out_annos->items[i].selected)
+					region_undo_record_anno_size(st, i);
+			region_undo_group_end(st);
+			st->resizing_anno = true;
+		}
+		for (size_t i = 0; i < st->out_annos->n; i++) {
+			struct annotation *a = &st->out_annos->items[i];
+			if (!a->selected) continue;
+			if (a->tool == TOOL_TEXT || a->tool == TOOL_COUNTER) {
+				int32_t fv = a->font_size - n * 2;
+				a->font_size = fv < FONT_MIN ? FONT_MIN : (fv > FONT_MAX ? FONT_MAX : fv);
+			} else {
+				int32_t wv = a->width - n;
+				a->width = wv < WIDTH_MIN ? WIDTH_MIN : (wv > WIDTH_MAX ? WIDTH_MAX : wv);
+			}
+			annotation_update_bbox(a);
+		}
+		st->out_annos->gen++;
+		region_render_request_redraw_all(st);
+		return;
+	}
+
 	int32_t lo, hi;
 	int32_t *f = region_slider_field(st, &lo, &hi);
 	int32_t step = region_tool_uses_font(st) ? 2 : 1;

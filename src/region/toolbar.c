@@ -134,6 +134,9 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	case TB_TOOL_ERASER:
 		toolbar_icon_eraser(cr, cxi, cyi, s_icon);
 		break;
+	case TB_REDO:
+		toolbar_icon_redo(cr, cxi, cyi, s_icon);
+		break;
 	case TB_UNDO:
 		toolbar_icon_undo(cr, cxi, cyi, s_icon);
 		break;

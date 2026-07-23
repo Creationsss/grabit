@@ -173,6 +173,59 @@ void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 	}
 }
 
+bool region_has_selection(const struct ro_state *st) {
+	if (!st->out_annos) return false;
+	for (size_t i = 0; i < st->out_annos->n; i++)
+		if (st->out_annos->items[i].selected) return true;
+	return false;
+}
+
+const struct annotation *region_single_selection(const struct ro_state *st) {
+	if (!st->out_annos) return NULL;
+	const struct annotation *found = NULL;
+	for (size_t i = 0; i < st->out_annos->n; i++) {
+		if (!st->out_annos->items[i].selected) continue;
+		if (found) return NULL;
+		found = &st->out_annos->items[i];
+	}
+	return found;
+}
+
+void region_clear_selection(struct ro_state *st) {
+	if (!st->out_annos) return;
+	for (size_t i = 0; i < st->out_annos->n; i++)
+		st->out_annos->items[i].selected = false;
+	st->sel_anno = -1;
+}
+
+void region_select_one(struct ro_state *st, size_t idx) {
+	if (!st->out_annos || idx >= st->out_annos->n) return;
+	region_clear_selection(st);
+	st->out_annos->items[idx].selected = true;
+	st->sel_anno = (int32_t)idx;
+}
+
+void region_select_toggle(struct ro_state *st, size_t idx) {
+	if (!st->out_annos || idx >= st->out_annos->n) return;
+	bool sel = !st->out_annos->items[idx].selected;
+	st->out_annos->items[idx].selected = sel;
+	st->sel_anno = sel ? (int32_t)idx : -1;
+}
+
+void region_delete_selected(struct ro_state *st) {
+	if (!st->out_annos) return;
+	region_undo_group_begin(st);
+	for (size_t i = st->out_annos->n; i > 0; i--) {
+		size_t idx = i - 1;
+		if (!st->out_annos->items[idx].selected) continue;
+		struct annotation a;
+		if (annotation_list_remove_at(st->out_annos, idx, &a))
+			region_undo_record_anno_delete(st, idx, &a);
+	}
+	region_undo_group_end(st);
+	st->sel_anno = -1;
+}
+
 static void region_annotation_commit(struct ro_state *st, struct annotation *a) {
 	if (annotation_list_push(st->out_annos, a) != 0)
 		annotation_free(a);

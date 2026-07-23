@@ -106,6 +106,8 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 
+	st->resizing_anno = false;
+
 	if (st->text_input_active) {
 		handle_text_input(st, sym, key);
 		region_render_request_redraw_all(st);
@@ -196,6 +198,15 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 
 	if (!region_editing(st)) return;
+
+	if (region_key_action(&st->keys, KA_DELETE, sym, mods)) {
+		if (region_drag_active(st)) return;
+		if (region_has_selection(st)) {
+			region_delete_selected(st);
+			region_render_request_redraw_all(st);
+		}
+		return;
+	}
 
 	if (region_key_action(&st->keys, KA_REDO, sym, mods)) {
 		if (region_drag_active(st)) return;

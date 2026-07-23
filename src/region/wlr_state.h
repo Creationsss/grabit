@@ -62,13 +62,17 @@ struct ro_output {
 enum undo_kind {
 	UNDO_ANNO_ADD,
 	UNDO_ANNO_READD,
+	UNDO_ANNO_DELETE,
+	UNDO_ANNO_REDELETE,
 	UNDO_REGION,
 	UNDO_ANNO_MOVE,
 	UNDO_ANNO_GEOM,
+	UNDO_ANNO_SIZE,
 };
 
 struct undo_item {
 	enum undo_kind kind;
+	uint32_t group;
 	union {
 		struct {
 			bool has;
@@ -84,8 +88,17 @@ struct undo_item {
 			int32_t g[4];
 		} geom;
 		struct {
+			size_t idx;
+			int32_t width;
+			int32_t font_size;
+		} size;
+		struct {
 			struct annotation a;
 		} readd;
+		struct {
+			size_t idx;
+			struct annotation a;
+		} del;
 	} u;
 };
 
@@ -139,6 +152,8 @@ struct ro_state {
 
 	bool annotate_mode;
 	bool confirm_mode;
+	bool resizing_anno;
+	uint8_t multi_select_mods;
 	bool edit_instant;
 	bool region_locked;
 	enum tool_kind current_tool;
@@ -198,6 +213,8 @@ struct ro_state {
 	struct undo_item *redo_items;
 	size_t redo_n;
 	size_t redo_cap;
+	uint32_t undo_group_seq;
+	uint32_t undo_group_active;
 	struct rect undo_snap;
 	bool undo_snap_has;
 	bool undo_snap_armed;
@@ -233,6 +250,11 @@ static inline bool region_editing(const struct ro_state *st) {
 static inline bool region_tool_uses_font(const struct ro_state *st) {
 	return st->current_tool == TOOL_TEXT || st->current_tool == TOOL_COUNTER ||
 		   st->text_input_active;
+}
+
+static inline bool region_multi_select_held(const struct ro_state *st) {
+	return st->xkb_state && st->multi_select_mods &&
+		   (region_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
 }
 
 static inline int32_t *region_slider_field(struct ro_state *st, int32_t *lo, int32_t *hi) {

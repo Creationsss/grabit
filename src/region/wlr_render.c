@@ -27,7 +27,7 @@
 void gren_anno_cache_ensure(struct ro_output *o) {
 	const struct annotation_list *annos = o->st->out_annos;
 	int32_t S = o->scale;
-	int32_t skip = region_anno_dragging(o->st) ? o->st->sel_anno : -1;
+	int32_t dragging = region_anno_dragging(o->st) ? 1 : 0;
 
 	bool samples_backdrop = false;
 	for (size_t i = 0; i < annos->n; i++) {
@@ -51,7 +51,7 @@ void gren_anno_cache_ensure(struct ro_output *o) {
 		o->anno_cache = NULL;
 	}
 	if (o->anno_cache && o->anno_cache_gen == annos->gen &&
-		o->anno_cache_skip == skip &&
+		o->anno_cache_skip == dragging &&
 		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
 		return;
 	if (!o->anno_cache) {
@@ -70,13 +70,13 @@ void gren_anno_cache_ensure(struct ro_output *o) {
 	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
 	cairo_scale(cc, S, S);
 	for (size_t i = 0; i < annos->n; i++)
-		if ((int32_t)i != skip)
+		if (!(dragging && annos->items[i].selected))
 			annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
 	cairo_destroy(cc);
 	cairo_surface_flush(o->anno_cache);
 	o->anno_cache_gen = annos->gen;
 	o->anno_cache_sel = sel;
-	o->anno_cache_skip = skip;
+	o->anno_cache_skip = dragging;
 }
 
 void gren_anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {
@@ -133,16 +133,21 @@ void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char 
 }
 
 void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
-	const struct annotation *a = region_anno_selected(st);
-	if (!a) return;
+	if (!st->out_annos) return;
+	double sel_dash[2] = {4.0, 4.0};
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
 	cairo_set_line_width(cr, 1.2);
-	double sel_dash[2] = {4.0, 4.0};
 	cairo_set_dash(cr, sel_dash, 2, 0);
-	cairo_rectangle(cr, a->bbox.x - 2, a->bbox.y - 2,
-					a->bbox.w + 4, a->bbox.h + 4);
-	cairo_stroke(cr);
+	for (size_t i = 0; i < st->out_annos->n; i++) {
+		const struct annotation *sa = &st->out_annos->items[i];
+		if (!sa->selected) continue;
+		cairo_rectangle(cr, sa->bbox.x - 2, sa->bbox.y - 2,
+						sa->bbox.w + 4, sa->bbox.h + 4);
+		cairo_stroke(cr);
+	}
 	cairo_set_dash(cr, NULL, 0, 0);
+	const struct annotation *a = region_single_selection(st);
+	if (!a) return;
 	int mask = annotation_corner_mask(a);
 	for (int c = 0; c < 4; c++) {
 		if (!(mask & (1 << c))) continue;

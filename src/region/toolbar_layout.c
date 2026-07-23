@@ -19,7 +19,7 @@ const uint32_t TOOLBAR_COLORS[6] = {
 };
 
 static int toolbar_row_of(enum tb_action act) {
-	if (act >= TB_COLOR_RED && act <= TB_WIDTH_SLIDER) return 1;
+	if (act >= TB_COLOR_RED && act <= TB_CANCEL) return 1;
 	return 0;
 }
 
@@ -35,9 +35,10 @@ static int32_t toolbar_btn_h(enum tb_action act) {
 }
 
 static int32_t section_gap_before(enum tb_action act) {
-	if (act == TB_COLOR_CURRENT) return 8;
-	if (act == TB_WIDTH_SLIDER) return 12;
+	if (act == TB_TOOL_PEN) return 12;
+	if (act == TB_WIDTH_SLIDER) return 2;
 	if (act == TB_UNDO) return 10;
+	if (act == TB_SAVE) return 12;
 	return 2;
 }
 
@@ -61,8 +62,8 @@ static int32_t btn_x_in_row(enum tb_action act) {
 	for (int i = 0; i < TB_BTN_COUNT; i++) {
 		enum tb_action a = (enum tb_action)i;
 		if (toolbar_row_of(a) != row) continue;
-		if (a == act) return x;
 		if (!first) x += section_gap_before(a);
+		if (a == act) return x;
 		x += toolbar_btn_w(a);
 		first = false;
 	}

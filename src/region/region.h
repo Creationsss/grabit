@@ -85,6 +85,7 @@ struct annotation {
 	int32_t width;
 	int32_t font_size;
 	struct rect bbox;
+	bool selected;
 };
 
 static inline int32_t annotation_corner_x(const struct annotation *a, int c) {

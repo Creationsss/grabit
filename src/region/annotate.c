@@ -28,14 +28,18 @@ const char *const grabit_tool_names[] = {
 	NULL,
 };
 
+static int annotation_list_grow(struct annotation_list *list) {
+	if (list->n < list->cap) return 0;
+	size_t cap = list->cap ? list->cap * 2 : 8;
+	struct annotation *p = realloc(list->items, cap * sizeof *p);
+	if (!p) return -1;
+	list->items = p;
+	list->cap = cap;
+	return 0;
+}
+
 int annotation_list_push(struct annotation_list *list, const struct annotation *a) {
-	if (list->n == list->cap) {
-		size_t cap = list->cap ? list->cap * 2 : 8;
-		struct annotation *p = realloc(list->items, cap * sizeof *p);
-		if (!p) return -1;
-		list->items = p;
-		list->cap = cap;
-	}
+	if (annotation_list_grow(list) != 0) return -1;
 	list->items[list->n] = *a;
 	annotation_update_bbox(&list->items[list->n]);
 	list->n++;
@@ -53,6 +57,29 @@ void annotation_list_pop(struct annotation_list *list) {
 bool annotation_list_pop_take(struct annotation_list *list, struct annotation *out) {
 	if (list->n == 0) return false;
 	*out = list->items[--list->n];
+	list->gen++;
+	return true;
+}
+
+int annotation_list_insert(struct annotation_list *list, size_t idx,
+						   const struct annotation *a) {
+	if (idx > list->n) idx = list->n;
+	if (annotation_list_grow(list) != 0) return -1;
+	memmove(&list->items[idx + 1], &list->items[idx],
+			(list->n - idx) * sizeof *list->items);
+	list->items[idx] = *a;
+	list->n++;
+	list->gen++;
+	return 0;
+}
+
+bool annotation_list_remove_at(struct annotation_list *list, size_t idx,
+							   struct annotation *out) {
+	if (idx >= list->n) return false;
+	*out = list->items[idx];
+	memmove(&list->items[idx], &list->items[idx + 1],
+			(list->n - idx - 1) * sizeof *list->items);
+	list->n--;
 	list->gen++;
 	return true;
 }

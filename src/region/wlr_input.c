@@ -75,7 +75,7 @@ bool ginp_toolbar_reachable(const struct ro_state *st) {
 void ginp_mode_enter_region(struct ro_state *st) {
 	st->region_locked = false;
 	st->anno_edit_mode = false;
-	st->sel_anno = -1;
+	region_clear_selection(st);
 	st->color_picker_open = false;
 	st->eyedropper_mode = false;
 }
@@ -91,7 +91,7 @@ void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
 	st->current_tool = t;
 	st->region_locked = true;
 	st->anno_edit_mode = false;
-	st->sel_anno = -1;
+	region_clear_selection(st);
 	st->edit_choices_dirty = true;
 }
 

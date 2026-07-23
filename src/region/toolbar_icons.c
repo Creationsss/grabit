@@ -223,6 +223,25 @@ void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s) {
 	cairo_fill(cr);
 }
 
+void toolbar_icon_redo(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.8 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+	double r = s * 0.30;
+	double yc = cy + s * 0.05;
+	cairo_arc(cr, cx, yc, r, -M_PI, 0.0);
+	cairo_stroke(cr);
+	double end_x = cx + r;
+	double end_y = yc;
+	double head_len = s * 0.24;
+	double wing_w = s * 0.16;
+	cairo_move_to(cr, end_x, end_y + head_len);
+	cairo_line_to(cr, end_x - wing_w, end_y);
+	cairo_line_to(cr, end_x + wing_w, end_y);
+	cairo_close_path(cr);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_save(cairo_t *cr, double cx, double cy, double s) {
 	double w = 3.2 * (s / 24.0);
 	cairo_set_line_width(cr, w);

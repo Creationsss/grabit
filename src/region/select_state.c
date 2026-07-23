@@ -31,6 +31,9 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st->confirm_mode = true;
+		v = config_get(cfg, "edit.multi_select");
+		st->multi_select_mods = v ? gkb_mod_from_name(v) : 0;
+		if (!st->multi_select_mods) st->multi_select_mods = KB_MOD_CTRL;
 		v = config_get(cfg, "region.show_coords");
 		if (v && strcmp(v, "true") == 0) st->show_coords = true;
 		v = config_get(cfg, "edit.instant_capture");

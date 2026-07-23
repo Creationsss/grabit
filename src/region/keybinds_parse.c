@@ -60,28 +60,37 @@ static bool parse_mouse_button(const char *name, uint32_t *out) {
 	return true;
 }
 
-static bool eat_mod(const char **p, uint8_t *mods) {
+uint8_t gkb_mod_from_name(const char *name) {
 	static const struct {
 		const char *name;
 		uint8_t bit;
-	} prefixes[] = {
-		{"ctrl+", KB_MOD_CTRL},
-		{"control+", KB_MOD_CTRL},
-		{"shift+", KB_MOD_SHIFT},
-		{"alt+", KB_MOD_ALT},
-		{"super+", KB_MOD_SUPER},
-		{"logo+", KB_MOD_SUPER},
-		{"meta+", KB_MOD_ALT},
+	} mods[] = {
+		{"ctrl", KB_MOD_CTRL},
+		{"control", KB_MOD_CTRL},
+		{"shift", KB_MOD_SHIFT},
+		{"alt", KB_MOD_ALT},
+		{"super", KB_MOD_SUPER},
+		{"logo", KB_MOD_SUPER},
+		{"meta", KB_MOD_ALT},
 	};
-	for (size_t i = 0; i < sizeof prefixes / sizeof prefixes[0]; i++) {
-		size_t len = strlen(prefixes[i].name);
-		if (strncasecmp(*p, prefixes[i].name, len) == 0) {
-			*mods |= prefixes[i].bit;
-			*p += len;
-			return true;
-		}
-	}
-	return false;
+	for (size_t i = 0; i < sizeof mods / sizeof mods[0]; i++)
+		if (strcasecmp(name, mods[i].name) == 0) return mods[i].bit;
+	return 0;
+}
+
+static bool eat_mod(const char **p, uint8_t *mods) {
+	const char *plus = strchr(*p, '+');
+	if (!plus || plus == *p) return false;
+	char buf[16];
+	size_t len = (size_t)(plus - *p);
+	if (len >= sizeof buf) return false;
+	memcpy(buf, *p, len);
+	buf[len] = '\0';
+	uint8_t bit = gkb_mod_from_name(buf);
+	if (!bit) return false;
+	*mods |= bit;
+	*p = plus + 1;
+	return true;
 }
 
 bool gkb_parse_bind(const char *tok, size_t len, struct keybind *out) {

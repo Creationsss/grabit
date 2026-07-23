@@ -108,6 +108,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "edit.multi_select") == 0) {
+		*example_out = "ctrl|shift|alt|super";
+		*def_out = "ctrl";
+		return 0;
+	}
 	if (strcmp(key, "services.zipline.chunked") == 0) {
 		*example_out = "true|false";
 		*def_out = "false";

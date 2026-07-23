@@ -26,6 +26,7 @@ enum region_action {
 	KA_SELECT_ALL,
 	KA_UNDO,
 	KA_REDO,
+	KA_DELETE,
 	KA_EDIT_MODE,
 	KA_REGION_MODE,
 	KA_NUDGE_LEFT,
@@ -73,6 +74,7 @@ void region_keybind_format(const struct keybind *b, char *out, size_t n);
 bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
 							   struct xkb_keymap **km, struct xkb_state **state);
 uint8_t region_xkb_mods(struct xkb_state *state);
+uint8_t gkb_mod_from_name(const char *name);
 
 struct grabit_wl_state;
 int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,

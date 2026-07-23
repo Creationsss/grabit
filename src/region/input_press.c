@@ -30,6 +30,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)serial;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
+	st->resizing_anno = false;
 
 	if (button != BTN_LEFT) {
 		if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
@@ -78,14 +79,18 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		} else if (region_anno_dragging(st)) {
 			bool was_move = st->anno_drag == ANNO_DRAG_MOVE;
 			st->anno_drag = ANNO_DRAG_NONE;
-			if (st->sel_anno >= 0) {
-				if (was_move)
-					region_undo_record_anno_move(st, (size_t)st->sel_anno,
-												 st->anno_last_x - st->anno_press_x,
-												 st->anno_last_y - st->anno_press_y);
-				else
-					region_undo_record_anno_geom(st, (size_t)st->sel_anno,
-												 st->anno_geom_snap);
+			if (was_move) {
+				int32_t dx = st->anno_last_x - st->anno_press_x;
+				int32_t dy = st->anno_last_y - st->anno_press_y;
+				region_undo_group_begin(st);
+				if (st->out_annos)
+					for (size_t i = 0; i < st->out_annos->n; i++)
+						if (st->out_annos->items[i].selected)
+							region_undo_record_anno_move(st, i, dx, dy);
+				region_undo_group_end(st);
+			} else if (st->sel_anno >= 0) {
+				region_undo_record_anno_geom(st, (size_t)st->sel_anno,
+											 st->anno_geom_snap);
 			}
 			if (st->out_annos) st->out_annos->gen++;
 			ginp_refresh_cursor(st, p);
@@ -217,7 +222,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (st->anno_edit_mode) {
 			const struct annotation *a = region_anno_selected(st);
 			int c = ginp_anno_corner_at(st, st->cursor_x, st->cursor_y);
-			if (a && c >= 0) {
+			if (a && c >= 0 && region_single_selection(st)) {
 				st->anno_geom_snap[0] = a->x0;
 				st->anno_geom_snap[1] = a->y0;
 				st->anno_geom_snap[2] = a->x1;
@@ -226,13 +231,22 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 				st->out_annos->gen++;
 				region_drag_start(st);
 			} else {
-				st->sel_anno = ginp_anno_hit_index(st, st->cursor_x, st->cursor_y);
-				if (st->sel_anno >= 0) {
+				int hit = ginp_anno_hit_index(st, st->cursor_x, st->cursor_y);
+				if (region_multi_select_held(st) && hit >= 0) {
+					region_select_toggle(st, (size_t)hit);
+					st->out_annos->gen++;
+				} else if (hit >= 0) {
+					if (!st->out_annos->items[hit].selected)
+						region_select_one(st, (size_t)hit);
+					else
+						st->sel_anno = hit;
 					st->anno_drag = ANNO_DRAG_MOVE;
 					st->anno_press_x = st->anno_last_x = st->cursor_x;
 					st->anno_press_y = st->anno_last_y = st->cursor_y;
 					st->out_annos->gen++;
 					region_drag_start(st);
+				} else {
+					region_clear_selection(st);
 				}
 			}
 			ginp_refresh_cursor(st, p);

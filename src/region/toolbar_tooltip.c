@@ -57,6 +57,8 @@ static const char *tooltip_text(enum tb_action act) {
 		return "Line width  (drag or scroll)";
 	case TB_UNDO:
 		return "Undo  (u or ctrl+z, hold to repeat)";
+	case TB_REDO:
+		return "Redo  (ctrl+y or ctrl+shift+z)";
 	case TB_SAVE:
 		return "Save  (Enter)";
 	case TB_CANCEL:

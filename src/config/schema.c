@@ -18,6 +18,7 @@
 static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NULL};
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_edit_color[] = {"red", "yellow", "green", "blue", "black", "white", NULL};
+static const char *VALS_modifier[] = {"ctrl", "shift", "alt", "super", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
 static const char *VALS_translate_backend[] = {"trans", "libretranslate", "deepl", NULL};
 
@@ -180,6 +181,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;
+	if (strcmp(key, "edit.multi_select") == 0 && !cfg_in_list(value, VALS_modifier)) {
+		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
+		return -1;
+	}
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
 		log_error("edit.tool must be one of "

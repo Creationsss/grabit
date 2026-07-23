@@ -82,6 +82,8 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	} else if (act == TB_UNDO) {
 		region_undo_pop(st);
 		region_undo_arm(st);
+	} else if (act == TB_REDO) {
+		region_redo_pop(st);
 	} else if (act == TB_SAVE) {
 		if (st->has_selection) st->finished = true;
 	} else if (act == TB_CANCEL) {

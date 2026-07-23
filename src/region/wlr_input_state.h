@@ -40,6 +40,17 @@ void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
 void region_undo_pop(struct ro_state *st);
 void region_redo_pop(struct ro_state *st);
 void region_undo_free(struct ro_state *st);
+void region_undo_record_anno_delete(struct ro_state *st, size_t idx,
+									struct annotation *a);
+void region_undo_record_anno_size(struct ro_state *st, size_t idx);
+void region_undo_group_begin(struct ro_state *st);
+void region_undo_group_end(struct ro_state *st);
+void region_delete_selected(struct ro_state *st);
+bool region_has_selection(const struct ro_state *st);
+const struct annotation *region_single_selection(const struct ro_state *st);
+void region_clear_selection(struct ro_state *st);
+void region_select_one(struct ro_state *st, size_t idx);
+void region_select_toggle(struct ro_state *st, size_t idx);
 
 #define NUDGE_LEFT (1u << 0)
 #define NUDGE_RIGHT (1u << 1)

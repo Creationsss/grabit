@@ -103,6 +103,14 @@ bool ginp_region_abort_active(struct ro_state *st, struct wl_pointer *p) {
 }
 
 void ginp_region_do_confirm(struct ro_state *st) {
+	if (!st->has_selection && region_editing(st) &&
+		st->bounds.w > 0 && st->bounds.h > 0) {
+		st->sel_x = st->bounds.x;
+		st->sel_y = st->bounds.y;
+		st->sel_w = st->bounds.w;
+		st->sel_h = st->bounds.h;
+		st->has_selection = true;
+	}
 	if (st->has_selection) {
 		st->finished = true;
 	} else if (!region_editing(st)) {

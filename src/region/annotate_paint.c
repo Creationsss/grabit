@@ -25,6 +25,7 @@ static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 	double dx = x1 - x0, dy = y1 - y0;
 	double len = sqrt(dx * dx + dy * dy);
 	if (len < 1.0) {
+		cairo_new_sub_path(cr);
 		cairo_arc(cr, x0, y0, width, 0, 2.0 * M_PI);
 		cairo_fill(cr);
 		return;
@@ -82,6 +83,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_save(cr);
 		cairo_translate(cr, cx, cy);
 		cairo_scale(cr, rx, ry);
+		cairo_new_sub_path(cr);
 		cairo_arc(cr, 0, 0, 1, 0, 2.0 * M_PI);
 		cairo_restore(cr);
 		cairo_stroke(cr);

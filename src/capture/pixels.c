@@ -62,11 +62,11 @@ bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, enum pixels_conv *
 		*out_conv = PIX_SWAP_RB;
 		return true;
 	case WL_SHM_FORMAT_BGR888:
-		*out_format = WL_SHM_FORMAT_XRGB8888;
+		*out_format = fmt;
 		*out_conv = PIX_BGR24;
 		return true;
 	case WL_SHM_FORMAT_RGB888:
-		*out_format = WL_SHM_FORMAT_XRGB8888;
+		*out_format = fmt;
 		*out_conv = PIX_RGB24;
 		return true;
 	default:

@@ -82,6 +82,8 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
 
 bool region_magnifier_active(const struct ro_output *o);
 void region_magnifier_render(cairo_t *cr, const struct ro_output *o);
+bool region_coords_active(const struct ro_output *o);
+void region_coords_render(cairo_t *cr, const struct ro_output *o);
 
 void region_render_attach_layer(struct ro_output *o);
 void region_render_free_buffer(struct ro_output *o);

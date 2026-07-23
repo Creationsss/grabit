@@ -24,6 +24,7 @@ static const char *BOOL_KEYS[] = {
 	"capture.cursor",
 	"region.window_snap",
 	"region.confirm",
+	"region.show_coords",
 	"services.zipline.chunked",
 	"edit.default",
 	"edit.instant_capture",
@@ -181,7 +182,8 @@ static bool valid_capture_key(const char *key) {
 static bool valid_region_key(const char *key) {
 	if (strncmp(key, "region.", 7) != 0) return false;
 	const char *leaf = key + 7;
-	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0;
+	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0 ||
+		   strcmp(leaf, "show_coords") == 0;
 }
 
 static bool valid_keys_key(const char *key) {

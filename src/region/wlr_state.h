@@ -162,6 +162,7 @@ struct ro_state {
 	bool shift_held;
 	bool ctrl_held;
 	bool alt_held;
+	bool show_coords;
 	struct region_keymap keys;
 	int handle_dragging;
 	bool moving_region;

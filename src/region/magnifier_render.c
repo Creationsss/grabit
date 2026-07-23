@@ -33,6 +33,45 @@ bool region_magnifier_active(const struct ro_output *o) {
 		   !o->st->text_input_active;
 }
 
+bool region_coords_active(const struct ro_output *o) {
+	return o->st->show_coords && o->st->cursor_on == o &&
+		   !o->st->text_input_active && !region_magnifier_active(o);
+}
+
+void region_coords_render(cairo_t *cr, const struct ro_output *o) {
+	const int32_t S = o->scale;
+	const int32_t pw = o->pixel_width;
+	const int32_t ph = o->pixel_height;
+	double cx = (o->st->cursor_x - o->go->x) * S;
+	double cy = (o->st->cursor_y - o->go->y) * S;
+
+	char info[32];
+	snprintf(info, sizeof info, "%d, %d", o->st->cursor_x, o->st->cursor_y);
+
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
+						   CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, MAGNIFIER_FONT * S);
+	cairo_text_extents_t ext;
+	cairo_text_extents(cr, info, &ext);
+	double pad = MAGNIFIER_PAD * S;
+	double bh = ext.height + MAGNIFIER_BOX_PAD_Y * S;
+	double bw = ext.width + MAGNIFIER_BOX_PAD_X * S;
+	double bx = cx + MAGNIFIER_OFFSET * S;
+	double by = cy + MAGNIFIER_OFFSET * S;
+	if (bx + bw > pw - pad) bx = cx - MAGNIFIER_OFFSET * S - bw;
+	if (by + bh > ph - pad) by = cy - MAGNIFIER_OFFSET * S - bh;
+	bx = fmin(fmax(bx, pad), pw - bw - pad);
+	by = fmin(fmax(by, pad), ph - bh - pad);
+
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_rectangle(cr, bx, by, bw, bh);
+	cairo_fill(cr);
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, bx + (bw - ext.width) / 2.0 - ext.x_bearing,
+				  by + (bh - ext.height) / 2.0 - ext.y_bearing);
+	cairo_show_text(cr, info);
+}
+
 void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 	if (!o->st->frozen) return;
 	const struct image *img = &o->st->frozen[o->idx];

@@ -30,6 +30,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st->confirm_mode = true;
+		v = config_get(cfg, "region.show_coords");
+		if (v && strcmp(v, "true") == 0) st->show_coords = true;
 		v = config_get(cfg, "edit.instant_capture");
 		if (v && strcmp(v, "true") == 0) st->edit_instant = true;
 		v = config_get(cfg, "edit.start_with_tool");

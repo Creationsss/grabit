@@ -288,6 +288,7 @@ sanitize: $(SAN_BIN)
 install: $(GRABIT_BIN)
 	install -Dm755 $(GRABIT_BIN) $(DESTDIR)$(PREFIX)/bin/$(NAME)
 	install -Dm644 man/$(NAME).1 $(DESTDIR)$(MANDIR)/man1/$(NAME).1
+	install -Dm644 $(NAME).desktop $(DESTDIR)$(PREFIX)/share/applications/$(NAME).desktop
 
 .PHONY: clean
 clean:

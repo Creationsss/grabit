@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=grabit
+GenericName=Screenshot Tool
+Comment=Screenshot, screen recording, OCR, and uploader for Wayland
+Exec=grabit
+Terminal=false
+Categories=Graphics;
+Keywords=screenshot;capture;record;ocr;screen;
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

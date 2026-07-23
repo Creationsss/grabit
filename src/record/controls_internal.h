@@ -81,6 +81,7 @@ struct rec_controls {
 	bool dragging;
 	int32_t grab_dx;
 	int32_t grab_dy;
+	uint32_t enter_serial;
 
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor_hand;

@@ -184,14 +184,16 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 		if (load_xcursor_file(path, target_size, out)) return;
 	}
 
-	if (strcmp(theme, "default") != 0) {
+	const char *fallbacks[] = {"default", "Adwaita", "breeze_cursors", "DMZ-White"};
+	for (int f = 0; f < 4; f++) {
+		if (f == 0 && strcmp(theme, "default") == 0) continue;
 		for (int i = 0; i < 5; i++) {
 			const char *base = bases[i];
 			if (base[0] == '~') {
 				if (!home) continue;
-				snprintf(path, sizeof path, "%s%s/default/cursors/%s", home, base + 1, name);
+				snprintf(path, sizeof path, "%s%s/%s/cursors/%s", home, base + 1, fallbacks[f], name);
 			} else {
-				snprintf(path, sizeof path, "%s/default/cursors/%s", base, name);
+				snprintf(path, sizeof path, "%s/%s/cursors/%s", base, fallbacks[f], name);
 			}
 			if (load_xcursor_file(path, target_size, out)) return;
 		}

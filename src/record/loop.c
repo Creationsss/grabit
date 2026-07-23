@@ -207,10 +207,18 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 
 					int32_t pox = (int32_t)(ox * scale_x);
 					int32_t poy = (int32_t)(oy * scale_y);
-					int32_t pow = (int32_t)(ow * scale_x);
-					int32_t poh = (int32_t)(oh * scale_y);
+					int32_t prx = (int32_t)((ox + ow) * scale_x + 0.99999);
+					int32_t pry = (int32_t)((oy + oh) * scale_y + 0.99999);
+					
+					if (pox < 0) pox = 0;
+					if (poy < 0) poy = 0;
+					if (prx > layout->dst_w) prx = layout->dst_w;
+					if (pry > layout->dst_h) pry = layout->dst_h;
+					
+					int32_t pow = prx - pox;
+					int32_t poh = pry - poy;
 
-					if (pox >= 0 && poy >= 0 && pox + pow <= layout->dst_w && poy + poh <= layout->dst_h) {
+					if (pow > 0 && poh > 0) {
 						for (int32_t y = 0; y < layout->dst_h; y++) {
 							if (y < poy || y >= poy + poh) {
 								memcpy((uint8_t *)bg_buf + y * layout->dst_stride,
@@ -242,7 +250,16 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						int32_t crx = i32min(crect.x + crect.w, rx);
 						int32_t cry = i32min(crect.y + crect.h, ry);
 						if (clx < crx && cly < cry) {
-							const struct raw_cursor_image *img = ctrl->cursor_hand ? &ctrl->raw_cursor_hand : &ctrl->raw_cursor_default;
+							bool over_btn = false;
+							if (ctrl->cx >= ctrl->bx && ctrl->cx < ctrl->bx + ctrl->bw &&
+							    ctrl->cy >= ctrl->by && ctrl->cy < ctrl->by + ctrl->bh) {
+								int rx = ctrl->cx - ctrl->bx;
+								int ry = ctrl->cy - ctrl->by;
+								if (ry >= 4 && ry < 36 && rx >= 4 && rx < ctrl->bw - 4) {
+									over_btn = true;
+								}
+							}
+							const struct raw_cursor_image *img = over_btn ? &ctrl->raw_cursor_hand : &ctrl->raw_cursor_default;
 							if (img && img->pixels) {
 								double scale_x = (double)layout->dst_w / region.w;
 								double scale_y = (double)layout->dst_h / region.h;

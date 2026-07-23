@@ -54,9 +54,13 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	struct ctl_output *o = find_by_surface(c, surface);
 	if (!o) return;
 	c->ptr_on = o;
+	c->enter_serial = serial;
 	c->cx = o->go->x + wl_fixed_to_int(sx);
 	c->cy = o->go->y + wl_fixed_to_int(sy);
-	grabit_cursor_apply(p, serial, c->cursor_surface, c->cursor_hand, o->scale);
+	
+	bool is_hand = btn_at(c->cx - c->bx, c->cy - c->by) >= 0;
+	struct wl_cursor *curs = is_hand ? c->cursor_hand : c->cursor_default;
+	grabit_cursor_apply(p, serial, c->cursor_surface, curs, o->scale);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
@@ -69,7 +73,6 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 
 static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 						   wl_fixed_t sx, wl_fixed_t sy) {
-	(void)p;
 	(void)time;
 	struct rec_controls *c = data;
 	if (!c->ptr_on) return;
@@ -77,6 +80,10 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
 	if (c->dragging)
 		bar_move_to(c, c->cx - c->grab_dx, c->cy - c->grab_dy);
+		
+	bool is_hand = btn_at(c->cx - c->bx, c->cy - c->by) >= 0;
+	struct wl_cursor *curs = is_hand ? c->cursor_hand : c->cursor_default;
+	grabit_cursor_apply(p, c->enter_serial, c->cursor_surface, curs, c->ptr_on->scale);
 }
 
 static void drag_end(struct rec_controls *c) {

@@ -17,12 +17,8 @@ static const char *tooltip_text(enum tb_action act) {
 		return "Select region (q, drag to set the capture area)";
 	case TB_EDIT:
 		return "Move/resize annotations  (s)";
-	case TB_TOOL_PEN:
-		return "Pen  (1 / p)";
-	case TB_TOOL_MARKER:
-		return "Marker  (2 / m)";
-	case TB_TOOL_LINE:
-		return "Line  (3 / l)";
+	case TB_TOOL_LINES:
+		return "Line tools  (pen / marker / line + style)";
 	case TB_TOOL_RECT:
 		return "Rectangle  (4 / r)";
 	case TB_TOOL_ELLIPSE:

@@ -11,15 +11,20 @@
 
 #include <cairo/cairo.h>
 
-_Static_assert(TB_TOOL_ERASER - TB_TOOL_PEN == TOOL_ERASER - TOOL_PEN,
-			   "TB_TOOL_* order must match tool_kind order (act - TB_TOOL_PEN maps to a tool)");
+_Static_assert(TB_TOOL_ERASER - TB_TOOL_RECT == TOOL_ERASER - TOOL_RECT,
+			   "TB_TOOL_RECT..ERASER order must match tool_kind (act - TB_TOOL_RECT + TOOL_RECT)");
 
 static bool button_active(const struct ro_state *st, enum tb_action act) {
 	if (act == TB_REGION) return !st->region_locked;
 	if (act == TB_EDIT) return st->anno_edit_mode;
-	if (act >= TB_TOOL_PEN && act <= TB_TOOL_ERASER)
+	if (act == TB_TOOL_LINES)
+		return st->line_picker_open ||
+			   (st->region_locked && !st->anno_edit_mode &&
+				tool_is_line_family(st->current_tool));
+	if (act >= TB_TOOL_RECT && act <= TB_TOOL_ERASER)
 		return st->region_locked && !st->anno_edit_mode &&
-			   st->current_tool == (enum tool_kind)(act - TB_TOOL_PEN);
+			   st->current_tool ==
+				   (enum tool_kind)(act - TB_TOOL_RECT + TOOL_RECT);
 	switch (act) {
 	case TB_COLOR_RED:
 		return st->current_color == TOOLBAR_COLORS[0];
@@ -100,15 +105,6 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 		break;
 	case TB_EDIT:
 		toolbar_icon_select(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_PEN:
-		toolbar_icon_pen(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_MARKER:
-		toolbar_icon_marker(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_LINE:
-		toolbar_icon_line(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_RECT:
 		toolbar_icon_rect(cr, cxi, cyi, s_icon);
@@ -215,6 +211,10 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		cairo_set_source_rgba(cr, active ? 1.0 : 0.92,
 							  active ? 1.0 : 0.92,
 							  active ? 1.0 : 0.92, ia);
+		if (act == TB_TOOL_LINES) {
+			toolbar_icon_line_group(cr, cxi, cyi, s_icon, o->st->current_line_tool);
+			continue;
+		}
 		paint_tool_icon(cr, act, cxi, cyi, s_icon);
 	}
 

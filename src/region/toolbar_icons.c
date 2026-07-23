@@ -204,6 +204,46 @@ void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {
 	cairo_restore(cr);
 }
 
+void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
+							 enum stroke_style style) {
+	double half = s * 0.40;
+	double lw = 2.6 * (s / 24.0);
+	double d[2];
+	int nd = grabit_stroke_dash(style, lw, d);
+	cairo_set_line_width(cr, lw);
+	cairo_set_line_cap(cr, nd > 0 ? CAIRO_LINE_CAP_ROUND : CAIRO_LINE_CAP_BUTT);
+	cairo_set_dash(cr, d, nd, 0.0);
+	cairo_move_to(cr, cx - half, cy);
+	cairo_line_to(cr, cx + half, cy);
+	cairo_stroke(cr);
+	cairo_set_dash(cr, NULL, 0, 0.0);
+}
+
+void toolbar_icon_line_group(cairo_t *cr, double cx, double cy, double s,
+							 enum tool_kind tool) {
+	double ic = s * 0.82;
+	switch (tool) {
+	case TOOL_MARKER:
+		toolbar_icon_marker(cr, cx, cy, ic);
+		break;
+	case TOOL_LINE:
+		toolbar_icon_line(cr, cx, cy, ic);
+		break;
+	default:
+		toolbar_icon_pen(cr, cx, cy, ic);
+		break;
+	}
+	double t = s * 0.13;
+	double bx = cx + s * 0.44;
+	double by = cy + s * 0.44;
+	cairo_set_dash(cr, NULL, 0, 0.0);
+	cairo_move_to(cr, bx - t, by - t * 0.5);
+	cairo_line_to(cr, bx + t, by - t * 0.5);
+	cairo_line_to(cr, bx, by + t * 0.7);
+	cairo_close_path(cr);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.8 * (s / 24.0);
 	cairo_set_line_width(cr, w);

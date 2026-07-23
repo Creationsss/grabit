@@ -121,6 +121,7 @@ void gren_output_redraw(struct ro_output *o) {
 					.color = o->st->current_color,
 					.width = o->st->current_width,
 					.font_size = ANNO_DEFAULT_FONT,
+					.style = o->st->current_style,
 					.points = o->st->pen_points,
 					.n_points = o->st->pen_n,
 				};
@@ -243,6 +244,7 @@ void gren_output_redraw(struct ro_output *o) {
 	if (region_editing(o->st)) {
 		region_toolbar_render(cr, o);
 		region_color_picker_render(cr, o);
+		region_line_picker_render(cr, o);
 		region_toolbar_tooltip_render(cr, o);
 	}
 

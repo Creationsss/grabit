@@ -51,7 +51,8 @@ bool region_drag_active(const struct ro_state *st) {
 		   st->tb_dragging || st->handle_dragging != HANDLE_NONE ||
 		   region_anno_dragging(st) ||
 		   st->eyedropper_mode || st->color_picker_open ||
-		   st->color_picker_dragging || st->color_input_active;
+		   st->color_picker_dragging || st->color_input_active ||
+		   st->line_picker_open;
 }
 
 void region_drag_abort(struct ro_state *st) {
@@ -82,6 +83,7 @@ void region_drag_abort(struct ro_state *st) {
 	st->anno_drag = ANNO_DRAG_NONE;
 	st->eyedropper_mode = false;
 	st->color_picker_open = false;
+	st->line_picker_open = false;
 	st->color_picker_dragging = false;
 	st->color_input_active = false;
 	st->color_input_len = 0;
@@ -239,6 +241,7 @@ void region_commit_drawing(struct ro_state *st) {
 	a.color = st->current_color;
 	a.width = st->current_width;
 	a.font_size = ANNO_DEFAULT_FONT;
+	a.style = st->current_style;
 
 	if (tool_uses_points(st->current_tool)) {
 		if (st->pen_n == 0) {

@@ -37,30 +37,13 @@ static int32_t color_picker_total_h(void) {
 void region_color_picker_rect(const struct ro_state *st,
 							  int32_t *out_x, int32_t *out_y,
 							  int32_t *out_w, int32_t *out_h) {
-	int32_t tx, ty, tw, th;
-	const struct grabit_output *o;
-	region_toolbar_rect(st, &o, &tx, &ty, &tw, &th);
-	if (!o) {
+	if (!region_toolbar_popup_pos(st, TB_COLOR_CURRENT, COLOR_PICKER_W,
+								  color_picker_total_h(), COLOR_PICKER_GAP,
+								  out_x, out_y)) {
 		*out_x = *out_y = *out_w = *out_h = 0;
 		return;
 	}
-	int32_t bx, by, bw, bh;
-	toolbar_btn_rect_local(TB_COLOR_CURRENT, tw, &bx, &by, &bw, &bh);
-	int32_t pw = COLOR_PICKER_W;
-	int32_t total_h = color_picker_total_h();
-	int32_t btn_cx = tx + bx + bw / 2;
-	int32_t want_x = btn_cx - pw / 2;
-	struct rect b = st->bounds;
-	if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
-	int32_t out_left = b.x + 8;
-	int32_t out_right = b.x + b.w - 8;
-	if (want_x < out_left) want_x = out_left;
-	if (want_x + pw > out_right) want_x = out_right - pw;
-	int32_t want_y = ty - COLOR_PICKER_GAP - total_h;
-	if (want_y < b.y + 8) want_y = ty + th + COLOR_PICKER_GAP;
-	*out_x = want_x;
-	*out_y = want_y;
-	*out_w = pw;
+	*out_w = COLOR_PICKER_W;
 	*out_h = COLOR_PICKER_GRID_H;
 }
 

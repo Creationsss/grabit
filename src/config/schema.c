@@ -185,6 +185,11 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
 		return -1;
 	}
+	if (strcmp(key, "edit.line_style") == 0 &&
+		!cfg_in_list(value, (const char **)grabit_line_style_names)) {
+		log_error("edit.line_style must be one of solid|dashed|dotted");
+		return -1;
+	}
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
 		log_error("edit.tool must be one of "

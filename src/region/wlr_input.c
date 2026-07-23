@@ -77,6 +77,7 @@ void ginp_mode_enter_region(struct ro_state *st) {
 	st->anno_edit_mode = false;
 	region_clear_selection(st);
 	st->color_picker_open = false;
+	st->line_picker_open = false;
 	st->eyedropper_mode = false;
 }
 
@@ -84,19 +85,27 @@ void ginp_mode_enter_anno_edit(struct ro_state *st) {
 	st->region_locked = true;
 	st->anno_edit_mode = true;
 	st->color_picker_open = false;
+	st->line_picker_open = false;
 	st->eyedropper_mode = false;
 }
 
 void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
 	st->current_tool = t;
+	if (tool_is_line_family(t)) st->current_line_tool = t;
 	st->region_locked = true;
 	st->anno_edit_mode = false;
+	st->line_picker_open = false;
 	region_clear_selection(st);
 	st->edit_choices_dirty = true;
 }
 
 struct wl_cursor *ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
 	if (st->tb_dragging && st->cursor_move) return st->cursor_move;
+	if (st->line_picker_open && st->cursor_hand) {
+		int idx;
+		if (region_line_picker_hit(st, abs_x, abs_y, &idx) != LP_NONE)
+			return st->cursor_hand;
+	}
 	if (ginp_toolbar_reachable(st) && region_toolbar_contains(st, abs_x, abs_y)) {
 		enum tb_action a = region_toolbar_hit(st, abs_x, abs_y);
 		if (a != TB_NONE && st->cursor_hand) return st->cursor_hand;

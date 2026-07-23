@@ -20,6 +20,13 @@ void ganno_set_color(cairo_t *cr, uint32_t color) {
 	grabit_cairo_set_source_argb(cr, color, 1.0);
 }
 
+static void apply_stroke_style(cairo_t *cr, enum stroke_style style, double w) {
+	double d[2];
+	int n = grabit_stroke_dash(style, w, d);
+	cairo_set_dash(cr, d, n, 0.0);
+	if (n > 0) cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+}
+
 static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 						double width) {
 	double dx = x1 - x0, dy = y1 - y0;
@@ -68,6 +75,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
+		apply_stroke_style(cr, a->style, w);
 		cairo_rectangle(cr, x, y, rw, rh);
 		cairo_stroke(cr);
 		break;
@@ -80,6 +88,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		if (rx < 1.0 || ry < 1.0) break;
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
+		apply_stroke_style(cr, a->style, w);
 		cairo_save(cr);
 		cairo_translate(cr, cx, cy);
 		cairo_scale(cr, rx, ry);
@@ -97,6 +106,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+		apply_stroke_style(cr, a->style, w);
 		cairo_move_to(cr, a->x0, a->y0);
 		cairo_line_to(cr, a->x1, a->y1);
 		cairo_stroke(cr);
@@ -115,6 +125,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_set_line_width(cr, lw);
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+		if (tool_uses_line_style(a->tool)) apply_stroke_style(cr, a->style, lw);
 		cairo_move_to(cr, a->points[0], a->points[1]);
 		for (size_t i = 1; i < a->n_points; i++) {
 			cairo_line_to(cr, a->points[i * 2], a->points[i * 2 + 1]);

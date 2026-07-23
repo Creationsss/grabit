@@ -60,6 +60,14 @@ int32_t edit_tool_from_str(const char *s) {
 	return TOOL_PEN;
 }
 
+int32_t edit_line_style_from_str(const char *s) {
+	if (!s || !*s) return STROKE_SOLID;
+	for (int32_t i = 0; grabit_line_style_names[i]; i++) {
+		if (strcmp(grabit_line_style_names[i], s) == 0) return i;
+	}
+	return STROKE_SOLID;
+}
+
 void persist_edit_choices(struct config *cfg, uint32_t color, int32_t width,
 						  int32_t tool) {
 	char cn[10];

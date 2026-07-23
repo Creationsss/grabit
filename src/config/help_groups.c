@@ -148,6 +148,11 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = "false";
 			return 0;
 		}
+		if (strcmp(leaf, "line_style") == 0) {
+			*example_out = "solid|dashed|dotted";
+			*def_out = "solid";
+			return 0;
+		}
 		if (strcmp(leaf, "toolbar_output") == 0) {
 			*example_out = "<output name, e.g. DP-1; empty = primary>";
 			return 0;

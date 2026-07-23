@@ -28,6 +28,29 @@ const char *const grabit_tool_names[] = {
 	NULL,
 };
 
+const char *const grabit_line_style_names[] = {
+	"solid",
+	"dashed",
+	"dotted",
+	NULL,
+};
+
+int grabit_stroke_dash(enum stroke_style style, double w, double out_dashes[2]) {
+	if (w < 1.0) w = 1.0;
+	switch (style) {
+	case STROKE_DASHED:
+		out_dashes[0] = w * 3.0;
+		out_dashes[1] = w * 2.5;
+		return 2;
+	case STROKE_DOTTED:
+		out_dashes[0] = w * 0.6;
+		out_dashes[1] = w * 1.8;
+		return 2;
+	default:
+		return 0;
+	}
+}
+
 static int annotation_list_grow(struct annotation_list *list) {
 	if (list->n < list->cap) return 0;
 	size_t cap = list->cap ? list->cap * 2 : 8;

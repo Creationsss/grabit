@@ -27,7 +27,11 @@ plugin system, live magnifier.
 - [ ] **Spotlight / dim-outside** (M) — darken everything but a region for emphasis.
       Has it: ShareX.
 - [ ] **Callout / speech bubble** (M) — text bubble with a pointer tail. Has it: ShareX, ksnip.
-- [ ] **Line/arrow styles** (S) — dashed lines, thickness presets, rounded rect. Has it: most.
+- [x] **Line styles** (done) — solid / dashed / dotted, chosen from a toolbar dropdown
+      (the `TB_STYLE` button shows the active style's icon) and applied to line, rectangle,
+      and ellipse strokes. Per-annotation `enum stroke_style`; default via `edit.line_style`.
+      Thickness is the existing width slider; rounded-rect corners still open.
+- [ ] **Rounded rectangle** (S) — corner-radius option for the rect tool. Has it: most.
 
 ## Capture workflow
 
@@ -47,7 +51,8 @@ plugin system, live magnifier.
 ## Post-capture / misc
 
 - [ ] **Image effects** (M) — border, drop-shadow, watermark, resize. Has it: ShareX, CleanShot.
-- [ ] **QR generate / scan** (S–M) — niche but low-effort with a lib. Has it: ShareX, ApexShot.
+- [ ] **QR generate / scan** (plugin) — better as a plugin than core; niche and pulls in a lib.
+      Has it: ShareX, ApexShot.
 
 ## Not planned / infeasible
 

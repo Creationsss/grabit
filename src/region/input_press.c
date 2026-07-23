@@ -157,6 +157,29 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		}
 	}
 
+	if (st->line_picker_open && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		int idx = 0;
+		enum line_picker_kind k =
+			region_line_picker_hit(st, st->cursor_x, st->cursor_y, &idx);
+		if (k == LP_TOOL) {
+			ginp_mode_select_tool(st, (enum tool_kind)idx);
+			st->line_picker_open = false;
+			ginp_refresh_cursor(st, p);
+			region_render_request_redraw_all(st);
+			return;
+		}
+		if (k == LP_STYLE) {
+			st->current_style = (enum stroke_style)idx;
+			region_render_request_redraw_all(st);
+			return;
+		}
+		if (!region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
+			st->line_picker_open = false;
+			region_render_request_redraw_all(st);
+			return;
+		}
+	}
+
 	if (ginp_toolbar_button_event(st, p, state)) return;
 
 	if (region_editing(st) && st->eyedropper_mode &&

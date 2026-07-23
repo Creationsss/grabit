@@ -54,6 +54,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.current_tool = (inout_tool && *inout_tool >= 0 && *inout_tool < TOOL_COUNT)
 						  ? (enum tool_kind) * inout_tool
 						  : TOOL_PEN;
+	st.current_line_tool =
+		tool_is_line_family(st.current_tool) ? st.current_tool : TOOL_LINE;
 	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
 	st.current_font = ANNO_DEFAULT_FONT;

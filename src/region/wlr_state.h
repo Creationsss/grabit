@@ -176,6 +176,8 @@ struct ro_state {
 	uint32_t current_color;
 	int32_t current_width;
 	int32_t current_font;
+	enum stroke_style current_style;
+	enum tool_kind current_line_tool;
 	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
@@ -201,6 +203,7 @@ struct ro_state {
 	bool eyedropper_mode;
 	bool color_picker_open;
 	bool color_picker_dragging;
+	bool line_picker_open;
 	bool color_input_active;
 	char color_input_buf[8];
 	size_t color_input_len;

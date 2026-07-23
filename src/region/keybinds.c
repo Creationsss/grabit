@@ -32,6 +32,7 @@ static const char *const ACTION_KEYS[KA_COUNT] = {
 	[KA_NUDGE_RIGHT] = "keys.nudge_right",
 	[KA_NUDGE_UP] = "keys.nudge_up",
 	[KA_NUDGE_DOWN] = "keys.nudge_down",
+	[KA_MAGNIFIER] = "keys.magnifier",
 };
 
 static const char *const ACTION_DEFAULTS[KA_COUNT] = {
@@ -45,6 +46,7 @@ static const char *const ACTION_DEFAULTS[KA_COUNT] = {
 	[KA_NUDGE_RIGHT] = "Right, KP_Right",
 	[KA_NUDGE_UP] = "Up, KP_Up",
 	[KA_NUDGE_DOWN] = "Down, KP_Down",
+	[KA_MAGNIFIER] = "Alt_L, Alt_R",
 };
 
 static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
@@ -126,6 +128,17 @@ bool region_key_action(const struct region_keymap *km, enum region_action act,
 					   xkb_keysym_t sym, uint8_t mods) {
 	if (act >= KA_COUNT) return false;
 	return list_has_key(&km->actions[act], sym, mods);
+}
+
+bool region_action_matches_sym(const struct region_keymap *km, enum region_action act,
+							   xkb_keysym_t sym) {
+	if (act >= KA_COUNT) return false;
+	xkb_keysym_t ns = gkb_norm_sym(sym);
+	const struct keybind_list *list = &km->actions[act];
+	for (uint8_t i = 0; i < list->n; i++) {
+		if (!list->items[i].is_button && list->items[i].sym == ns) return true;
+	}
+	return false;
 }
 
 bool region_button_action(const struct region_keymap *km, enum region_action act,

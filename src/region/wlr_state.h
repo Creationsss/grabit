@@ -161,7 +161,7 @@ struct ro_state {
 	bool edit_choices_dirty;
 	bool shift_held;
 	bool ctrl_held;
-	bool alt_held;
+	bool magnifier_held;
 	bool show_coords;
 	struct region_keymap keys;
 	int handle_dragging;

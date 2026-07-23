@@ -98,6 +98,11 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 			region_undo_disarm(st);
 		uint32_t dir = ginp_region_nudge_for_key(st, sym, rmods);
 		if (dir) region_nudge_release(st, dir);
+		if (st->magnifier_held &&
+			region_action_matches_sym(&st->keys, KA_MAGNIFIER, sym)) {
+			st->magnifier_held = false;
+			region_render_request_redraw_all(st);
+		}
 		return;
 	}
 
@@ -139,6 +144,14 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 			}
 		}
 		region_render_request_redraw_all(st);
+		return;
+	}
+
+	if (region_action_matches_sym(&st->keys, KA_MAGNIFIER, sym)) {
+		if (!st->magnifier_held) {
+			st->magnifier_held = true;
+			region_render_request_redraw_all(st);
+		}
 		return;
 	}
 
@@ -230,12 +243,6 @@ static void keyboard_modifiers(void *data, struct wl_keyboard *kb, uint32_t seri
 							 st->xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0;
 		st->ctrl_held = xkb_state_mod_name_is_active(
 							st->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0;
-		bool alt_now = xkb_state_mod_name_is_active(
-						   st->xkb_state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0;
-		if (alt_now != st->alt_held) {
-			st->alt_held = alt_now;
-			region_render_request_redraw_all(st);
-		}
 		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
 	}
 }

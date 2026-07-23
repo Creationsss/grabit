@@ -63,6 +63,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"keys.nudge_right",
 	"keys.nudge_up",
 	"keys.nudge_down",
+	"keys.magnifier",
 	"keys.tool.pen",
 	"keys.tool.marker",
 	"keys.tool.line",

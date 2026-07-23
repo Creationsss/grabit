@@ -31,6 +31,7 @@ enum region_action {
 	KA_NUDGE_RIGHT,
 	KA_NUDGE_UP,
 	KA_NUDGE_DOWN,
+	KA_MAGNIFIER,
 	KA_COUNT,
 };
 
@@ -57,6 +58,8 @@ void region_keymap_init(struct region_keymap *km, struct config *cfg);
 
 bool region_key_action(const struct region_keymap *km, enum region_action act,
 					   xkb_keysym_t sym, uint8_t mods);
+bool region_action_matches_sym(const struct region_keymap *km, enum region_action act,
+							   xkb_keysym_t sym);
 bool region_button_action(const struct region_keymap *km, enum region_action act,
 						  uint32_t button);
 int32_t region_key_tool(const struct region_keymap *km, xkb_keysym_t sym, uint8_t mods);

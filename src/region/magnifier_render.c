@@ -29,7 +29,7 @@
 #define MAGNIFIER_TEXT_GAP 10
 
 bool region_magnifier_active(const struct ro_output *o) {
-	return o->st->alt_held && o->st->cursor_on == o && o->cairo_frozen &&
+	return o->st->magnifier_held && o->st->cursor_on == o && o->cairo_frozen &&
 		   !o->st->text_input_active;
 }
 

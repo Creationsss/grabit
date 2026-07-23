@@ -52,6 +52,7 @@ enum tool_kind {
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
 	TOOL_BLUR,
+	TOOL_PIXELATE,
 	TOOL_TEXT,
 	TOOL_ERASER,
 	TOOL_COUNT,
@@ -59,6 +60,15 @@ enum tool_kind {
 
 static inline bool tool_uses_points(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
+}
+
+static inline bool tool_is_rect_region(enum tool_kind t) {
+	return t == TOOL_RECT || t == TOOL_ELLIPSE || t == TOOL_BLUR ||
+		   t == TOOL_PIXELATE;
+}
+
+static inline bool tool_samples_backdrop(enum tool_kind t) {
+	return t == TOOL_BLUR || t == TOOL_PIXELATE;
 }
 
 extern const char *const grabit_tool_names[];

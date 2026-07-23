@@ -34,6 +34,7 @@ void toolbar_icon_rect(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s);
+void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s);

@@ -57,6 +57,7 @@ static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
 	[TOOL_ELLIPSE] = "o, 5, KP_5",
 	[TOOL_ARROW] = "a, 6, KP_6",
 	[TOOL_BLUR] = "b, 7, KP_7",
+	[TOOL_PIXELATE] = "x, 0, KP_0",
 	[TOOL_TEXT] = "t, 8, KP_8",
 	[TOOL_ERASER] = "e, 9, KP_9",
 };

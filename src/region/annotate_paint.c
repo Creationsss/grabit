@@ -127,13 +127,17 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		}
 		break;
 	}
-	case TOOL_BLUR: {
+	case TOOL_BLUR:
+	case TOOL_PIXELATE: {
 		double x = a->x0 < a->x1 ? a->x0 : a->x1;
 		double y = a->y0 < a->y1 ? a->y0 : a->y1;
 		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
 		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
 		if (rw < 2.0 || rh < 2.0) break;
-		ganno_paint_blur(cr, x, y, rw, rh, scale, backdrop);
+		if (a->tool == TOOL_BLUR)
+			ganno_paint_blur(cr, x, y, rw, rh, scale, backdrop);
+		else
+			ganno_paint_pixelate(cr, x, y, rw, rh, scale, backdrop);
 		break;
 	}
 	case TOOL_TEXT: {

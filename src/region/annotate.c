@@ -21,6 +21,7 @@ const char *const grabit_tool_names[] = {
 	"ellipse",
 	"arrow",
 	"blur",
+	"pixelate",
 	"text",
 	"eraser",
 	NULL,
@@ -107,7 +108,7 @@ static double seg_dist2(double px, double py, double x0, double y0,
 
 int annotation_corner_mask(const struct annotation *a) {
 	if (a->tool == TOOL_LINE || a->tool == TOOL_ARROW) return 0x9;
-	if (a->tool == TOOL_RECT || a->tool == TOOL_ELLIPSE || a->tool == TOOL_BLUR)
+	if (tool_is_rect_region(a->tool))
 		return 0xF;
 	return 0;
 }

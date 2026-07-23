@@ -131,7 +131,7 @@ void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s) {
 	cairo_fill(cr);
 }
 
-void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
+void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s) {
 	double half = s * 0.36;
 	int n = 4;
 	double cell = (half * 2) / n;
@@ -143,6 +143,18 @@ void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
 			cairo_fill(cr);
 		}
 	}
+}
+
+void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
+	double r = s * 0.42;
+	cairo_pattern_t *p = cairo_pattern_create_radial(cx, cy, 0, cx, cy, r);
+	cairo_pattern_add_color_stop_rgba(p, 0.0, 0.85, 0.85, 0.85, 1.0);
+	cairo_pattern_add_color_stop_rgba(p, 0.55, 0.6, 0.6, 0.6, 0.85);
+	cairo_pattern_add_color_stop_rgba(p, 1.0, 0.5, 0.5, 0.5, 0.0);
+	cairo_set_source(cr, p);
+	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
+	cairo_fill(cr);
+	cairo_pattern_destroy(p);
 }
 
 void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s) {

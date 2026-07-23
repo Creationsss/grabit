@@ -31,7 +31,7 @@ void gren_anno_cache_ensure(struct ro_output *o) {
 
 	bool samples_backdrop = false;
 	for (size_t i = 0; i < annos->n; i++) {
-		if (annos->items[i].tool == TOOL_BLUR) {
+		if (tool_samples_backdrop(annos->items[i].tool)) {
 			samples_backdrop = true;
 			break;
 		}

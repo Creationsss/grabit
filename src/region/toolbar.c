@@ -11,6 +11,9 @@
 
 #include <cairo/cairo.h>
 
+_Static_assert(TB_TOOL_ERASER - TB_TOOL_PEN == TOOL_ERASER - TOOL_PEN,
+			   "TB_TOOL_* order must match tool_kind order (act - TB_TOOL_PEN maps to a tool)");
+
 static bool button_active(const struct ro_state *st, enum tb_action act) {
 	if (act == TB_REGION) return !st->region_locked;
 	if (act == TB_EDIT) return st->anno_edit_mode;
@@ -117,6 +120,9 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 		break;
 	case TB_TOOL_BLUR:
 		toolbar_icon_blur(cr, cxi, cyi, s_icon);
+		break;
+	case TB_TOOL_PIXELATE:
+		toolbar_icon_pixelate(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_TEXT:
 		toolbar_icon_text(cr, cxi, cyi, s_icon);

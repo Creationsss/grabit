@@ -31,6 +31,8 @@ static const char *tooltip_text(enum tb_action act) {
 		return "Arrow  (6 / a)";
 	case TB_TOOL_BLUR:
 		return "Blur  (7 / b)";
+	case TB_TOOL_PIXELATE:
+		return "Pixelate  (0 / x)";
 	case TB_TOOL_TEXT:
 		return "Text  (8 / t)";
 	case TB_TOOL_ERASER:

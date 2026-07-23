@@ -156,7 +156,7 @@ void region_pen_append(struct ro_state *st, int32_t x, int32_t y) {
 void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 							 int32_t *x1, int32_t *y1) {
 	if (!shift) return;
-	if (tool == TOOL_RECT || tool == TOOL_ELLIPSE || tool == TOOL_BLUR) {
+	if (tool_is_rect_region(tool)) {
 		int32_t dx = *x1 - x0, dy = *y1 - y0;
 		int32_t adx = dx < 0 ? -dx : dx;
 		int32_t ady = dy < 0 ? -dy : dy;

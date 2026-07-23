@@ -8,6 +8,7 @@
 #include "hyprland.h"
 #include "log.h"
 #include "region/edit_persist.h"
+#include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
 
@@ -132,7 +133,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 	if (st->xkb_ctx) xkb_context_unref(st->xkb_ctx);
 
 	free(st->pen_points);
-	free(st->undo_items);
+	region_undo_free(st);
 	if (st->undo_timer_fd >= 0) close(st->undo_timer_fd);
 	if (st->tooltip_timer_fd >= 0) close(st->tooltip_timer_fd);
 	if (st->nudge_timer_fd >= 0) close(st->nudge_timer_fd);

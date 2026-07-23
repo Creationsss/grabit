@@ -61,6 +61,7 @@ struct ro_output {
 
 enum undo_kind {
 	UNDO_ANNO_ADD,
+	UNDO_ANNO_READD,
 	UNDO_REGION,
 	UNDO_ANNO_MOVE,
 	UNDO_ANNO_GEOM,
@@ -82,6 +83,9 @@ struct undo_item {
 			size_t idx;
 			int32_t g[4];
 		} geom;
+		struct {
+			struct annotation a;
+		} readd;
 	} u;
 };
 
@@ -191,6 +195,9 @@ struct ro_state {
 	struct undo_item *undo_items;
 	size_t undo_n;
 	size_t undo_cap;
+	struct undo_item *redo_items;
+	size_t redo_n;
+	size_t redo_cap;
 	struct rect undo_snap;
 	bool undo_snap_has;
 	bool undo_snap_armed;

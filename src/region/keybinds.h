@@ -25,6 +25,7 @@ enum region_action {
 	KA_CANCEL,
 	KA_SELECT_ALL,
 	KA_UNDO,
+	KA_REDO,
 	KA_EDIT_MODE,
 	KA_REGION_MODE,
 	KA_NUDGE_LEFT,

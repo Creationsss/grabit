@@ -58,15 +58,38 @@ void region_undo_begin(struct ro_state *st) {
 	st->undo_snap_armed = true;
 }
 
-static void undo_push(struct ro_state *st, struct undo_item item) {
-	if (st->undo_n == st->undo_cap) {
-		size_t cap = st->undo_cap ? st->undo_cap * 2 : 64;
-		struct undo_item *p = realloc(st->undo_items, cap * sizeof *p);
+static void undo_stack_push(struct undo_item **items, size_t *n, size_t *cap,
+							struct undo_item item) {
+	if (*n == *cap) {
+		size_t c = *cap ? *cap * 2 : 64;
+		struct undo_item *p = realloc(*items, c * sizeof *p);
 		if (!p) return;
-		st->undo_items = p;
-		st->undo_cap = cap;
+		*items = p;
+		*cap = c;
 	}
-	st->undo_items[st->undo_n++] = item;
+	(*items)[(*n)++] = item;
+}
+
+static void redo_clear(struct ro_state *st) {
+	for (size_t i = 0; i < st->redo_n; i++)
+		if (st->redo_items[i].kind == UNDO_ANNO_READD)
+			annotation_free(&st->redo_items[i].u.readd.a);
+	st->redo_n = 0;
+}
+
+static void undo_push(struct ro_state *st, struct undo_item item) {
+	redo_clear(st);
+	undo_stack_push(&st->undo_items, &st->undo_n, &st->undo_cap, item);
+}
+
+void region_undo_free(struct ro_state *st) {
+	redo_clear(st);
+	free(st->undo_items);
+	free(st->redo_items);
+	st->undo_items = NULL;
+	st->redo_items = NULL;
+	st->undo_n = st->undo_cap = 0;
+	st->redo_n = st->redo_cap = 0;
 }
 
 void region_undo_commit(struct ro_state *st) {
@@ -103,10 +126,13 @@ void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
 	undo_push(st, it);
 }
 
-void gist_undo_apply(struct ro_state *st, const struct undo_item *it) {
+struct undo_item gist_undo_apply(struct ro_state *st, const struct undo_item *it) {
 	struct annotation_list *annos = st->out_annos;
+	struct undo_item inv = {.kind = it->kind};
 	switch (it->kind) {
 	case UNDO_REGION:
+		inv.u.region.has = st->has_selection;
+		inv.u.region.r = (struct rect){st->sel_x, st->sel_y, st->sel_w, st->sel_h};
 		st->sel_x = it->u.region.r.x;
 		st->sel_y = it->u.region.r.y;
 		st->sel_w = it->u.region.r.w;
@@ -114,9 +140,17 @@ void gist_undo_apply(struct ro_state *st, const struct undo_item *it) {
 		st->has_selection = it->u.region.has;
 		break;
 	case UNDO_ANNO_ADD:
-		if (annos) annotation_list_pop(annos);
+		if (annos && annotation_list_pop_take(annos, &inv.u.readd.a))
+			inv.kind = UNDO_ANNO_READD;
+		break;
+	case UNDO_ANNO_READD:
+		inv.kind = UNDO_ANNO_ADD;
+		if (annos) annotation_list_push(annos, &it->u.readd.a);
 		break;
 	case UNDO_ANNO_MOVE:
+		inv.u.move.idx = it->u.move.idx;
+		inv.u.move.dx = -it->u.move.dx;
+		inv.u.move.dy = -it->u.move.dy;
 		if (annos && it->u.move.idx < annos->n) {
 			annotation_translate(&annos->items[it->u.move.idx],
 								 -it->u.move.dx, -it->u.move.dy);
@@ -124,8 +158,13 @@ void gist_undo_apply(struct ro_state *st, const struct undo_item *it) {
 		}
 		break;
 	case UNDO_ANNO_GEOM:
+		inv.u.geom.idx = it->u.geom.idx;
 		if (annos && it->u.geom.idx < annos->n) {
 			struct annotation *a = &annos->items[it->u.geom.idx];
+			inv.u.geom.g[0] = a->x0;
+			inv.u.geom.g[1] = a->y0;
+			inv.u.geom.g[2] = a->x1;
+			inv.u.geom.g[3] = a->y1;
 			a->x0 = it->u.geom.g[0];
 			a->y0 = it->u.geom.g[1];
 			a->x1 = it->u.geom.g[2];
@@ -137,9 +176,19 @@ void gist_undo_apply(struct ro_state *st, const struct undo_item *it) {
 	}
 	if (annos && st->sel_anno >= 0 && (size_t)st->sel_anno >= annos->n)
 		st->sel_anno = -1;
+	return inv;
 }
 
 void region_undo_pop(struct ro_state *st) {
 	if (st->undo_n == 0) return;
-	gist_undo_apply(st, &st->undo_items[--st->undo_n]);
+	struct undo_item it = st->undo_items[--st->undo_n];
+	undo_stack_push(&st->redo_items, &st->redo_n, &st->redo_cap,
+					gist_undo_apply(st, &it));
+}
+
+void region_redo_pop(struct ro_state *st) {
+	if (st->redo_n == 0) return;
+	struct undo_item it = st->redo_items[--st->redo_n];
+	undo_stack_push(&st->undo_items, &st->undo_n, &st->undo_cap,
+					gist_undo_apply(st, &it));
 }

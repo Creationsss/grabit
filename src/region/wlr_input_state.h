@@ -38,6 +38,8 @@ void region_undo_record_anno_move(struct ro_state *st, size_t idx,
 void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
 								  const int32_t g[4]);
 void region_undo_pop(struct ro_state *st);
+void region_redo_pop(struct ro_state *st);
+void region_undo_free(struct ro_state *st);
 
 #define NUDGE_LEFT (1u << 0)
 #define NUDGE_RIGHT (1u << 1)

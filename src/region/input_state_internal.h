@@ -10,7 +10,7 @@
 #include "region/region.h"
 #include "region/wlr_state.h"
 
-void gist_undo_apply(struct ro_state *st, const struct undo_item *it);
+struct undo_item gist_undo_apply(struct ro_state *st, const struct undo_item *it);
 void gist_undo_record_anno(struct ro_state *st);
 
 #endif

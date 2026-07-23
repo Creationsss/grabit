@@ -57,6 +57,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"keys.cancel",
 	"keys.select_all",
 	"keys.undo",
+	"keys.redo",
 	"keys.edit_mode",
 	"keys.region_mode",
 	"keys.nudge_left",

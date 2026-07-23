@@ -49,6 +49,13 @@ void annotation_list_pop(struct annotation_list *list) {
 	list->gen++;
 }
 
+bool annotation_list_pop_take(struct annotation_list *list, struct annotation *out) {
+	if (list->n == 0) return false;
+	*out = list->items[--list->n];
+	list->gen++;
+	return true;
+}
+
 void annotation_free(struct annotation *a) {
 	if (!a) return;
 	free(a->points);

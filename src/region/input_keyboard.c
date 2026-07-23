@@ -197,6 +197,13 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (!region_editing(st)) return;
 
+	if (region_key_action(&st->keys, KA_REDO, sym, mods)) {
+		if (region_drag_active(st)) return;
+		region_redo_pop(st);
+		region_render_request_redraw_all(st);
+		return;
+	}
+
 	if (region_key_action(&st->keys, KA_UNDO, sym, mods)) {
 		if (region_drag_active(st)) return;
 		region_undo_pop(st);

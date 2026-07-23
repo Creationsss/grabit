@@ -26,6 +26,10 @@ void ctl_apply_input_region(struct ctl_output *o) {
 		wl_region_add(reg, 0, 0, o->width, o->height);
 	} else {
 		struct rect b = ctl_bar_rect(c);
+		b.x -= 48;
+		b.y -= 48;
+		b.w += 96;
+		b.h += 96;
 		int32_t ix, iy, iw, ih;
 		if (grabit_output_rect_intersect(o->go, &b, &ix, &iy, &iw, &ih))
 			wl_region_add(reg, ix - o->go->x, iy - o->go->y, iw, ih);
@@ -220,9 +224,7 @@ struct rect controls_cursor_rect(const struct rec_controls *c) {
 	bool over_btn = false;
 	if (c->cx >= c->bx && c->cx < c->bx + c->bw &&
 		c->cy >= c->by && c->cy < c->by + c->bh) {
-		int rx = c->cx - c->bx;
-		int ry = c->cy - c->by;
-		if (ry >= 4 && ry < 36 && rx >= 4 && rx < c->bw - 4) {
+		if (ctl_btn_at(c, c->cx, c->cy) >= 0) {
 			over_btn = true;
 		}
 	}

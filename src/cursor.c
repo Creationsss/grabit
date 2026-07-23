@@ -16,8 +16,33 @@
 #define MIN_CURSOR_SIZE 8
 #define MAX_CURSOR_SIZE 256
 
+static void get_gtk_cursor_settings(char **theme, int32_t *size) {
+	const char *home = getenv("HOME");
+	if (!home) return;
+	char path[1024];
+	snprintf(path, sizeof(path), "%s/.config/gtk-3.0/settings.ini", home);
+	FILE *f = fopen(path, "r");
+	if (!f) return;
+	char line[256];
+	while (fgets(line, sizeof(line), f)) {
+		if (strncmp(line, "gtk-cursor-theme-name=", 22) == 0) {
+			char *val = line + 22;
+			val[strcspn(val, "\r\n")] = 0;
+			if (*theme) free(*theme);
+			*theme = strdup(val);
+		} else if (strncmp(line, "gtk-cursor-theme-size=", 22) == 0) {
+			int v = atoi(line + 22);
+			if (v >= MIN_CURSOR_SIZE && v <= MAX_CURSOR_SIZE) {
+				*size = (int32_t)v;
+			}
+		}
+	}
+	fclose(f);
+}
+
 struct wl_cursor_theme *grabit_cursor_theme_load(struct wl_shm *shm, int32_t scale) {
 	if (!shm) return NULL;
+	char *theme_name_alloc = NULL;
 	const char *theme_name = getenv("XCURSOR_THEME");
 	int32_t theme_size = DEFAULT_CURSOR_SIZE;
 	const char *size_env = getenv("XCURSOR_SIZE");
@@ -28,8 +53,48 @@ struct wl_cursor_theme *grabit_cursor_theme_load(struct wl_shm *shm, int32_t sca
 			theme_size = (int32_t)v;
 		}
 	}
+	
+	if (theme_name) theme_name_alloc = strdup(theme_name);
+	get_gtk_cursor_settings(&theme_name_alloc, &theme_size);
+	
 	if (scale < 1) scale = 1;
-	return wl_cursor_theme_load(theme_name, theme_size * scale, shm);
+
+	char new_path[4096] = "";
+	const char *old = getenv("XCURSOR_PATH");
+	if (old) snprintf(new_path, sizeof(new_path), "%s:", old);
+	strncat(new_path, "~/.icons:~/.local/share/icons:/usr/share/icons:/usr/share/pixmaps", sizeof(new_path) - strlen(new_path) - 1);
+	
+	const char *xdg = getenv("XDG_DATA_DIRS");
+	if (xdg) {
+		char xcopy[4096];
+		strncpy(xcopy, xdg, sizeof(xcopy) - 1);
+		xcopy[sizeof(xcopy) - 1] = '\0';
+		char *save;
+		for (char *p = strtok_r(xcopy, ":", &save); p; p = strtok_r(NULL, ":", &save)) {
+			size_t len = strlen(new_path);
+			snprintf(new_path + len, sizeof(new_path) - len, ":%s/icons", p);
+		}
+	}
+	
+	struct wl_cursor_theme *t = NULL;
+	char *old_copy = old ? strdup(old) : NULL;
+	setenv("XCURSOR_PATH", new_path, 1);
+	
+	t = wl_cursor_theme_load(theme_name_alloc, theme_size * scale, shm);
+	if (!t && (!theme_name_alloc || strcmp(theme_name_alloc, "default") != 0)) {
+		t = wl_cursor_theme_load("default", theme_size * scale, shm);
+	}
+	
+	if (old_copy) {
+		setenv("XCURSOR_PATH", old_copy, 1);
+		free(old_copy);
+	} else {
+		unsetenv("XCURSOR_PATH");
+	}
+	
+	if (theme_name_alloc) free(theme_name_alloc);
+	
+	return t;
 }
 
 struct wl_cursor *grabit_cursor_load_first(struct wl_cursor_theme *theme,
@@ -149,9 +214,9 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 	out->width = 0;
 	out->height = 0;
 
+	char *theme_alloc = NULL;
 	const char *theme = getenv("XCURSOR_THEME");
-	if (!theme || !*theme) theme = "default";
-
+	
 	int32_t theme_size = DEFAULT_CURSOR_SIZE;
 	const char *size_env = getenv("XCURSOR_SIZE");
 	if (size_env && *size_env) {
@@ -161,6 +226,16 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 			theme_size = (int32_t)v;
 		}
 	}
+	
+	if (theme) theme_alloc = strdup(theme);
+	get_gtk_cursor_settings(&theme_alloc, &theme_size);
+	
+	if (theme_alloc) {
+		theme = theme_alloc;
+	} else if (!theme || !*theme) {
+		theme = "default";
+	}
+
 	if (scale < 1) scale = 1;
 	int32_t target_size = theme_size * scale;
 
@@ -189,7 +264,10 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 			} else {
 				snprintf(path, sizeof path, "%s/%s/cursors/%s", p, themes[t], name);
 			}
-			if (load_xcursor_file(path, target_size, out)) return;
+			if (load_xcursor_file(path, target_size, out)) {
+				if (theme_alloc) free(theme_alloc);
+				return;
+			}
 		}
 		
 		const char *xdg_data = getenv("XDG_DATA_DIRS");
@@ -198,10 +276,14 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 			paths[sizeof(paths) - 1] = '\0';
 			for (char *p = strtok_r(paths, ":", &saveptr1); p != NULL; p = strtok_r(NULL, ":", &saveptr1)) {
 				snprintf(path, sizeof path, "%s/icons/%s/cursors/%s", p, themes[t], name);
-				if (load_xcursor_file(path, target_size, out)) return;
+				if (load_xcursor_file(path, target_size, out)) {
+					if (theme_alloc) free(theme_alloc);
+					return;
+				}
 			}
 		}
 	}
+	if (theme_alloc) free(theme_alloc);
 }
 
 void grabit_cursor_free_raw(struct raw_cursor_image *raw) {

@@ -11,8 +11,8 @@
 #include "record/controls_internal.h"
 #include "record/ring.h"
 #include "record/segments.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -209,12 +209,12 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 					int32_t poy = (int32_t)(oy * scale_y);
 					int32_t prx = (int32_t)((ox + ow) * scale_x + 0.99999);
 					int32_t pry = (int32_t)((oy + oh) * scale_y + 0.99999);
-					
+
 					if (pox < 0) pox = 0;
 					if (poy < 0) poy = 0;
 					if (prx > layout->dst_w) prx = layout->dst_w;
 					if (pry > layout->dst_h) pry = layout->dst_h;
-					
+
 					int32_t pow = prx - pox;
 					int32_t poh = pry - poy;
 
@@ -252,7 +252,7 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						if (clx < crx && cly < cry) {
 							bool over_btn = false;
 							if (ctrl->cx >= ctrl->bx && ctrl->cx < ctrl->bx + ctrl->bw &&
-							    ctrl->cy >= ctrl->by && ctrl->cy < ctrl->by + ctrl->bh) {
+								ctrl->cy >= ctrl->by && ctrl->cy < ctrl->by + ctrl->bh) {
 								int rx = ctrl->cx - ctrl->bx;
 								int ry = ctrl->cy - ctrl->by;
 								if (ry >= 4 && ry < 36 && rx >= 4 && rx < ctrl->bw - 4) {

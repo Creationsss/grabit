@@ -9,7 +9,7 @@
 #include "plugin/lock.h"
 #include "plugin/spawn.h"
 #include "plugin/state.h"
-#include "util.h"
+#include "util/util.h"
 #include "vendor/sha256/sha256.h"
 
 #include <dirent.h>

@@ -31,9 +31,16 @@ void grabit_wl_transform_apply_inverse(struct _cairo *cr, int32_t transform,
 
 int grabit_cairo_format_for_shm(uint32_t shm_fmt);
 
+bool capture_backend_available(const struct grabit_wl_state *s);
+
+bool capture_is_streaming_capable(const struct grabit_wl_state *s);
+
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 						bool overlay_cursor,
 						struct image *out);
+
+int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,
+						 size_t n, bool overlay_cursor, struct image *out);
 
 struct pixels_pool;
 

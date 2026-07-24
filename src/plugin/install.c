@@ -10,7 +10,7 @@
 #include "plugin/lock.h"
 #include "plugin/spawn.h"
 #include "plugin/state.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -180,6 +180,11 @@ int plugin_install_git(const char *url) {
 
 	char *binary_path = NULL;
 	if (m.kind == PLUGIN_KIND_BUILD) {
+		if (!m.build_binary || !m.build_binary[0] || m.build_binary[0] == '/' ||
+			strstr(m.build_binary, "..")) {
+			log_error("plugin: manifest build.binary must be a plain relative name");
+			goto fail_manifest;
+		}
 		if (grabit_xasprintf(&binary_path, "%s/%s", plugin_dir, m.build_binary) != 0)
 			goto fail_manifest;
 	} else {

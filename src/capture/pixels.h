@@ -8,17 +8,26 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum pixels_conv {
+	PIX_COPY = 0, // 4 bytes/px, already XRGB/ARGB order
+	PIX_SWAP_RB,  // 4 bytes/px, swap R and B (X/ABGR8888)
+	PIX_BGR24,	  // 3 bytes/px BGR888, expand to XRGB8888 (swaps R/B)
+	PIX_RGB24,	  // 3 bytes/px RGB888, expand to XRGB8888
+};
+
 const char *pixels_shm_format_name(uint32_t fmt);
 
-bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, bool *out_swap_rb);
+int pixels_conv_src_bpp(enum pixels_conv conv);
 
-uint32_t pixels_resolved_format(uint32_t fmt, bool swap_rb);
+bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, enum pixels_conv *out_conv);
+
+uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv);
 
 struct pixels_fmt_pick {
 	uint32_t advertised[16];
 	size_t n;
 	uint32_t format;
-	bool swap_rb;
+	enum pixels_conv conv;
 	bool chosen;
 };
 
@@ -26,13 +35,13 @@ void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt);
 
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
-				 int32_t w, int32_t h, bool swap_rb, bool y_invert);
+				 int32_t w, int32_t h, enum pixels_conv conv, bool y_invert);
 
 struct image;
 
 int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,
-						  bool swap_rb, bool y_invert);
+						  enum pixels_conv conv, bool y_invert);
 
 void pixels_log_advertised(const char *backend,
 						   const uint32_t *advertised, size_t n);

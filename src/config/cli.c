@@ -2,12 +2,12 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
-#include "config.h"
+#include "config/config.h"
 
-#include "config_internal.h"
+#include "config/internal.h"
 #include "log.h"
 #include "region/keybinds.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdio.h>

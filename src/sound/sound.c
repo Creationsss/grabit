@@ -4,10 +4,10 @@
 #define _XOPEN_SOURCE 700
 #include "sound/sound.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -54,7 +54,8 @@ void grabit_sound_play(struct config *cfg) {
 			log_error("  install one or set: grabit set sound.player <path>");
 			notify_send(&(struct notify_opts){
 				.summary = "grabit: no audio player",
-				.body = "no audio player found; see terminal for details",
+				.body = "no audio player found",
+				.log_hint = true,
 			});
 			g_warned_player = true;
 		}
@@ -68,7 +69,8 @@ void grabit_sound_play(struct config *cfg) {
 			log_error("  install sound-theme-freedesktop or set: grabit set sound.file <path>");
 			notify_send(&(struct notify_opts){
 				.summary = "grabit: no sound file",
-				.body = "no sound file found; see terminal for details",
+				.body = "no sound file found",
+				.log_hint = true,
 			});
 			g_warned_file = true;
 		}

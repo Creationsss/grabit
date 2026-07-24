@@ -26,9 +26,12 @@ enum grabit_image_format {
 
 struct grabit_save_opts {
 	enum grabit_image_format format;
+	int png_level;
 	int jpeg_quality;
 	int webp_quality;
 	bool webp_lossless;
+	const char *preview_path;
+	int preview_width;
 };
 
 const char *grabit_format_extension(enum grabit_image_format f);
@@ -45,7 +48,7 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 
 int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 						  int *w, int *h, int *stride, const unsigned char **data);
-int grabit_save_png_surface(cairo_surface_t *surface, const char *path);
+int grabit_save_png_surface(cairo_surface_t *surface, const char *path, int level);
 int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int quality);
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 							 int quality, bool lossless);

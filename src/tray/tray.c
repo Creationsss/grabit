@@ -7,7 +7,7 @@
 #include "log.h"
 #include "notify/notify.h"
 #include "tray/sni.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <signal.h>

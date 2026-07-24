@@ -38,6 +38,19 @@ void region_undo_record_anno_move(struct ro_state *st, size_t idx,
 void region_undo_record_anno_geom(struct ro_state *st, size_t idx,
 								  const int32_t g[4]);
 void region_undo_pop(struct ro_state *st);
+void region_redo_pop(struct ro_state *st);
+void region_undo_free(struct ro_state *st);
+void region_undo_record_anno_delete(struct ro_state *st, size_t idx,
+									struct annotation *a);
+void region_undo_record_anno_size(struct ro_state *st, size_t idx);
+void region_undo_group_begin(struct ro_state *st);
+void region_undo_group_end(struct ro_state *st);
+void region_delete_selected(struct ro_state *st);
+bool region_has_selection(const struct ro_state *st);
+const struct annotation *region_single_selection(const struct ro_state *st);
+void region_clear_selection(struct ro_state *st);
+void region_select_one(struct ro_state *st, size_t idx);
+void region_select_toggle(struct ro_state *st, size_t idx);
 
 #define NUDGE_LEFT (1u << 0)
 #define NUDGE_RIGHT (1u << 1)
@@ -67,6 +80,7 @@ int region_snap_hit(const struct ro_state *st, int32_t x, int32_t y);
 void region_pen_append(struct ro_state *st, int32_t x, int32_t y);
 void region_commit_drawing(struct ro_state *st);
 void region_commit_text(struct ro_state *st);
+void region_place_counter(struct ro_state *st);
 
 void region_apply_shape_snap(int tool, bool shift, int32_t x0, int32_t y0,
 							 int32_t *x1, int32_t *y1);

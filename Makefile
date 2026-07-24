@@ -28,7 +28,7 @@ CFLAGS  += -std=c17 $(WARN) $(HARDEN) \
 LDFLAGS ?=
 LDLIBS  ?=
 
-PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo xkbcommon dbus-1
+PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo libpng xkbcommon dbus-1
 
 CFLAGS    += $(shell $(PKG_CONFIG) --cflags $(PKGS_CORE)) -pthread
 LDLIBS    += $(shell $(PKG_CONFIG) --libs   $(PKGS_CORE)) -lmagic -lrt -lm -pthread
@@ -48,6 +48,7 @@ endif
 WL_PROTOCOLS := \
 	wlr-screencopy-unstable-v1 \
 	wlr-data-control-unstable-v1 \
+	ext-data-control-v1 \
 	wlr-layer-shell-unstable-v1 \
 	xdg-output-unstable-v1 \
 	xdg-shell \
@@ -73,44 +74,83 @@ $(WL_PROTO_DIR):
 
 GRABIT_SRCS := \
 	src/main.c \
+	src/app/help.c \
+	src/app/source.c \
+	src/app/actions.c \
+	src/app/ocr.c \
+	src/app/dispatch.c \
 	src/args.c \
 	src/log.c \
 	src/paths.c \
-	src/util.c \
+	src/util/util.c \
+	src/util/buf.c \
+	src/util/shm.c \
+	src/util/proc.c \
 	src/cursor.c \
-	src/config.c \
-	src/config_save.c \
-	src/config_schema.c \
-	src/config_cli.c \
-	src/config_cli_help.c \
+	src/config/config.c \
+	src/config/kv.c \
+	src/config/save.c \
+	src/config/schema.c \
+	src/config/keys.c \
+	src/config/zipline.c \
+	src/config/cli.c \
+	src/config/cli_help.c \
+	src/config/help_examples.c \
+	src/config/help_groups.c \
 	src/template.c \
 	src/hyprland.c \
 	src/mime.c \
-	src/wl.c \
+	src/wl/wl.c \
+	src/wl/output.c \
+	src/wl/registry.c \
 	src/capture/capture.c \
 	src/capture/pixels.c \
 	src/capture/wlr_screencopy.c \
 	src/capture/ext_image_copy.c \
+	src/capture/ext_session.c \
+	src/capture/kwin_screenshot.c \
+	src/capture/kwin_reply.c \
 	src/capture/save.c \
+	src/capture/png.c \
 	src/capture/jpeg.c \
 	src/capture/webp.c \
 	src/capture/transform.c \
 	src/capture/freeze.c \
 	src/region/annotate.c \
+	src/region/annotate_paint.c \
+	src/region/annotate_blur.c \
 	src/region/toolbar.c \
+	src/region/toolbar_tooltip.c \
 	src/region/toolbar_layout.c \
 	src/region/toolbar_icons.c \
 	src/region/color_picker.c \
+	src/region/color_picker_render.c \
+	src/region/line_picker.c \
+	src/region/magnifier_render.c \
 	src/region/keybinds.c \
+	src/region/keybinds_parse.c \
 	src/region/keycapture.c \
+	src/region/keycapture_input.c \
 	src/region/edit_persist.c \
 	src/util/json_path.c \
 	src/clipboard/clipboard.c \
+	src/clipboard/send.c \
 	src/clipboard/wlr_data_control.c \
+	src/clipboard/ext_data_control.c \
 	src/notify/dbus.c \
 	src/region/wlr_layer.c \
+	src/region/select_state.c \
 	src/region/wlr_render.c \
 	src/region/wlr_input.c \
+	src/region/input_keyboard.c \
+	src/region/input_pointer.c \
+	src/region/input_button.c \
+	src/region/input_press.c \
+	src/region/input_gesture.c \
+	src/region/input_nudge.c \
+	src/region/input_undo.c \
+	src/region/render_frame.c \
+	src/region/render_buffer.c \
 	src/region/wlr_input_state.c \
 	src/record/record.c \
 	src/record/loop.c \
@@ -125,11 +165,15 @@ GRABIT_SRCS := \
 	src/record/controls_input.c \
 	src/record/controls_render.c \
 	src/tray/sni.c \
+	src/tray/sni_props.c \
 	src/tray/tray.c \
 	src/upload/upload.c \
+	src/upload/services.c \
+	src/upload/errors.c \
 	src/upload/zipline.c \
 	src/upload/sxcu_parse.c \
 	src/upload/sxcu_template.c \
+	src/upload/sxcu_tmpl_util.c \
 	src/upload/sxcu_request.c \
 	src/upload/sxcu_upload.c \
 	src/upload/sxcu_dir.c \
@@ -150,6 +194,7 @@ GRABIT_SRCS := \
 	src/ocr/translate_deepl.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
+	src/pin/spawn.c \
 	src/pin/pin_render.c \
 	src/pin/pin_input.c \
 	src/pin/pin_ipc.c \
@@ -245,6 +290,7 @@ sanitize: $(SAN_BIN)
 install: $(GRABIT_BIN)
 	install -Dm755 $(GRABIT_BIN) $(DESTDIR)$(PREFIX)/bin/$(NAME)
 	install -Dm644 man/$(NAME).1 $(DESTDIR)$(MANDIR)/man1/$(NAME).1
+	sed 's|@BINDIR@|$(PREFIX)/bin|g' $(NAME).desktop | install -Dm644 /dev/stdin $(DESTDIR)$(PREFIX)/share/applications/$(NAME).desktop
 
 .PHONY: clean
 clean:

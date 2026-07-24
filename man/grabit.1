@@ -29,12 +29,17 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 captures region screenshots, records the screen, performs OCR, and uploads the
 result, with a native freeze + region selector. It uses
 .B zwlr_screencopy_v1
-when advertised, otherwise falls back to
-.B ext_image_copy_capture_v1
-(KDE Plasma 6).
+when advertised, otherwise
+.BR ext_image_copy_capture_v1 ,
+otherwise the
+.B org.kde.KWin.ScreenShot2
+dbus service on KDE Plasma.
 .PP
-Supported compositors: Hyprland, sway, niri, river, KDE Plasma 6. X11 and GNOME
-are not supported.
+Supported compositors: Hyprland, sway, niri, river. KDE Plasma works for
+screenshots only: KWin implements neither capture protocol, and its ScreenShot2
+service is single-shot, so
+.B \-\-record
+is unavailable there. X11 and GNOME are not supported.
 .PP
 With no action flag, grabit performs the configured
 .B default_action
@@ -426,6 +431,7 @@ or edit the TOML directly. Notable top-level keys:
 .RB ( copy / upload / save / pin ),
 .BR service ,
 .BR notifications ,
+.BR log_file ,
 .BR also_save ,
 .BR save_dir ,
 .BR filename ,
@@ -486,15 +492,43 @@ Also set by plugin dispatch: the plugin's name, install directory, and
 per-plugin cache directory. See
 .BR PLUGINS.md .
 .TP
+.B png.level
+PNG zlib compression, 0\-9, default
+.BR 1 .
+PNG is lossless, so this trades encode time against file size only. Level 6 (the
+old behaviour) costs roughly 2\-6x the encode time of level 1 for about 15\-20%
+less size, and dominates the wall time of a screenshot.
+.TP
+.B GRABIT_LOG_FILE
+Set to
+.B 0
+to disable the log file and log to stderr only; any other value forces it on.
+Takes precedence over the
+.B log_file
+config key.
+.TP
 .B GRABIT_CAPTURE_BACKEND
 Force the capture backend:
 .BR auto ,
 .BR wlr ,
+.BR ext ,
 or
-.BR ext .
+.BR kwin .
 Takes precedence over the
 .B capture.backend
 config key.
+.TP
+.B GRABIT_CLIPBOARD_BACKEND
+Force the clipboard protocol:
+.BR auto ,
+.BR ext ,
+or
+.BR wlr .
+.B auto
+prefers
+.B ext_data_control_v1
+and falls back to the deprecated
+.BR zwlr_data_control_v1 .
 .TP
 .B WAYLAND_DISPLAY
 Wayland socket to connect to. Named in the connection-failure message when
@@ -576,6 +610,20 @@ keys in config.toml, which then act only as an initial value.
 .TP
 .I ~/.config/grabit/uploaders/<name>.sxcu
 Registered ShareX uploaders.
+.TP
+.I $XDG_RUNTIME_DIR/grabit.log
+Every message grabit emits, with a timestamp and pid, including info and debug
+lines. Falls back to
+.IR /tmp/grabit- uid .log .
+Notifications that say
+.B check the log file
+mean this one, since grabit is usually run from a keybind with no terminal
+attached. That line is added only while the log file is enabled. It is
+truncated once it grows past 1 MiB. On by default; turn it off
+with
+.B grabit set log_file false
+or
+.BR GRABIT_LOG_FILE=0 .
 .TP
 .I $XDG_RUNTIME_DIR/grabit-show.pid
 PID file for the on-screen text/preview card.

@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "config.h"
+#include "config/config.h"
 
 static inline int rec_cfg_int(struct config *cfg, const char *key,
 							  int def, int lo, int hi) {

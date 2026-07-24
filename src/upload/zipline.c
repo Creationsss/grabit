@@ -4,12 +4,12 @@
 #define _XOPEN_SOURCE 700
 #include "upload/zipline.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "mime.h"
 #include "upload/upload.h"
-#include "util.h"
 #include "util/json_path.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdbool.h>
@@ -128,7 +128,7 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 				headers = upload_header_append(headers, "x-zipline-p-identifier",
 											   identifier, &oom);
 			snprintf(range, sizeof range, "bytes %lld-%lld/%lld",
-					 start, start + (long long)send, total);
+					 start, start + (long long)send - 1, total);
 			headers = upload_header_append(headers, "content-range", range, &oom);
 
 			curl_mime *mime = curl_mime_init(c);

@@ -6,8 +6,8 @@
 
 #include "cairo_util.h"
 #include "region/region.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -5,7 +5,7 @@
 #include "plugin/state.h"
 
 #include "plugin/plugin.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <fcntl.h>
 #include <stdio.h>

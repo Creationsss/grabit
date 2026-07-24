@@ -22,6 +22,7 @@ int64_t grabit_now_ns(void);
 const char *grabit_basename(const char *path);
 
 int grabit_runtime_dir(char *out, size_t cap);
+int grabit_write_all(int fd, const void *buf, size_t n);
 bool grabit_process_alive(pid_t pid);
 bool grabit_is_grabit_process(pid_t pid);
 

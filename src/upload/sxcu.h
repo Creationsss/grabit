@@ -76,4 +76,9 @@ char *sxcu_expand_response(const char *tmpl, const char *body,
 						   const char *response_url,
 						   char *const *regex_list, size_t n_regex_list);
 
+char *gsxcu_base64_encode(const char *src);
+char *gsxcu_first_pipe_part(const char *arg);
+bool gsxcu_all_digits(const char *s);
+const char *gsxcu_find_close(const char *s, char close, char open);
+
 #endif

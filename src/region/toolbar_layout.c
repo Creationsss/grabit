@@ -4,7 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -19,7 +19,7 @@ const uint32_t TOOLBAR_COLORS[6] = {
 };
 
 static int toolbar_row_of(enum tb_action act) {
-	if (act >= TB_COLOR_RED && act <= TB_WIDTH_SLIDER) return 1;
+	if (act >= TB_COLOR_RED && act <= TB_CANCEL) return 1;
 	return 0;
 }
 
@@ -35,9 +35,10 @@ static int32_t toolbar_btn_h(enum tb_action act) {
 }
 
 static int32_t section_gap_before(enum tb_action act) {
-	if (act == TB_COLOR_CURRENT) return 8;
-	if (act == TB_WIDTH_SLIDER) return 12;
+	if (act == TB_TOOL_LINES) return 12;
+	if (act == TB_WIDTH_SLIDER) return 2;
 	if (act == TB_UNDO) return 10;
+	if (act == TB_SAVE) return 12;
 	return 2;
 }
 
@@ -61,8 +62,8 @@ static int32_t btn_x_in_row(enum tb_action act) {
 	for (int i = 0; i < TB_BTN_COUNT; i++) {
 		enum tb_action a = (enum tb_action)i;
 		if (toolbar_row_of(a) != row) continue;
-		if (a == act) return x;
 		if (!first) x += section_gap_before(a);
+		if (a == act) return x;
 		x += toolbar_btn_w(a);
 		first = false;
 	}
@@ -127,6 +128,30 @@ void region_toolbar_rect(const struct ro_state *st,
 
 	*x = o->x + (o->logical_width - tw) / 2;
 	*y = o->y + TB_GAP;
+}
+
+bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
+							  int32_t pw, int32_t place_h, int32_t gap,
+							  int32_t *out_x, int32_t *out_y) {
+	int32_t tx, ty, tw, th;
+	const struct grabit_output *o;
+	region_toolbar_rect(st, &o, &tx, &ty, &tw, &th);
+	if (!o) return false;
+	int32_t bx, by, bw, bh;
+	toolbar_btn_rect_local(anchor, tw, &bx, &by, &bw, &bh);
+	int32_t btn_cx = tx + bx + bw / 2;
+	int32_t want_x = btn_cx - pw / 2;
+	struct rect b = st->bounds;
+	if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
+	int32_t out_left = b.x + 8;
+	int32_t out_right = b.x + b.w - 8;
+	if (want_x < out_left) want_x = out_left;
+	if (want_x + pw > out_right) want_x = out_right - pw;
+	int32_t want_y = ty - gap - place_h;
+	if (want_y < b.y + 8) want_y = ty + th + gap;
+	*out_x = want_x;
+	*out_y = want_y;
+	return true;
 }
 
 void region_toolbar_slider_rect(const struct ro_state *st,

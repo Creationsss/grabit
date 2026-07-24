@@ -3,11 +3,12 @@
 
 #include "notify/notify.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,10 +44,16 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	DBusMessageIter args;
 	dbus_message_iter_init_append(msg, &args);
 
+	char body_buf[1024];
 	const char *app = APP_NAME;
 	const char *icon = o->icon_path ? o->icon_path : "";
 	const char *summary = o->summary;
 	const char *body = o->body ? o->body : "";
+	if ((o->log_hint || o->force) && log_file_enabled()) {
+		snprintf(body_buf, sizeof body_buf, "%s%scheck the log file",
+				 body, body[0] ? "\n" : "");
+		body = body_buf;
+	}
 	dbus_uint32_t replaces = 0;
 	dbus_int32_t expire = EXPIRE_DEFAULT;
 

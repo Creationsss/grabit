@@ -5,7 +5,7 @@
 #define GRABIT_RECORD_CONTROLS_INTERNAL_H
 
 #include "cursor.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>

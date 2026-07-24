@@ -8,8 +8,8 @@
 #include <string.h>
 
 #include "cairo_util.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <math.h>
 #include <stdint.h>

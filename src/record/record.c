@@ -6,7 +6,7 @@
 
 #include "args.h"
 #include "capture/capture.h"
-#include "config.h"
+#include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -22,8 +22,8 @@
 #include "region/region.h"
 #include "tray/tray.h"
 #include "upload/upload.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <errno.h>
 #include <signal.h>
@@ -76,7 +76,7 @@ static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 		struct rect fs_rect;
 		int plan = grabit_wl_fullscreen_plan(s, a->fullscreen_target, &fs_rect);
 		if (plan < 0) {
-			fail_notify("no matching monitor; see terminal for details");
+			fail_notify("no matching monitor");
 			rc = -1;
 		} else if (plan == 0) {
 			*out = fs_rect;
@@ -129,6 +129,15 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
+	if (!capture_is_streaming_capable(&s)) {
+		log_error("recording needs a frame-streaming capture protocol");
+		log_error("  KWin's org.kde.KWin.ScreenShot2 is single-shot, so only "
+				  "screenshots work on KDE Plasma");
+		fail_notify("recording is not supported on KDE Plasma");
+		grabit_wl_finish(&s);
+		return 1;
+	}
+
 	struct rect r = {0};
 	int rc = pick_region(&s, cfg, a, &r);
 	if (rc != 0 || r.w <= 0 || r.h <= 0) {
@@ -153,7 +162,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	output_path = build_record_path(cfg, a, format, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
-		fail_notify("could not build output path; see terminal for details");
+		fail_notify("could not build output path");
 		goto err_layout;
 	}
 
@@ -163,7 +172,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			fail_notify("another recording is already starting");
 		} else {
 			log_error("could not write recording pidfile: %s", strerror(errno));
-			fail_notify("could not write pid file; see terminal for details");
+			fail_notify("could not write pid file");
 		}
 		goto err_path;
 	}
@@ -197,13 +206,16 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	struct buf_pool pool = {0};
 	size_t buf_size = (size_t)layout.dst_stride * (size_t)layout.dst_h;
+	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 	if (seg_begin(&sc) != 0) {
 		fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
 		goto err_pipeline;
 	}
-	if (pool_init(&pool, POOL_CAP, buf_size) != 0) {
+	size_t pool_slots = pool_slots_for(buf_size);
+	log_debug("recording: frame pool %zu x %zu KiB", pool_slots, buf_size / 1024);
+	if (pool_init(&pool, pool_slots, buf_size) != 0) {
 		log_error("recording: could not allocate frame pool");
-		fail_notify("could not allocate the frame pool; see terminal");
+		fail_notify("could not allocate the frame pool");
 		goto err_pipeline;
 	}
 
@@ -226,7 +238,6 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
 		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
-	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 
 	double secs = rec_capture_loop(&s, &layout, &pool, rec_cfg_cursor(cfg),
 								   &sc, controls, r, bg_buf);
@@ -308,6 +319,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	return ok ? 0 : 1;
 
 err_pipeline:
+	tray_stop(tray);
 	seg_finish(&sc, NULL);
 	seg_reap_all(&sc);
 	record_signals_restore(&prev);

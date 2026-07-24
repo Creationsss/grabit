@@ -6,8 +6,8 @@
 #include "capture/pixels.h"
 
 #include "log.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -48,8 +48,9 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 
 	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
 
+	uint32_t bpp = (uint32_t)pixels_conv_src_bpp(c->fmt.conv);
 	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE ||
-		stride < (uint32_t)w * 4u) {
+		stride < (uint32_t)w * bpp) {
 		log_error("wlr-screencopy: bogus geometry %ux%u stride=%u", w, h, stride);
 		c->status = -1;
 		return;
@@ -139,28 +140,67 @@ static void cleanup_state(struct sc_state *c) {
 
 int grabit_wlr_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 							bool overlay_cursor, struct image *out) {
-	if (!s || !s->screencopy_manager || !o || !out) return -1;
-	if (o->dead || !o->wl_output) return -1;
-	memset(out, 0, sizeof *out);
+	return grabit_wlr_capture_many(s, &o, 1, overlay_cursor, out);
+}
 
-	struct sc_state c = {.wls = s};
-	c.frame = zwlr_screencopy_manager_v1_capture_output(
-		s->screencopy_manager, overlay_cursor ? 1 : 0, o->wl_output);
-	if (!c.frame) {
-		log_error("zwlr_screencopy_manager_v1_capture_output: NULL");
+int grabit_wlr_capture_many(struct grabit_wl_state *s, struct grabit_output *const *outs,
+							size_t n, bool overlay_cursor, struct image *out) {
+	if (!s || !s->screencopy_manager || !outs || !out || n == 0) return -1;
+
+	struct sc_state *cs = calloc(n, sizeof *cs);
+	if (!cs) {
+		log_error("screencopy: oom");
 		return -1;
 	}
-	zwlr_screencopy_frame_v1_add_listener(c.frame, &sc_listener, &c);
 
-	int rc = -1;
-	if (pixels_wl_wait(s->display, &c.status) == 0 && c.buf.map) {
-		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
-								   c.width, c.height, c.stride, c.fmt.format,
-								   c.fmt.swap_rb, c.y_invert);
+	int rc = 0;
+	for (size_t i = 0; i < n; i++) {
+		memset(&out[i], 0, sizeof out[i]);
+		cs[i].wls = s;
+		if (!outs[i] || outs[i]->dead || !outs[i]->wl_output) {
+			cs[i].status = -1;
+			rc = -1;
+			continue;
+		}
+		cs[i].frame = zwlr_screencopy_manager_v1_capture_output(
+			s->screencopy_manager, overlay_cursor ? 1 : 0, outs[i]->wl_output);
+		if (!cs[i].frame) {
+			log_error("zwlr_screencopy_manager_v1_capture_output: NULL");
+			cs[i].status = -1;
+			rc = -1;
+			continue;
+		}
+		zwlr_screencopy_frame_v1_add_listener(cs[i].frame, &sc_listener, &cs[i]);
 	}
 
-	cleanup_state(&c);
-	if (rc != 0) image_free(out);
+	while (rc == 0) {
+		bool pending = false;
+		for (size_t i = 0; i < n; i++)
+			if (cs[i].status == 0) pending = true;
+		if (!pending) break;
+		if (wl_display_dispatch(s->display) < 0) {
+			log_error("wl_display_dispatch: lost connection");
+			rc = -1;
+		}
+	}
+
+	for (size_t i = 0; i < n; i++) {
+		if (rc == 0 && cs[i].status == 1 && cs[i].buf.map) {
+			if (pixels_image_from_buf(&out[i], cs[i].buf.map, cs[i].buf.map_size,
+									  cs[i].width, cs[i].height, cs[i].stride,
+									  cs[i].fmt.format, cs[i].fmt.conv,
+									  cs[i].y_invert) != 0)
+				rc = -1;
+		} else {
+			rc = -1;
+		}
+		cleanup_state(&cs[i]);
+	}
+
+	free(cs);
+	if (rc != 0)
+		for (size_t i = 0; i < n; i++)
+			image_free(&out[i]);
 	return rc;
 }
 
@@ -190,9 +230,9 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 					  c.width, c.height, dst_stride, dst_h);
 		} else {
 			pixels_copy(dst, dst_stride, c.buf.map, c.stride,
-						c.width, c.height, c.fmt.swap_rb, c.y_invert);
+						c.width, c.height, c.fmt.conv, c.y_invert);
 			if (out_format)
-				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.swap_rb);
+				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.conv);
 			rc = 0;
 		}
 	}

@@ -53,6 +53,18 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 }
 
 #define ANNO_DEFAULT_FONT 18
+#define ANNO_DEFAULT_WIDTH 3
+
+enum stroke_style {
+	STROKE_SOLID = 0,
+	STROKE_DASHED,
+	STROKE_DOTTED,
+	STROKE_STYLE_COUNT,
+};
+
+extern const char *const grabit_line_style_names[];
+
+int grabit_stroke_dash(enum stroke_style style, double w, double out_dashes[2]);
 
 enum tool_kind {
 	TOOL_PEN = 0,
@@ -62,13 +74,33 @@ enum tool_kind {
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
 	TOOL_BLUR,
+	TOOL_PIXELATE,
 	TOOL_TEXT,
+	TOOL_COUNTER,
 	TOOL_ERASER,
 	TOOL_COUNT,
 };
 
 static inline bool tool_uses_points(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
+}
+
+static inline bool tool_is_rect_region(enum tool_kind t) {
+	return t == TOOL_RECT || t == TOOL_ELLIPSE || t == TOOL_BLUR ||
+		   t == TOOL_PIXELATE;
+}
+
+static inline bool tool_samples_backdrop(enum tool_kind t) {
+	return t == TOOL_BLUR || t == TOOL_PIXELATE;
+}
+
+static inline bool tool_is_line_family(enum tool_kind t) {
+	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE;
+}
+
+static inline bool tool_uses_line_style(enum tool_kind t) {
+	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE ||
+		   t == TOOL_RECT || t == TOOL_ELLIPSE;
 }
 
 extern const char *const grabit_tool_names[];
@@ -82,7 +114,9 @@ struct annotation {
 	uint32_t color;
 	int32_t width;
 	int32_t font_size;
+	enum stroke_style style;
 	struct rect bbox;
+	bool selected;
 };
 
 static inline int32_t annotation_corner_x(const struct annotation *a, int c) {

@@ -131,7 +131,7 @@ void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s) {
 	cairo_fill(cr);
 }
 
-void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
+void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s) {
 	double half = s * 0.36;
 	int n = 4;
 	double cell = (half * 2) / n;
@@ -145,6 +145,18 @@ void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
 	}
 }
 
+void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
+	double r = s * 0.42;
+	cairo_pattern_t *p = cairo_pattern_create_radial(cx, cy, 0, cx, cy, r);
+	cairo_pattern_add_color_stop_rgba(p, 0.0, 0.85, 0.85, 0.85, 1.0);
+	cairo_pattern_add_color_stop_rgba(p, 0.55, 0.6, 0.6, 0.6, 0.85);
+	cairo_pattern_add_color_stop_rgba(p, 1.0, 0.5, 0.5, 0.5, 0.0);
+	cairo_set_source(cr, p);
+	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
+	cairo_fill(cr);
+	cairo_pattern_destroy(p);
+}
+
 void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s) {
 	cairo_select_font_face(cr, "sans-serif",
 						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -154,6 +166,22 @@ void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s) {
 	cairo_move_to(cr, cx - ext.width / 2.0 - ext.x_bearing,
 				  cy + ext.height / 2.0);
 	cairo_show_text(cr, "Aa");
+}
+
+void toolbar_icon_counter(cairo_t *cr, double cx, double cy, double s) {
+	double r = s * 0.42;
+	cairo_set_line_width(cr, s * 0.12);
+	cairo_new_sub_path(cr);
+	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
+	cairo_stroke(cr);
+	cairo_select_font_face(cr, "sans-serif",
+						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, s * 0.6);
+	cairo_text_extents_t ext;
+	cairo_text_extents(cr, "1", &ext);
+	cairo_move_to(cr, cx - ext.x_advance / 2.0,
+				  cy - ext.height / 2.0 - ext.y_bearing);
+	cairo_show_text(cr, "1");
 }
 
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {
@@ -176,6 +204,46 @@ void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {
 	cairo_restore(cr);
 }
 
+void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
+							 enum stroke_style style) {
+	double half = s * 0.40;
+	double lw = 2.6 * (s / 24.0);
+	double d[2];
+	int nd = grabit_stroke_dash(style, lw, d);
+	cairo_set_line_width(cr, lw);
+	cairo_set_line_cap(cr, nd > 0 ? CAIRO_LINE_CAP_ROUND : CAIRO_LINE_CAP_BUTT);
+	cairo_set_dash(cr, d, nd, 0.0);
+	cairo_move_to(cr, cx - half, cy);
+	cairo_line_to(cr, cx + half, cy);
+	cairo_stroke(cr);
+	cairo_set_dash(cr, NULL, 0, 0.0);
+}
+
+void toolbar_icon_line_group(cairo_t *cr, double cx, double cy, double s,
+							 enum tool_kind tool) {
+	double ic = s * 0.82;
+	switch (tool) {
+	case TOOL_MARKER:
+		toolbar_icon_marker(cr, cx, cy, ic);
+		break;
+	case TOOL_LINE:
+		toolbar_icon_line(cr, cx, cy, ic);
+		break;
+	default:
+		toolbar_icon_pen(cr, cx, cy, ic);
+		break;
+	}
+	double t = s * 0.13;
+	double bx = cx + s * 0.44;
+	double by = cy + s * 0.44;
+	cairo_set_dash(cr, NULL, 0, 0.0);
+	cairo_move_to(cr, bx - t, by - t * 0.5);
+	cairo_line_to(cr, bx + t, by - t * 0.5);
+	cairo_line_to(cr, bx, by + t * 0.7);
+	cairo_close_path(cr);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.8 * (s / 24.0);
 	cairo_set_line_width(cr, w);
@@ -185,6 +253,25 @@ void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s) {
 	cairo_arc_negative(cr, cx, yc, r, 0.0, -M_PI);
 	cairo_stroke(cr);
 	double end_x = cx - r;
+	double end_y = yc;
+	double head_len = s * 0.24;
+	double wing_w = s * 0.16;
+	cairo_move_to(cr, end_x, end_y + head_len);
+	cairo_line_to(cr, end_x - wing_w, end_y);
+	cairo_line_to(cr, end_x + wing_w, end_y);
+	cairo_close_path(cr);
+	cairo_fill(cr);
+}
+
+void toolbar_icon_redo(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.8 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+	double r = s * 0.30;
+	double yc = cy + s * 0.05;
+	cairo_arc(cr, cx, yc, r, -M_PI, 0.0);
+	cairo_stroke(cr);
+	double end_x = cx + r;
 	double end_y = yc;
 	double head_len = s * 0.24;
 	double wing_w = s * 0.16;

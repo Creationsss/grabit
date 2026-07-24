@@ -4,9 +4,9 @@
 #define _XOPEN_SOURCE 700
 #include "region/edit_persist.h"
 
-#include "config.h"
+#include "config/config.h"
 #include "region/region.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -16,7 +16,7 @@
 #define EDIT_DEFAULT_COLOR 0xff3030u
 #define EDIT_DEFAULT_WIDTH 4
 #define EDIT_MIN_WIDTH 1
-#define EDIT_MAX_WIDTH 20
+#define EDIT_MAX_WIDTH 12
 
 static const struct {
 	const char *name;
@@ -58,6 +58,14 @@ int32_t edit_tool_from_str(const char *s) {
 		if (strcmp(grabit_tool_names[i], s) == 0) return i;
 	}
 	return TOOL_PEN;
+}
+
+int32_t edit_line_style_from_str(const char *s) {
+	if (!s || !*s) return STROKE_SOLID;
+	for (int32_t i = 0; grabit_line_style_names[i]; i++) {
+		if (strcmp(grabit_line_style_names[i], s) == 0) return i;
+	}
+	return STROKE_SOLID;
 }
 
 void persist_edit_choices(struct config *cfg, uint32_t color, int32_t width,

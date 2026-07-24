@@ -8,8 +8,8 @@
 #include "cursor.h"
 #include "hyprland.h"
 #include "log.h"
-#include "util.h"
-#include "wl.h"
+#include "util/util.h"
+#include "wl/wl.h"
 
 #include <stdlib.h>
 
@@ -224,8 +224,15 @@ struct rect controls_cursor_rect(const struct rec_controls *c) {
 	bool over_btn = false;
 	if (c->cx >= c->bx && c->cx < c->bx + c->bw &&
 		c->cy >= c->by && c->cy < c->by + c->bh) {
-		if (ctl_btn_at(c, c->cx, c->cy) >= 0) {
-			over_btn = true;
+		int32_t rel_x = c->cx - c->bx;
+		int32_t rel_y = c->cy - c->by;
+		for (int b = 0; b < 4; b++) {
+			int32_t bx, by, bw, bh;
+			ctl_btn_rect(b, &bx, &by, &bw, &bh);
+			if (rect_contains((struct rect){bx, by, bw, bh}, rel_x, rel_y)) {
+				over_btn = true;
+				break;
+			}
 		}
 	}
 	const struct raw_cursor_image *img = over_btn ? &c->raw_cursor_hand : &c->raw_cursor_default;

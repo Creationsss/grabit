@@ -9,6 +9,8 @@
 #include <stdint.h>
 
 #include <cairo/cairo.h>
+
+#include "region/ui.h"
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -51,6 +53,7 @@ struct ro_output {
 	cairo_surface_t *anno_cache;
 	size_t anno_cache_gen;
 	struct rect anno_cache_sel;
+	int32_t anno_cache_skip;
 
 	bool dirty;
 	struct wl_callback *frame_cb;
@@ -58,13 +61,18 @@ struct ro_output {
 
 enum undo_kind {
 	UNDO_ANNO_ADD,
+	UNDO_ANNO_READD,
+	UNDO_ANNO_DELETE,
+	UNDO_ANNO_REDELETE,
 	UNDO_REGION,
 	UNDO_ANNO_MOVE,
 	UNDO_ANNO_GEOM,
+	UNDO_ANNO_SIZE,
 };
 
 struct undo_item {
 	enum undo_kind kind;
+	uint32_t group;
 	union {
 		struct {
 			bool has;
@@ -79,6 +87,18 @@ struct undo_item {
 			size_t idx;
 			int32_t g[4];
 		} geom;
+		struct {
+			size_t idx;
+			int32_t width;
+			int32_t font_size;
+		} size;
+		struct {
+			struct annotation a;
+		} readd;
+		struct {
+			size_t idx;
+			struct annotation a;
+		} del;
 	} u;
 };
 
@@ -132,6 +152,8 @@ struct ro_state {
 
 	bool annotate_mode;
 	bool confirm_mode;
+	bool resizing_anno;
+	uint8_t multi_select_mods;
 	bool edit_instant;
 	bool region_locked;
 	enum tool_kind current_tool;
@@ -154,10 +176,14 @@ struct ro_state {
 	uint32_t current_color;
 	int32_t current_width;
 	int32_t current_font;
+	enum stroke_style current_style;
+	enum tool_kind current_line_tool;
 	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
 	bool ctrl_held;
+	bool magnifier_held;
+	bool show_coords;
 	struct region_keymap keys;
 	int handle_dragging;
 	bool moving_region;
@@ -177,6 +203,7 @@ struct ro_state {
 	bool eyedropper_mode;
 	bool color_picker_open;
 	bool color_picker_dragging;
+	bool line_picker_open;
 	bool color_input_active;
 	char color_input_buf[8];
 	size_t color_input_len;
@@ -186,6 +213,11 @@ struct ro_state {
 	struct undo_item *undo_items;
 	size_t undo_n;
 	size_t undo_cap;
+	struct undo_item *redo_items;
+	size_t redo_n;
+	size_t redo_cap;
+	uint32_t undo_group_seq;
+	uint32_t undo_group_active;
 	struct rect undo_snap;
 	bool undo_snap_has;
 	bool undo_snap_armed;
@@ -218,81 +250,32 @@ static inline bool region_editing(const struct ro_state *st) {
 	return st->annotate_mode && st->out_annos;
 }
 
+static inline bool region_tool_uses_font(const struct ro_state *st) {
+	return st->current_tool == TOOL_TEXT || st->current_tool == TOOL_COUNTER ||
+		   st->text_input_active;
+}
+
+static inline bool region_multi_select_held(const struct ro_state *st) {
+	return st->xkb_state && st->multi_select_mods &&
+		   (region_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
+}
+
+static inline int32_t *region_slider_field(struct ro_state *st, int32_t *lo, int32_t *hi) {
+	if (region_tool_uses_font(st)) {
+		*lo = FONT_MIN;
+		*hi = FONT_MAX;
+		return &st->current_font;
+	}
+	*lo = WIDTH_MIN;
+	*hi = WIDTH_MAX;
+	return &st->current_width;
+}
+
 #define ANNO_DRAG_NONE (-1)
 #define ANNO_DRAG_MOVE 4
 
 static inline bool region_anno_dragging(const struct ro_state *st) {
 	return st->anno_drag >= 0;
 }
-
-enum tb_action {
-	TB_NONE = -1,
-	TB_REGION = 0,
-	TB_EDIT,
-	TB_TOOL_PEN,
-	TB_TOOL_MARKER,
-	TB_TOOL_LINE,
-	TB_TOOL_RECT,
-	TB_TOOL_ELLIPSE,
-	TB_TOOL_ARROW,
-	TB_TOOL_BLUR,
-	TB_TOOL_TEXT,
-	TB_TOOL_ERASER,
-	TB_COLOR_RED,
-	TB_COLOR_YELLOW,
-	TB_COLOR_GREEN,
-	TB_COLOR_BLUE,
-	TB_COLOR_BLACK,
-	TB_COLOR_WHITE,
-	TB_COLOR_CURRENT,
-	TB_WIDTH_SLIDER,
-	TB_UNDO,
-	TB_SAVE,
-	TB_CANCEL,
-	TB_BTN_COUNT,
-};
-
-#define TB_BTN_W 38
-#define TB_BTN_H 38
-#define TB_PAD 6
-#define TB_GAP 12
-
-void region_toolbar_rect(const struct ro_state *st,
-						 const struct grabit_output **out_o,
-						 int32_t *x, int32_t *y, int32_t *w, int32_t *h);
-enum tb_action region_toolbar_hit(const struct ro_state *st,
-								  int32_t abs_x, int32_t abs_y);
-bool region_toolbar_contains(const struct ro_state *st, int32_t abs_x, int32_t abs_y);
-void region_toolbar_slider_rect(const struct ro_state *st,
-								int32_t *out_x, int32_t *out_y,
-								int32_t *out_w, int32_t *out_h);
-void region_color_picker_rect(const struct ro_state *st,
-							  int32_t *out_x, int32_t *out_y,
-							  int32_t *out_w, int32_t *out_h);
-void region_color_input_rect(const struct ro_state *st,
-							 int32_t *out_x, int32_t *out_y,
-							 int32_t *out_w, int32_t *out_h);
-void region_color_eyedropper_rect(const struct ro_state *st,
-								  int32_t *out_x, int32_t *out_y,
-								  int32_t *out_w, int32_t *out_h);
-bool region_color_picker_pick(const struct ro_state *st, int32_t abs_x, int32_t abs_y,
-							  uint32_t *out_color);
-bool region_parse_hex_color(const char *s, uint32_t *out);
-void region_color_picker_render(cairo_t *cr, const struct ro_output *o);
-void region_color_picker_release_cache(struct ro_state *st);
-
-#define WIDTH_MIN 1
-#define WIDTH_MAX 12
-#define FONT_MIN 8
-#define FONT_MAX 72
-void region_toolbar_render(cairo_t *cr, const struct ro_output *o);
-void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
-
-void region_render_attach_layer(struct ro_output *o);
-void region_render_free_buffer(struct ro_output *o);
-void region_render_request_redraw_all(struct ro_state *st);
-struct ro_output *region_render_find_by_surface(struct ro_state *st, struct wl_surface *s);
-
-void region_input_attach(struct ro_state *st);
 
 #endif

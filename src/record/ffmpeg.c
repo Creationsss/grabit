@@ -5,7 +5,7 @@
 #include "record/ffmpeg.h"
 
 #include "log.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <fcntl.h>

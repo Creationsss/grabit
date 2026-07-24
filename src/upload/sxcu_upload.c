@@ -8,7 +8,7 @@
 #include "mime.h"
 #include "upload/sxcu_request.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -225,7 +225,7 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 												   u->regex_list, u->n_regex_list)
 							: strdup(body_data);
 		out_url = trim_right(out_url);
-		if (!out_url || !*out_url) {
+		if ((!out_url || !*out_url) && !u->url_expr) {
 			free(out_url);
 			out_url = trim_right(strdup(body_data));
 		}

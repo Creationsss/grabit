@@ -2,12 +2,12 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
-#include "config.h"
+#include "config/config.h"
 
-#include "config_internal.h"
+#include "config/internal.h"
 #include "log.h"
 #include "paths.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdbool.h>
@@ -18,62 +18,6 @@
 #include <unistd.h>
 
 #include "vendor/tomlc99/toml.h"
-
-static int kv_grow(struct config *c, size_t need) {
-	if (c->cap >= need) return 0;
-	size_t cap = c->cap ? c->cap : 16;
-	while (cap < need)
-		cap *= 2;
-	struct kv *p = realloc(c->kvs, cap * sizeof *p);
-	if (!p) return -1;
-	c->kvs = p;
-	c->cap = cap;
-	return 0;
-}
-
-static size_t kv_lower_bound(struct config *c, const char *key) {
-	size_t lo = 0, hi = c->n;
-	while (lo < hi) {
-		size_t mid = lo + (hi - lo) / 2;
-		if (strcmp(c->kvs[mid].key, key) < 0)
-			lo = mid + 1;
-		else
-			hi = mid;
-	}
-	return lo;
-}
-
-static struct kv *kv_find(struct config *c, const char *key) {
-	size_t i = kv_lower_bound(c, key);
-	if (i < c->n && strcmp(c->kvs[i].key, key) == 0) return &c->kvs[i];
-	return NULL;
-}
-
-int cfg_kv_upsert(struct config *c, const char *key, const char *val) {
-	size_t i = kv_lower_bound(c, key);
-	if (i < c->n && strcmp(c->kvs[i].key, key) == 0) {
-		char *nv = strdup(val);
-		if (!nv) return -1;
-		free(c->kvs[i].val);
-		c->kvs[i].val = nv;
-		return 0;
-	}
-	if (kv_grow(c, c->n + 1) != 0) return -1;
-	char *new_key = strdup(key);
-	if (!new_key) return -1;
-	char *new_val = strdup(val);
-	if (!new_val) {
-		free(new_key);
-		return -1;
-	}
-	if (i < c->n) {
-		memmove(&c->kvs[i + 1], &c->kvs[i], (c->n - i) * sizeof *c->kvs);
-	}
-	c->kvs[i].key = new_key;
-	c->kvs[i].val = new_val;
-	c->n++;
-	return 0;
-}
 
 static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) {
 	for (int i = 0;; i++) {
@@ -138,8 +82,18 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 static int seed_defaults(struct config *c) {
 	if (cfg_kv_upsert(c, "default_action", "copy") != 0) return -1;
 	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
+	if (cfg_kv_upsert(c, "log_file", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
 	return 0;
+}
+
+static void config_apply_runtime(struct config *c) {
+	const char *v = config_get(c, "log_file");
+	if (v && strcmp(v, "false") == 0) log_file_disable();
+
+	v = config_get(c, "capture.backend");
+	if (v && v[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
+		setenv("GRABIT_CAPTURE_BACKEND", v, 1);
 }
 
 int config_load(struct config *c) {
@@ -166,6 +120,7 @@ int config_load(struct config *c) {
 			return -1;
 		}
 		log_info("no config found at %s; wrote sensible defaults.", file);
+		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -199,6 +154,7 @@ int config_load(struct config *c) {
 			config_free(c);
 			return -1;
 		}
+		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -208,6 +164,7 @@ int config_load(struct config *c) {
 		config_free(c);
 		return -1;
 	}
+	config_apply_runtime(c);
 	return 0;
 }
 
@@ -300,45 +257,4 @@ int config_state_clear(const char *key) {
 	if (cfg_kv_remove(&st, key, false) > 0) rc = config_state_save(&st);
 	config_free(&st);
 	return rc;
-}
-
-size_t cfg_kv_remove(struct config *c, const char *key, bool prefix) {
-	size_t klen = strlen(key);
-	size_t removed = 0;
-	for (size_t i = 0; i < c->n;) {
-		bool match = prefix ? strncmp(c->kvs[i].key, key, klen) == 0
-							: strcmp(c->kvs[i].key, key) == 0;
-		if (!match) {
-			i++;
-			continue;
-		}
-		free(c->kvs[i].key);
-		free(c->kvs[i].val);
-		if (i + 1 < c->n)
-			memmove(&c->kvs[i], &c->kvs[i + 1], (c->n - i - 1) * sizeof *c->kvs);
-		c->n--;
-		removed++;
-	}
-	return removed;
-}
-
-void config_free(struct config *c) {
-	if (!c) return;
-	for (size_t i = 0; i < c->n; i++) {
-		free(c->kvs[i].key);
-		free(c->kvs[i].val);
-	}
-	free(c->kvs);
-	memset(c, 0, sizeof *c);
-}
-
-const char *config_get(struct config *c, const char *key) {
-	struct kv *e = kv_find(c, key);
-	return e ? e->val : NULL;
-}
-
-bool config_also_save(struct config *c) {
-	const char *v = config_get(c, "also_save");
-	if (!v) v = config_get(c, "save_captures");
-	return v && strcmp(v, "true") == 0;
 }

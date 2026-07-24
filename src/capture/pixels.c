@@ -5,7 +5,7 @@
 
 #include "capture/capture.h"
 #include "log.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -36,32 +36,56 @@ const char *pixels_shm_format_name(uint32_t f) {
 		return "BGRX8888";
 	case WL_SHM_FORMAT_RGB565:
 		return "RGB565";
+	case WL_SHM_FORMAT_BGR888:
+		return "BGR888";
+	case WL_SHM_FORMAT_RGB888:
+		return "RGB888";
 	default:
 		return NULL;
 	}
 }
 
-bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, bool *out_swap_rb) {
+int pixels_conv_src_bpp(enum pixels_conv conv) {
+	return (conv == PIX_BGR24 || conv == PIX_RGB24) ? 3 : 4;
+}
+
+bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, enum pixels_conv *out_conv) {
 	switch (fmt) {
 	case WL_SHM_FORMAT_XRGB8888:
 	case WL_SHM_FORMAT_ARGB8888:
 		*out_format = fmt;
-		*out_swap_rb = false;
+		*out_conv = PIX_COPY;
 		return true;
 	case WL_SHM_FORMAT_XBGR8888:
 	case WL_SHM_FORMAT_ABGR8888:
 		*out_format = fmt;
-		*out_swap_rb = true;
+		*out_conv = PIX_SWAP_RB;
+		return true;
+	case WL_SHM_FORMAT_BGR888:
+		*out_format = fmt;
+		*out_conv = PIX_BGR24;
+		return true;
+	case WL_SHM_FORMAT_RGB888:
+		*out_format = fmt;
+		*out_conv = PIX_RGB24;
 		return true;
 	default:
 		return false;
 	}
 }
 
-uint32_t pixels_resolved_format(uint32_t fmt, bool swap_rb) {
-	if (!swap_rb) return fmt;
-	return fmt == WL_SHM_FORMAT_XBGR8888 ? WL_SHM_FORMAT_XRGB8888
-										 : WL_SHM_FORMAT_ARGB8888;
+uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv) {
+	switch (conv) {
+	case PIX_SWAP_RB:
+		return fmt == WL_SHM_FORMAT_XBGR8888 ? WL_SHM_FORMAT_XRGB8888
+											 : WL_SHM_FORMAT_ARGB8888;
+	case PIX_BGR24:
+	case PIX_RGB24:
+		return WL_SHM_FORMAT_XRGB8888;
+	case PIX_COPY:
+	default:
+		return fmt;
+	}
 }
 
 void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
@@ -70,22 +94,23 @@ void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
 	}
 	if (p->chosen) return;
 	uint32_t use = 0;
-	bool swap = false;
-	if (pixels_accept_format(fmt, &use, &swap)) {
+	enum pixels_conv conv = PIX_COPY;
+	if (pixels_accept_format(fmt, &use, &conv)) {
 		p->format = use;
-		p->swap_rb = swap;
+		p->conv = conv;
 		p->chosen = true;
 	}
 }
 
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
-				 int32_t w, int32_t h, bool swap_rb, bool y_invert) {
+				 int32_t w, int32_t h, enum pixels_conv conv, bool y_invert) {
 	for (int32_t row = 0; row < h; row++) {
 		int32_t src_row = y_invert ? (h - 1 - row) : row;
 		const uint8_t *sp = (const uint8_t *)src + (size_t)src_row * (size_t)src_stride;
 		uint8_t *dp = (uint8_t *)dst + (size_t)row * (size_t)dst_stride;
-		if (swap_rb) {
+		switch (conv) {
+		case PIX_SWAP_RB: {
 			const uint32_t *s32 = (const uint32_t *)sp;
 			uint32_t *d32 = (uint32_t *)dp;
 			for (int32_t x = 0; x < w; x++) {
@@ -94,30 +119,55 @@ void pixels_copy(void *dst, int32_t dst_stride,
 						 ((p & 0x00ff0000u) >> 16) |
 						 ((p & 0x000000ffu) << 16);
 			}
-		} else {
+			break;
+		}
+		case PIX_BGR24: {
+			uint32_t *d32 = (uint32_t *)dp;
+			for (int32_t x = 0; x < w; x++) {
+				const uint8_t *s = sp + (size_t)x * 3;
+				d32[x] = 0xff000000u | ((uint32_t)s[0] << 16) |
+						 ((uint32_t)s[1] << 8) | (uint32_t)s[2];
+			}
+			break;
+		}
+		case PIX_RGB24: {
+			uint32_t *d32 = (uint32_t *)dp;
+			for (int32_t x = 0; x < w; x++) {
+				const uint8_t *s = sp + (size_t)x * 3;
+				d32[x] = 0xff000000u | ((uint32_t)s[2] << 16) |
+						 ((uint32_t)s[1] << 8) | (uint32_t)s[0];
+			}
+			break;
+		}
+		case PIX_COPY:
+		default:
 			memcpy(dp, sp, (size_t)w * 4);
+			break;
 		}
 	}
 }
 
 int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,
-						  bool swap_rb, bool y_invert) {
+						  enum pixels_conv conv, bool y_invert) {
+	int32_t dst_stride = pixels_conv_src_bpp(conv) == 3 ? w * 4 : stride;
+	size_t dst_size = pixels_conv_src_bpp(conv) == 3 ? (size_t)dst_stride * (size_t)h
+													 : map_size;
 	out->width = w;
 	out->height = h;
-	out->stride = stride;
-	out->format = pixels_resolved_format(fmt, swap_rb);
-	out->size = map_size;
-	out->bytes = malloc(map_size);
+	out->stride = dst_stride;
+	out->format = pixels_resolved_format(fmt, conv);
+	out->size = dst_size;
+	out->bytes = malloc(dst_size);
 	if (!out->bytes) return -1;
-	pixels_copy(out->bytes, stride, map, stride, w, h, swap_rb, y_invert);
+	pixels_copy(out->bytes, dst_stride, map, stride, w, h, conv, y_invert);
 	return 0;
 }
 
 void pixels_log_advertised(const char *backend,
 						   const uint32_t *advertised, size_t n) {
 	log_error("%s: compositor advertised no supported shm format "
-			  "(want XRGB8888/ARGB8888/XBGR8888/ABGR8888)",
+			  "(want XRGB8888/ARGB8888/XBGR8888/ABGR8888/BGR888/RGB888)",
 			  backend);
 	for (size_t i = 0; i < n; i++) {
 		const char *name = pixels_shm_format_name(advertised[i]);

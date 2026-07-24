@@ -6,7 +6,7 @@
 
 #include "log.h"
 #include "upload/upload.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <ctype.h>
 #include <stdbool.h>

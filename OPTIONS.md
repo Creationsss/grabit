@@ -161,6 +161,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
+| `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
 | `filename` | string | filename template (see "filename templates" below) |
@@ -171,7 +172,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
-| `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river) and falls back to `ext` (KDE Plasma 6). Force one with `wlr` or `ext`. |
+| `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 
 ### region selector
@@ -224,6 +225,7 @@ grabit set keys --reset             # every keybind back to defaults
 
 | key | default | notes |
 |---|---|---|
+| `png.level` | `1` | PNG zlib compression 0–9. `1` is the default because PNG is lossless: higher levels only shrink the file, and level 6 (what cairo used before) costs roughly 2–6x the encode time for ~15–20% less size. Raise it if you care more about upload size than shutter latency. |
 | `jpeg.quality` | `90` | JPEG quality 1–100 |
 | `webp.quality` | `85` | WebP quality 0–100 (ignored when `webp.lossless = true`) |
 | `webp.lossless` | `false` | use WebP lossless mode |
@@ -516,7 +518,9 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 |---|---|
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
-| `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`); takes precedence over the `capture.backend` config key |
+| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log_file` config key |
+| `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
+| `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
 | `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
 | `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and the `%w`/`%t` tokens |
@@ -547,6 +551,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | `~/.config/grabit/plugins/.lock` | plugin install/update lock |
 | `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
+| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log_file false` or `GRABIT_LOG_FILE=0` |
 | `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp`) |
 | `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit_recording.pid`) |
 | `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |

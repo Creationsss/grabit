@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "record/ring.h"
 
+#include "util/util.h"
+
 #include "log.h"
 
 #include <errno.h>
@@ -11,6 +13,14 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+size_t pool_slots_for(size_t buf_size) {
+	if (buf_size == 0) return POOL_CAP;
+	size_t n = POOL_MAX_BYTES / buf_size;
+	if (n > POOL_CAP) n = POOL_CAP;
+	if (n < POOL_MIN) n = POOL_MIN;
+	return n;
+}
 
 int pool_init(struct buf_pool *p, size_t n, size_t buf_size) {
 	if (n == 0 || n > POOL_CAP) return -1;
@@ -133,19 +143,6 @@ void ring_record_drop(struct ring *r) {
 	pthread_mutex_unlock(&r->mu);
 }
 
-static int write_all(int fd, const uint8_t *p, size_t n) {
-	while (n > 0) {
-		ssize_t w = write(fd, p, n);
-		if (w < 0) {
-			if (errno == EINTR) continue;
-			return -1;
-		}
-		p += w;
-		n -= (size_t)w;
-	}
-	return 0;
-}
-
 void *encoder_thread(void *arg) {
 	struct enc_state *e = arg;
 	// GRABIT_RECORD_ENC_DELAY_US throttles the drain rate to reproduce slow-encode.
@@ -162,7 +159,7 @@ void *encoder_thread(void *arg) {
 		if (!e->write_failed && e->write_fd >= 0 && f.data) {
 			size_t row_bytes = (size_t)f.width * 4;
 			if ((size_t)f.stride == row_bytes) {
-				if (write_all(e->write_fd, f.data, row_bytes * (size_t)f.height) < 0) {
+				if (grabit_write_all(e->write_fd, f.data, row_bytes * (size_t)f.height) < 0) {
 					log_error("recording: write to ffmpeg: %s", strerror(errno));
 					e->write_failed = true;
 					if (e->stop) *e->stop = 1;
@@ -170,8 +167,8 @@ void *encoder_thread(void *arg) {
 			} else {
 				const uint8_t *base = f.data;
 				for (int row = 0; row < f.height && !e->write_failed; row++) {
-					if (write_all(e->write_fd, base + (size_t)row * (size_t)f.stride,
-								  row_bytes) < 0) {
+					if (grabit_write_all(e->write_fd, base + (size_t)row * (size_t)f.stride,
+										 row_bytes) < 0) {
 						log_error("recording: write to ffmpeg: %s", strerror(errno));
 						e->write_failed = true;
 						if (e->stop) *e->stop = 1;

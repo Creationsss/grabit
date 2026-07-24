@@ -5,7 +5,7 @@
 
 #include "capture/backend.h"
 #include "log.h"
-#include "wl.h"
+#include "wl/wl.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -18,12 +18,20 @@ void image_free(struct image *img) {
 }
 
 enum capture_backend {
+	CAP_UNSET = -1,
 	CAP_NONE = 0,
 	CAP_WLR = 1,
 	CAP_EXT = 2,
+	CAP_KWIN = 3,
 };
 
-static enum capture_backend pick_backend(struct grabit_wl_state *s) {
+static bool kwin_available(void) {
+	static int cached = -1;
+	if (cached < 0) cached = grabit_kwin_screenshot_available() ? 1 : 0;
+	return cached == 1;
+}
+
+static enum capture_backend pick_backend(const struct grabit_wl_state *s) {
 	bool have_wlr = s->screencopy_manager != NULL;
 	bool have_ext = s->ext_copy_manager && s->ext_source_manager;
 	const char *pref = getenv("GRABIT_CAPTURE_BACKEND");
@@ -42,20 +50,38 @@ static enum capture_backend pick_backend(struct grabit_wl_state *s) {
 		}
 		return CAP_EXT;
 	}
+	if (strcmp(pref, "kwin") == 0) {
+		if (!kwin_available()) {
+			log_error("capture.backend=kwin but org.kde.KWin.ScreenShot2 isn't on the bus");
+			return CAP_NONE;
+		}
+		return CAP_KWIN;
+	}
 	if (have_wlr) return CAP_WLR;
 	if (have_ext) return CAP_EXT;
+	if (kwin_available()) return CAP_KWIN;
 	return CAP_NONE;
 }
 
-static enum capture_backend resolve_backend(struct grabit_wl_state *s) {
-	static bool logged;
-	enum capture_backend b = pick_backend(s);
-	if (!logged && b != CAP_NONE) {
-		logged = true;
+static enum capture_backend resolve_backend(const struct grabit_wl_state *s) {
+	static enum capture_backend cached = CAP_UNSET;
+	if (cached != CAP_UNSET) return cached;
+	cached = pick_backend(s);
+	if (cached != CAP_NONE) {
 		log_debug("capture: using %s backend",
-				  b == CAP_WLR ? "wlr-screencopy" : "ext-image-copy");
+				  cached == CAP_WLR	  ? "wlr-screencopy"
+				  : cached == CAP_EXT ? "ext-image-copy"
+									  : "kwin-screenshot");
 	}
-	return b;
+	return cached;
+}
+
+bool capture_backend_available(const struct grabit_wl_state *s) {
+	return resolve_backend(s) != CAP_NONE;
+}
+
+bool capture_is_streaming_capable(const struct grabit_wl_state *s) {
+	return resolve_backend(s) != CAP_KWIN;
 }
 
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
@@ -66,9 +92,26 @@ int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 		return grabit_wlr_capture_full(s, o, overlay_cursor, out);
 	case CAP_EXT:
 		return grabit_ext_capture_full(s, o, overlay_cursor, out);
+	case CAP_KWIN:
+		return grabit_kwin_capture_full(s, o, overlay_cursor, out);
 	default:
 		return -1;
 	}
+}
+
+int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,
+						 size_t n, bool overlay_cursor, struct image *out) {
+	if (!s || !outs || !out || n == 0) return -1;
+	if (resolve_backend(s) == CAP_WLR)
+		return grabit_wlr_capture_many(s, outs, n, overlay_cursor, out);
+	for (size_t i = 0; i < n; i++) {
+		if (capture_output_full(s, outs[i], overlay_cursor, &out[i]) != 0) {
+			for (size_t j = 0; j < i; j++)
+				image_free(&out[j]);
+			return -1;
+		}
+	}
+	return 0;
 }
 
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,

@@ -25,12 +25,14 @@ static size_t curl_to_file(void *ptr, size_t sz, size_t nm, void *ud) {
 
 static bool ip_is_internal(const char *ip) {
 	if (!ip) return false;
+	if (strncasecmp(ip, "::ffff:", 7) == 0 && strchr(ip + 7, '.')) ip += 7;
 	unsigned a, b, c, d;
 	if (sscanf(ip, "%u.%u.%u.%u", &a, &b, &c, &d) == 4) {
 		if (a == 127 || a == 0 || a == 10) return true;
 		if (a == 169 && b == 254) return true;
 		if (a == 172 && b >= 16 && b <= 31) return true;
 		if (a == 192 && b == 168) return true;
+		if (a == 100 && b >= 64 && b <= 127) return true;
 		return false;
 	}
 	if (strcmp(ip, "::1") == 0 || strncmp(ip, "fe80:", 5) == 0 ||

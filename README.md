@@ -2,7 +2,7 @@
 
 screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.
 
-works on: hyprland, sway, niri, river, kde plasma 6. not supported: x11, gnome.
+works on: hyprland, sway, niri, river. kde plasma 6 is screenshots-only. not supported: x11, gnome.
 
 ## install
 

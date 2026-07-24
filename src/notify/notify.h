@@ -15,6 +15,7 @@ struct notify_opts {
 	const char *body;
 	const char *icon_path;
 	bool force;
+	bool log_hint;
 };
 
 void notify_send(const struct notify_opts *o);

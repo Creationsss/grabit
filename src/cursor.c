@@ -53,17 +53,17 @@ struct wl_cursor_theme *grabit_cursor_theme_load(struct wl_shm *shm, int32_t sca
 			theme_size = (int32_t)v;
 		}
 	}
-	
+
 	if (theme_name) theme_name_alloc = strdup(theme_name);
 	get_gtk_cursor_settings(&theme_name_alloc, &theme_size);
-	
+
 	if (scale < 1) scale = 1;
 
 	char new_path[4096] = "";
 	const char *old = getenv("XCURSOR_PATH");
 	if (old) snprintf(new_path, sizeof(new_path), "%s:", old);
 	strncat(new_path, "~/.icons:~/.local/share/icons:/usr/share/icons:/usr/share/pixmaps", sizeof(new_path) - strlen(new_path) - 1);
-	
+
 	const char *xdg = getenv("XDG_DATA_DIRS");
 	if (xdg) {
 		char xcopy[4096];
@@ -75,25 +75,25 @@ struct wl_cursor_theme *grabit_cursor_theme_load(struct wl_shm *shm, int32_t sca
 			snprintf(new_path + len, sizeof(new_path) - len, ":%s/icons", p);
 		}
 	}
-	
+
 	struct wl_cursor_theme *t = NULL;
 	char *old_copy = old ? strdup(old) : NULL;
 	setenv("XCURSOR_PATH", new_path, 1);
-	
+
 	t = wl_cursor_theme_load(theme_name_alloc, theme_size * scale, shm);
 	if (!t && (!theme_name_alloc || strcmp(theme_name_alloc, "default") != 0)) {
 		t = wl_cursor_theme_load("default", theme_size * scale, shm);
 	}
-	
+
 	if (old_copy) {
 		setenv("XCURSOR_PATH", old_copy, 1);
 		free(old_copy);
 	} else {
 		unsetenv("XCURSOR_PATH");
 	}
-	
+
 	if (theme_name_alloc) free(theme_name_alloc);
-	
+
 	return t;
 }
 
@@ -216,7 +216,7 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 
 	char *theme_alloc = NULL;
 	const char *theme = getenv("XCURSOR_THEME");
-	
+
 	int32_t theme_size = DEFAULT_CURSOR_SIZE;
 	const char *size_env = getenv("XCURSOR_SIZE");
 	if (size_env && *size_env) {
@@ -226,10 +226,10 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 			theme_size = (int32_t)v;
 		}
 	}
-	
+
 	if (theme) theme_alloc = strdup(theme);
 	get_gtk_cursor_settings(&theme_alloc, &theme_size);
-	
+
 	if (theme_alloc) {
 		theme = theme_alloc;
 	} else if (!theme || !*theme) {
@@ -241,21 +241,21 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 
 	const char *home = getenv("HOME");
 	char path[512];
-	
+
 	const char *themes[] = {theme, "default", "Adwaita", "breeze_cursors", "DMZ-White"};
-	
+
 	for (int t = 0; t < 5; t++) {
 		if (t > 0 && strcmp(theme, themes[t]) == 0) continue;
-		
+
 		const char *search_path = getenv("XCURSOR_PATH");
 		if (!search_path || !*search_path) {
 			search_path = "~/.icons:~/.local/share/icons:/usr/share/icons:/usr/share/pixmaps";
 		}
-		
+
 		char paths[2048];
 		strncpy(paths, search_path, sizeof(paths) - 1);
 		paths[sizeof(paths) - 1] = '\0';
-		
+
 		char *saveptr1;
 		for (char *p = strtok_r(paths, ":", &saveptr1); p != NULL; p = strtok_r(NULL, ":", &saveptr1)) {
 			if (p[0] == '~') {
@@ -269,7 +269,7 @@ void grabit_cursor_read_raw(const char *name, int32_t scale, struct raw_cursor_i
 				return;
 			}
 		}
-		
+
 		const char *xdg_data = getenv("XDG_DATA_DIRS");
 		if (xdg_data && *xdg_data) {
 			strncpy(paths, xdg_data, sizeof(paths) - 1);

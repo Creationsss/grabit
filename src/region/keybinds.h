@@ -25,12 +25,15 @@ enum region_action {
 	KA_CANCEL,
 	KA_SELECT_ALL,
 	KA_UNDO,
+	KA_REDO,
+	KA_DELETE,
 	KA_EDIT_MODE,
 	KA_REGION_MODE,
 	KA_NUDGE_LEFT,
 	KA_NUDGE_RIGHT,
 	KA_NUDGE_UP,
 	KA_NUDGE_DOWN,
+	KA_MAGNIFIER,
 	KA_COUNT,
 };
 
@@ -57,6 +60,8 @@ void region_keymap_init(struct region_keymap *km, struct config *cfg);
 
 bool region_key_action(const struct region_keymap *km, enum region_action act,
 					   xkb_keysym_t sym, uint8_t mods);
+bool region_action_matches_sym(const struct region_keymap *km, enum region_action act,
+							   xkb_keysym_t sym);
 bool region_button_action(const struct region_keymap *km, enum region_action act,
 						  uint32_t button);
 int32_t region_key_tool(const struct region_keymap *km, xkb_keysym_t sym, uint8_t mods);
@@ -69,6 +74,7 @@ void region_keybind_format(const struct keybind *b, char *out, size_t n);
 bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
 							   struct xkb_keymap **km, struct xkb_state **state);
 uint8_t region_xkb_mods(struct xkb_state *state);
+uint8_t gkb_mod_from_name(const char *name);
 
 struct grabit_wl_state;
 int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,

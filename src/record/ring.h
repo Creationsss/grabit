@@ -12,6 +12,8 @@
 
 #define RING_CAP 16
 #define POOL_CAP (RING_CAP + 2)
+#define POOL_MIN 6
+#define POOL_MAX_BYTES ((size_t)192 * 1024 * 1024)
 
 struct buf_pool {
 	void *slots[POOL_CAP];
@@ -21,6 +23,7 @@ struct buf_pool {
 	pthread_mutex_t mu;
 };
 
+size_t pool_slots_for(size_t buf_size);
 int pool_init(struct buf_pool *p, size_t n, size_t buf_size);
 void pool_destroy(struct buf_pool *p);
 void *pool_try_acquire(struct buf_pool *p);

@@ -86,7 +86,7 @@ static void append_variant_tooltip(DBusMessageIter *parent) {
 	dbus_message_iter_open_container(&v, DBUS_TYPE_STRUCT, NULL, &st);
 	const char *empty = "";
 	const char *name = "grabit";
-	const char *body = "Left-click: Stop | Right-click: Menu";
+	const char *body = "Left click to stop, Right click for options";
 	dbus_message_iter_append_basic(&st, DBUS_TYPE_STRING, &empty);
 	dbus_message_iter_open_container(&st, DBUS_TYPE_ARRAY, "(iiay)", &pixmap);
 	dbus_message_iter_close_container(&st, &pixmap);

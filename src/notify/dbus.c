@@ -49,7 +49,7 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	const char *icon = o->icon_path ? o->icon_path : "";
 	const char *summary = o->summary;
 	const char *body = o->body ? o->body : "";
-	if ((o->log_hint || o->force) && log_file_enabled()) {
+	if (o->log_hint && log_file_enabled()) {
 		snprintf(body_buf, sizeof body_buf, "%s%scheck the log file",
 				 body, body[0] ? "\n" : "");
 		body = body_buf;

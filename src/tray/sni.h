@@ -6,6 +6,6 @@
 
 #include <signal.h>
 
-int sni_run(volatile sig_atomic_t *stop);
+int sni_run(volatile sig_atomic_t *stop, volatile sig_atomic_t *layout_update);
 
 #endif

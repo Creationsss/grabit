@@ -22,17 +22,29 @@ struct tray_state {
 };
 
 static volatile sig_atomic_t g_tray_stop = 0;
+static volatile sig_atomic_t g_tray_layout_update = 0;
 
 static void tray_signal(int sig) {
 	(void)sig;
 	g_tray_stop = 1;
 }
 
+static void tray_layout_signal(int sig) {
+	(void)sig;
+	g_tray_layout_update = 1;
+}
+
 static void install_signals(void) {
 	grabit_install_signal_handler(SIGTERM, tray_signal);
 	grabit_install_signal_handler(SIGINT, tray_signal);
 	grabit_install_signal_handler(SIGHUP, tray_signal);
+	grabit_install_signal_handler(SIGUSR2, tray_layout_signal);
+
 	grabit_ignore_signal(SIGPIPE);
+}
+
+pid_t tray_get_pid(const struct tray_state *t) {
+	return t ? t->pid : 0;
 }
 
 struct tray_state *tray_start(void) {
@@ -54,7 +66,7 @@ struct tray_state *tray_start(void) {
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
 		if (getppid() == 1) _exit(0);
 		install_signals();
-		sni_run(&g_tray_stop);
+		sni_run(&g_tray_stop, &g_tray_layout_update);
 		_exit(0);
 	}
 	(void)setpgid(pid, pid);

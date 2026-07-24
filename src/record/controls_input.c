@@ -12,7 +12,7 @@
 #include <wayland-client.h>
 
 static int btn_at(int32_t x, int32_t y) {
-	for (int b = 0; b < 3; b++) {
+	for (int b = 0; b < 4; b++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(b, &bx, &by, &bw, &bh);
 		if (rect_contains((struct rect){bx, by, bw, bh}, x, y)) return b;
@@ -75,8 +75,6 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	if (!c->ptr_on) return;
 	c->cx = c->ptr_on->go->x + wl_fixed_to_int(sx);
 	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
-	if (c->dragging)
-		bar_move_to(c, c->cx - c->grab_dx, c->cy - c->grab_dy);
 }
 
 static void drag_end(struct rec_controls *c) {
@@ -107,11 +105,11 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	case CB_BTN_STOP:
 		atomic_store(c->stop_flag, 1);
 		break;
+	case CB_BTN_ABORT:
+		atomic_store(c->abort_flag, 1);
+		atomic_store(c->stop_flag, 1);
+		break;
 	default:
-		c->dragging = true;
-		c->grab_dx = c->cx - c->bx;
-		c->grab_dy = c->cy - c->by;
-		commit_input_regions(c);
 		break;
 	}
 }

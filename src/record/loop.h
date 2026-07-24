@@ -14,13 +14,22 @@ struct buf_pool;
 struct seg_ctx;
 struct rec_controls;
 
-extern atomic_int grabit_rec_stop;
-extern atomic_int grabit_rec_pause;
+extern atomic_int *grabit_rec_stop_ptr;
+extern atomic_int *grabit_rec_pause_ptr;
+extern atomic_int *grabit_rec_abort_ptr;
+
+#define grabit_rec_stop (*grabit_rec_stop_ptr)
+#define grabit_rec_pause (*grabit_rec_pause_ptr)
+#define grabit_rec_abort (*grabit_rec_abort_ptr)
+
+void loop_init_shared(void);
+void loop_set_tray_pid(pid_t pid);
 
 struct prev_sigs {
 	struct sigaction sigint;
 	struct sigaction sigterm;
 	struct sigaction sighup;
+	struct sigaction sigquit;
 	struct sigaction sigusr1;
 	struct sigaction sigpipe;
 };

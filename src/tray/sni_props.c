@@ -41,6 +41,7 @@ const char gsni_introspect_xml[] =
 	"  <property name=\"AttentionIconName\" type=\"s\" access=\"read\"/>"
 	"  <property name=\"AttentionIconPixmap\" type=\"a(iiay)\" access=\"read\"/>"
 	"  <property name=\"ToolTip\" type=\"(sa(iiay)ss)\" access=\"read\"/>"
+	"  <property name=\"Menu\" type=\"o\" access=\"read\"/>"
 	"  <property name=\"ItemIsMenu\" type=\"b\" access=\"read\"/>"
 	"  <property name=\"WindowId\" type=\"u\" access=\"read\"/>"
 	"  <method name=\"Activate\"><arg type=\"i\"/><arg type=\"i\"/></method>"
@@ -85,7 +86,7 @@ static void append_variant_tooltip(DBusMessageIter *parent) {
 	dbus_message_iter_open_container(&v, DBUS_TYPE_STRUCT, NULL, &st);
 	const char *empty = "";
 	const char *name = "grabit";
-	const char *body = "recording; click to stop";
+	const char *body = "Left-click: Stop | Right-click: Menu";
 	dbus_message_iter_append_basic(&st, DBUS_TYPE_STRING, &empty);
 	dbus_message_iter_open_container(&st, DBUS_TYPE_ARRAY, "(iiay)", &pixmap);
 	dbus_message_iter_close_container(&st, &pixmap);
@@ -142,6 +143,14 @@ bool gsni_append_property_value(DBusMessageIter *parent, const char *name,
 		append_variant_tooltip(parent);
 		return true;
 	}
+	if (strcmp(name, "Menu") == 0) {
+		const char *path = "/MenuBar";
+		DBusMessageIter v;
+		dbus_message_iter_open_container(parent, DBUS_TYPE_VARIANT, "o", &v);
+		dbus_message_iter_append_basic(&v, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_close_container(parent, &v);
+		return true;
+	}
 	return false;
 }
 
@@ -157,6 +166,7 @@ const char *const gsni_all_prop_names[] = {
 	"AttentionIconName",
 	"AttentionIconPixmap",
 	"ToolTip",
+	"Menu",
 	"ItemIsMenu",
 	"WindowId",
 	NULL,

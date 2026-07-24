@@ -52,7 +52,7 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	cairo_move_to(cr, CB_PAD + CB_DOT_W + 4, cy - ext.height / 2.0 - ext.y_bearing);
 	cairo_show_text(cr, tbuf);
 
-	for (int btn = 0; btn < 3; btn++) {
+	for (int btn = 0; btn < 4; btn++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(btn, &bx, &by, &bw, &bh);
 		bool enabled = (btn == CB_BTN_START)   ? c->paused
@@ -64,6 +64,8 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 			cairo_set_source_rgba(cr, 0.20, 0.58, 0.32, aa);
 		} else if (btn == CB_BTN_PAUSE) {
 			cairo_set_source_rgba(cr, 0.18, 0.18, 0.18, enabled ? 0.94 : 0.35);
+		} else if (btn == CB_BTN_ABORT) {
+			cairo_set_source_rgba(cr, 0.72, 0.15, 0.15, aa);
 		} else {
 			cairo_set_source_rgba(cr, 0.62, 0.22, 0.22, aa);
 		}
@@ -85,6 +87,14 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 			cairo_rectangle(cr, bcx - s, bcy - s, s * 0.72, s * 2.0);
 			cairo_rectangle(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0);
 			cairo_fill(cr);
+		} else if (btn == CB_BTN_ABORT) {
+			double arm = s * 0.75;
+			cairo_set_line_width(cr, 2.0);
+			cairo_move_to(cr, bcx - arm, bcy - arm);
+			cairo_line_to(cr, bcx + arm, bcy + arm);
+			cairo_move_to(cr, bcx + arm, bcy - arm);
+			cairo_line_to(cr, bcx - arm, bcy + arm);
+			cairo_stroke(cr);
 		} else {
 			cairo_rectangle(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8);
 			cairo_fill(cr);

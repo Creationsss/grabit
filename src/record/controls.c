@@ -85,6 +85,49 @@ static bool try_output(const struct grabit_output *o, struct rect r,
 	return false;
 }
 
+static bool try_place_near_region(const struct grabit_output *o, struct rect r,
+								  int32_t w, int32_t h, int32_t *bx, int32_t *by) {
+	int32_t x_centered = r.x + (r.w - w) / 2;
+	if (x_centered < o->x + CB_EDGE_GAP) x_centered = o->x + CB_EDGE_GAP;
+	if (x_centered + w > o->x + o->logical_width - CB_EDGE_GAP)
+		x_centered = o->x + o->logical_width - CB_EDGE_GAP - w;
+
+	int32_t space_above = (r.y - o->y);
+	int32_t space_below = ((o->y + o->logical_height) - (r.y + r.h));
+
+	if (space_below >= h + 2 * CB_EDGE_GAP) {
+		*bx = x_centered;
+		*by = r.y + r.h + CB_EDGE_GAP;
+		return true;
+	}
+	if (space_above >= h + 2 * CB_EDGE_GAP) {
+		*bx = x_centered;
+		*by = r.y - h - CB_EDGE_GAP;
+		return true;
+	}
+
+	int32_t y_centered = r.y + (r.h - h) / 2;
+	if (y_centered < o->y + CB_EDGE_GAP) y_centered = o->y + CB_EDGE_GAP;
+	if (y_centered + h > o->y + o->logical_height - CB_EDGE_GAP)
+		y_centered = o->y + o->logical_height - CB_EDGE_GAP - h;
+
+	int32_t space_left = (r.x - o->x);
+	int32_t space_right = ((o->x + o->logical_width) - (r.x + r.w));
+
+	if (space_right >= w + 2 * CB_EDGE_GAP) {
+		*bx = r.x + r.w + CB_EDGE_GAP;
+		*by = y_centered;
+		return true;
+	}
+	if (space_left >= w + 2 * CB_EDGE_GAP) {
+		*bx = r.x - w - CB_EDGE_GAP;
+		*by = y_centered;
+		return true;
+	}
+
+	return false;
+}
+
 static bool place_bar(struct grabit_wl_state *s, struct rect r,
 					  int32_t w, int32_t h, int32_t *bx, int32_t *by) {
 	const struct grabit_output *cur = NULL;
@@ -95,17 +138,21 @@ static bool place_bar(struct grabit_wl_state *s, struct rect r,
 	if (!cur) cur = grabit_wl_primary_output(s);
 	if (!cur) return false;
 
+	if (try_place_near_region(cur, r, w, h, bx, by)) return true;
 	if (try_output(cur, r, w, h, bx, by)) return true;
+
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		const struct grabit_output *o = s->outputs[i];
 		if (o == cur) continue;
+		if (try_place_near_region(o, r, w, h, bx, by)) return true;
 		if (try_output(o, r, w, h, bx, by)) return true;
 	}
 	return false;
 }
 
 struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
-									atomic_int *stop_flag, atomic_int *pause_flag) {
+									atomic_int *stop_flag, atomic_int *pause_flag,
+									atomic_int *abort_flag) {
 	if (!s || !s->layer_shell || !s->compositor || !s->shm || s->n_outputs == 0)
 		return NULL;
 
@@ -126,6 +173,7 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 	c->by = by;
 	c->stop_flag = stop_flag;
 	c->pause_flag = pause_flag;
+	c->abort_flag = abort_flag;
 	grabit_wl_outputs_bbox(s, &c->bounds);
 
 	c->outs = calloc(s->n_outputs, sizeof *c->outs);

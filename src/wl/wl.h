@@ -51,6 +51,8 @@ struct grabit_wl_state {
 	struct ext_data_control_manager_v1 *ext_data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
+	struct wp_viewporter *viewporter;
+	struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
 	struct ext_output_image_capture_source_manager_v1 *ext_source_manager;
 

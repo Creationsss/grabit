@@ -17,6 +17,8 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 void pin_render_output_free(struct pin_output *o) {
@@ -112,8 +114,11 @@ void pin_render_output_redraw(struct pin_output *o) {
 	struct pin_state *st = o->st;
 	o->dirty = false;
 
-	int32_t pixel_w = o->width * o->scale;
-	int32_t pixel_h = o->height * o->scale;
+	bool frac = o->frac_scale > 0;
+	uint32_t scale_120 = frac ? o->frac_scale : (uint32_t)o->scale * 120;
+	double scale = scale_120 / 120.0;
+	int32_t pixel_w = (int32_t)((o->width * scale_120 + 60) / 120);
+	int32_t pixel_h = (int32_t)((o->height * scale_120 + 60) / 120);
 	if (pixel_w <= 0 || pixel_h <= 0) return;
 
 	struct grabit_shm_slot *slot = grabit_shm_pool_next(
@@ -133,14 +138,14 @@ void pin_render_output_redraw(struct pin_output *o) {
 		double sx = st->img_w > 0 ? (double)st->width / (double)st->img_w : 1.0;
 		double sy = st->img_h > 0 ? (double)st->height / (double)st->img_h : 1.0;
 		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-		cairo_scale(cr, o->scale, o->scale);
+		cairo_scale(cr, scale, scale);
 		cairo_scale(cr, sx, sy);
 		cairo_set_source_surface(cr, st->image, 0, 0);
 		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
 		cairo_paint(cr);
 		cairo_restore(cr);
 
-		cairo_scale(cr, o->scale, o->scale);
+		cairo_scale(cr, scale, scale);
 		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 		if (st->input_grabbed && st->width > 0)
 			draw_close_button(cr, st->width);
@@ -154,7 +159,12 @@ void pin_render_output_redraw(struct pin_output *o) {
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
-	wl_surface_set_buffer_scale(o->surface, o->scale);
+	if (frac) {
+		wl_surface_set_buffer_scale(o->surface, 1);
+		wp_viewport_set_destination(o->viewport, o->width, o->height);
+	} else {
+		wl_surface_set_buffer_scale(o->surface, o->scale);
+	}
 	wl_surface_attach(o->surface, slot->buf.buffer, 0, 0);
 	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
 	wl_surface_commit(o->surface);
@@ -165,6 +175,29 @@ static void output_request_redraw(struct pin_output *o) {
 	o->dirty = true;
 	if (o->frame_cb) return;
 	pin_render_output_redraw(o);
+}
+
+static void fractional_preferred_scale(void *data,
+									   struct wp_fractional_scale_v1 *f,
+									   uint32_t scale) {
+	(void)f;
+	struct pin_output *o = data;
+	if (o->frac_scale == scale) return;
+	o->frac_scale = scale;
+	output_request_redraw(o);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_listener_g = {
+	.preferred_scale = fractional_preferred_scale,
+};
+
+void pin_render_create_fractional(struct pin_output *o) {
+	struct grabit_wl_state *wls = o->st->wls;
+	if (!wls->viewporter || !wls->fractional_scale_manager) return;
+	o->viewport = wp_viewporter_get_viewport(wls->viewporter, o->surface);
+	o->fractional = wp_fractional_scale_manager_v1_get_fractional_scale(
+		wls->fractional_scale_manager, o->surface);
+	wp_fractional_scale_v1_add_listener(o->fractional, &fractional_listener_g, o);
 }
 
 void pin_render_redraw_all(struct pin_state *st) {

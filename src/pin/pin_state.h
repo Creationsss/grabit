@@ -19,6 +19,8 @@ struct grabit_wl_state;
 struct zwlr_layer_surface_v1;
 struct wl_cursor;
 struct wl_cursor_theme;
+struct wp_fractional_scale_v1;
+struct wp_viewport;
 struct pin_state;
 
 struct pin_output {
@@ -26,10 +28,13 @@ struct pin_output {
 	struct grabit_output *go;
 	struct wl_surface *surface;
 	struct zwlr_layer_surface_v1 *layer;
+	struct wp_viewport *viewport;
+	struct wp_fractional_scale_v1 *fractional;
 	struct grabit_shm_pool pool;
 	int32_t width;
 	int32_t height;
 	int32_t scale;
+	uint32_t frac_scale;
 	bool configured;
 	bool dirty;
 	struct wl_callback *frame_cb;
@@ -104,6 +109,7 @@ void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);
 void pin_render_move_all(struct pin_state *st);
 int pin_render_create_layer(struct pin_output *o);
+void pin_render_create_fractional(struct pin_output *o);
 
 void pin_sync_outputs(struct pin_state *st);
 void pin_outputs_finish(struct pin_state *st);

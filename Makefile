@@ -46,6 +46,8 @@ ifeq ($(HAVE_WEBP),1)
 endif
 
 WL_PROTOCOLS := \
+	viewporter \
+	fractional-scale-v1 \
 	wlr-screencopy-unstable-v1 \
 	wlr-data-control-unstable-v1 \
 	ext-data-control-v1 \

@@ -10,10 +10,14 @@
 
 #include <wayland-client.h>
 
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static void pin_output_destroy(struct pin_output *o) {
 	pin_render_output_free(o);
+	if (o->fractional) wp_fractional_scale_v1_destroy(o->fractional);
+	if (o->viewport) wp_viewport_destroy(o->viewport);
 	if (o->layer) zwlr_layer_surface_v1_destroy(o->layer);
 	if (o->surface) wl_surface_destroy(o->surface);
 	free(o);
@@ -35,6 +39,7 @@ static int pin_output_create(struct pin_state *st, struct grabit_output *go) {
 		free(o);
 		return -1;
 	}
+	pin_render_create_fractional(o);
 	grabit_wl_clear_input_region(st->wls->compositor, o->surface);
 	wl_surface_commit(o->surface);
 	st->outs[st->n++] = o;

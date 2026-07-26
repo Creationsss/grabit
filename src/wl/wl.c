@@ -133,6 +133,9 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	s->outputs = NULL;
 	s->n_outputs = s->cap_outputs = 0;
 
+	if (s->viewporter) wp_viewporter_destroy(s->viewporter);
+	if (s->fractional_scale_manager)
+		wp_fractional_scale_manager_v1_destroy(s->fractional_scale_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);

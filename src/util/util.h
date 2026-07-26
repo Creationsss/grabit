@@ -51,6 +51,22 @@ int grabit_shm_argb_buf(struct wl_shm *shm, const char *tag,
 void grabit_shm_buf_destroy(struct grabit_shm_buf *b);
 void grabit_shm_release(struct wl_buffer **buf, void **map, size_t *size);
 
+struct grabit_shm_slot {
+	struct grabit_shm_buf buf;
+	int32_t w;
+	int32_t h;
+	bool busy;
+};
+
+struct grabit_shm_pool {
+	struct grabit_shm_slot slots[2];
+};
+
+struct grabit_shm_slot *grabit_shm_pool_next(struct wl_shm *shm, const char *tag,
+											 struct grabit_shm_pool *p,
+											 int32_t pixel_w, int32_t pixel_h);
+void grabit_shm_pool_finish(struct grabit_shm_pool *p);
+
 void grabit_redirect_stdio_devnull(void);
 
 struct grabit_buf {

@@ -12,6 +12,7 @@
 #include <wayland-client.h>
 
 #include "region/region.h"
+#include "util/util.h"
 
 struct grabit_output;
 struct grabit_wl_state;
@@ -25,14 +26,9 @@ struct pin_output {
 	struct grabit_output *go;
 	struct wl_surface *surface;
 	struct zwlr_layer_surface_v1 *layer;
-	struct wl_buffer *buffer;
-	void *buf_data;
-	size_t buf_size;
-	cairo_surface_t *dst;
+	struct grabit_shm_pool pool;
 	int32_t width;
 	int32_t height;
-	int32_t pixel_w;
-	int32_t pixel_h;
 	int32_t scale;
 	bool configured;
 	bool dirty;
@@ -101,7 +97,6 @@ static inline struct rect pin_rect(const struct pin_state *st) {
 	return (struct rect){st->px, st->py, st->width, st->height};
 }
 
-int pin_render_output_alloc(struct pin_output *o);
 void pin_render_output_free(struct pin_output *o);
 void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);

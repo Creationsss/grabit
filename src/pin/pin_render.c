@@ -19,36 +19,9 @@
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-int pin_render_output_alloc(struct pin_output *o) {
-	o->pixel_w = o->width * o->scale;
-	o->pixel_h = o->height * o->scale;
-	if (o->pixel_w <= 0 || o->pixel_h <= 0) return -1;
-
-	struct grabit_shm_buf b;
-	if (grabit_shm_argb_buf(o->st->wls->shm, "grabit-pin",
-							o->pixel_w, o->pixel_h, &b) != 0) {
-		return -1;
-	}
-	o->buffer = b.buffer;
-	o->buf_data = b.map;
-	o->buf_size = b.size;
-	o->dst = grabit_cairo_image_argb(o->buf_data, o->pixel_w, o->pixel_h,
-									 o->pixel_w * 4);
-	if (!o->dst) {
-		grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
-		return -1;
-	}
-	wl_surface_set_buffer_scale(o->surface, o->scale);
-	return 0;
-}
-
 void pin_render_output_free(struct pin_output *o) {
 	grabit_wl_callback_drop(&o->frame_cb);
-	if (o->dst) {
-		cairo_surface_destroy(o->dst);
-		o->dst = NULL;
-	}
-	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+	grabit_shm_pool_finish(&o->pool);
 }
 
 static void draw_close_button(cairo_t *cr, int32_t width) {
@@ -139,9 +112,21 @@ void pin_render_output_redraw(struct pin_output *o) {
 	struct pin_state *st = o->st;
 	o->dirty = false;
 
-	if (!o->buf_data && pin_render_output_alloc(o) != 0) return;
+	int32_t pixel_w = o->width * o->scale;
+	int32_t pixel_h = o->height * o->scale;
+	if (pixel_w <= 0 || pixel_h <= 0) return;
 
-	cairo_t *cr = cairo_create(o->dst);
+	struct grabit_shm_slot *slot = grabit_shm_pool_next(
+		st->wls->shm, "grabit-pin", &o->pool, pixel_w, pixel_h);
+	if (!slot) {
+		o->dirty = true;
+		return;
+	}
+	cairo_surface_t *dst = grabit_cairo_image_argb(slot->buf.map, pixel_w,
+												   pixel_h, pixel_w * 4);
+	if (!dst) return;
+
+	cairo_t *cr = cairo_create(dst);
 
 	if (st->image) {
 		cairo_save(cr);
@@ -164,13 +149,16 @@ void pin_render_output_redraw(struct pin_output *o) {
 	}
 
 	cairo_destroy(cr);
-	cairo_surface_flush(o->dst);
+	cairo_surface_flush(dst);
+	cairo_surface_destroy(dst);
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
-	wl_surface_damage_buffer(o->surface, 0, 0, o->pixel_w, o->pixel_h);
+	wl_surface_set_buffer_scale(o->surface, o->scale);
+	wl_surface_attach(o->surface, slot->buf.buffer, 0, 0);
+	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
 	wl_surface_commit(o->surface);
+	slot->busy = true;
 }
 
 static void output_request_redraw(struct pin_output *o) {
@@ -201,11 +189,6 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	if (w > 0) o->width = (int32_t)w;
 	if (h > 0) o->height = (int32_t)h;
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
-
-	int32_t want_pw = o->width * o->scale;
-	int32_t want_ph = o->height * o->scale;
-	if (o->buf_data && (want_pw != o->pixel_w || want_ph != o->pixel_h))
-		pin_render_output_free(o);
 	o->configured = true;
 	pin_input_apply_region(o);
 	pin_render_output_redraw(o);

@@ -22,14 +22,10 @@ void ctl_apply_input_region(struct ctl_output *o) {
 	struct rec_controls *c = o->st;
 	struct wl_region *reg = wl_compositor_create_region(c->wls->compositor);
 	if (!reg) return;
-	if (c->dragging) {
-		wl_region_add(reg, 0, 0, o->width, o->height);
-	} else {
-		struct rect b = ctl_bar_rect(c);
-		int32_t ix, iy, iw, ih;
-		if (grabit_output_rect_intersect(o->go, &b, &ix, &iy, &iw, &ih))
-			wl_region_add(reg, ix - o->go->x, iy - o->go->y, iw, ih);
-	}
+	struct rect b = ctl_bar_rect(c);
+	int32_t ix, iy, iw, ih;
+	if (grabit_output_rect_intersect(o->go, &b, &ix, &iy, &iw, &ih))
+		wl_region_add(reg, ix - o->go->x, iy - o->go->y, iw, ih);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
 }
@@ -92,8 +88,8 @@ static bool try_place_near_region(const struct grabit_output *o, struct rect r,
 	if (x_centered + w > o->x + o->logical_width - CB_EDGE_GAP)
 		x_centered = o->x + o->logical_width - CB_EDGE_GAP - w;
 
-	int32_t space_above = (r.y - o->y);
-	int32_t space_below = ((o->y + o->logical_height) - (r.y + r.h));
+	int32_t space_above = r.y - o->y;
+	int32_t space_below = o->y + o->logical_height - (r.y + r.h);
 
 	if (space_below >= h + 2 * CB_EDGE_GAP) {
 		*bx = x_centered;
@@ -111,8 +107,8 @@ static bool try_place_near_region(const struct grabit_output *o, struct rect r,
 	if (y_centered + h > o->y + o->logical_height - CB_EDGE_GAP)
 		y_centered = o->y + o->logical_height - CB_EDGE_GAP - h;
 
-	int32_t space_left = (r.x - o->x);
-	int32_t space_right = ((o->x + o->logical_width) - (r.x + r.w));
+	int32_t space_left = r.x - o->x;
+	int32_t space_right = o->x + o->logical_width - (r.x + r.w);
 
 	if (space_right >= w + 2 * CB_EDGE_GAP) {
 		*bx = r.x + r.w + CB_EDGE_GAP;
@@ -174,7 +170,6 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 	c->stop_flag = stop_flag;
 	c->pause_flag = pause_flag;
 	c->abort_flag = abort_flag;
-	grabit_wl_outputs_bbox(s, &c->bounds);
 
 	c->outs = calloc(s->n_outputs, sizeof *c->outs);
 	if (!c->outs) {

@@ -25,6 +25,7 @@ int grabit_runtime_dir(char *out, size_t cap);
 int grabit_write_all(int fd, const void *buf, size_t n);
 bool grabit_process_alive(pid_t pid);
 bool grabit_is_grabit_process(pid_t pid);
+int grabit_self_exe(char *out, size_t cap);
 
 int grabit_waitpid_intr(pid_t pid, int *status);
 

@@ -5,12 +5,9 @@
 #include "config/config.h"
 
 #include "config/internal.h"
-#include "log.h"
 #include "region/keybinds.h"
-#include "util/util.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 
 static const char *BOOL_KEYS[] = {
@@ -20,6 +17,7 @@ static const char *BOOL_KEYS[] = {
 	"also_save",
 	"webp.lossless",
 	"recording.cursor",
+	"recording.tray",
 	"sound.enabled",
 	"capture.cursor",
 	"region.window_snap",
@@ -199,7 +197,8 @@ static bool valid_recording_key(const char *key) {
 	return strcmp(leaf, "fps") == 0 || strcmp(leaf, "crf") == 0 ||
 		   strcmp(leaf, "max_size_mb") == 0 || strcmp(leaf, "cursor") == 0 ||
 		   strcmp(leaf, "ffmpeg") == 0 || strcmp(leaf, "preset") == 0 ||
-		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0;
+		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0 ||
+		   strcmp(leaf, "tray") == 0;
 }
 
 bool cfg_key_is_known(const char *key) {

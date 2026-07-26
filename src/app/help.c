@@ -61,6 +61,7 @@ int gapp_print_help(void) {
 		"  --record            toggle screen recording\n"
 		"  --pin               pin a capture to the desktop\n"
 		"  --grab, --release, --close-all   manage existing pins\n"
+		"  --tray              toggle the persistent tray icon (background process)\n"
 		"  --tesseract         OCR a region to the clipboard\n"
 		"  --translate[=lang]  with --tesseract: copy the translation instead\n"
 		"\n"

@@ -96,6 +96,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			if (set_action(out, ACTION_PIN_CLOSE_ALL, arg) != 0) return -1;
 			continue;
 		}
+		if (strcmp(arg, "--tray") == 0) {
+			if (set_action(out, ACTION_TRAY, arg) != 0) return -1;
+			continue;
+		}
 
 		if (strcmp(arg, "-e") == 0 ||
 			strcmp(arg, "--edit") == 0) {

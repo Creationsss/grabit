@@ -31,6 +31,7 @@
 #include "region/edit_persist.h"
 #include "region/region.h"
 #include "sound/sound.h"
+#include "tray/apptray.h"
 #include "upload/upload.h"
 #include "util/util.h"
 #include "wl/wl.h"
@@ -112,6 +113,9 @@ static int run(const struct args *a) {
 		break;
 	case ACTION_PIN_CLOSE_ALL:
 		rc = pin_close_all();
+		break;
+	case ACTION_TRAY:
+		rc = tray_app_run();
 		break;
 	default:
 		log_error("no action specified; try -u, -c, -o, --pin, --record, or --tesseract");

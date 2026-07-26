@@ -52,7 +52,7 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	cairo_move_to(cr, CB_PAD + CB_DOT_W + 4, cy - ext.height / 2.0 - ext.y_bearing);
 	cairo_show_text(cr, tbuf);
 
-	for (int btn = 0; btn < 4; btn++) {
+	for (int btn = 0; btn < CB_BTN_COUNT; btn++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(btn, &bx, &by, &bw, &bh);
 		bool enabled = (btn == CB_BTN_START)   ? c->paused

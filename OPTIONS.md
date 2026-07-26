@@ -269,6 +269,7 @@ config keys (all optional):
 | `recording.tune` | (none) | one of: `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
 | `recording.pix_fmt` | `yuv420p` | one of: `yuv420p`, `yuv422p`, `yuv444p`, `yuv420p10le` |
 | `recording.cursor` | `true` | record the cursor |
+| `recording.tray` | `true` | show the tray icon while recording; `--no-tray` overrides one run |
 | `recording.max_size_mb` | (none) | re-encode if file exceeds this (0-100000) |
 | `recording.ffmpeg` | `ffmpeg` | path to ffmpeg binary |
 

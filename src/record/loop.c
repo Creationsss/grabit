@@ -13,21 +13,28 @@
 #include "wl/wl.h"
 
 #include <stdint.h>
+#include <sys/mman.h>
 #include <time.h>
 
-#include <sys/mman.h>
 #include <wayland-client.h>
 
 atomic_int *grabit_rec_stop_ptr;
 atomic_int *grabit_rec_pause_ptr;
 atomic_int *grabit_rec_abort_ptr;
 
+static atomic_int g_local_flags[3];
+
 void loop_init_shared(void) {
 	if (grabit_rec_stop_ptr) return;
-	void *mem = mmap(NULL, 3 * sizeof(atomic_int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	atomic_int *mem = mmap(NULL, sizeof g_local_flags, PROT_READ | PROT_WRITE,
+						   MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (mem == MAP_FAILED) {
+		log_warn("recording: mmap of shared flags failed; tray menu state may go stale");
+		mem = g_local_flags;
+	}
 	grabit_rec_stop_ptr = mem;
-	grabit_rec_pause_ptr = (atomic_int *)mem + 1;
-	grabit_rec_abort_ptr = (atomic_int *)mem + 2;
+	grabit_rec_pause_ptr = mem + 1;
+	grabit_rec_abort_ptr = mem + 2;
 }
 
 static pid_t g_tray_pid = 0;

@@ -39,7 +39,6 @@ int pin_render_output_alloc(struct pin_output *o) {
 		return -1;
 	}
 	wl_surface_set_buffer_scale(o->surface, o->scale);
-	o->shown = (struct rect){0, 0, 0, 0};
 	return 0;
 }
 
@@ -140,49 +139,28 @@ void pin_render_output_redraw(struct pin_output *o) {
 	struct pin_state *st = o->st;
 	o->dirty = false;
 
-	struct rect cur = {0, 0, 0, 0};
-	struct rect p = pin_rect(st);
-	int32_t ix, iy, iw, ih;
-	if (grabit_output_rect_intersect(o->go, &p, &ix, &iy, &iw, &ih)) {
-		cur = (struct rect){(ix - o->go->x) * o->scale, (iy - o->go->y) * o->scale,
-							iw * o->scale, ih * o->scale};
-	}
-	if (cur.w == 0 && o->shown.w == 0) return;
-
 	if (!o->buf_data && pin_render_output_alloc(o) != 0) return;
 
 	cairo_t *cr = cairo_create(o->dst);
 
-	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-	if (o->shown.w > 0) {
-		cairo_rectangle(cr, o->shown.x, o->shown.y, o->shown.w, o->shown.h);
-		cairo_fill(cr);
-	}
-
-	if (cur.w > 0 && st->image) {
-		cairo_save(cr);
-		cairo_rectangle(cr, cur.x, cur.y, cur.w, cur.h);
-		cairo_clip(cr);
-		cairo_scale(cr, o->scale, o->scale);
-		cairo_translate(cr, st->px - o->go->x, st->py - o->go->y);
-
+	if (st->image) {
 		cairo_save(cr);
 		double sx = st->img_w > 0 ? (double)st->width / (double)st->img_w : 1.0;
 		double sy = st->img_h > 0 ? (double)st->height / (double)st->img_h : 1.0;
 		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+		cairo_scale(cr, o->scale, o->scale);
 		cairo_scale(cr, sx, sy);
 		cairo_set_source_surface(cr, st->image, 0, 0);
 		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
 		cairo_paint(cr);
 		cairo_restore(cr);
 
+		cairo_scale(cr, o->scale, o->scale);
 		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 		if (st->input_grabbed && st->width > 0)
 			draw_close_button(cr, st->width);
 		if (st->transient && st->hover_caption && st->hover_active && st->width > 0)
 			draw_caption(cr, st);
-
-		cairo_restore(cr);
 	}
 
 	cairo_destroy(cr);
@@ -191,13 +169,8 @@ void pin_render_output_redraw(struct pin_output *o) {
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
 	wl_surface_attach(o->surface, o->buffer, 0, 0);
-	if (o->shown.w > 0)
-		wl_surface_damage_buffer(o->surface, o->shown.x, o->shown.y,
-								 o->shown.w, o->shown.h);
-	if (cur.w > 0)
-		wl_surface_damage_buffer(o->surface, cur.x, cur.y, cur.w, cur.h);
+	wl_surface_damage_buffer(o->surface, 0, 0, o->pixel_w, o->pixel_h);
 	wl_surface_commit(o->surface);
-	o->shown = cur;
 }
 
 static void output_request_redraw(struct pin_output *o) {
@@ -209,6 +182,16 @@ static void output_request_redraw(struct pin_output *o) {
 void pin_render_redraw_all(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++)
 		output_request_redraw(&st->outs[i]);
+}
+
+void pin_render_move_all(struct pin_state *st) {
+	for (size_t i = 0; i < st->n; i++) {
+		struct pin_output *o = &st->outs[i];
+		if (!o->layer || !o->configured) continue;
+		zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
+										 st->px - o->go->x);
+		wl_surface_commit(o->surface);
+	}
 }
 
 static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls,
@@ -233,7 +216,6 @@ static void layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *ls) {
 	struct pin_output *o = data;
 	o->configured = false;
 	pin_render_output_free(o);
-	o->shown = (struct rect){0, 0, 0, 0};
 
 	struct pin_state *st = o->st;
 	for (size_t i = 0; i < st->n; i++) {
@@ -247,6 +229,21 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener_g = {
 	.closed = layer_surface_closed,
 };
 
-void pin_render_attach_layer(struct pin_output *o) {
+int pin_render_create_layer(struct pin_output *o) {
+	struct pin_state *st = o->st;
+	o->layer = zwlr_layer_shell_v1_get_layer_surface(
+		st->wls->layer_shell, o->surface, o->go->wl_output,
+		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
+	if (!o->layer) return -1;
 	zwlr_layer_surface_v1_add_listener(o->layer, &layer_surface_listener_g, o);
+	zwlr_layer_surface_v1_set_anchor(o->layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+												   ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
+	zwlr_layer_surface_v1_set_size(o->layer, (uint32_t)st->width,
+								   (uint32_t)st->height);
+	zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
+									 st->px - o->go->x);
+	zwlr_layer_surface_v1_set_exclusive_zone(o->layer, -1);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(
+		o->layer, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
+	return 0;
 }

@@ -36,7 +36,6 @@ struct pin_output {
 	int32_t scale;
 	bool configured;
 	bool dirty;
-	struct rect shown;
 	struct wl_callback *frame_cb;
 };
 
@@ -106,7 +105,8 @@ int pin_render_output_alloc(struct pin_output *o);
 void pin_render_output_free(struct pin_output *o);
 void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);
-void pin_render_attach_layer(struct pin_output *o);
+void pin_render_move_all(struct pin_state *st);
+int pin_render_create_layer(struct pin_output *o);
 
 void pin_input_attach(struct pin_state *st);
 void pin_input_apply_region(struct pin_output *o);

@@ -175,11 +175,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		o->scale = o->go->scale > 0 ? o->go->scale : 1;
 		if (o->scale > st.cursor_scale) st.cursor_scale = o->scale;
 		o->surface = wl_compositor_create_surface(wls.compositor);
-		o->layer = grabit_wl_layer_fullscreen(
-			&wls, o->surface, o->go->wl_output, "grabit-pin",
-			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE, NULL, NULL);
-		if (!o->layer) continue;
-		pin_render_attach_layer(o);
+		if (pin_render_create_layer(o) != 0) continue;
 		grabit_wl_clear_input_region(wls.compositor, o->surface);
 		wl_surface_commit(o->surface);
 	}

@@ -69,16 +69,8 @@ void pin_input_apply_region(struct pin_output *o) {
 	if (!st->wls->compositor || !o->surface) return;
 	struct wl_region *reg = wl_compositor_create_region(st->wls->compositor);
 	if (!reg) return;
-	if (st->input_grabbed || st->clickable) {
-		if (st->dragging) {
-			wl_region_add(reg, 0, 0, o->width, o->height);
-		} else {
-			struct rect p = pin_rect(st);
-			int32_t ix, iy, iw, ih;
-			if (grabit_output_rect_intersect(o->go, &p, &ix, &iy, &iw, &ih))
-				wl_region_add(reg, ix - o->go->x, iy - o->go->y, iw, ih);
-		}
-	}
+	if (st->input_grabbed || st->clickable)
+		wl_region_add(reg, 0, 0, o->width, o->height);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
 	wl_surface_commit(o->surface);
@@ -103,7 +95,7 @@ static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
 	if (x == st->px && y == st->py) return;
 	st->px = x;
 	st->py = y;
-	pin_render_redraw_all(st);
+	pin_render_move_all(st);
 }
 
 static void update_cursor(struct pin_state *st) {
@@ -144,8 +136,8 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	struct pin_output *o = output_for_surface(st, surface);
 	if (!o) return;
 	st->ptr_on = o;
-	st->cx = o->go->x + wl_fixed_to_int(sx);
-	st->cy = o->go->y + wl_fixed_to_int(sy);
+	st->cx = st->px + wl_fixed_to_int(sx);
+	st->cy = st->py + wl_fixed_to_int(sy);
 	st->last_pointer_serial = serial;
 	if (st->hover_caption && !st->hover_active) {
 		st->hover_active = true;
@@ -179,17 +171,15 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	(void)time;
 	struct pin_state *st = data;
 	if (!st->ptr_on) return;
-	st->cx = st->ptr_on->go->x + wl_fixed_to_int(sx);
-	st->cy = st->ptr_on->go->y + wl_fixed_to_int(sy);
+	st->cx = st->px + wl_fixed_to_int(sx);
+	st->cy = st->py + wl_fixed_to_int(sy);
 	if (st->dragging)
 		pin_move_to(st, st->cx - st->grab_dx, st->cy - st->grab_dy);
 	update_cursor(st);
 }
 
 static void drag_end(struct pin_state *st) {
-	if (!st->dragging) return;
 	st->dragging = false;
-	pin_input_apply_regions(st);
 }
 
 static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
@@ -231,7 +221,6 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	st->dragging = true;
 	st->grab_dx = st->cx - st->px;
 	st->grab_dy = st->cy - st->py;
-	pin_input_apply_regions(st);
 	update_cursor(st);
 }
 

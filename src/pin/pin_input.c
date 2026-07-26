@@ -78,7 +78,7 @@ void pin_input_apply_region(struct pin_output *o) {
 
 void pin_input_apply_regions(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++)
-		pin_input_apply_region(&st->outs[i]);
+		pin_input_apply_region(st->outs[i]);
 }
 
 static bool in_close_button(const struct pin_state *st) {
@@ -124,7 +124,7 @@ void pin_input_refresh_cursor(struct pin_state *st) {
 static struct pin_output *output_for_surface(struct pin_state *st,
 											 struct wl_surface *surface) {
 	for (size_t i = 0; i < st->n; i++) {
-		if (st->outs[i].surface == surface) return &st->outs[i];
+		if (st->outs[i]->surface == surface) return st->outs[i];
 	}
 	return NULL;
 }

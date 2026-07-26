@@ -169,12 +169,12 @@ static void output_request_redraw(struct pin_output *o) {
 
 void pin_render_redraw_all(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++)
-		output_request_redraw(&st->outs[i]);
+		output_request_redraw(st->outs[i]);
 }
 
 void pin_render_move_all(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++) {
-		struct pin_output *o = &st->outs[i];
+		struct pin_output *o = st->outs[i];
 		if (!o->layer || !o->configured) continue;
 		zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
 										 st->px - o->go->x);
@@ -202,7 +202,7 @@ static void layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *ls) {
 
 	struct pin_state *st = o->st;
 	for (size_t i = 0; i < st->n; i++) {
-		if (st->outs[i].configured) return;
+		if (st->outs[i]->configured) return;
 	}
 	st->finished = true;
 }

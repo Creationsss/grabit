@@ -17,7 +17,6 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
@@ -26,8 +25,6 @@
 
 #include <cairo/cairo.h>
 #include <wayland-client.h>
-
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static volatile sig_atomic_t g_term = 0;
 static void on_term(int sig) {
@@ -160,24 +157,12 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		st.py = target->y + my;
 	}
 
-	grabit_wl_outputs_bbox(&wls, &st.bounds);
-
-	st.outs = calloc(wls.n_outputs, sizeof *st.outs);
-	if (!st.outs) {
+	st.target = target;
+	st.outputs_serial = wls.outputs_serial;
+	pin_sync_outputs(&st);
+	if (st.n == 0) {
 		grabit_wl_finish(&wls);
 		return 1;
-	}
-	for (size_t i = 0; i < wls.n_outputs; i++) {
-		if (transient && wls.outputs[i] != target) continue;
-		struct pin_output *o = &st.outs[st.n++];
-		o->st = &st;
-		o->go = wls.outputs[i];
-		o->scale = o->go->scale > 0 ? o->go->scale : 1;
-		if (o->scale > st.cursor_scale) st.cursor_scale = o->scale;
-		o->surface = wl_compositor_create_surface(wls.compositor);
-		if (pin_render_create_layer(o) != 0) continue;
-		grabit_wl_clear_input_region(wls.compositor, o->surface);
-		wl_surface_commit(o->surface);
 	}
 
 	pin_input_attach(&st);
@@ -246,6 +231,11 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 		}
 		if (wl_display_dispatch_pending(wls.display) < 0) goto out;
 
+		if (st.outputs_serial != wls.outputs_serial) {
+			st.outputs_serial = wls.outputs_serial;
+			pin_sync_outputs(&st);
+		}
+
 		if (ipc_idx >= 0 && (pfds[ipc_idx].revents & POLLIN)) {
 			pin_ipc_handle(&st);
 		}
@@ -261,13 +251,7 @@ out:
 	if (st.dismiss_timer_fd >= 0) close(st.dismiss_timer_fd);
 	pin_ipc_close(&st);
 	pin_input_destroy_cursors(&st);
-	for (size_t i = 0; i < st.n; i++) {
-		struct pin_output *o = &st.outs[i];
-		pin_render_output_free(o);
-		if (o->layer) zwlr_layer_surface_v1_destroy(o->layer);
-		if (o->surface) wl_surface_destroy(o->surface);
-	}
-	free(st.outs);
+	pin_outputs_finish(&st);
 	if (st.pointer) wl_pointer_release(st.pointer);
 	wl_display_roundtrip(wls.display);
 	grabit_wl_finish(&wls);

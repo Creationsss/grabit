@@ -57,6 +57,7 @@ struct grabit_wl_state {
 	struct grabit_output **outputs;
 	size_t n_outputs;
 	size_t cap_outputs;
+	uint32_t outputs_serial;
 };
 
 int grabit_wl_init(struct grabit_wl_state *s);

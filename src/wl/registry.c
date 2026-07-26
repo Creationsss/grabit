@@ -76,7 +76,9 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		if (gwl_outputs_push(s, o) != 0) {
 			wl_output_destroy(o->wl_output);
 			free(o);
+			return;
 		}
+		gwl_output_attach_xdg(s, o);
 		return;
 	}
 
@@ -137,8 +139,7 @@ static void registry_global_remove(void *data, struct wl_registry *reg, uint32_t
 		struct grabit_output *o = s->outputs[i];
 		if (o->dead || o->global_name != name) continue;
 		o->dead = true;
-		log_warn("output %s removed mid-session; recording will black-fill its region",
-				 o->name ? o->name : "?");
+		log_warn("wl: output %s removed mid-session", o->name ? o->name : "?");
 		if (o->xdg_output) {
 			zxdg_output_v1_destroy(o->xdg_output);
 			o->xdg_output = NULL;
@@ -147,6 +148,7 @@ static void registry_global_remove(void *data, struct wl_registry *reg, uint32_t
 			wl_output_destroy(o->wl_output);
 			o->wl_output = NULL;
 		}
+		s->outputs_serial++;
 		return;
 	}
 }

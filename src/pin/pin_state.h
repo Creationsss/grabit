@@ -38,8 +38,10 @@ struct pin_output {
 struct pin_state {
 	struct grabit_wl_state *wls;
 
-	struct pin_output *outs;
+	struct pin_output **outs;
 	size_t n;
+	uint32_t outputs_serial;
+	struct grabit_output *target;
 	struct rect bounds;
 
 	cairo_surface_t *image;
@@ -102,6 +104,9 @@ void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);
 void pin_render_move_all(struct pin_state *st);
 int pin_render_create_layer(struct pin_output *o);
+
+void pin_sync_outputs(struct pin_state *st);
+void pin_outputs_finish(struct pin_state *st);
 
 void pin_input_attach(struct pin_state *st);
 void pin_input_apply_region(struct pin_output *o);

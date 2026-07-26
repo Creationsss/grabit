@@ -84,25 +84,13 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 
 	if (s->xdg_output_manager) {
 		for (size_t i = 0; i < s->n_outputs; i++) {
-			struct grabit_output *o = s->outputs[i];
-			if (o->dead || !o->wl_output) continue;
-			o->xdg_output = zxdg_output_manager_v1_get_xdg_output(
-				s->xdg_output_manager, o->wl_output);
-			zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);
+			if (!s->outputs[i]->dead) gwl_output_attach_xdg(s, s->outputs[i]);
 		}
 		if (wl_display_roundtrip(s->display) < 0) goto fail;
 	}
 
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		struct grabit_output *o = s->outputs[i];
-		if (o->scale <= 0) o->scale = 1;
-		// fallback if xdg-output didn't fill in logical dims; bit 0 of wl_output.transform set => 90° rotation, swap w/h.
-		bool rotated = (o->transform & 1) != 0;
-		int32_t native_logical_w = (rotated ? o->height : o->width) / o->scale;
-		int32_t native_logical_h = (rotated ? o->width : o->height) / o->scale;
-		if (o->logical_width <= 0) o->logical_width = native_logical_w;
-		if (o->logical_height <= 0) o->logical_height = native_logical_h;
-	}
+	for (size_t i = 0; i < s->n_outputs; i++)
+		gwl_output_finalize(s->outputs[i]);
 
 	if (s->n_outputs == 0) {
 		log_error("no outputs reported by the compositor");

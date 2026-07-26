@@ -102,6 +102,7 @@ GRABIT_SRCS := \
 	src/mime.c \
 	src/wl/wl.c \
 	src/wl/output.c \
+	src/wl/monitors.c \
 	src/wl/registry.c \
 	src/capture/capture.c \
 	src/capture/pixels.c \
@@ -194,6 +195,7 @@ GRABIT_SRCS := \
 	src/ocr/translate_deepl.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
+	src/pin/pin_outputs.c \
 	src/pin/spawn.c \
 	src/pin/pin_render.c \
 	src/pin/pin_input.c \

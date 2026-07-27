@@ -166,7 +166,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	}
 
 	pin_input_attach(&st);
-	pin_input_load_cursors(&st);
+	pin_cursor_load(&st);
 
 	if (!transient) {
 		if (pin_ipc_open(&st) != 0) {
@@ -250,7 +250,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 out:
 	if (st.dismiss_timer_fd >= 0) close(st.dismiss_timer_fd);
 	pin_ipc_close(&st);
-	pin_input_destroy_cursors(&st);
+	pin_cursor_destroy(&st);
 	pin_outputs_finish(&st);
 	if (st.pointer) wl_pointer_release(st.pointer);
 	wl_display_roundtrip(wls.display);

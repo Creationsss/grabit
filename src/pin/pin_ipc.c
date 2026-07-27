@@ -99,7 +99,7 @@ void pin_ipc_handle(struct pin_state *st) {
 				st->input_grabbed = true;
 				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
-				pin_input_refresh_cursor(st);
+				pin_cursor_refresh(st);
 			}
 		} else if (strcmp(buf, "release") == 0) {
 			if (st->input_grabbed) {
@@ -107,7 +107,7 @@ void pin_ipc_handle(struct pin_state *st) {
 				st->dragging = false;
 				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
-				pin_input_refresh_cursor(st);
+				pin_cursor_refresh(st);
 			}
 		} else if (strcmp(buf, "close") == 0) {
 			st->finished = true;

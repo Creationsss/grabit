@@ -48,6 +48,8 @@ endif
 WL_PROTOCOLS := \
 	viewporter \
 	fractional-scale-v1 \
+	cursor-shape-v1 \
+	tablet-unstable-v2 \
 	wlr-screencopy-unstable-v1 \
 	wlr-data-control-unstable-v1 \
 	ext-data-control-v1 \
@@ -197,6 +199,7 @@ GRABIT_SRCS := \
 	src/ocr/translate_deepl.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
+	src/pin/pin_cursor.c \
 	src/pin/pin_outputs.c \
 	src/pin/spawn.c \
 	src/pin/pin_render.c \

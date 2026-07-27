@@ -4,7 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "pin/pin_state.h"
 
-#include "cursor.h"
 #include "log.h"
 #include "wl/wl.h"
 
@@ -16,53 +15,6 @@
 #include <linux/input-event-codes.h>
 
 #include <wayland-client.h>
-#include <wayland-cursor.h>
-
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
-
-void pin_input_load_cursors(struct pin_state *st) {
-	if (!st->wls->shm || !st->wls->compositor) return;
-	st->cursor_theme = grabit_cursor_theme_load(st->wls->shm, st->cursor_scale);
-	if (!st->cursor_theme) return;
-	static const char *const move[] = {
-		"grab",
-		"openhand",
-		"fleur",
-		"move",
-		"all-scroll",
-		"left_ptr",
-		NULL,
-	};
-	static const char *const grabbing[] = {
-		"grabbing",
-		"closedhand",
-		"fleur",
-		"move",
-		"left_ptr",
-		NULL,
-	};
-	st->cursor_hand = grabit_cursor_load_hand(st->cursor_theme);
-	st->cursor_move = grabit_cursor_load_first(st->cursor_theme, move);
-	st->cursor_grabbing = grabit_cursor_load_first(st->cursor_theme, grabbing);
-	st->cursor_surface = wl_compositor_create_surface(st->wls->compositor);
-}
-
-void pin_input_destroy_cursors(struct pin_state *st) {
-	if (st->cursor_surface) {
-		wl_surface_destroy(st->cursor_surface);
-		st->cursor_surface = NULL;
-	}
-	if (st->cursor_theme) {
-		wl_cursor_theme_destroy(st->cursor_theme);
-		st->cursor_theme = NULL;
-	}
-}
-
-static void apply_cursor(struct pin_state *st, struct wl_cursor *c) {
-	if (st->last_pointer_serial == 0) return;
-	grabit_cursor_apply(st->pointer, st->last_pointer_serial,
-						st->cursor_surface, c, st->cursor_scale);
-}
 
 void pin_input_apply_region(struct pin_output *o) {
 	struct pin_state *st = o->st;
@@ -81,12 +33,6 @@ void pin_input_apply_regions(struct pin_state *st) {
 		pin_input_apply_region(st->outs[i]);
 }
 
-static bool in_close_button(const struct pin_state *st) {
-	struct rect btn = {st->width - PIN_CLOSE_BTN_SIZE - PIN_CLOSE_BTN_INSET,
-					   PIN_CLOSE_BTN_INSET, PIN_CLOSE_BTN_SIZE, PIN_CLOSE_BTN_SIZE};
-	return rect_contains(btn, st->cx - st->px, st->cy - st->py);
-}
-
 static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
 	struct rect r = rect_clamp_into((struct rect){x, y, st->width, st->height},
 									st->bounds);
@@ -96,29 +42,6 @@ static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
 	st->px = x;
 	st->py = y;
 	pin_render_move_all(st);
-}
-
-static void update_cursor(struct pin_state *st) {
-	if (!st->ptr_on) return;
-	struct wl_cursor *want = NULL;
-	if (st->clickable) {
-		want = st->cursor_hand;
-	} else if (st->input_grabbed) {
-		if (st->dragging)
-			want = st->cursor_grabbing;
-		else if (in_close_button(st))
-			want = st->cursor_hand;
-		else
-			want = st->cursor_move;
-	}
-	if (want == st->current_cursor) return;
-	st->current_cursor = want;
-	apply_cursor(st, want);
-}
-
-void pin_input_refresh_cursor(struct pin_state *st) {
-	st->current_cursor = NULL;
-	update_cursor(st);
 }
 
 static struct pin_output *output_for_surface(struct pin_state *st,
@@ -147,8 +70,7 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 		struct itimerspec it = {.it_value = {.tv_sec = st->dismiss_secs}};
 		timerfd_settime(st->dismiss_timer_fd, 0, &it, NULL);
 	}
-	st->current_cursor = NULL;
-	update_cursor(st);
+	pin_cursor_refresh(st);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
@@ -162,7 +84,7 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 		st->hover_active = false;
 		pin_render_redraw_all(st);
 	}
-	st->current_cursor = NULL;
+	st->cursor_kind = PIN_CUR_NONE;
 }
 
 static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
@@ -175,7 +97,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	st->cy = st->py + wl_fixed_to_int(sy);
 	if (st->dragging)
 		pin_move_to(st, st->cx - st->grab_dx, st->cy - st->grab_dy);
-	update_cursor(st);
+	pin_cursor_update(st);
 }
 
 static void drag_end(struct pin_state *st) {
@@ -192,7 +114,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
 		drag_end(st);
-		update_cursor(st);
+		pin_cursor_update(st);
 		return;
 	}
 
@@ -213,7 +135,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		return;
 	}
 	if (!st->input_grabbed) return;
-	if (in_close_button(st)) {
+	if (pin_in_close_button(st)) {
 		st->finished = true;
 		return;
 	}
@@ -221,7 +143,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	st->dragging = true;
 	st->grab_dx = st->cx - st->px;
 	st->grab_dy = st->cy - st->py;
-	update_cursor(st);
+	pin_cursor_update(st);
 }
 
 static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,

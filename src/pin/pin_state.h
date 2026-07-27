@@ -83,7 +83,9 @@ struct pin_state {
 	int32_t cursor_scale;
 
 	int ipc_fd;
+	int ipc_lock_fd;
 	char ipc_path[256];
+	char ipc_lock_path[256];
 
 	bool transient;
 	int dismiss_timer_fd;

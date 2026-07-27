@@ -108,6 +108,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	st.img_h = cairo_image_surface_get_height(img);
 	st.cursor_scale = 1;
 	st.ipc_fd = -1;
+	st.ipc_lock_fd = -1;
 	st.dismiss_timer_fd = -1;
 	st.dismiss_secs = dismiss_secs;
 	st.transient = transient;

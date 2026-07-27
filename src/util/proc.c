@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -138,22 +139,36 @@ int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes
 	return 0;
 }
 
-bool grabit_is_grabit_process(pid_t pid) {
-	if (pid <= 0) return false;
-	char path[64];
-	snprintf(path, sizeof path, "/proc/%d/comm", (int)pid);
-	FILE *f = fopen(path, "r");
-	if (!f) return false;
-	char comm[32] = {0};
-	bool ok = fgets(comm, sizeof comm, f) != NULL;
-	fclose(f);
-	if (!ok) return false;
-	char *nl = strchr(comm, '\n');
-	if (nl) *nl = '\0';
-	const char *base = comm;
-	if (base[0] == '.') base++;
-	if (strncmp(base, "grabit", 6) != 0) return false;
-	return base[6] == '\0' || base[6] == '-';
+int grabit_lock_acquire(const char *path) {
+	int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
+	if (fd < 0) return -1;
+	if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+		close(fd);
+		errno = EWOULDBLOCK;
+		return -1;
+	}
+	char buf[32];
+	int n = snprintf(buf, sizeof buf, "%d\n", (int)getpid());
+	if (ftruncate(fd, 0) != 0 || grabit_write_all(fd, buf, (size_t)n) != 0) {
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
+
+pid_t grabit_lock_owner(const char *path) {
+	int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+	if (fd < 0) return 0;
+	if (flock(fd, LOCK_SH | LOCK_NB) == 0) {
+		close(fd);
+		return 0;
+	}
+	char buf[32] = {0};
+	ssize_t r = read(fd, buf, sizeof buf - 1);
+	close(fd);
+	if (r <= 0) return 0;
+	long v = strtol(buf, NULL, 10);
+	return v > 1 ? (pid_t)v : 0;
 }
 
 void grabit_install_signal_handler(int sig, void (*handler)(int)) {

@@ -4,9 +4,7 @@
 #ifndef GRABIT_RECORD_PID_H
 #define GRABIT_RECORD_PID_H
 
-#include <sys/types.h>
-
-int write_pid_file_excl(pid_t p);
+int write_pid_file(void);
 void unlink_pid_file(void);
 int stop_running_recording(void);
 

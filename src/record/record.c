@@ -165,8 +165,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		goto err_layout;
 	}
 
-	if (write_pid_file_excl(getpid()) != 0) {
-		if (errno == EEXIST) {
+	if (write_pid_file() != 0) {
+		if (errno == EWOULDBLOCK) {
 			log_error("another grabit recording started concurrently; aborting this one");
 			fail_notify("another recording is already starting");
 		} else {

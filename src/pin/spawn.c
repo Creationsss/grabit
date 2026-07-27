@@ -35,42 +35,29 @@ static void show_pid_path(char *out, size_t cap) {
 	snprintf(out, cap, "%s/grabit-show.pid", dir);
 }
 
+static int g_show_lock_fd = -1;
+
 static void kill_previous_show(void) {
 	char path[1024];
 	show_pid_path(path, sizeof path);
-	FILE *f = fopen(path, "r");
-	if (!f) return;
-	long pid = 0;
-	if (fscanf(f, "%ld", &pid) == 1 && pid > 1 && grabit_is_grabit_process((pid_t)pid)) {
-		kill((pid_t)pid, SIGTERM);
-	}
-	fclose(f);
+	pid_t pid = grabit_lock_owner(path);
+	if (pid > 1) kill(pid, SIGTERM);
 	unlink(path);
 }
 
 static void write_show_pid_self(void) {
 	char path[1024];
 	show_pid_path(path, sizeof path);
-	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
-	if (fd < 0) return;
-	FILE *f = fdopen(fd, "w");
-	if (!f) {
-		close(fd);
-		return;
-	}
-	fprintf(f, "%ld\n", (long)getpid());
-	fclose(f);
+	g_show_lock_fd = grabit_lock_acquire(path);
 }
 
 static void clear_show_pid_self(void) {
+	if (g_show_lock_fd < 0) return;
 	char path[1024];
 	show_pid_path(path, sizeof path);
-	FILE *f = fopen(path, "r");
-	if (!f) return;
-	long pid = 0;
-	bool mine = (fscanf(f, "%ld", &pid) == 1 && (pid_t)pid == getpid());
-	fclose(f);
-	if (mine) unlink(path);
+	if (grabit_lock_owner(path) == getpid()) unlink(path);
+	close(g_show_lock_fd);
+	g_show_lock_fd = -1;
 }
 
 static int probe_layer_shell(void) {

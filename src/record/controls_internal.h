@@ -17,6 +17,7 @@ struct wl_surface;
 struct wl_callback;
 struct wl_pointer;
 struct wl_cursor_theme;
+struct wp_cursor_shape_device_v1;
 struct wl_cursor;
 struct zwlr_layer_surface_v1;
 
@@ -76,6 +77,7 @@ struct rec_controls {
 	int32_t grab_dx;
 	int32_t grab_dy;
 
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor_hand;
 	struct wl_surface *cursor_surface;

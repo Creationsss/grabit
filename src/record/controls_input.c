@@ -11,6 +11,8 @@
 
 #include <wayland-client.h>
 
+#include "cursor-shape-v1-client-protocol.h"
+
 static int btn_at(int32_t x, int32_t y) {
 	for (int b = 0; b < 3; b++) {
 		int32_t bx, by, bw, bh;
@@ -56,7 +58,11 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	c->ptr_on = o;
 	c->cx = o->go->x + wl_fixed_to_int(sx);
 	c->cy = o->go->y + wl_fixed_to_int(sy);
-	grabit_cursor_apply(p, serial, c->cursor_surface, c->cursor_hand, o->scale);
+	if (c->cursor_shape)
+		wp_cursor_shape_device_v1_set_shape(c->cursor_shape, serial,
+											WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+	else
+		grabit_cursor_apply(p, serial, c->cursor_surface, c->cursor_hand, o->scale);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,

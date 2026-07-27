@@ -20,6 +20,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #define KC_MAX_CAPS 12
@@ -177,7 +178,10 @@ static void ptr_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)sx;
 	(void)sy;
 	struct kc_state *s = data;
-	if (s->cursor)
+	if (s->cursor_shape)
+		wp_cursor_shape_device_v1_set_shape(s->cursor_shape, serial,
+											WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
+	else if (s->cursor)
 		grabit_cursor_apply(p, serial, s->cursor_surface, s->cursor, s->scale);
 }
 

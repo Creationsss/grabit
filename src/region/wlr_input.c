@@ -21,12 +21,11 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
+
 #define DOUBLE_CLICK_MS 400
 
 #include "region/input_internal.h"
-
-void ginp_apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
-					   struct ro_output *o, struct wl_cursor *c);
 
 bool ginp_eyedropper_sample(struct ro_state *st, uint32_t *out_color) {
 	if (!st->cursor_on || !st->frozen) return false;
@@ -99,50 +98,67 @@ void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
 	st->edit_choices_dirty = true;
 }
 
-struct wl_cursor *ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
-	if (st->tb_dragging && st->cursor_move) return st->cursor_move;
-	if (st->line_picker_open && st->cursor_hand) {
+int ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
+	if (st->tb_dragging) return RCUR_MOVE;
+	if (st->line_picker_open) {
 		int idx;
 		if (region_line_picker_hit(st, abs_x, abs_y, &idx) != LP_NONE)
-			return st->cursor_hand;
+			return RCUR_HAND;
 	}
 	if (ginp_toolbar_reachable(st) && region_toolbar_contains(st, abs_x, abs_y)) {
 		enum tb_action a = region_toolbar_hit(st, abs_x, abs_y);
-		if (a != TB_NONE && st->cursor_hand) return st->cursor_hand;
-		if (st->cursor_move) return st->cursor_move;
-		if (st->cursor_default) return st->cursor_default;
+		return a != TB_NONE ? RCUR_HAND : RCUR_MOVE;
 	}
 	if (st->region_locked) {
-		if (st->moving_region && st->cursor_move) return st->cursor_move;
-		if (st->handle_dragging >= 0 && st->handle_dragging < 8 &&
-			st->cursor_resize[st->handle_dragging])
-			return st->cursor_resize[st->handle_dragging];
-		if (st->eyedropper_mode) return st->cursor;
+		if (st->moving_region) return RCUR_MOVE;
+		if (st->handle_dragging >= 0 && st->handle_dragging < 8)
+			return RCUR_RESIZE0 + st->handle_dragging;
+		if (st->eyedropper_mode) return RCUR_CROSS;
 		int h = region_handle_at(st, abs_x, abs_y);
-		if (h != HANDLE_NONE && st->cursor_resize[h]) return st->cursor_resize[h];
-		if (h != HANDLE_NONE && st->cursor_default) return st->cursor_default;
+		if (h != HANDLE_NONE) return RCUR_RESIZE0 + h;
 		if (st->anno_edit_mode) {
 			bool grab = region_anno_dragging(st) ||
 						ginp_anno_corner_at(st, abs_x, abs_y) >= 0 ||
 						ginp_anno_hit_index(st, abs_x, abs_y) >= 0;
-			if (grab && st->cursor_move) return st->cursor_move;
-			return st->cursor_default ? st->cursor_default : st->cursor;
+			return grab ? RCUR_MOVE : RCUR_DEFAULT;
 		}
 		if ((st->ctrl_held || !region_editing(st)) &&
-			region_inside_selection(st, abs_x, abs_y) && st->cursor_move)
-			return st->cursor_move;
-		if (!region_editing(st)) return st->cursor;
-		if (st->current_tool == TOOL_TEXT && st->cursor_text) return st->cursor_text;
-		return st->cursor_default ? st->cursor_default : st->cursor;
+			region_inside_selection(st, abs_x, abs_y))
+			return RCUR_MOVE;
+		if (!region_editing(st)) return RCUR_CROSS;
+		if (st->current_tool == TOOL_TEXT) return RCUR_TEXT;
+		return RCUR_DEFAULT;
 	}
-	return st->cursor;
+	return RCUR_CROSS;
+}
+
+static struct wl_cursor *kind_cursor(const struct ro_state *st, int kind) {
+	struct wl_cursor *c = NULL;
+	switch (kind) {
+	case RCUR_CROSS:
+		return st->cursor;
+	case RCUR_TEXT:
+		c = st->cursor_text;
+		break;
+	case RCUR_MOVE:
+		c = st->cursor_move;
+		break;
+	case RCUR_HAND:
+		c = st->cursor_hand;
+		break;
+	default:
+		c = st->cursor_resize[kind - RCUR_RESIZE0];
+		break;
+	}
+	if (!c) c = st->cursor_default;
+	return c ? c : st->cursor;
 }
 
 void ginp_refresh_cursor(struct ro_state *st, struct wl_pointer *p) {
 	if (!st->cursor_on) return;
-	struct wl_cursor *want = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
-	if (want == st->current_cursor) return;
-	st->current_cursor = want;
+	int want = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
+	if (want == st->current_cursor_kind) return;
+	st->current_cursor_kind = want;
 	if (st->last_cursor_serial == 0) return;
 	ginp_apply_cursor(st, p, st->last_cursor_serial, st->cursor_on, want);
 }
@@ -159,8 +175,28 @@ void ginp_lock_or_finish(struct ro_state *st) {
 }
 
 void ginp_apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
-					   struct ro_output *o, struct wl_cursor *c) {
-	grabit_cursor_apply(p, serial, st->cursor_surface, c, o->scale);
+					   struct ro_output *o, int kind) {
+	if (st->cursor_shape) {
+		static const uint32_t shapes[] = {
+			[RCUR_CROSS] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR,
+			[RCUR_TEXT] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT,
+			[RCUR_DEFAULT] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT,
+			[RCUR_MOVE] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE,
+			[RCUR_HAND] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
+			[RCUR_RESIZE0 + 0] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE,
+			[RCUR_RESIZE0 + 1] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE,
+			[RCUR_RESIZE0 + 2] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE,
+			[RCUR_RESIZE0 + 3] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_E_RESIZE,
+			[RCUR_RESIZE0 + 4] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE,
+			[RCUR_RESIZE0 + 5] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_S_RESIZE,
+			[RCUR_RESIZE0 + 6] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE,
+			[RCUR_RESIZE0 + 7] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_W_RESIZE,
+		};
+		wp_cursor_shape_device_v1_set_shape(st->cursor_shape, serial, shapes[kind]);
+		return;
+	}
+	grabit_cursor_apply(p, serial, st->cursor_surface, kind_cursor(st, kind),
+						o->scale);
 }
 
 void ginp_slider_set_width_from_cursor(struct ro_state *st) {

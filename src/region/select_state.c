@@ -20,6 +20,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate_mode,
@@ -130,6 +131,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 
 	region_color_picker_release_cache(st);
 
+	if (st->cursor_shape) wp_cursor_shape_device_v1_destroy(st->cursor_shape);
 	if (st->cursor_surface) wl_surface_destroy(st->cursor_surface);
 	if (st->cursor_theme) wl_cursor_theme_destroy(st->cursor_theme);
 

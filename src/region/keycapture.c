@@ -20,6 +20,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #define KC_MAX_CAPS 12
@@ -67,11 +68,17 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 		st.pointer = wl_seat_get_pointer(s->seat);
 		if (st.pointer) {
 			wl_pointer_add_listener(st.pointer, &gkc_ptr_listener, &st);
-			st.cursor_theme = grabit_cursor_theme_load(s->shm, st.go->scale > 0 ? st.go->scale : 1);
-			if (st.cursor_theme) {
-				st.cursor = grabit_cursor_load_default(st.cursor_theme);
-				if (st.cursor)
-					st.cursor_surface = wl_compositor_create_surface(s->compositor);
+			if (s->cursor_shape_manager) {
+				st.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
+					s->cursor_shape_manager, st.pointer);
+			} else {
+				st.cursor_theme = grabit_cursor_theme_load(
+					s->shm, st.go->scale > 0 ? st.go->scale : 1);
+				if (st.cursor_theme) {
+					st.cursor = grabit_cursor_load_default(st.cursor_theme);
+					if (st.cursor)
+						st.cursor_surface = wl_compositor_create_surface(s->compositor);
+				}
 			}
 		}
 	}
@@ -93,6 +100,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 	if (st.pointer) wl_pointer_release(st.pointer);
 	if (st.keyboard) wl_keyboard_release(st.keyboard);
 	if (st.cursor_surface) wl_surface_destroy(st.cursor_surface);
+	if (st.cursor_shape) wp_cursor_shape_device_v1_destroy(st.cursor_shape);
 	if (st.cursor_theme) wl_cursor_theme_destroy(st.cursor_theme);
 	if (st.xkb_state) xkb_state_unref(st.xkb_state);
 	if (st.xkb_keymap) xkb_keymap_unref(st.xkb_keymap);

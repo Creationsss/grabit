@@ -15,6 +15,7 @@ struct kc_state {
 
 	struct wl_keyboard *keyboard;
 	struct wl_pointer *pointer;
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_surface *cursor_surface;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor;

@@ -35,7 +35,8 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
 	st->last_cursor_serial = serial;
-	ginp_apply_cursor(st, p, serial, o, ginp_pick_cursor(st, st->cursor_x, st->cursor_y));
+	st->current_cursor_kind = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
+	ginp_apply_cursor(st, p, serial, o, st->current_cursor_kind);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,

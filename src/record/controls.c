@@ -16,6 +16,7 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 void ctl_apply_input_region(struct ctl_output *o) {
@@ -146,15 +147,20 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 	if (s->seat && (s->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
 		c->pointer = wl_seat_get_pointer(s->seat);
 		if (c->pointer) ctl_input_attach(c);
-		int32_t max_scale = 1;
-		for (size_t i = 0; i < s->n_outputs; i++) {
-			if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
-		}
-		c->cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
-		if (c->cursor_theme) {
-			c->cursor_hand = grabit_cursor_load_hand(c->cursor_theme);
-			if (c->cursor_hand)
-				c->cursor_surface = wl_compositor_create_surface(s->compositor);
+		if (c->pointer && s->cursor_shape_manager) {
+			c->cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
+				s->cursor_shape_manager, c->pointer);
+		} else {
+			int32_t max_scale = 1;
+			for (size_t i = 0; i < s->n_outputs; i++) {
+				if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
+			}
+			c->cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
+			if (c->cursor_theme) {
+				c->cursor_hand = grabit_cursor_load_hand(c->cursor_theme);
+				if (c->cursor_hand)
+					c->cursor_surface = wl_compositor_create_surface(s->compositor);
+			}
 		}
 	}
 
@@ -177,6 +183,7 @@ void controls_tick(struct rec_controls *c, int64_t secs) {
 void controls_stop(struct rec_controls *c) {
 	if (!c) return;
 	if (c->pointer) wl_pointer_release(c->pointer);
+	if (c->cursor_shape) wp_cursor_shape_device_v1_destroy(c->cursor_shape);
 	if (c->cursor_surface) wl_surface_destroy(c->cursor_surface);
 	if (c->cursor_theme) wl_cursor_theme_destroy(c->cursor_theme);
 	for (size_t i = 0; i < c->n; i++) {

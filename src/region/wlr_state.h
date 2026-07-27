@@ -18,11 +18,19 @@
 #include "region/region.h"
 #include "util/util.h"
 
+#define RCUR_CROSS 0
+#define RCUR_TEXT 1
+#define RCUR_DEFAULT 2
+#define RCUR_MOVE 3
+#define RCUR_HAND 4
+#define RCUR_RESIZE0 5
+
 struct grabit_wl_state;
 struct grabit_output;
 struct image;
 struct wl_cursor_theme;
 struct wl_cursor;
+struct wp_cursor_shape_device_v1;
 struct zwlr_layer_surface_v1;
 
 struct ro_state;
@@ -107,6 +115,7 @@ struct ro_state {
 	struct wl_pointer *pointer;
 	struct wl_keyboard *keyboard;
 
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor;
 	struct wl_cursor *cursor_text;
@@ -114,7 +123,7 @@ struct ro_state {
 	struct wl_cursor *cursor_move;
 	struct wl_cursor *cursor_hand;
 	struct wl_cursor *cursor_resize[8];
-	struct wl_cursor *current_cursor;
+	int current_cursor_kind;
 	struct wl_surface *cursor_surface;
 	uint32_t last_cursor_serial;
 

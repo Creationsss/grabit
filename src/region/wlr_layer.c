@@ -24,6 +24,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 int region_select(struct grabit_wl_state *s, struct config *cfg,
@@ -95,14 +96,19 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.keyboard = wl_seat_get_keyboard(s->seat);
 	region_input_attach(&st);
 
-	int32_t max_scale = 1;
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
-	}
-	st.cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
-	if (!st.cursor_theme) {
-		log_warn("region: no cursor theme found; cursor may be invisible");
+	if (s->cursor_shape_manager && st.pointer) {
+		st.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
+			s->cursor_shape_manager, st.pointer);
 	} else {
+		int32_t max_scale = 1;
+		for (size_t i = 0; i < s->n_outputs; i++) {
+			if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
+		}
+		st.cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
+	}
+	if (!st.cursor_shape && !st.cursor_theme) {
+		log_warn("region: no cursor theme found; cursor may be invisible");
+	} else if (st.cursor_theme) {
 		static const char *const cross_names[] = {
 			"crosshair",
 			"tcross",
@@ -148,9 +154,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			st.cursor_resize[i] = grabit_cursor_load_first(st.cursor_theme, resize_names[i]);
 		}
 		if (!st.cursor) log_warn("region: cursor theme has no usable cursor");
-	}
-	if (st.cursor) {
-		st.cursor_surface = wl_compositor_create_surface(s->compositor);
+		if (st.cursor)
+			st.cursor_surface = wl_compositor_create_surface(s->compositor);
 	}
 
 	gregion_create_surfaces(&st, s);

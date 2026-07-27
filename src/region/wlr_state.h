@@ -16,6 +16,7 @@
 
 #include "region/keybinds.h"
 #include "region/region.h"
+#include "util/util.h"
 
 struct grabit_wl_state;
 struct grabit_output;
@@ -41,12 +42,8 @@ struct ro_output {
 	int32_t scale;
 	bool configured;
 
-	int stride;
-	size_t buf_size;
-	void *buf_data;
-	struct wl_buffer *buffer;
+	struct grabit_shm_pool pool;
 
-	cairo_surface_t *cairo_dst;
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
 

@@ -25,9 +25,7 @@ struct overlay_output {
 	struct grabit_output *go;
 	struct wl_surface *surface;
 	struct zwlr_layer_surface_v1 *layer_surface;
-	struct wl_buffer *buffer;
-	void *buf_data;
-	size_t buf_size;
+	struct grabit_shm_buf buf;
 	int32_t width;
 	int32_t height;
 	int32_t pixel_width;
@@ -48,21 +46,17 @@ static int alloc_buffer(struct overlay_output *o) {
 	o->pixel_width = o->width * o->scale;
 	o->pixel_height = o->height * o->scale;
 
-	struct grabit_shm_buf b;
 	if (grabit_shm_argb_buf(o->st->wls->shm, "grabit-overlay",
-							o->pixel_width, o->pixel_height, &b) != 0) {
+							o->pixel_width, o->pixel_height, &o->buf) != 0) {
 		return -1;
 	}
-	o->buffer = b.buffer;
-	o->buf_data = b.map;
-	o->buf_size = b.size;
 
 	wl_surface_set_buffer_scale(o->surface, o->scale);
 	return 0;
 }
 
 static void draw_border(struct overlay_output *o) {
-	cairo_surface_t *surf = grabit_cairo_image_argb(o->buf_data, o->pixel_width,
+	cairo_surface_t *surf = grabit_cairo_image_argb(o->buf.map, o->pixel_width,
 													o->pixel_height, o->pixel_width * 4);
 	if (!surf) return;
 	cairo_t *cr = cairo_create(surf);
@@ -122,20 +116,12 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	o->height = (int32_t)h;
 	zwlr_layer_surface_v1_ack_configure(ls, serial);
 
-	struct grabit_shm_buf cfgbuf = {
-		.buffer = o->buffer,
-		.map = o->buf_data,
-		.size = o->buf_size,
-	};
-	grabit_shm_buf_destroy(&cfgbuf);
-	o->buffer = NULL;
-	o->buf_data = NULL;
-	o->buf_size = 0;
+	grabit_shm_buf_destroy(&o->buf);
 
 	if (alloc_buffer(o) != 0) return;
 	draw_border(o);
 
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
+	wl_surface_attach(o->surface, o->buf.buffer, 0, 0);
 	wl_surface_damage_buffer(o->surface, 0, 0, o->pixel_width, o->pixel_height);
 	wl_surface_commit(o->surface);
 	o->configured = true;
@@ -196,7 +182,7 @@ void overlay_stop(struct overlay_state *st) {
 	if (!st) return;
 	for (size_t i = 0; i < st->n; i++) {
 		struct overlay_output *o = &st->outs[i];
-		grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+		grabit_shm_buf_destroy(&o->buf);
 		if (o->layer_surface) zwlr_layer_surface_v1_destroy(o->layer_surface);
 		if (o->surface) wl_surface_destroy(o->surface);
 	}

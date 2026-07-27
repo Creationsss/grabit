@@ -112,7 +112,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 	for (size_t i = 0; i < st->n_outs; i++) {
 		struct ro_output *o = &st->outs[i];
 		grabit_wl_callback_drop(&o->frame_cb);
-		if (o->surface && o->buffer) {
+		if (o->surface) {
 			wl_surface_attach(o->surface, NULL, 0, 0);
 			wl_surface_commit(o->surface);
 		}

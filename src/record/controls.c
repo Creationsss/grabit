@@ -44,18 +44,12 @@ static void layer_configure(void *data, struct zwlr_layer_surface_v1 *ls,
 	o->pixel_w = o->width * o->scale;
 	o->pixel_h = o->height * o->scale;
 
-	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
-	struct grabit_shm_buf b;
-	if (grabit_shm_argb_buf(o->st->wls->shm, "grabit-rec-controls",
-							o->pixel_w, o->pixel_h, &b) != 0)
-		return;
-	o->buffer = b.buffer;
-	o->buf_data = b.map;
-	o->buf_size = b.size;
 	wl_surface_set_buffer_scale(o->surface, o->scale);
 	o->configured = true;
 	o->mapped = false;
 	o->shown = (struct rect){0, 0, 0, 0};
+	for (size_t i = 0; i < GRABIT_SHM_SLOTS; i++)
+		o->slot_shown[i] = (struct rect){0, 0, 0, 0};
 	ctl_apply_input_region(o);
 	ctl_output_redraw(o);
 }
@@ -188,7 +182,7 @@ void controls_stop(struct rec_controls *c) {
 	for (size_t i = 0; i < c->n; i++) {
 		struct ctl_output *o = &c->outs[i];
 		grabit_wl_callback_drop(&o->frame_cb);
-		grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+		grabit_shm_pool_finish(&o->pool);
 		if (o->layer) zwlr_layer_surface_v1_destroy(o->layer);
 		if (o->surface) wl_surface_destroy(o->surface);
 	}

@@ -50,7 +50,8 @@ int grabit_shm_argb_buf(struct wl_shm *shm, const char *tag,
 						int32_t pixel_w, int32_t pixel_h,
 						struct grabit_shm_buf *out);
 void grabit_shm_buf_destroy(struct grabit_shm_buf *b);
-void grabit_shm_release(struct wl_buffer **buf, void **map, size_t *size);
+
+#define GRABIT_SHM_SLOTS 2
 
 struct grabit_shm_slot {
 	struct grabit_shm_buf buf;
@@ -60,13 +61,15 @@ struct grabit_shm_slot {
 };
 
 struct grabit_shm_pool {
-	struct grabit_shm_slot slots[2];
+	struct grabit_shm_slot slots[GRABIT_SHM_SLOTS];
 };
 
 struct grabit_shm_slot *grabit_shm_pool_next(struct wl_shm *shm, const char *tag,
 											 struct grabit_shm_pool *p,
 											 int32_t pixel_w, int32_t pixel_h);
 void grabit_shm_pool_finish(struct grabit_shm_pool *p);
+struct wl_surface;
+void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *slot);
 
 void grabit_redirect_stdio_devnull(void);
 

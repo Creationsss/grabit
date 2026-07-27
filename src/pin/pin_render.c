@@ -165,10 +165,9 @@ void pin_render_output_redraw(struct pin_output *o) {
 	} else {
 		wl_surface_set_buffer_scale(o->surface, o->scale);
 	}
-	wl_surface_attach(o->surface, slot->buf.buffer, 0, 0);
+	grabit_shm_slot_attach(o->surface, slot);
 	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
 	wl_surface_commit(o->surface);
-	slot->busy = true;
 }
 
 static void output_request_redraw(struct pin_output *o) {

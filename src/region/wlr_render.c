@@ -24,7 +24,7 @@
 
 #include "region/render_internal.h"
 
-void gren_anno_cache_ensure(struct ro_output *o) {
+void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst) {
 	const struct annotation_list *annos = o->st->out_annos;
 	int32_t S = o->scale;
 	int32_t dragging = region_anno_dragging(o->st) ? 1 : 0;
@@ -71,7 +71,7 @@ void gren_anno_cache_ensure(struct ro_output *o) {
 	cairo_scale(cc, S, S);
 	for (size_t i = 0; i < annos->n; i++)
 		if (!(dragging && annos->items[i].selected))
-			annotation_paint_backdrop(cc, &annos->items[i], 1.0, o->cairo_dst);
+			annotation_paint_backdrop(cc, &annos->items[i], 1.0, dst);
 	cairo_destroy(cc);
 	cairo_surface_flush(o->anno_cache);
 	o->anno_cache_gen = annos->gen;
@@ -205,12 +205,7 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	o->height = (int32_t)h;
 	zwlr_layer_surface_v1_ack_configure(ls, serial);
 
-	region_render_free_buffer(o);
-	if (gren_output_alloc_buffer(o) != 0) {
-		o->st->cancelled = true;
-		o->st->finished = true;
-		return;
-	}
+	gren_output_configure(o);
 	o->configured = true;
 	gren_output_redraw(o);
 }

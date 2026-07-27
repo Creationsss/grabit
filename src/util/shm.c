@@ -66,18 +66,6 @@ void grabit_shm_buf_destroy(struct grabit_shm_buf *b) {
 	memset(b, 0, sizeof *b);
 }
 
-void grabit_shm_release(struct wl_buffer **buf, void **map, size_t *size) {
-	if (buf && *buf) {
-		wl_buffer_destroy(*buf);
-		*buf = NULL;
-	}
-	if (map && *map && size) {
-		munmap(*map, *size);
-		*map = NULL;
-		*size = 0;
-	}
-}
-
 static void slot_handle_release(void *data, struct wl_buffer *buffer) {
 	(void)buffer;
 	struct grabit_shm_slot *slot = data;
@@ -106,6 +94,11 @@ struct grabit_shm_slot *grabit_shm_pool_next(struct wl_shm *shm, const char *tag
 		return slot;
 	}
 	return NULL;
+}
+
+void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *slot) {
+	wl_surface_attach(surface, slot->buf.buffer, 0, 0);
+	slot->busy = true;
 }
 
 void grabit_shm_pool_finish(struct grabit_shm_pool *p) {

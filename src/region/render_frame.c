@@ -25,14 +25,22 @@
 #include "region/render_internal.h"
 
 void gren_output_redraw(struct ro_output *o) {
-	if (!o->configured || !o->buf_data || !o->cairo_dst) return;
+	if (!o->configured) return;
 	o->dirty = false;
 
 	const int32_t S = o->scale;
 	const int32_t pw = o->pixel_width;
 	const int32_t ph = o->pixel_height;
 
-	cairo_t *cr = cairo_create(o->cairo_dst);
+	struct grabit_shm_slot *slot = grabit_shm_pool_next(
+		o->st->wls->shm, "grabit-region", &o->pool, pw, ph);
+	if (!slot) {
+		o->dirty = true;
+		return;
+	}
+	cairo_surface_t *dst = grabit_cairo_image_argb(slot->buf.map, pw, ph, pw * 4);
+	if (!dst) return;
+	cairo_t *cr = cairo_create(dst);
 
 	int32_t sel_l = 0, sel_t = 0, sel_r = 0, sel_b = 0;
 	bool sel_visible = false;
@@ -92,7 +100,7 @@ void gren_output_redraw(struct ro_output *o) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		gren_anno_cache_ensure(o);
+		gren_anno_cache_ensure(o, dst);
 		if (!o->anno_cache || o->st->drawing || anno_drag) {
 			cairo_push_group(cr);
 			if (o->anno_cache) {
@@ -252,12 +260,13 @@ void gren_output_redraw(struct ro_output *o) {
 	if (region_coords_active(o)) region_coords_render(cr, o);
 
 	cairo_destroy(cr);
-	cairo_surface_flush(o->cairo_dst);
+	cairo_surface_flush(dst);
+	cairo_surface_destroy(dst);
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &gren_frame_listener_g, o);
 
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
+	grabit_shm_slot_attach(o->surface, slot);
 	wl_surface_damage_buffer(o->surface, 0, 0, pw, ph);
 	wl_surface_commit(o->surface);
 }

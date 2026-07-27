@@ -97,7 +97,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 	if (st.xkb_state) xkb_state_unref(st.xkb_state);
 	if (st.xkb_keymap) xkb_keymap_unref(st.xkb_keymap);
 	xkb_context_unref(st.xkb_ctx);
-	grabit_shm_release(&st.buffer, &st.buf_data, &st.buf_size);
+	grabit_shm_buf_destroy(&st.buf);
 	zwlr_layer_surface_v1_destroy(st.layer);
 	wl_surface_destroy(st.surface);
 	wl_display_roundtrip(s->display);

@@ -83,6 +83,7 @@ void ginp_mode_enter_region(struct ro_state *st) {
 void ginp_mode_enter_anno_edit(struct ro_state *st) {
 	st->region_locked = true;
 	st->anno_edit_mode = true;
+	region_clear_selection(st);
 	st->color_picker_open = false;
 	st->picker_group = TB_NONE;
 	st->eyedropper_mode = false;
@@ -200,7 +201,7 @@ void ginp_apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t seria
 						o->scale);
 }
 
-void ginp_slider_set_width_from_cursor(struct ro_state *st) {
+void ginp_slider_set_width_from_cursor(struct ro_state *st, bool record) {
 	int32_t sx, sy, sw, sh;
 	region_toolbar_slider_rect(st, &sx, &sy, &sw, &sh);
 	(void)sy;
@@ -209,6 +210,6 @@ void ginp_slider_set_width_from_cursor(struct ro_state *st) {
 	if (frac < 0) frac = 0;
 	if (frac > 1) frac = 1;
 	int32_t lo, hi;
-	int32_t *f = region_slider_field(st, &lo, &hi);
-	*f = lo + (int32_t)(frac * (hi - lo) + 0.5);
+	region_slider_range(st, &lo, &hi);
+	region_apply_slider(st, lo + (int32_t)(frac * (hi - lo) + 0.5), record);
 }

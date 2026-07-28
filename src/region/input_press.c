@@ -122,10 +122,8 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (inside_grid) {
 			st->color_input_active = false;
 			uint32_t picked = 0;
-			if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked)) {
-				st->current_color = picked;
-				st->edit_choices_dirty = true;
-			}
+			if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked))
+				region_apply_color(st, picked, true);
 			st->color_picker_dragging = true;
 			region_render_request_redraw_all(st);
 			return;
@@ -133,17 +131,15 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (inside_input) {
 			st->color_input_active = true;
 			snprintf(st->color_input_buf, sizeof st->color_input_buf,
-					 "%06X", st->current_color & 0xFFFFFFu);
+					 "%06X", region_active_color(st) & 0xFFFFFFu);
 			st->color_input_len = 6;
 			region_render_request_redraw_all(st);
 			return;
 		}
 		if (st->color_input_active) {
 			uint32_t parsed = 0;
-			if (region_parse_hex_color(st->color_input_buf, &parsed)) {
-				st->current_color = parsed;
-				st->edit_choices_dirty = true;
-			}
+			if (region_parse_hex_color(st->color_input_buf, &parsed))
+				region_apply_color(st, parsed, true);
 			st->color_input_active = false;
 			st->color_input_len = 0;
 		}
@@ -189,10 +185,8 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	if (region_editing(st) && st->eyedropper_mode &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		uint32_t picked = 0;
-		if (ginp_eyedropper_sample(st, &picked)) {
-			st->current_color = picked;
-			st->edit_choices_dirty = true;
-		}
+		if (ginp_eyedropper_sample(st, &picked))
+			region_apply_color(st, picked, true);
 		st->eyedropper_mode = false;
 		ginp_refresh_cursor(st, p);
 		region_render_request_redraw_all(st);

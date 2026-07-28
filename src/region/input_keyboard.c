@@ -120,10 +120,8 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 			st->color_input_len = 0;
 		} else if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
 			uint32_t parsed = 0;
-			if (region_parse_hex_color(st->color_input_buf, &parsed)) {
-				st->current_color = parsed;
-				st->edit_choices_dirty = true;
-			}
+			if (region_parse_hex_color(st->color_input_buf, &parsed))
+				region_apply_color(st, parsed, true);
 			st->color_input_active = false;
 			st->color_input_len = 0;
 		} else if (sym == XKB_KEY_BackSpace) {

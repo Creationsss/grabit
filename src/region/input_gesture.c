@@ -182,6 +182,78 @@ bool region_has_selection(const struct ro_state *st) {
 	return false;
 }
 
+static const struct annotation *first_selected(const struct ro_state *st) {
+	if (!st->anno_edit_mode || !st->out_annos) return NULL;
+	for (size_t i = 0; i < st->out_annos->n; i++)
+		if (st->out_annos->items[i].selected) return &st->out_annos->items[i];
+	return NULL;
+}
+
+uint32_t region_active_color(const struct ro_state *st) {
+	const struct annotation *a = first_selected(st);
+	return a ? a->color : st->current_color;
+}
+
+static bool slider_is_font(const struct ro_state *st, const struct annotation *a) {
+	return a ? tool_uses_font(a->tool) : region_tool_uses_font(st);
+}
+
+void region_slider_range(const struct ro_state *st, int32_t *lo, int32_t *hi) {
+	bool font = slider_is_font(st, first_selected(st));
+	*lo = font ? FONT_MIN : WIDTH_MIN;
+	*hi = font ? FONT_MAX : WIDTH_MAX;
+}
+
+int32_t region_active_slider(const struct ro_state *st, int32_t *lo, int32_t *hi) {
+	const struct annotation *a = first_selected(st);
+	bool font = slider_is_font(st, a);
+	*lo = font ? FONT_MIN : WIDTH_MIN;
+	*hi = font ? FONT_MAX : WIDTH_MAX;
+	if (!a) return font ? st->current_font : st->current_width;
+	return font ? annotation_font_size(a) : annotation_width(a);
+}
+
+void region_apply_slider(struct ro_state *st, int32_t value, bool record) {
+	const struct annotation *sel = first_selected(st);
+	if (sel) {
+		bool font_mode = tool_uses_font(sel->tool);
+		if (record) region_undo_record_selected_sizes(st, font_mode ? 1 : 0);
+		for (size_t i = 0; i < st->out_annos->n; i++) {
+			struct annotation *a = &st->out_annos->items[i];
+			if (!a->selected || tool_uses_font(a->tool) != font_mode) continue;
+			if (font_mode)
+				a->font_size = value;
+			else
+				a->width = value;
+			annotation_update_bbox(a);
+		}
+		st->out_annos->gen++;
+		return;
+	}
+	if (region_tool_uses_font(st)) {
+		st->current_font = value;
+		return;
+	}
+	st->current_width = value;
+	st->edit_choices_dirty = true;
+}
+
+void region_apply_color(struct ro_state *st, uint32_t color, bool record) {
+	if (first_selected(st)) {
+		if (record) region_undo_group_begin(st);
+		for (size_t i = 0; i < st->out_annos->n; i++) {
+			if (!st->out_annos->items[i].selected) continue;
+			if (record) region_undo_record_anno_color(st, i);
+			st->out_annos->items[i].color = color;
+		}
+		if (record) region_undo_group_end(st);
+		st->out_annos->gen++;
+		return;
+	}
+	st->current_color = color;
+	st->edit_choices_dirty = true;
+}
+
 const struct annotation *region_single_selection(const struct ro_state *st) {
 	if (!st->out_annos) return NULL;
 	const struct annotation *found = NULL;

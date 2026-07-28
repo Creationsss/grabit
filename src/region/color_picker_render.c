@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/color_picker_internal.h"
 #include "region/toolbar_internal.h"
+#include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "util/util.h"
 
@@ -120,7 +121,7 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	double sw = dih - 2.0 * COLOR_PICKER_SWATCH_PAD_Y * S;
 	double sx = dix + (double)COLOR_PICKER_SWATCH_PAD_X * S;
 	double sy = diy + (double)COLOR_PICKER_SWATCH_PAD_Y * S;
-	uint32_t cur = o->st->current_color;
+	uint32_t cur = region_active_color(o->st);
 	grabit_cairo_set_source_argb(cr, cur, 1);
 	cairo_rectangle(cr, sx, sy, sw, sw);
 	cairo_fill(cr);

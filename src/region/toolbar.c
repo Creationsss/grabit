@@ -5,6 +5,7 @@
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
+#include "region/wlr_input_state.h"
 #include "wl/wl.h"
 
 #include <math.h>
@@ -22,24 +23,9 @@ static bool button_active(const struct ro_state *st, enum tb_action act) {
 	int32_t stool = toolbar_standalone_tool(act);
 	if (stool >= 0)
 		return tool_active && st->current_tool == (enum tool_kind)stool;
-	switch (act) {
-	case TB_COLOR_RED:
-		return st->current_color == TOOLBAR_COLORS[0];
-	case TB_COLOR_YELLOW:
-		return st->current_color == TOOLBAR_COLORS[1];
-	case TB_COLOR_GREEN:
-		return st->current_color == TOOLBAR_COLORS[2];
-	case TB_COLOR_BLUE:
-		return st->current_color == TOOLBAR_COLORS[3];
-	case TB_COLOR_BLACK:
-		return st->current_color == TOOLBAR_COLORS[4];
-	case TB_COLOR_WHITE:
-		return st->current_color == TOOLBAR_COLORS[5];
-	case TB_UNDO:
-		return st->undo_held;
-	default:
-		return false;
-	}
+	if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE)
+		return region_active_color(st) == TOOLBAR_COLORS[act - TB_COLOR_RED];
+	return act == TB_UNDO && st->undo_held;
 }
 
 static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
@@ -80,7 +66,7 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_stroke(cr);
 
 	int32_t lo, hi;
-	int32_t val = *region_slider_field(st, &lo, &hi);
+	int32_t val = region_active_slider(st, &lo, &hi);
 	if (val < lo) val = lo;
 	if (val > hi) val = hi;
 	double frac = (double)(val - lo) / (double)(hi - lo);
@@ -184,7 +170,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		}
 		if (is_current) {
 			toolbar_color_current(cr, cxi, cyi, s_icon,
-								  o->st->current_color, o->st->color_picker_open);
+								  region_active_color(o->st),
+								  o->st->color_picker_open);
 			continue;
 		}
 		if (is_slider) {

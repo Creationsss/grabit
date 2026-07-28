@@ -66,15 +66,17 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 		ginp_mode_enter_anno_edit(st);
 		ginp_refresh_cursor(st, p);
 	} else if (grp) {
-		st->picker_group = st->picker_group == act ? TB_NONE : act;
+		bool was_open = st->picker_group == act;
+		ginp_mode_select_tool(st, st->group_tool[toolbar_group_index(grp)]);
+		st->picker_group = was_open ? TB_NONE : act;
 		st->color_picker_open = false;
 		st->eyedropper_mode = false;
+		ginp_refresh_cursor(st, p);
 	} else if (stool >= 0) {
 		ginp_mode_select_tool(st, (enum tool_kind)stool);
 		ginp_refresh_cursor(st, p);
 	} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
-		st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];
-		st->edit_choices_dirty = true;
+		region_apply_color(st, TOOLBAR_COLORS[act - TB_COLOR_RED], true);
 		st->eyedropper_mode = false;
 		st->color_picker_open = false;
 	} else if (act == TB_COLOR_CURRENT) {
@@ -82,9 +84,8 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 		st->eyedropper_mode = false;
 		ginp_refresh_cursor(st, p);
 	} else if (act == TB_WIDTH_SLIDER) {
-		ginp_slider_set_width_from_cursor(st);
+		ginp_slider_set_width_from_cursor(st, true);
 		st->slider_dragging = true;
-		st->edit_choices_dirty = true;
 		region_drag_start(st);
 	} else if (act == TB_UNDO) {
 		region_undo_pop(st);

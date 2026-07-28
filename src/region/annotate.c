@@ -109,11 +109,15 @@ bool annotation_list_remove_at(struct annotation_list *list, size_t idx,
 }
 
 int32_t annotation_counter_radius(const struct annotation *a) {
-	return a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT;
+	return annotation_font_size(a);
 }
 
 int32_t annotation_width(const struct annotation *a) {
 	return a->width > 0 ? a->width : ANNO_DEFAULT_WIDTH;
+}
+
+int32_t annotation_font_size(const struct annotation *a) {
+	return a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT;
 }
 
 void annotation_free(struct annotation *a) {
@@ -143,7 +147,7 @@ void annotation_update_bbox(struct annotation *a) {
 			maxy = i32max(maxy, a->points[i * 2 + 1]);
 		}
 	} else if (a->tool == TOOL_TEXT) {
-		int32_t fs = a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT;
+		int32_t fs = annotation_font_size(a);
 		int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
 		minx = a->x0;
 		maxx = a->x0 + len * fs * 3 / 5;

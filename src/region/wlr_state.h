@@ -73,6 +73,7 @@ enum undo_kind {
 	UNDO_ANNO_MOVE,
 	UNDO_ANNO_GEOM,
 	UNDO_ANNO_SIZE,
+	UNDO_ANNO_COLOR,
 };
 
 struct undo_item {
@@ -97,6 +98,10 @@ struct undo_item {
 			int32_t width;
 			int32_t font_size;
 		} size;
+		struct {
+			size_t idx;
+			uint32_t color;
+		} color;
 		struct {
 			struct annotation a;
 		} readd;
@@ -257,24 +262,12 @@ static inline bool region_editing(const struct ro_state *st) {
 }
 
 static inline bool region_tool_uses_font(const struct ro_state *st) {
-	return st->current_tool == TOOL_TEXT || st->current_tool == TOOL_COUNTER ||
-		   st->text_input_active;
+	return tool_uses_font(st->current_tool) || st->text_input_active;
 }
 
 static inline bool region_multi_select_held(const struct ro_state *st) {
 	return st->xkb_state && st->multi_select_mods &&
 		   (region_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
-}
-
-static inline int32_t *region_slider_field(struct ro_state *st, int32_t *lo, int32_t *hi) {
-	if (region_tool_uses_font(st)) {
-		*lo = FONT_MIN;
-		*hi = FONT_MAX;
-		return &st->current_font;
-	}
-	*lo = WIDTH_MIN;
-	*hi = WIDTH_MAX;
-	return &st->current_width;
 }
 
 #define ANNO_DRAG_NONE (-1)

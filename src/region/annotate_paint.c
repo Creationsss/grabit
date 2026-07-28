@@ -167,7 +167,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 	}
 	case TOOL_TEXT: {
 		if (!a->text || !a->text[0]) break;
-		double font_px = (a->font_size > 0 ? a->font_size : ANNO_DEFAULT_FONT) * scale;
+		double font_px = annotation_font_size(a) * scale;
 		cairo_select_font_face(cr, "sans-serif",
 							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, font_px);

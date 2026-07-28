@@ -89,6 +89,10 @@ static inline bool tool_is_line_family(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE;
 }
 
+static inline bool tool_uses_font(enum tool_kind t) {
+	return t == TOOL_TEXT || t == TOOL_COUNTER;
+}
+
 static inline bool tool_uses_line_style(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE ||
 		   t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE;

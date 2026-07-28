@@ -46,6 +46,11 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)surface;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
+	if (st->dragging || st->tb_dragging || st->slider_dragging ||
+		st->color_picker_dragging || st->moving_region ||
+		st->handle_dragging != HANDLE_NONE || region_anno_dragging(st) ||
+		st->drawing)
+		return;
 	st->cursor_on = NULL;
 	if (region_set_hover(st, -1)) region_render_request_redraw_all(st);
 }

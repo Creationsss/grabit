@@ -28,13 +28,19 @@
 #define MAGNIFIER_SWATCH_INSET 5
 #define MAGNIFIER_TEXT_GAP 10
 
+static bool output_has_cursor(const struct ro_output *o) {
+	struct rect r;
+	grabit_output_rect(o->go, &r);
+	return rect_contains(r, o->st->cursor_x, o->st->cursor_y);
+}
+
 bool region_magnifier_active(const struct ro_output *o) {
-	return o->st->magnifier_held && o->st->cursor_on == o && o->cairo_frozen &&
+	return o->st->magnifier_held && output_has_cursor(o) && o->cairo_frozen &&
 		   !o->st->text_input_active;
 }
 
 bool region_coords_active(const struct ro_output *o) {
-	return o->st->show_coords && o->st->cursor_on == o &&
+	return o->st->show_coords && output_has_cursor(o) &&
 		   !o->st->text_input_active && !region_magnifier_active(o);
 }
 

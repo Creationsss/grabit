@@ -186,6 +186,9 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
 		return -1;
 	}
+	if (strcmp(key, "capture.delay") == 0 &&
+		validate_int_in_range(key, value, 0, 3600) != 0)
+		return -1;
 	if (strcmp(key, "region.last") == 0) {
 		struct rect tmp;
 		if (!last_region_parse(value, &tmp)) {

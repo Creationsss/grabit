@@ -18,6 +18,7 @@ bool grabit_in_path(const char *bin);
 int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
+void grabit_sleep_secs(int secs);
 
 const char *grabit_basename(const char *path);
 

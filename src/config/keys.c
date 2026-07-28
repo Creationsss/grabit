@@ -180,7 +180,8 @@ static bool valid_preview_key(const char *key) {
 static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
 	const char *leaf = key + 8;
-	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0;
+	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0 ||
+		   strcmp(leaf, "delay") == 0;
 }
 
 static bool valid_region_key(const char *key) {

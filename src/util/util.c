@@ -198,3 +198,10 @@ int64_t grabit_now_ns(void) {
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
+
+void grabit_sleep_secs(int secs) {
+	if (secs <= 0) return;
+	log_info("waiting %ds before capturing", secs);
+	struct timespec ts = {.tv_sec = secs, .tv_nsec = 0};
+	while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {}
+}

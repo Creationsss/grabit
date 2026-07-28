@@ -86,6 +86,8 @@ static int run(const struct args *a) {
 		const char *v = config_get(&cfg, "region.repeat_last");
 		if (v && strcmp(v, "true") == 0) eff_a.last_region = true;
 	}
+	if (eff_a.delay_secs == 0)
+		eff_a.delay_secs = gapp_read_int_cfg_clamp(&cfg, "capture.delay", 0, 0, 3600);
 	a = &eff_a;
 
 	int rc;

@@ -213,6 +213,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 
 	const char *cursor_cfg = config_get(cfg, "capture.cursor");
 	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
+	grabit_sleep_secs(a->delay_secs);
 	struct rect got = {0};
 	int rc = grabit_freeze_capture(&s, cfg, path, &opts, &got, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,

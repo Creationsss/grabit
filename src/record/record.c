@@ -144,6 +144,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 0;
 	}
 	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
+	grabit_sleep_secs(a->delay_secs);
 
 	struct rec_layout layout = {0};
 	char *output_path = NULL;

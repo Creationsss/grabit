@@ -69,6 +69,7 @@ int gapp_print_help(void) {
 		"  -F, --fullscreen[=<n|name|all>]  capture a whole monitor\n"
 		"  -L, --last          reuse the last region instead of selecting one\n"
 		"  --no-last           force the selector even if region.repeat_last is set\n"
+		"  --delay <secs>      wait before capturing (menus, tooltips)\n"
 		"  -f <file>           use an existing file instead of capturing\n"
 		"  --format <fmt>      png|jpeg|webp\n"
 		"  --filename <tpl>    per-run filename template\n"

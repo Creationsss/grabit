@@ -7,6 +7,7 @@
 #include "upload/upload.h"
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 static bool is_silent_flag(const char *a) {
@@ -25,6 +26,17 @@ void args_pre_scan(int argc, char **argv, bool *silent, bool *debug) {
 		else if (is_debug_flag(argv[i]))
 			*debug = true;
 	}
+}
+
+static int parse_delay(const char *v, int *out) {
+	char *end = NULL;
+	long n = v && *v ? strtol(v, &end, 10) : 0;
+	if (!v || !*v || !end || *end != '\0' || n < 0 || n > 3600) {
+		log_error("--delay requires a whole number of seconds (0-3600)");
+		return -1;
+	}
+	*out = (int)n;
+	return 0;
 }
 
 static int set_action(struct args *a, enum action act, const char *flag) {
@@ -112,6 +124,18 @@ int args_parse(int argc, char **argv, struct args *out) {
 		}
 		if (strcmp(arg, "--no-last") == 0) {
 			out->no_last = true;
+			continue;
+		}
+		if (strcmp(arg, "--delay") == 0) {
+			if (++i >= argc) {
+				log_error("--delay requires a number of seconds");
+				return -1;
+			}
+			if (parse_delay(argv[i], &out->delay_secs) != 0) return -1;
+			continue;
+		}
+		if (strncmp(arg, "--delay=", 8) == 0) {
+			if (parse_delay(arg + 8, &out->delay_secs) != 0) return -1;
 			continue;
 		}
 		if (strcmp(arg, "--chunked") == 0) {

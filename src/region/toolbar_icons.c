@@ -103,6 +103,7 @@ void toolbar_icon_rect(cairo_t *cr, double cx, double cy, double s) {
 void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);
+	cairo_new_sub_path(cr);
 	cairo_arc(cr, cx, cy, s * 0.36, 0, 2.0 * M_PI);
 	cairo_stroke(cr);
 }
@@ -152,6 +153,7 @@ void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
 	cairo_pattern_add_color_stop_rgba(p, 0.55, 0.6, 0.6, 0.6, 0.85);
 	cairo_pattern_add_color_stop_rgba(p, 1.0, 0.5, 0.5, 0.5, 0.0);
 	cairo_set_source(cr, p);
+	cairo_new_sub_path(cr);
 	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
 	cairo_fill(cr);
 	cairo_pattern_destroy(p);
@@ -219,29 +221,55 @@ void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
 	cairo_set_dash(cr, NULL, 0, 0.0);
 }
 
-void toolbar_icon_line_group(cairo_t *cr, double cx, double cy, double s,
-							 enum tool_kind tool) {
-	double ic = s * 0.82;
-	switch (tool) {
+void toolbar_icon_rrect(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.4 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	double half = s * 0.36;
+	grabit_cairo_rounded_rect(cr, cx - half, cy - half, half * 2, half * 2,
+							  half * 0.55);
+	cairo_stroke(cr);
+}
+
+void toolbar_icon_for_tool(cairo_t *cr, enum tool_kind t,
+						   double cx, double cy, double s) {
+	switch (t) {
+	case TOOL_PEN:
+		toolbar_icon_pen(cr, cx, cy, s);
+		break;
 	case TOOL_MARKER:
-		toolbar_icon_marker(cr, cx, cy, ic);
+		toolbar_icon_marker(cr, cx, cy, s);
 		break;
 	case TOOL_LINE:
-		toolbar_icon_line(cr, cx, cy, ic);
+		toolbar_icon_line(cr, cx, cy, s);
+		break;
+	case TOOL_RECT:
+		toolbar_icon_rect(cr, cx, cy, s);
+		break;
+	case TOOL_RRECT:
+		toolbar_icon_rrect(cr, cx, cy, s);
+		break;
+	case TOOL_ELLIPSE:
+		toolbar_icon_ellipse(cr, cx, cy, s);
+		break;
+	case TOOL_ARROW:
+		toolbar_icon_arrow(cr, cx, cy, s);
+		break;
+	case TOOL_BLUR:
+		toolbar_icon_blur(cr, cx, cy, s);
+		break;
+	case TOOL_PIXELATE:
+		toolbar_icon_pixelate(cr, cx, cy, s);
+		break;
+	case TOOL_TEXT:
+		toolbar_icon_text(cr, cx, cy, s);
+		break;
+	case TOOL_COUNTER:
+		toolbar_icon_counter(cr, cx, cy, s);
 		break;
 	default:
-		toolbar_icon_pen(cr, cx, cy, ic);
+		toolbar_icon_eraser(cr, cx, cy, s);
 		break;
 	}
-	double t = s * 0.13;
-	double bx = cx + s * 0.44;
-	double by = cy + s * 0.44;
-	cairo_set_dash(cr, NULL, 0, 0.0);
-	cairo_move_to(cr, bx - t, by - t * 0.5);
-	cairo_line_to(cr, bx + t, by - t * 0.5);
-	cairo_line_to(cr, bx, by + t * 0.7);
-	cairo_close_path(cr);
-	cairo_fill(cr);
 }
 
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s) {

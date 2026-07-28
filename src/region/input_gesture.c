@@ -52,7 +52,7 @@ bool region_drag_active(const struct ro_state *st) {
 		   region_anno_dragging(st) ||
 		   st->eyedropper_mode || st->color_picker_open ||
 		   st->color_picker_dragging || st->color_input_active ||
-		   st->line_picker_open;
+		   st->picker_group != TB_NONE;
 }
 
 void region_drag_abort(struct ro_state *st) {
@@ -83,7 +83,7 @@ void region_drag_abort(struct ro_state *st) {
 	st->anno_drag = ANNO_DRAG_NONE;
 	st->eyedropper_mode = false;
 	st->color_picker_open = false;
-	st->line_picker_open = false;
+	st->picker_group = TB_NONE;
 	st->color_picker_dragging = false;
 	st->color_input_active = false;
 	st->color_input_len = 0;

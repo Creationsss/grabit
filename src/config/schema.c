@@ -193,7 +193,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
 		log_error("edit.tool must be one of "
-				  "pen|marker|line|rect|ellipse|arrow|blur|text|eraser");
+				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|blur|"
+				  "pixelate|text|counter|eraser");
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&

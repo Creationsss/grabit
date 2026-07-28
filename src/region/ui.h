@@ -22,11 +22,9 @@ enum tb_action {
 	TB_REGION = 0,
 	TB_EDIT,
 	TB_TOOL_LINES,
-	TB_TOOL_RECT,
-	TB_TOOL_ELLIPSE,
+	TB_TOOL_SHAPES,
 	TB_TOOL_ARROW,
-	TB_TOOL_BLUR,
-	TB_TOOL_PIXELATE,
+	TB_TOOL_REDACT,
 	TB_TOOL_TEXT,
 	TB_TOOL_COUNTER,
 	TB_TOOL_ERASER,
@@ -44,6 +42,8 @@ enum tb_action {
 	TB_CANCEL,
 	TB_BTN_COUNT,
 };
+
+#define TB_TOOL_GROUP_COUNT 3
 
 #define TB_BTN_W 38
 #define TB_BTN_H 38
@@ -74,16 +74,16 @@ bool region_parse_hex_color(const char *s, uint32_t *out);
 void region_color_picker_render(cairo_t *cr, const struct ro_output *o);
 void region_color_picker_release_cache(struct ro_state *st);
 
-enum line_picker_kind { LP_NONE,
-						LP_TOOL,
-						LP_STYLE };
+enum tool_picker_kind { TP_NONE,
+						TP_TOOL,
+						TP_STYLE };
 
-void region_line_picker_rect(const struct ro_state *st,
+void region_tool_picker_rect(const struct ro_state *st,
 							 int32_t *out_x, int32_t *out_y,
 							 int32_t *out_w, int32_t *out_h);
-enum line_picker_kind region_line_picker_hit(const struct ro_state *st,
-											 int32_t abs_x, int32_t abs_y, int *index);
-void region_line_picker_render(cairo_t *cr, const struct ro_output *o);
+enum tool_picker_kind region_tool_picker_hit(const struct ro_state *st,
+											 int32_t abs_x, int32_t abs_y, int *value);
+void region_tool_picker_render(cairo_t *cr, const struct ro_output *o);
 
 #define WIDTH_MIN 1
 #define WIDTH_MAX 12

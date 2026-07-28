@@ -157,24 +157,28 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		}
 	}
 
-	if (st->line_picker_open && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-		int idx = 0;
-		enum line_picker_kind k =
-			region_line_picker_hit(st, st->cursor_x, st->cursor_y, &idx);
-		if (k == LP_TOOL) {
-			ginp_mode_select_tool(st, (enum tool_kind)idx);
-			st->line_picker_open = false;
+	if (st->picker_group != TB_NONE && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		int val = 0;
+		enum tool_picker_kind k =
+			region_tool_picker_hit(st, st->cursor_x, st->cursor_y, &val);
+		if (k == TP_TOOL) {
+			ginp_mode_select_tool(st, (enum tool_kind)val);
+			st->picker_group = TB_NONE;
 			ginp_refresh_cursor(st, p);
 			region_render_request_redraw_all(st);
 			return;
 		}
-		if (k == LP_STYLE) {
-			st->current_style = (enum stroke_style)idx;
+		if (k == TP_STYLE) {
+			st->current_style = (enum stroke_style)val;
 			region_render_request_redraw_all(st);
 			return;
 		}
+		struct rect pr;
+		region_tool_picker_rect(st, &pr.x, &pr.y, &pr.w, &pr.h);
+		if (pr.w > 0 && rect_contains(pr, st->cursor_x, st->cursor_y))
+			return;
 		if (!region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
-			st->line_picker_open = false;
+			st->picker_group = TB_NONE;
 			region_render_request_redraw_all(st);
 			return;
 		}

@@ -80,6 +80,19 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_stroke(cr);
 		break;
 	}
+	case TOOL_RRECT: {
+		double x = a->x0 < a->x1 ? a->x0 : a->x1;
+		double y = a->y0 < a->y1 ? a->y0 : a->y1;
+		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
+		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
+		double r = (rw < rh ? rw : rh) * 0.22;
+		ganno_set_color(cr, a->color);
+		cairo_set_line_width(cr, w);
+		apply_stroke_style(cr, a->style, w);
+		grabit_cairo_rounded_rect(cr, x, y, rw, rh, r);
+		cairo_stroke(cr);
+		break;
+	}
 	case TOOL_ELLIPSE: {
 		double cx = (a->x0 + a->x1) / 2.0;
 		double cy = (a->y0 + a->y1) / 2.0;

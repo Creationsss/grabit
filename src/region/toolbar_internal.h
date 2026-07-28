@@ -25,6 +25,21 @@ void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 							int32_t *out_x, int32_t *out_y,
 							int32_t *out_w, int32_t *out_h);
 
+struct tool_group {
+	enum tb_action btn;
+	const enum tool_kind *tools;
+	int n;
+	bool has_style;
+	const char *const *labels;
+	const char *tip;
+};
+
+const struct tool_group *toolbar_tool_group(enum tb_action btn);
+const struct tool_group *toolbar_group_of_tool(enum tool_kind t);
+int toolbar_group_index(const struct tool_group *g);
+enum tool_kind toolbar_group_default(int idx);
+int32_t toolbar_standalone_tool(enum tb_action btn);
+
 bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
 							  int32_t pw, int32_t place_h, int32_t gap,
 							  int32_t *out_x, int32_t *out_y);
@@ -44,8 +59,9 @@ void toolbar_icon_counter(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
 							 enum stroke_style style);
-void toolbar_icon_line_group(cairo_t *cr, double cx, double cy, double s,
-							 enum tool_kind tool);
+void toolbar_icon_rrect(cairo_t *cr, double cx, double cy, double s);
+void toolbar_icon_for_tool(cairo_t *cr, enum tool_kind t,
+						   double cx, double cy, double s);
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_redo(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_save(cairo_t *cr, double cx, double cy, double s);

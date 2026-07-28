@@ -9,6 +9,7 @@
 #include "hyprland.h"
 #include "log.h"
 #include "region/edit_persist.h"
+#include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
@@ -55,8 +56,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.current_tool = (inout_tool && *inout_tool >= 0 && *inout_tool < TOOL_COUNT)
 						  ? (enum tool_kind) * inout_tool
 						  : TOOL_PEN;
-	st.current_line_tool =
-		tool_is_line_family(st.current_tool) ? st.current_tool : TOOL_LINE;
+	st.picker_group = TB_NONE;
+	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
+		st.group_tool[i] = toolbar_group_default(i);
+	const struct tool_group *cur_g = toolbar_group_of_tool(st.current_tool);
+	if (cur_g) st.group_tool[toolbar_group_index(cur_g)] = st.current_tool;
 	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
 	st.current_font = ANNO_DEFAULT_FONT;

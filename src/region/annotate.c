@@ -18,6 +18,7 @@ const char *const grabit_tool_names[] = {
 	"marker",
 	"line",
 	"rect",
+	"rounded_rect",
 	"ellipse",
 	"arrow",
 	"blur",

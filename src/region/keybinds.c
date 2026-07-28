@@ -58,6 +58,7 @@ static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
 	[TOOL_MARKER] = "m, 2, KP_2",
 	[TOOL_LINE] = "l, 3, KP_3",
 	[TOOL_RECT] = "r, 4, KP_4",
+	[TOOL_RRECT] = "",
 	[TOOL_ELLIPSE] = "o, 5, KP_5",
 	[TOOL_ARROW] = "a, 6, KP_6",
 	[TOOL_BLUR] = "b, 7, KP_7",

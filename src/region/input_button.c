@@ -53,9 +53,11 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 		return true;
 	}
 
+	const struct tool_group *grp = toolbar_tool_group(act);
+	int32_t stool = toolbar_standalone_tool(act);
 	st->tooltip_visible = false;
 	if (act != TB_WIDTH_SLIDER) region_tooltip_arm(st);
-	if (act != TB_TOOL_LINES) st->line_picker_open = false;
+	if (!grp || grp->btn != st->picker_group) st->picker_group = TB_NONE;
 	if (st->text_input_active) region_commit_text(st);
 	if (act == TB_REGION) {
 		ginp_mode_enter_region(st);
@@ -63,12 +65,12 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	} else if (act == TB_EDIT) {
 		ginp_mode_enter_anno_edit(st);
 		ginp_refresh_cursor(st, p);
-	} else if (act == TB_TOOL_LINES) {
-		st->line_picker_open = !st->line_picker_open;
+	} else if (grp) {
+		st->picker_group = st->picker_group == act ? TB_NONE : act;
 		st->color_picker_open = false;
 		st->eyedropper_mode = false;
-	} else if (act >= TB_TOOL_RECT && act <= TB_TOOL_ERASER) {
-		ginp_mode_select_tool(st, (enum tool_kind)(act - TB_TOOL_RECT + TOOL_RECT));
+	} else if (stool >= 0) {
+		ginp_mode_select_tool(st, (enum tool_kind)stool);
 		ginp_refresh_cursor(st, p);
 	} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
 		st->current_color = TOOLBAR_COLORS[act - TB_COLOR_RED];

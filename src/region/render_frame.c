@@ -252,7 +252,7 @@ void gren_output_redraw(struct ro_output *o) {
 	if (region_editing(o->st)) {
 		region_toolbar_render(cr, o);
 		region_color_picker_render(cr, o);
-		region_line_picker_render(cr, o);
+		region_tool_picker_render(cr, o);
 		region_toolbar_tooltip_render(cr, o);
 	}
 

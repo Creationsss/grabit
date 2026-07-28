@@ -61,6 +61,7 @@ enum tool_kind {
 	TOOL_MARKER,
 	TOOL_LINE,
 	TOOL_RECT,
+	TOOL_RRECT,
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
 	TOOL_BLUR,
@@ -76,8 +77,8 @@ static inline bool tool_uses_points(enum tool_kind t) {
 }
 
 static inline bool tool_is_rect_region(enum tool_kind t) {
-	return t == TOOL_RECT || t == TOOL_ELLIPSE || t == TOOL_BLUR ||
-		   t == TOOL_PIXELATE;
+	return t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE ||
+		   t == TOOL_BLUR || t == TOOL_PIXELATE;
 }
 
 static inline bool tool_samples_backdrop(enum tool_kind t) {
@@ -90,7 +91,7 @@ static inline bool tool_is_line_family(enum tool_kind t) {
 
 static inline bool tool_uses_line_style(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE ||
-		   t == TOOL_RECT || t == TOOL_ELLIPSE;
+		   t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE;
 }
 
 extern const char *const grabit_tool_names[];

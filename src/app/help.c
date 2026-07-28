@@ -67,6 +67,8 @@ int gapp_print_help(void) {
 		"Modifiers:\n"
 		"  -e, --edit          annotate before the action\n"
 		"  -F, --fullscreen[=<n|name|all>]  capture a whole monitor\n"
+		"  -L, --last          reuse the last region instead of selecting one\n"
+		"  --no-last           force the selector even if region.repeat_last is set\n"
 		"  -f <file>           use an existing file instead of capturing\n"
 		"  --format <fmt>      png|jpeg|webp\n"
 		"  --filename <tpl>    per-run filename template\n"

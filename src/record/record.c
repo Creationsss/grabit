@@ -6,6 +6,7 @@
 
 #include "args.h"
 #include "capture/capture.h"
+#include "capture/region_plan.h"
 #include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
@@ -19,6 +20,7 @@
 #include "record/rec_cfg.h"
 #include "record/ring.h"
 #include "record/segments.h"
+#include "region/edit_persist.h"
 #include "region/region.h"
 #include "tray/tray.h"
 #include "upload/upload.h"
@@ -51,6 +53,15 @@ static void fail_notify(const char *body) {
 
 static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 					   const struct args *a, struct rect *out) {
+	enum region_plan plan = region_plan_resolve(s, cfg, a->fullscreen,
+												a->fullscreen_target,
+												a->last_region, out);
+	if (plan == REGION_PLAN_NO_MONITOR) {
+		fail_notify("no matching monitor");
+		return -1;
+	}
+	if (plan == REGION_PLAN_FIXED) return 0;
+
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
 	if (!frozen) {
 		log_error("oom");
@@ -70,28 +81,13 @@ static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 		}
 	}
 
-	int rc;
-	if (a->fullscreen) {
-		struct rect fs_rect;
-		int plan = grabit_wl_fullscreen_plan(s, a->fullscreen_target, &fs_rect);
-		if (plan < 0) {
-			fail_notify("no matching monitor");
-			rc = -1;
-		} else if (plan == 0) {
-			*out = fs_rect;
-			rc = 0;
-		} else {
-			struct rect *mon = NULL;
-			size_t n_mon = 0;
-			grabit_wl_monitor_rects(s, &mon, &n_mon);
-			rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-							   NULL, NULL, mon, n_mon);
-			free(mon);
-		}
-	} else {
-		rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-						   NULL, NULL, NULL, 0);
-	}
+	struct rect *mon = NULL;
+	size_t n_mon = 0;
+	if (plan == REGION_PLAN_MONITOR_PICK) grabit_wl_monitor_rects(s, &mon, &n_mon);
+	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
+						   NULL, NULL, mon, n_mon);
+	free(mon);
+
 	for (size_t i = 0; i < s->n_outputs; i++)
 		image_free(&frozen[i]);
 	free(frozen);
@@ -147,6 +143,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		});
 		return 0;
 	}
+	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
 
 	struct rec_layout layout = {0};
 	char *output_path = NULL;

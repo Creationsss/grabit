@@ -121,6 +121,7 @@ GRABIT_SRCS := \
 	src/capture/webp.c \
 	src/capture/transform.c \
 	src/capture/freeze.c \
+	src/capture/region_plan.c \
 	src/region/annotate.c \
 	src/region/annotate_paint.c \
 	src/region/annotate_blur.c \

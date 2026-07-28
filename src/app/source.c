@@ -14,6 +14,7 @@
 #include "args.h"
 #include "capture/capture.h"
 #include "capture/freeze.h"
+#include "capture/region_plan.h"
 #include "capture/save.h"
 #include "clipboard/clipboard.h"
 #include "config/config.h"
@@ -171,21 +172,21 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		return NULL;
 	}
 
-	struct rect fs_rect;
+	struct rect forced_rect;
 	const struct rect *forced = NULL;
-	if (a->fullscreen) {
-		int plan = grabit_wl_fullscreen_plan(&s, a->fullscreen_target, &fs_rect);
-		if (plan < 0) {
-			grabit_wl_finish(&s);
-			notify_send(&(struct notify_opts){
-				.summary = "grabit: fullscreen failed",
-				.body = "no matching monitor",
-				.force = true,
-			});
-			return NULL;
-		}
-		if (plan == 0) forced = &fs_rect;
+	enum region_plan plan = region_plan_resolve(&s, cfg, a->fullscreen,
+												a->fullscreen_target,
+												a->last_region, &forced_rect);
+	if (plan == REGION_PLAN_NO_MONITOR) {
+		grabit_wl_finish(&s);
+		notify_send(&(struct notify_opts){
+			.summary = "grabit: fullscreen failed",
+			.body = "no matching monitor",
+			.force = true,
+		});
+		return NULL;
 	}
+	if (plan == REGION_PLAN_FIXED) forced = &forced_rect;
 
 	char *path = build_capture_path(a, cfg, eff, is_temp, &opts);
 	if (!path) {
@@ -202,7 +203,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 
 	struct rect *mon_rects = NULL;
 	size_t n_mon = 0;
-	if (a->fullscreen && !forced)
+	if (plan == REGION_PLAN_MONITOR_PICK)
 		grabit_wl_monitor_rects(&s, &mon_rects, &n_mon);
 
 	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
@@ -212,15 +213,19 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 
 	const char *cursor_cfg = config_get(cfg, "capture.cursor");
 	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
-	int rc = grabit_freeze_capture(&s, cfg, path, &opts, out_rect, a->edit, cursor,
+	struct rect got = {0};
+	int rc = grabit_freeze_capture(&s, cfg, path, &opts, &got, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
 								   a->edit ? &edit_tool : NULL,
 								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
 	grabit_wl_finish(&s);
 	free(mon_rects);
+	if (rc == 0 && out_rect) *out_rect = got;
 
-	if (a->edit && edit_dirty) persist_edit_choices(cfg, edit_color, edit_width, edit_tool);
+	struct edit_choices ec = {edit_color, edit_width, edit_tool};
+	persist_capture_state(cfg, (a->edit && edit_dirty) ? &ec : NULL,
+						  (rc == 0 && !a->fullscreen) ? &got : NULL);
 
 	if (rc != 0) {
 		unlink(path);

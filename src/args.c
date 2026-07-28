@@ -106,6 +106,14 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->cursor = true;
 			continue;
 		}
+		if (strcmp(arg, "-L") == 0 || strcmp(arg, "--last") == 0) {
+			out->last_region = true;
+			continue;
+		}
+		if (strcmp(arg, "--no-last") == 0) {
+			out->no_last = true;
+			continue;
+		}
 		if (strcmp(arg, "--chunked") == 0) {
 			out->chunked = true;
 			continue;

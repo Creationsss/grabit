@@ -68,23 +68,59 @@ int32_t edit_line_style_from_str(const char *s) {
 	return STROKE_SOLID;
 }
 
-void persist_edit_choices(struct config *cfg, uint32_t color, int32_t width,
-						  int32_t tool) {
-	char cn[10];
-	edit_color_to_str(color, cn, sizeof cn);
-	char wn[16];
-	snprintf(wn, sizeof wn, "%d", width);
-	const char *tn = (tool >= 0 && tool < TOOL_COUNT) ? grabit_tool_names[tool]
-													  : grabit_tool_names[TOOL_PEN];
-	const char *keys[] = {"edit.color", "edit.width", "edit.tool"};
-	const char *vals[] = {cn, wn, tn};
-	for (size_t i = 0; i < 3; i++) {
+static void persist_state_keys(struct config *cfg, const char *const *keys,
+							   const char *const *vals, size_t n) {
+	for (size_t i = 0; i < n; i++) {
 		const char *cur = config_get(cfg, keys[i]);
 		if (!cur || strcmp(cur, vals[i]) != 0) {
-			(void)config_state_put(cfg, keys, vals, 3);
+			(void)config_state_put(cfg, keys, vals, n);
 			return;
 		}
 	}
+}
+
+void persist_capture_state(struct config *cfg, const struct edit_choices *ec,
+						   const struct rect *last) {
+	const char *keys[4];
+	const char *vals[4];
+	size_t n = 0;
+
+	char cn[10], wn[16], rn[64];
+	if (ec) {
+		edit_color_to_str(ec->color, cn, sizeof cn);
+		snprintf(wn, sizeof wn, "%d", ec->width);
+		keys[n] = "edit.color";
+		vals[n++] = cn;
+		keys[n] = "edit.width";
+		vals[n++] = wn;
+		keys[n] = "edit.tool";
+		vals[n++] = (ec->tool >= 0 && ec->tool < TOOL_COUNT)
+						? grabit_tool_names[ec->tool]
+						: grabit_tool_names[TOOL_PEN];
+	}
+	if (last && last->w > 0 && last->h > 0) {
+		snprintf(rn, sizeof rn, "%d,%d,%d,%d", last->x, last->y, last->w, last->h);
+		keys[n] = "region.last";
+		vals[n++] = rn;
+	}
+	persist_state_keys(cfg, keys, vals, n);
+}
+
+static bool scan_i32_csv(const char *s, int32_t *out, int n) {
+	if (!s || !*s) return false;
+	const char *p = s;
+	for (int i = 0; i < n; i++) {
+		char *end = NULL;
+		long v = strtol(p, &end, 10);
+		if (end == p) return false;
+		out[i] = (int32_t)v;
+		p = end;
+		if (i + 1 < n) {
+			if (*p != ',') return false;
+			p++;
+		}
+	}
+	return *p == '\0';
 }
 
 bool edit_toolbar_pos_parse(const char *s, char *name_out, size_t name_cap,
@@ -93,16 +129,22 @@ bool edit_toolbar_pos_parse(const char *s, char *name_out, size_t name_cap,
 	if (!colon || colon == s) return false;
 	size_t nlen = (size_t)(colon - s);
 	if (nlen >= name_cap) return false;
+	int32_t xy[2];
+	if (!scan_i32_csv(colon + 1, xy, 2)) return false;
 	memcpy(name_out, s, nlen);
 	name_out[nlen] = '\0';
-	char *end = NULL;
-	long x = strtol(colon + 1, &end, 10);
-	if (end == colon + 1 || *end != ',') return false;
-	const char *ys = end + 1;
-	long y = strtol(ys, &end, 10);
-	if (end == ys || *end != '\0') return false;
-	*rx = (int32_t)x;
-	*ry = (int32_t)y;
+	*rx = xy[0];
+	*ry = xy[1];
+	return true;
+}
+
+bool last_region_parse(const char *s, struct rect *out) {
+	int32_t v[4];
+	if (!scan_i32_csv(s, v, 4) || v[2] <= 0 || v[3] <= 0) return false;
+	out->x = v[0];
+	out->y = v[1];
+	out->w = v[2];
+	out->h = v[3];
 	return true;
 }
 
@@ -111,8 +153,6 @@ void persist_toolbar_pos(struct config *cfg, const char *output,
 	char val[96];
 	snprintf(val, sizeof val, "%s:%d,%d", output, rx, ry);
 	const char *key = "edit.toolbar_pos";
-	const char *cur = config_get(cfg, key);
-	if (cur && strcmp(cur, val) == 0) return;
 	const char *valp = val;
-	(void)config_state_put(cfg, &key, &valp, 1);
+	persist_state_keys(cfg, &key, &valp, 1);
 }

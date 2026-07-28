@@ -68,7 +68,7 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 `~/.config/grabit/config.toml` is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, and the editor toolbar position (`edit.toolbar_pos`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
 
@@ -181,6 +181,8 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 |---|---|---|
 | `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
+| `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
+| `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 

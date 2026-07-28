@@ -82,6 +82,10 @@ static int run(const struct args *a) {
 		const char *v = config_get(&cfg, "edit.default");
 		if (v && strcmp(v, "true") == 0) eff_a.edit = true;
 	}
+	if (!eff_a.last_region && !eff_a.no_last) {
+		const char *v = config_get(&cfg, "region.repeat_last");
+		if (v && strcmp(v, "true") == 0) eff_a.last_region = true;
+	}
 	a = &eff_a;
 
 	int rc;

@@ -224,6 +224,31 @@ Use
 to capture every monitor stitched into one image. An unknown value lists the
 available monitors and exits.
 .TP
+.BR \-L ", " \-\-last
+Reuse the region from the previous capture instead of opening the selector.
+The rect is recorded after every region capture and kept in the state file as
+.BR region.last .
+Works for screenshots and
+.BR \-\-record .
+With
+.BR \-e
+the region is applied and locked, so the editor opens on the last-used tool
+rather than in region-select mode. Set
+.B region.repeat_last
+to
+.B true
+to make this the default without passing the flag.
+.B \-F
+takes precedence, and the flag is ignored when no region has been recorded yet.
+.TP
+.B \-\-no\-last
+Force the region selector for this run even when
+.B region.repeat_last
+is
+.BR true .
+Overrides
+.BR \-L .
+.TP
 .B \-\-cursor
 Include the mouse pointer in the screenshot for this run even if
 .B capture.cursor

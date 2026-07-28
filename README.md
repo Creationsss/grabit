@@ -54,6 +54,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
 - **region selector** with live freeze; drag, or click a window to snap on hyprland
 - **confirm mode** flameshot-style: adjust the selection before capturing
 - **`-F`/`--fullscreen`** grabs one monitor, or every monitor stitched together
+- **`-L`/`--last`** reuses the last region instead of selecting one, screenshots and `--record` alike (`region.repeat_last` makes it the default, `--no-last` overrides it for one run)
 - **annotator** (`-e`): pen, marker, line, rect, ellipse, arrow, blur, text, eraser
 - **color picker** with hex input and an eyedropper that samples the freeze
 - **`--record`** region recording with overlay and tray icon; mp4, webm, or gif ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))

@@ -657,14 +657,21 @@ environment variables instead if you track it in version control.
 .TP
 .I $XDG_STATE_HOME/grabit/state.toml
 Machine-local state grabit writes on its own: the last-used
-.BR edit.color ", " edit.width ", " edit.tool
-and the editor toolbar position
-.RB ( edit.toolbar_pos ).
+.BR edit.color ", " edit.width ", " edit.tool ,
+the editor toolbar position
+.RB ( edit.toolbar_pos )
+and the last captured region
+.RB ( region.last ,
+used by
+.BR \-L / \-\-last ).
 Falls back to
 .IR ~/.local/state/grabit/state.toml .
-These override the matching
-.B edit.*
-keys in config.toml, which then act only as an initial value.
+These override the matching keys in config.toml, which then act only as an
+initial value. Set
+.B save_state
+to
+.B false
+to stop reading and writing this file entirely.
 .TP
 .I ~/.config/grabit/uploaders/<name>.sxcu
 Registered ShareX uploaders.

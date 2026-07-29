@@ -55,7 +55,7 @@ grabit set <key>=<value>      # same, single-argument form
 grabit get                    # dump current config
 grabit get <key>              # one key
 grabit unset <key>
-grabit help [<subcommand>]    # help for set/get/unset/sxcu/plugin
+grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/ocr
 ```
 
 every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.

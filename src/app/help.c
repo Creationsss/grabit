@@ -97,7 +97,7 @@ int gapp_print_help(void) {
 		"  plugin              plugins\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
-		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples>\n"
+		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
 		"Full documentation: man grabit\n",
 		stdout);
 	return 0;
@@ -112,6 +112,7 @@ int gapp_print_help_topics(void) {
 		"  plugin            plugin management\n"
 		"  filename          filename template tokens\n"
 		"  env               environment variables\n"
+		"  ocr               ocr and translation\n"
 		"  examples          common invocations\n"
 		"\n"
 		"grabit --help lists every flag; man grabit is the full reference.\n",
@@ -132,6 +133,29 @@ int gapp_print_help_filename(void) {
 		"  %%                  a literal percent sign\n"
 		"\n"
 		"`filename_preset` (date|random|uuid|timestamp) sets a ready-made template.\n",
+		stdout);
+	return 0;
+}
+
+int gapp_print_help_ocr(void) {
+	fputs(
+		"Usage: grabit --tesseract [--translate[=<lang>]] [--show]\n"
+		"\n"
+		"  --tesseract         select a region, OCR it, copy the text\n"
+		"  --translate[=<to>]  translate the text before copying (default en)\n"
+		"  --show              also display the text in an on-screen card\n"
+		"\n"
+		"Config:\n"
+		"\n"
+		"  ocr.tesseract       path to the tesseract binary (default: found on $PATH)\n"
+		"  ocr.lang            language passed to tesseract (default eng)\n"
+		"  translate.backend   trans|libretranslate|deepl (default trans)\n"
+		"  translate.target    default target language\n"
+		"  translate.url       server url for libretranslate/deepl\n"
+		"  translate.api_key   api key; GRABIT_TRANSLATE_KEY overrides it\n"
+		"\n"
+		"Needs tesseract on $PATH plus the training data for the language you OCR.\n"
+		"If translation fails the raw OCR text is copied instead.\n",
 		stdout);
 	return 0;
 }

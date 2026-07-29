@@ -127,6 +127,23 @@ static int run(const struct args *a) {
 	return rc;
 }
 
+static int help_topic(const char *sub) {
+	if (strcmp(sub, "filename") == 0) return gapp_print_help_filename();
+	if (strcmp(sub, "env") == 0) return gapp_print_help_env();
+	if (strcmp(sub, "examples") == 0) return gapp_print_help_examples();
+	if (strcmp(sub, "ocr") == 0 || strcmp(sub, "tesseract") == 0)
+		return gapp_print_help_ocr();
+	static char *help_argv[] = {(char *)"--help", NULL};
+	if (strcmp(sub, "set") == 0) return cmd_set(1, help_argv);
+	if (strcmp(sub, "get") == 0) return cmd_get(1, help_argv);
+	if (strcmp(sub, "unset") == 0) return cmd_unset(1, help_argv);
+	if (strcmp(sub, "sxcu") == 0) return cmd_sxcu(1, help_argv);
+	if (strcmp(sub, "plugin") == 0) return cmd_plugin(1, help_argv);
+	log_error("no help topic for `%s`", sub);
+	gapp_print_help_topics();
+	return 2;
+}
+
 int main(int argc, char **argv) {
 	bool pre_silent = false, pre_debug = false;
 	args_pre_scan(argc, argv, &pre_silent, &pre_debug);
@@ -136,23 +153,10 @@ int main(int argc, char **argv) {
 	if (argc >= 2) {
 		const char *first = argv[1];
 		if (strcmp(first, "--version") == 0 || strcmp(first, "-V") == 0) return gapp_print_version();
-		if (strcmp(first, "--help") == 0 || strcmp(first, "-h") == 0) return gapp_print_help();
-		if (strcmp(first, "help") == 0) {
-			if (argc < 3) return gapp_print_help_topics();
-			const char *sub = argv[2];
-			if (strcmp(sub, "filename") == 0) return gapp_print_help_filename();
-			if (strcmp(sub, "env") == 0) return gapp_print_help_env();
-			if (strcmp(sub, "examples") == 0) return gapp_print_help_examples();
-			static char *help_argv[] = {(char *)"--help", NULL};
-			if (strcmp(sub, "set") == 0) return cmd_set(1, help_argv);
-			if (strcmp(sub, "get") == 0) return cmd_get(1, help_argv);
-			if (strcmp(sub, "unset") == 0) return cmd_unset(1, help_argv);
-			if (strcmp(sub, "sxcu") == 0) return cmd_sxcu(1, help_argv);
-			if (strcmp(sub, "plugin") == 0) return cmd_plugin(1, help_argv);
-			log_error("no help topic for `%s`", sub);
-			gapp_print_help_topics();
-			return 2;
-		}
+		if (strcmp(first, "--help") == 0 || strcmp(first, "-h") == 0)
+			return argc < 3 ? gapp_print_help() : help_topic(argv[2]);
+		if (strcmp(first, "help") == 0)
+			return argc < 3 ? gapp_print_help_topics() : help_topic(argv[2]);
 		if (strcmp(first, "set") == 0) return cmd_set(argc - 2, argv + 2);
 		if (strcmp(first, "get") == 0) return cmd_get(argc - 2, argv + 2);
 		if (strcmp(first, "unset") == 0) return cmd_unset(argc - 2, argv + 2);

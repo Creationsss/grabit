@@ -200,6 +200,8 @@ static int state_read(struct config *c) {
 }
 
 static int state_write_from(struct config *cfg) {
+	const char *save_st = config_get(cfg, "save_state");
+	if (save_st && strcmp(save_st, "false") == 0) return 0;
 	struct config st = {0};
 	for (size_t i = 0; i < cfg->n; i++) {
 		if (!cfg_is_state_key(cfg->kvs[i].key)) continue;
@@ -214,6 +216,8 @@ static int state_write_from(struct config *cfg) {
 }
 
 void config_state_overlay(struct config *cfg) {
+	const char *save_st = config_get(cfg, "save_state");
+	if (save_st && strcmp(save_st, "false") == 0) return;
 	struct config st;
 	if (state_read(&st) != 0) return;
 	for (size_t i = 0; i < st.n; i++) {

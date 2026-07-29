@@ -32,7 +32,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 	if (rc == 0) {
 		const char *stored = config_get(c, key);
 		log_info("set %s = %s", key, stored ? stored : val);
-		if (cfg_is_state_key(key)) (void)config_state_clear(key);
+		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;
@@ -255,7 +255,7 @@ int cmd_unset(int argc, char **argv) {
 	int rc = 0;
 	bool found = cfg_kv_remove(&c, argv[0], false) > 0;
 	if (cfg_is_state_key(argv[0])) {
-		(void)config_state_clear(argv[0]);
+		(void)config_state_clear(&c, argv[0]);
 		found = true;
 	}
 	if (!found) {

@@ -85,6 +85,7 @@ static int seed_defaults(struct config *c) {
 	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "log_file", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
+	if (cfg_kv_upsert(c, "save_state", "true") != 0) return -1;
 	return 0;
 }
 
@@ -178,6 +179,11 @@ int config_load_full(struct config *c) {
 	return 0;
 }
 
+static bool state_enabled(struct config *cfg) {
+	const char *v = config_get(cfg, "save_state");
+	return !v || strcmp(v, "false") != 0;
+}
+
 static int state_read(struct config *c) {
 	memset(c, 0, sizeof *c);
 	const char *file = paths_state_file();
@@ -200,8 +206,7 @@ static int state_read(struct config *c) {
 }
 
 static int state_write_from(struct config *cfg) {
-	const char *save_st = config_get(cfg, "save_state");
-	if (save_st && strcmp(save_st, "false") == 0) return 0;
+	if (!state_enabled(cfg)) return 0;
 	struct config st = {0};
 	for (size_t i = 0; i < cfg->n; i++) {
 		if (!cfg_is_state_key(cfg->kvs[i].key)) continue;
@@ -216,8 +221,7 @@ static int state_write_from(struct config *cfg) {
 }
 
 void config_state_overlay(struct config *cfg) {
-	const char *save_st = config_get(cfg, "save_state");
-	if (save_st && strcmp(save_st, "false") == 0) return;
+	if (!state_enabled(cfg)) return;
 	struct config st;
 	if (state_read(&st) != 0) return;
 	for (size_t i = 0; i < st.n; i++) {
@@ -232,6 +236,7 @@ void config_state_overlay(struct config *cfg) {
 }
 
 void config_state_migrate(struct config *cfg) {
+	if (!state_enabled(cfg)) return;
 	struct config st;
 	int rc = state_read(&st);
 	if (rc == 0) config_free(&st);
@@ -254,7 +259,8 @@ int config_state_put(struct config *cfg, const char *const *keys,
 	return state_write_from(cfg);
 }
 
-int config_state_clear(const char *key) {
+int config_state_clear(struct config *cfg, const char *key) {
+	if (!state_enabled(cfg)) return 0;
 	struct config st;
 	if (state_read(&st) != 0) return 0;
 	int rc = 0;

@@ -64,7 +64,7 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
 
 ### auth tokens
 
@@ -157,7 +157,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_state` | bool | persist editor settings and toolbar position to `state.toml` (default `true`). Set `false` to disable state saving/loading. |
+| `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |

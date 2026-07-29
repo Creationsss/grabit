@@ -81,47 +81,6 @@ static int slurp(int fd, struct grabit_buf *out, int64_t deadline) {
 	}
 }
 
-int gwm_ipc_stream_open(const char *path, const char *req,
-						struct gwm_lines *out, int64_t deadline) {
-	*out = (struct gwm_lines){.fd = ipc_connect(path)};
-	if (out->fd < 0) return -1;
-	if (ipc_send(out->fd, req, deadline) != 0) {
-		gwm_ipc_stream_close(out);
-		return -1;
-	}
-	return 0;
-}
-
-void gwm_ipc_stream_close(struct gwm_lines *r) {
-	if (r->fd >= 0) close(r->fd);
-	r->fd = -1;
-	grabit_buf_free(&r->buf);
-}
-
-char *gwm_ipc_readline(struct gwm_lines *r, int64_t deadline) {
-	struct grabit_buf *b = &r->buf;
-	char tmp[4096];
-	for (;;) {
-		char *nl = b->len ? memchr(b->data, '\n', b->len) : NULL;
-		if (nl) {
-			size_t n = (size_t)(nl - b->data);
-			char *line = strndup(b->data, n);
-			b->len -= n + 1;
-			memmove(b->data, nl + 1, b->len);
-			return line;
-		}
-		if (b->len > WM_IPC_MAX_BYTES) return NULL;
-		if (wait_fd(r->fd, POLLIN, deadline) != 0) return NULL;
-		ssize_t got = read(r->fd, tmp, sizeof tmp);
-		if (got == 0) return NULL;
-		if (got < 0) {
-			if (errno == EINTR || errno == EAGAIN) continue;
-			return NULL;
-		}
-		if (grabit_buf_putn(b, tmp, (size_t)got) != 0) return NULL;
-	}
-}
-
 int gwm_ipc_query(const char *path, const char *req,
 				  struct json_object **root_out) {
 	*root_out = NULL;

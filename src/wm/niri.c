@@ -13,11 +13,13 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <json-c/json.h>
 
-#define NIRI_SCREENSHOT_TIMEOUT_MS 15000
+#define NIRI_SCREENSHOT_TIMEOUT_MS 8000
 
 bool grabit_niri_present(void) {
 	const char *sock = getenv("NIRI_SOCKET");
@@ -298,35 +300,23 @@ static char *screenshot_request(bool cursor, const char *png_path) {
 	return req;
 }
 
-static bool captured_path_matches(const char *line, const char *want) {
-	if (!strstr(line, "\"ScreenshotCaptured\"")) return false;
-	struct json_object *ev = json_tokener_parse(line);
-	if (!ev) return false;
-	struct json_object *sc = NULL;
-	bool hit = false;
-	if (json_object_object_get_ex(ev, "ScreenshotCaptured", &sc)) {
-		struct json_object *p = NULL;
-		if (json_object_object_get_ex(sc, "path", &p)) {
-			const char *got = json_object_get_string(p);
-			hit = got && strcmp(got, want) == 0;
+static int wait_for_file(const char *path, int64_t deadline) {
+	off_t last = -1;
+	int stable = 0;
+	while (gwm_ipc_deadline(0) < deadline) {
+		struct stat st;
+		if (stat(path, &st) == 0 && st.st_size > 0) {
+			if (st.st_size == last) {
+				if (++stable >= 2) return 0;
+			} else {
+				stable = 0;
+				last = st.st_size;
+			}
 		}
+		struct timespec ts = {.tv_sec = 0, .tv_nsec = 40000000};
+		nanosleep(&ts, NULL);
 	}
-	json_object_put(ev);
-	return hit;
-}
-
-static int await_capture(struct gwm_lines *events, int64_t deadline,
-						 const char *png_path) {
-	for (;;) {
-		char *line = gwm_ipc_readline(events, deadline);
-		if (!line) {
-			log_error("niri: timed out waiting for the window screenshot");
-			return -1;
-		}
-		bool hit = captured_path_matches(line, png_path);
-		free(line);
-		if (hit) return access(png_path, R_OK) == 0 ? 0 : -1;
-	}
+	return -1;
 }
 
 int grabit_niri_capture_active_window(bool cursor, const char *png_path) {
@@ -336,29 +326,20 @@ int grabit_niri_capture_active_window(bool cursor, const char *png_path) {
 	char *req = screenshot_request(cursor, png_path);
 	if (!req) return -1;
 
-	int64_t deadline = gwm_ipc_deadline(NIRI_SCREENSHOT_TIMEOUT_MS);
-	struct gwm_lines events;
-	if (gwm_ipc_stream_open(sock, "\"EventStream\"\n", &events, deadline) != 0) {
-		log_error("niri: cannot open an event stream on %s", sock);
-		free(req);
-		return -1;
-	}
+	(void)unlink(png_path);
 
+	struct json_object *reply = NULL;
 	int rc = -1;
-	char *hello = gwm_ipc_readline(&events, deadline);
-	if (hello) {
-		free(hello);
-		struct json_object *reply = NULL;
-		if (gwm_ipc_query(sock, req, &reply) == 0) {
-			if (unwrap(reply, NULL))
-				rc = await_capture(&events, deadline, png_path);
-			else
-				log_error("niri: screenshot-window action was rejected");
-			json_object_put(reply);
-		}
+	if (gwm_ipc_query(sock, req, &reply) == 0) {
+		if (unwrap(reply, NULL))
+			rc = wait_for_file(png_path,
+							   gwm_ipc_deadline(NIRI_SCREENSHOT_TIMEOUT_MS));
+		else
+			log_error("niri: screenshot-window action was rejected");
+		json_object_put(reply);
 	}
-
-	gwm_ipc_stream_close(&events);
+	if (rc != 0)
+		log_error("niri: the window screenshot never appeared at %s", png_path);
 	free(req);
 	return rc;
 }

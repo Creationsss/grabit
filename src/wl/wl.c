@@ -42,12 +42,11 @@ bool grabit_wl_require_capture(struct grabit_wl_state *s) {
 	} else if (grabit_desktop_is("COSMIC")) {
 		known = "Cosmic";
 	}
-	log_error("compositor advertises no screen-capture protocol");
-	log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
-	if (known)
-		log_error("  %s implements neither, so grabit cannot capture here", known);
-	if (note) log_error("  %s", note);
-	log_error("  works on: hyprland, sway, niri, river");
+	log_error("%s has no screen-capture protocol; grabit needs hyprland, sway, "
+			  "niri or river",
+			  known ? known : "this compositor");
+	log_debug("wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1");
+	if (note) log_debug("%s", note);
 	return false;
 }
 

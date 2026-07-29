@@ -66,10 +66,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		}
 	}
 	if (!bin) {
-		log_error("ocr: tesseract not found in $PATH (install tesseract)");
-		log_error("  also need the `%s` training data: tesseract-data-%s (arch), "
-				  "tesseract-ocr-%s (debian/ubuntu)",
-				  lang, lang, lang);
+		log_error("ocr: tesseract not found in $PATH; set one with `grabit set "
+				  "ocr.tesseract <path>` (needs the %s training data too)",
+				  lang);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: tesseract not installed",
 			.body = "install tesseract + the matching training data",

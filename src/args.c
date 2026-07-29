@@ -191,7 +191,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 
 		if (strcmp(arg, "--filename") == 0) {
 			if (++i >= argc) {
-				log_error("--filename requires a template argument");
+				log_error("--filename requires a non-empty template");
 				return -1;
 			}
 			if (!argv[i][0]) {
@@ -300,23 +300,23 @@ int args_parse(int argc, char **argv, struct args *out) {
 							out->action == ACTION_OUTPUT ||
 							out->action == ACTION_PIN ||
 							out->action == ACTION_NONE;
-		if (!edit_applies) log_warn("--edit is ignored for this action");
+		if (!edit_applies) log_debug("--edit is ignored for this action");
 	}
 	if (out->no_tray && out->action != ACTION_RECORD && out->action != ACTION_NONE) {
-		log_warn("--no-tray only applies to --record");
+		log_debug("--no-tray only applies to --record");
 	}
 	if (out->file && out->format) {
-		log_warn("--format is ignored when -f is used (file is uploaded as-is)");
+		log_debug("--format is ignored when -f is used");
 	}
 	if (out->file && out->filename_tpl) {
-		log_warn("--filename is ignored when -f is used");
+		log_debug("--filename is ignored when -f is used");
 	}
 	if (out->translate && out->action != ACTION_OCR) {
-		log_warn("--translate only applies to --tesseract; ignoring");
+		log_debug("--translate only applies to --tesseract");
 		out->translate = false;
 	}
 	if (out->show && out->action != ACTION_OCR) {
-		log_warn("--show only applies to --tesseract; ignoring");
+		log_debug("--show only applies to --tesseract");
 		out->show = false;
 	}
 

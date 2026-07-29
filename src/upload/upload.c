@@ -90,13 +90,20 @@ static bool header_name_ok(const char *name) {
 
 struct curl_slist *upload_header_append(struct curl_slist *list, const char *name,
 										const char *value, bool *oom) {
+	static bool warned;
 	if (!header_name_ok(name)) {
-		log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		if (!warned) {
+			warned = true;
+			log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		}
 		return list;
 	}
 	size_t vlen = value_clean_len(value);
 	if (vlen == 0) {
-		log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
+		if (!warned) {
+			warned = true;
+			log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
+		}
 		return list;
 	}
 	size_t n = strlen(name) + vlen + 3;

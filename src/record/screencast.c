@@ -92,11 +92,13 @@ void screencast_stop(struct screencast *sc) {
 }
 
 void screencast_explain_unavailable(void) {
-	log_error("  no screencast source either (wanted zkde_screencast_unstable_v1 "
-			  "or org.gnome.Mutter.ScreenCast)");
 	if (!pw_available())
-		log_error("  this grabit was built without pipewire, which both need");
+		log_error("grabit was built without pipewire, which kde and gnome "
+				  "recording need");
 	else if (grabit_desktop_is("KDE"))
-		log_error("  on KDE, KWin only offers zkde_screencast_unstable_v1 to an "
-				  "installed grabit; run `make install` and use that binary");
+		log_error("kwin only offers its screencast protocol to an installed "
+				  "grabit; run `make install` and use that binary");
+	else
+		log_debug("no screencast source (wanted zkde_screencast_unstable_v1 or "
+				  "org.gnome.Mutter.ScreenCast)");
 }

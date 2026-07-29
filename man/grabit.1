@@ -35,11 +35,10 @@ otherwise the
 .B org.kde.KWin.ScreenShot2
 dbus service on KDE Plasma.
 .PP
-Supported compositors: Hyprland, sway, niri, river. KDE Plasma works for
-screenshots only: KWin implements neither capture protocol, and its ScreenShot2
-service is single-shot, so
-.B \-\-record
-is unavailable there. X11 and GNOME are not supported.
+Supported compositors: Hyprland, sway, niri, river. KDE Plasma: screenshots via
+ScreenShot2, recording via zkde_screencast_unstable_v1 (see
+.BR NOTES ).
+GNOME: recording only, via org.gnome.Mutter.ScreenCast. X11 is not supported.
 .PP
 With no action flag, grabit performs the configured
 .B default_action
@@ -76,23 +75,14 @@ notification and shutter sound are emitted only when standard output is a
 terminal, so redirecting the path to a file or pipe is silent by design.
 .TP
 .B \-\-record
-Toggle screen recording (run again to stop). Records a region to MP4/H.264
-(or WebM/GIF via
-.BR "grabit set recording.format webm|gif" )
-with a live border overlay, an on-screen control bar, and an SNI tray icon.
-The bar is pinned next to the recorded region (falling back to a spot that
-stays out of the recording) and offers start (resume), pause, stop, and
-abort (discard the recording), plus a state dot and an elapsed timer. The
-tray icon stops on left click and carries a pause/stop/abort context menu.
-Pausing closes the current encoder segment and resuming opens a new one; on
-stop the segments are stitched together, so paused time is cut from the
-output rather than left as a frozen gap. Sending
+Toggle screen recording (run again to stop). Records a region to MP4/H.264,
+or WebM/GIF via
+.BR "grabit set recording.format webm|gif" .
+Shows a border overlay, an on-screen control bar (start, pause, stop, abort)
+and a tray icon. Sending
 .B SIGUSR1
-to the recording process also toggles pause (for compositor keybinds). After
-stopping, a "Recording finishing" notification is shown while encoders flush
-and segments are stitched. If the region covers every monitor there is no
-room for the bar; stop via the tray icon or by re-running
-.BR \-\-record .
+to the recording process toggles pause, for compositor keybinds. See the
+recording section of OPTIONS.md for backends and pause/segment behaviour.
 .TP
 .B \-\-pin
 Capture a region and pin it to the desktop as a click-through overlay. Pins
@@ -595,13 +585,6 @@ Set by plugin dispatch; absolute path to the grabit binary.
 Also set by plugin dispatch: the plugin's name, install directory, and
 per-plugin cache directory. See
 .BR PLUGINS.md .
-.TP
-.B png.level
-PNG zlib compression, 0\-9, default
-.BR 1 .
-PNG is lossless, so this trades encode time against file size only. Level 6 (the
-old behaviour) costs roughly 2\-6x the encode time of level 1 for about 15\-20%
-less size, and dominates the wall time of a screenshot.
 .TP
 .B GRABIT_LOG_FILE
 Set to

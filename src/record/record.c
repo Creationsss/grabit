@@ -117,9 +117,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	if (!can_stream && !use_screencast) {
 		if (have_stills)
-			log_error("recording needs a frame-streaming capture protocol; "
-					  "KWin's org.kde.KWin.ScreenShot2 is single-shot, so only "
-					  "screenshots work here");
+			log_error("recording needs a streaming capture protocol; this "
+					  "compositor only does single-shot screenshots");
 		else
 			(void)grabit_wl_require_capture(&s);
 		screencast_explain_unavailable();
@@ -241,17 +240,11 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		goto err_pipeline;
 	}
 
-	char source_desc[64];
 	if (use_screencast)
-		snprintf(source_desc, sizeof source_desc, "via the %s screencast",
-				 screencast_backend_name(&s));
+		log_debug("recording via the %s screencast", screencast_backend_name(&s));
 	else
-		snprintf(source_desc, sizeof source_desc, "(%zu output%s)", layout.n,
-				 layout.n == 1 ? "" : "s");
-	log_info("recording %dx%d %s @ %d fps -> %s; "
-			 "use the on-screen controls or re-run `grabit --record` to stop "
-			 "(SIGUSR1 toggles pause)",
-			 frame_w, frame_h, source_desc, fps, output_path);
+		log_debug("recording %zu output%s", layout.n, layout.n == 1 ? "" : "s");
+	log_info("recording %dx%d @ %d fps -> %s", frame_w, frame_h, fps, output_path);
 
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
@@ -287,8 +280,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		});
 	} else {
 		if (seg_any_pending_alive(&sc) || sc.n_segs > 1) {
-			log_info("recording: finishing %zu segment%s...",
-					 sc.n_segs, sc.n_segs == 1 ? "" : "s");
+			log_debug("recording: finishing %zu segment%s...",
+					  sc.n_segs, sc.n_segs == 1 ? "" : "s");
 			notify_send(&(struct notify_opts){
 				.summary = "Recording finishing",
 				.body = grabit_basename(output_path),
@@ -298,8 +291,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 		ok = seg_assemble(&sc, output_path) == 0;
 
-		log_info("recording: %zu frames captured, %zu encoded, %zu dropped (%.2fs)",
-				 ring.pushed, ring.popped, ring.dropped, secs);
+		log_debug("recording: %zu frames captured, %zu encoded, %zu dropped (%.2fs)",
+				  ring.pushed, ring.popped, ring.dropped, secs);
 
 		if (ok) {
 			struct publish_opts po = {

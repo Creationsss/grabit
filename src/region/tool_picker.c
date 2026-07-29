@@ -31,11 +31,11 @@ static const char *const REDACT_LABELS[] = {"Blur", "Pixelate", "Spotlight"};
 
 static const struct tool_group GROUPS[TB_TOOL_GROUP_COUNT] = {
 	{TB_TOOL_LINES, LINES_TOOLS, 3, true, LINES_LABELS,
-	 "Line tools  (pen / marker / line + style)"},
+	 "Line tools"},
 	{TB_TOOL_SHAPES, SHAPES_TOOLS, 3, true, SHAPES_LABELS,
-	 "Shapes  (rectangle / rounded / ellipse + style)"},
+	 "Shapes"},
 	{TB_TOOL_REDACT, REDACT_TOOLS, 3, false, REDACT_LABELS,
-	 "Redact & focus  (blur / pixelate / spotlight)"},
+	 "Redact & focus"},
 };
 
 const struct tool_group *toolbar_tool_group(enum tb_action btn) {

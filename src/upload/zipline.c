@@ -155,9 +155,9 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 			if (http_code == 413 && chunk > (1 << 20)) {
 				chunk /= 2;
 				if (chunk < (1 << 20)) chunk = 1 << 20;
-				log_warn("zipline: chunk rejected as too large (HTTP 413); "
-						 "retrying with %lld MiB chunks",
-						 chunk >> 20);
+				log_debug("zipline: chunk rejected (HTTP 413); retrying with "
+						  "%lld MiB chunks",
+						  chunk >> 20);
 				grabit_buf_free(&resp);
 				continue;
 			}

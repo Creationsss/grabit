@@ -16,12 +16,7 @@ see https://aur.archlinux.org/packages/grabit
 
 ### Gentoo
 
-```sh
-eselect repository add roxy-overlay git https://codeberg.org/key/roxy-overlay.git
-eselect repository enable roxy-overlay
-emaint sync -r roxy-overlay
-emerge --ask media-gfx/grabit  # masked by ~amd64
-```
+`media-gfx/grabit` in the [roxy-overlay](https://codeberg.org/key/roxy-overlay).
 
 ### NixOS
 

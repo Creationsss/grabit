@@ -142,7 +142,7 @@ int ffmpeg_exit_rc(int status) {
 		int code = WEXITSTATUS(status);
 		if (code == 0) return 0;
 		if (code == 127)
-			log_error("ffmpeg not found in $PATH (install ffmpeg)");
+			log_error("ffmpeg not found in $PATH");
 		else
 			log_error("ffmpeg exited with code %d", code);
 		return -1;

@@ -7,9 +7,11 @@
 #include "log.h"
 #include "upload/sxcu.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 static int usage(void) {
 	log_error("usage: grabit sxcu <add|list|remove|show> [args]");
@@ -21,7 +23,7 @@ static int help(void) {
 	puts("");
 	puts("  add <file>     register a .sxcu uploader (alias: install)");
 	puts("  list           show registered uploaders (alias: ls)");
-	puts("  show <name>    print parsed fields");
+	puts("  show <name>    print parsed fields (--show-secrets unmasks auth)");
 	puts("  remove <name>  remove an uploader (alias: rm)");
 	return 0;
 }
@@ -45,7 +47,32 @@ static int do_list(void) {
 	return 0;
 }
 
-static int do_show(const char *name) {
+static bool contains_ci(const char *hay, const char *needle) {
+	size_t n = strlen(needle);
+	for (; *hay; hay++)
+		if (strncasecmp(hay, needle, n) == 0) return true;
+	return false;
+}
+
+static bool key_is_secret(const char *k) {
+	static const char *const NEEDLES[] = {"auth", "secret", "token", "key",
+										  "password", "passwd", "session",
+										  "cookie", "bearer", NULL};
+	if (!k) return false;
+	for (size_t i = 0; NEEDLES[i]; i++)
+		if (contains_ci(k, NEEDLES[i])) return true;
+	return false;
+}
+
+static void show_kv(const char *label, const char *k, const char *sep,
+					const char *v, bool reveal) {
+	if (!reveal && key_is_secret(k))
+		printf("%s%s%s<hidden>\n", label, k, sep);
+	else
+		printf("%s%s%s%s\n", label, k, sep, v ? v : "");
+}
+
+static int do_show(const char *name, bool reveal) {
 	struct sxcu_uploader u = {0};
 	if (sxcu_dir_lookup(name, &u) != 0) {
 		log_error("sxcu: %s not found in %s", name, sxcu_dir_path());
@@ -58,15 +85,13 @@ static int do_show(const char *name) {
 	if (u.file_form_name) printf("file_field:  %s\n", u.file_form_name);
 	if (u.url_expr) printf("url_expr:    %s\n", u.url_expr);
 	if (u.del_expr) printf("del_expr:    %s\n", u.del_expr);
-	for (size_t i = 0; i < u.n_headers; i++) {
-		printf("header:      %s: %s\n", u.headers[i].k, u.headers[i].v);
-	}
-	for (size_t i = 0; i < u.n_args; i++) {
-		printf("arg:         %s = %s\n", u.args[i].k, u.args[i].v);
-	}
-	for (size_t i = 0; i < u.n_params; i++) {
-		printf("param:       %s = %s\n", u.params[i].k, u.params[i].v);
-	}
+	for (size_t i = 0; i < u.n_headers; i++)
+		show_kv("header:      ", u.headers[i].k, ": ", u.headers[i].v, reveal);
+	for (size_t i = 0; i < u.n_args; i++)
+		show_kv("arg:         ", u.args[i].k, " = ", u.args[i].v, reveal);
+	for (size_t i = 0; i < u.n_params; i++)
+		show_kv("param:       ", u.params[i].k, " = ", u.params[i].v, reveal);
+	if (!reveal) puts("(secrets hidden; --show-secrets reveals them)");
 	sxcu_free(&u);
 	return 0;
 }
@@ -89,8 +114,18 @@ int cmd_sxcu(int argc, char **argv) {
 		return sxcu_dir_remove(argv[1]) == 0 ? 0 : 1;
 	}
 	if (strcmp(sub, "show") == 0) {
-		if (argc != 2) return usage();
-		return do_show(argv[1]);
+		bool reveal = false;
+		const char *target = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--show-secrets") == 0)
+				reveal = true;
+			else if (!target)
+				target = argv[i];
+			else
+				return usage();
+		}
+		if (!target) return usage();
+		return do_show(target, reveal);
 	}
 	return usage();
 }

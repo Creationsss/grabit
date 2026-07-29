@@ -93,6 +93,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"preview.position",
 	"preview.output",
 	"preview.dismiss_secs",
+	"tray.icon",
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.zipline.chunked",

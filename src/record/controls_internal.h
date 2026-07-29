@@ -33,6 +33,8 @@ struct zwlr_layer_surface_v1;
 #define CB_BTN_START 0
 #define CB_BTN_PAUSE 1
 #define CB_BTN_STOP 2
+#define CB_BTN_ABORT 3
+#define CB_BTN_COUNT 4
 
 struct ctl_output {
 	struct rec_controls *st;
@@ -62,10 +64,10 @@ struct rec_controls {
 	int32_t by;
 	int32_t bw;
 	int32_t bh;
-	struct rect bounds;
 
 	atomic_int *stop_flag;
 	atomic_int *pause_flag;
+	atomic_int *abort_flag;
 	bool paused;
 	int64_t secs;
 
@@ -73,9 +75,6 @@ struct rec_controls {
 	struct ctl_output *ptr_on;
 	int32_t cx;
 	int32_t cy;
-	bool dragging;
-	int32_t grab_dx;
-	int32_t grab_dy;
 
 	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;
@@ -89,7 +88,7 @@ static inline struct rect ctl_bar_rect(const struct rec_controls *c) {
 
 static inline int32_t ctl_bar_width(void) {
 	return CB_PAD + CB_DOT_W + 4 + CB_TIME_W + CB_SEC_GAP +
-		   3 * CB_BTN + 2 * CB_GAP + CB_PAD;
+		   CB_BTN_COUNT * CB_BTN + (CB_BTN_COUNT - 1) * CB_GAP + CB_PAD;
 }
 
 void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h);

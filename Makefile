@@ -171,6 +171,7 @@ GRABIT_SRCS := \
 	src/region/render_buffer.c \
 	src/region/wlr_input_state.c \
 	src/record/record.c \
+	src/record/setup.c \
 	src/record/loop.c \
 	src/record/segments.c \
 	src/record/publish.c \
@@ -186,6 +187,9 @@ GRABIT_SRCS := \
 	src/record/sc_gnome.c \
 	src/record/controls_input.c \
 	src/record/controls_render.c \
+	src/tray/apptray.c \
+	src/tray/menu.c \
+	src/tray/menu_layout.c \
 	src/tray/sni.c \
 	src/tray/sni_props.c \
 	src/tray/tray.c \

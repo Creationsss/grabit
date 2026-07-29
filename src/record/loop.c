@@ -14,12 +14,34 @@
 #include "wl/wl.h"
 
 #include <stdint.h>
+#include <sys/mman.h>
 #include <time.h>
 
 #include <wayland-client.h>
 
-atomic_int grabit_rec_stop;
-atomic_int grabit_rec_pause;
+atomic_int *grabit_rec_stop_ptr;
+atomic_int *grabit_rec_pause_ptr;
+atomic_int *grabit_rec_abort_ptr;
+
+static atomic_int g_local_flags[3];
+
+void loop_init_shared(void) {
+	if (grabit_rec_stop_ptr) return;
+	atomic_int *mem = mmap(NULL, sizeof g_local_flags, PROT_READ | PROT_WRITE,
+						   MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (mem == MAP_FAILED) {
+		log_warn("recording: mmap of shared flags failed; tray menu state may go stale");
+		mem = g_local_flags;
+	}
+	grabit_rec_stop_ptr = mem;
+	grabit_rec_pause_ptr = mem + 1;
+	grabit_rec_abort_ptr = mem + 2;
+}
+
+static pid_t g_tray_pid = 0;
+void loop_set_tray_pid(pid_t pid) {
+	g_tray_pid = pid;
+}
 
 static void on_stop_signal(int sig) {
 	(void)sig;
@@ -31,6 +53,12 @@ static void on_pause_signal(int sig) {
 	atomic_fetch_xor(&grabit_rec_pause, 1);
 }
 
+static void on_abort_signal(int sig) {
+	(void)sig;
+	atomic_store(&grabit_rec_abort, 1);
+	atomic_store(&grabit_rec_stop, 1);
+}
+
 void record_signals_install(struct prev_sigs *prev) {
 	struct sigaction sa = {0};
 	sa.sa_handler = on_stop_signal;
@@ -38,6 +66,11 @@ void record_signals_install(struct prev_sigs *prev) {
 	sigaction(SIGINT, &sa, &prev->sigint);
 	sigaction(SIGTERM, &sa, &prev->sigterm);
 	sigaction(SIGHUP, &sa, &prev->sighup);
+
+	struct sigaction aa = {0};
+	aa.sa_handler = on_abort_signal;
+	sigemptyset(&aa.sa_mask);
+	sigaction(SIGQUIT, &aa, &prev->sigquit);
 
 	struct sigaction pa = {0};
 	pa.sa_handler = on_pause_signal;
@@ -54,6 +87,7 @@ void record_signals_restore(const struct prev_sigs *prev) {
 	sigaction(SIGINT, &prev->sigint, NULL);
 	sigaction(SIGTERM, &prev->sigterm, NULL);
 	sigaction(SIGHUP, &prev->sighup, NULL);
+	sigaction(SIGQUIT, &prev->sigquit, NULL);
 	sigaction(SIGUSR1, &prev->sigusr1, NULL);
 	sigaction(SIGPIPE, &prev->sigpipe, NULL);
 }
@@ -94,6 +128,7 @@ static enum rec_clock_ev rec_clock_step(struct rec_clock *k,
 	if (want_pause != k->paused) {
 		k->paused = want_pause;
 		controls_set_paused(ctrl, k->paused);
+		if (g_tray_pid > 0) kill(g_tray_pid, SIGUSR2);
 		if (k->paused) {
 			k->active_ns += grabit_now_ns() - k->seg_start;
 			seg_finish(sc, s);

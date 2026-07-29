@@ -8,11 +8,9 @@
 
 #include "args.h"
 #include "capture/capture.h"
-#include "capture/region_plan.h"
 #include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
-#include "paths.h"
 #include "record/compose.h"
 #include "record/controls.h"
 #include "record/loop.h"
@@ -24,6 +22,7 @@
 #include "record/ring.h"
 #include "record/screencast.h"
 #include "record/segments.h"
+#include "record/setup.h"
 #include "region/edit_persist.h"
 #include "region/region.h"
 #include "tray/tray.h"
@@ -32,28 +31,13 @@
 #include "wl/wl.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-static char *build_record_path(struct config *cfg, const struct args *a,
-							   const char *format, bool keep_locally) {
-	enum paths_dest dest = keep_locally ? PATHS_DEST_VIDEOS : PATHS_DEST_TEMP;
-	char ext[16];
-	snprintf(ext, sizeof ext, ".%s", format);
-	return paths_build_output(cfg, a->filename_tpl, ext, dest);
-}
-
-static void fail_notify(const char *body) {
-	notify_send(&(struct notify_opts){
-		.summary = "Recording failed",
-		.body = body,
-		.force = true,
-	});
-}
 
 static const char *format_encoder(const char *format) {
 	if (strcmp(format, "webm") == 0) return "libvpx-vp9";
@@ -94,60 +78,15 @@ static bool explain_missing_encoder(const char *bin, const char *format) {
 	return true;
 }
 
-static int pick_region(struct grabit_wl_state *s, struct config *cfg,
-					   const struct args *a, struct rect *out) {
-	struct region_plan_req req = {
-		.fullscreen = a->fullscreen,
-		.fullscreen_target = a->fullscreen_target,
-		.use_last = a->last_region,
-	};
-	enum region_plan plan = region_plan_resolve(s, cfg, &req, out);
-	if (plan == REGION_PLAN_NO_MONITOR) {
-		fail_notify("no matching monitor");
-		return -1;
-	}
-	if (plan == REGION_PLAN_FIXED) return 0;
-
-	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
-	if (!frozen) {
-		log_error("oom");
-		fail_notify("out of memory");
-		return -1;
-	}
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (capture_output_full(s, s->outputs[i], false, &frozen[i]) != 0) {
-			log_warn("freeze capture of %s failed; selector will be dimmed",
-					 s->outputs[i]->name ? s->outputs[i]->name : "?");
-			memset(&frozen[i], 0, sizeof frozen[i]);
-			continue;
-		}
-		if (image_apply_transform(&frozen[i], s->outputs[i]->transform) != 0) {
-			log_warn("freeze transform of %s failed; output may look skewed",
-					 s->outputs[i]->name ? s->outputs[i]->name : "?");
-		}
-	}
-
-	struct rect *mon = NULL;
-	size_t n_mon = 0;
-	if (plan == REGION_PLAN_MONITOR_PICK) grabit_wl_monitor_rects(s, &mon, &n_mon);
-	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-						   NULL, NULL, mon, n_mon);
-	free(mon);
-
-	for (size_t i = 0; i < s->n_outputs; i++)
-		image_free(&frozen[i]);
-	free(frozen);
-	return rc;
-}
-
 int record_toggle(struct config *cfg, const struct args *a) {
+	loop_init_shared();
 	if (stop_running_recording() == 0) return 0;
 
 	const char *ffmpeg_bin = rec_cfg_ffmpeg(cfg);
 	if (!grabit_in_path(ffmpeg_bin)) {
 		log_error("recording: `%s` not found in $PATH (install ffmpeg or set recording.ffmpeg)",
 				  ffmpeg_bin);
-		fail_notify("ffmpeg not found; install ffmpeg or set recording.ffmpeg");
+		rec_fail_notify("ffmpeg not found; install ffmpeg or set recording.ffmpeg");
 		return 1;
 	}
 
@@ -184,7 +123,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		else
 			(void)grabit_wl_require_capture(&s);
 		screencast_explain_unavailable();
-		fail_notify("recording is not supported on this compositor");
+		rec_fail_notify("recording is not supported on this compositor");
 		grabit_wl_finish(&s);
 		return 1;
 	}
@@ -193,7 +132,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				  screencast_backend_name(&s));
 
 	struct rect r = {0};
-	int rc = pick_region(&s, cfg, a, &r);
+	int rc = rec_pick_region(&s, cfg, a, &r);
 	if (rc != 0 || r.w <= 0 || r.h <= 0) {
 		grabit_wl_finish(&s);
 		log_info("recording cancelled");
@@ -217,19 +156,19 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		uint32_t node = 0;
 		scast = screencast_start(&s, r, cursor, &node);
 		if (!scast) {
-			fail_notify("the compositor refused to start a screencast");
+			rec_fail_notify("the compositor refused to start a screencast");
 			goto err_wl;
 		}
 		cap = pw_capture_open(node, fps);
 		if (!cap) {
-			fail_notify("could not read the screencast stream from pipewire");
+			rec_fail_notify("could not read the screencast stream from pipewire");
 			goto err_source;
 		}
 		pw_capture_size(cap, &frame_w, &frame_h, &frame_stride);
 	} else {
 		if (rec_layout_build(&s, r, &layout) != 0) {
 			log_error("region does not overlap any output");
-			fail_notify("selected region did not intersect any output");
+			rec_fail_notify("selected region did not intersect any output");
 			goto err_wl;
 		}
 		frame_w = layout.dst_w;
@@ -238,26 +177,27 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	bool keep_locally = !upload_service || config_also_save(cfg);
-	output_path = build_record_path(cfg, a, format, keep_locally);
+	output_path = rec_record_path(cfg, a, format, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
-		fail_notify("could not build output path");
+		rec_fail_notify("could not build output path");
 		goto err_source;
 	}
 
 	if (write_pid_file() != 0) {
 		if (errno == EWOULDBLOCK) {
 			log_error("another grabit recording started concurrently; aborting this one");
-			fail_notify("another recording is already starting");
+			rec_fail_notify("another recording is already starting");
 		} else {
 			log_error("could not write recording pidfile: %s", strerror(errno));
-			fail_notify("could not write pid file");
+			rec_fail_notify("could not write pid file");
 		}
 		goto err_path;
 	}
 
 	atomic_store_explicit(&grabit_rec_stop, 0, memory_order_relaxed);
 	atomic_store_explicit(&grabit_rec_pause, 0, memory_order_relaxed);
+	atomic_store_explicit(&grabit_rec_abort, 0, memory_order_relaxed);
 	struct prev_sigs prev = {0};
 	record_signals_install(&prev);
 
@@ -283,19 +223,21 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	struct buf_pool pool = {0};
 	size_t buf_size = (size_t)frame_stride * (size_t)frame_h;
-	struct tray_state *tray = a->no_tray ? NULL : tray_start();
+	struct tray_state *tray =
+		(a->no_tray || !rec_cfg_tray(cfg)) ? NULL : tray_start();
+	if (tray) loop_set_tray_pid(tray_get_pid(tray));
 	if (seg_begin(&sc) != 0) {
 		if (explain_missing_encoder(ffmpeg_bin, format))
-			fail_notify("ffmpeg lacks the encoder for this recording format");
+			rec_fail_notify("ffmpeg lacks the encoder for this recording format");
 		else
-			fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
+			rec_fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
 		goto err_pipeline;
 	}
 	size_t pool_slots = pool_slots_for(buf_size);
 	log_debug("recording: frame pool %zu x %zu KiB", pool_slots, buf_size / 1024);
 	if (pool_init(&pool, pool_slots, buf_size) != 0) {
 		log_error("recording: could not allocate frame pool");
-		fail_notify("could not allocate the frame pool");
+		rec_fail_notify("could not allocate the frame pool");
 		goto err_pipeline;
 	}
 
@@ -313,7 +255,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
-		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause);
+		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
 
 	double secs;
 	if (use_screencast) {
@@ -323,44 +265,61 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		secs = rec_capture_loop(&s, &layout, &pool, cursor, &sc, controls);
 	}
 
+	bool aborted = atomic_load_explicit(&grabit_rec_abort, memory_order_relaxed) != 0;
+
 	tray_stop(tray);
 	controls_stop(controls);
 	overlay_stop(overlay);
 
 	seg_finish(&sc, NULL);
-	if (seg_any_pending_alive(&sc) || sc.n_segs > 1) {
-		log_info("recording: finishing %zu segment%s...",
-				 sc.n_segs, sc.n_segs == 1 ? "" : "s");
+
+	bool ok = true;
+	if (aborted) {
+		for (size_t i = 0; i < sc.n_pending; i++) {
+			if (sc.pending[i] > 0) kill(sc.pending[i], SIGKILL);
+		}
+		seg_reap_all(&sc);
+		seg_unlink_all(&sc);
+		unlink(output_path);
+		log_info("recording aborted; output discarded");
 		notify_send(&(struct notify_opts){
-			.summary = "Recording finishing",
-			.body = grabit_basename(output_path),
+			.summary = "Recording aborted",
 		});
-	}
-	seg_reap_all(&sc);
-
-	bool ok = seg_assemble(&sc, output_path) == 0;
-
-	log_info("recording: %zu frames captured, %zu encoded, %zu dropped (%.2fs)",
-			 ring.pushed, ring.popped, ring.dropped, secs);
-
-	if (ok) {
-		struct publish_opts po = {
-			.ffmpeg_bin = ffmpeg_bin,
-			.format = format,
-			.output_path = output_path,
-			.upload_service = upload_service,
-			.keep_locally = keep_locally,
-			.chunked = a->chunked,
-			.secs = secs,
-			.stop = &grabit_rec_stop,
-		};
-		record_publish(cfg, &po);
 	} else {
-		log_error("recording failed; output may be incomplete: %s", output_path);
-		if (explain_missing_encoder(ffmpeg_bin, format))
-			fail_notify("ffmpeg lacks the encoder for this recording format");
-		else
-			fail_notify(grabit_basename(output_path));
+		if (seg_any_pending_alive(&sc) || sc.n_segs > 1) {
+			log_info("recording: finishing %zu segment%s...",
+					 sc.n_segs, sc.n_segs == 1 ? "" : "s");
+			notify_send(&(struct notify_opts){
+				.summary = "Recording finishing",
+				.body = grabit_basename(output_path),
+			});
+		}
+		seg_reap_all(&sc);
+
+		ok = seg_assemble(&sc, output_path) == 0;
+
+		log_info("recording: %zu frames captured, %zu encoded, %zu dropped (%.2fs)",
+				 ring.pushed, ring.popped, ring.dropped, secs);
+
+		if (ok) {
+			struct publish_opts po = {
+				.ffmpeg_bin = ffmpeg_bin,
+				.format = format,
+				.output_path = output_path,
+				.upload_service = upload_service,
+				.keep_locally = keep_locally,
+				.chunked = a->chunked,
+				.secs = secs,
+				.stop = &grabit_rec_stop,
+			};
+			record_publish(cfg, &po);
+		} else {
+			log_error("recording failed; output may be incomplete: %s", output_path);
+			if (explain_missing_encoder(ffmpeg_bin, format))
+				rec_fail_notify("ffmpeg lacks the encoder for this recording format");
+			else
+				rec_fail_notify(grabit_basename(output_path));
+		}
 	}
 
 	record_signals_restore(&prev);

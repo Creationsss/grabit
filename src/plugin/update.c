@@ -220,9 +220,7 @@ out:
 	}
 
 	char self[1024];
-	ssize_t sn = readlink("/proc/self/exe", self, sizeof self - 1);
-	if (sn <= 0) _exit(127);
-	self[sn] = '\0';
+	if (grabit_self_exe(self, sizeof self) != 0) _exit(127);
 
 	char *const argv[] = {self, "plugin", "update", (char *)name, NULL};
 	execv(self, argv);

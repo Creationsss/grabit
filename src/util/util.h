@@ -25,6 +25,7 @@ const char *grabit_basename(const char *path);
 int grabit_runtime_dir(char *out, size_t cap);
 int grabit_write_all(int fd, const void *buf, size_t n);
 bool grabit_process_alive(pid_t pid);
+int grabit_self_exe(char *out, size_t cap);
 int grabit_lock_acquire(const char *path);
 pid_t grabit_lock_owner(const char *path);
 

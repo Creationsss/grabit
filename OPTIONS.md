@@ -274,8 +274,25 @@ config keys (all optional):
 | `recording.tune` | (none) | one of: `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
 | `recording.pix_fmt` | `yuv420p` | one of: `yuv420p`, `yuv422p`, `yuv444p`, `yuv420p10le` |
 | `recording.cursor` | `true` | record the cursor |
+| `recording.tray` | `true` | show the tray icon while recording; `--no-tray` overrides one run |
 | `recording.max_size_mb` | (none) | re-encode if file exceeds this (0-100000) |
 | `recording.ffmpeg` | `ffmpeg` | path to ffmpeg binary |
+
+## tray
+
+`grabit --tray` starts a persistent StatusNotifierItem with every action in its menu. running it a second time stops the one already running.
+
+| key | default | notes |
+|---|---|---|
+| `tray.icon` | `camera-photo` | icon name looked up in your icon theme |
+
+left click captures a region, right click opens the menu. the icon is resolved by name against the active icon theme, so the exact artwork depends on the theme you use. if it collides with another app's icon, point `tray.icon` at any other name your theme ships:
+
+```sh
+grabit set tray.icon camera-video
+```
+
+the recording tray shown during `--record` is separate and always uses `media-record`.
 
 ## sound
 

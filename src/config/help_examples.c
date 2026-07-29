@@ -198,5 +198,10 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "5";
 		return 0;
 	}
+	if (strcmp(key, "tray.icon") == 0) {
+		*example_out = "<icon name from your icon theme>";
+		*def_out = "camera-photo";
+		return 0;
+	}
 	return -1;
 }

@@ -7,12 +7,11 @@
 
 #include "log.h"
 #include "notify/notify.h"
+#include "tray/menu.h"
 
 #include <signal.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -22,6 +21,11 @@
 #define WATCHER_PATH "/StatusNotifierWatcher"
 #define WATCHER_IFACE "org.kde.StatusNotifierWatcher"
 
+struct sni_ctx {
+	struct sni_props props;
+	const struct sni_cfg *cfg;
+};
+
 static void notify_tray_unavailable(const char *body) {
 	notify_send(&(struct notify_opts){
 		.summary = "grabit: tray unavailable",
@@ -30,12 +34,6 @@ static void notify_tray_unavailable(const char *body) {
 	});
 }
 
-static void send_empty_reply(DBusConnection *bus, DBusMessage *msg) {
-	DBusMessage *r = dbus_message_new_method_return(msg);
-	if (!r) return;
-	dbus_connection_send(bus, r, NULL);
-	dbus_message_unref(r);
-}
 static DBusHandlerResult handle_get(DBusConnection *bus, DBusMessage *msg,
 									const struct sni_props *p) {
 	const char *iface = NULL, *prop = NULL;
@@ -55,9 +53,7 @@ static DBusHandlerResult handle_get(DBusConnection *bus, DBusMessage *msg,
 		dbus_message_unref(reply);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
-	dbus_connection_send(bus, reply, NULL);
-	dbus_message_unref(reply);
-	return DBUS_HANDLER_RESULT_HANDLED;
+	return gsni_send_reply(bus, reply);
 }
 
 static DBusHandlerResult handle_get_all(DBusConnection *bus, DBusMessage *msg,
@@ -81,47 +77,32 @@ static DBusHandlerResult handle_get_all(DBusConnection *bus, DBusMessage *msg,
 		dbus_message_iter_close_container(&dict, &entry);
 	}
 	dbus_message_iter_close_container(&args, &dict);
-	dbus_connection_send(bus, reply, NULL);
-	dbus_message_unref(reply);
-	return DBUS_HANDLER_RESULT_HANDLED;
-}
-
-static DBusHandlerResult handle_introspect(DBusConnection *bus, DBusMessage *msg) {
-	DBusMessage *reply = dbus_message_new_method_return(msg);
-	if (!reply) return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	const char *xml = gsni_introspect_xml;
-	dbus_message_append_args(reply, DBUS_TYPE_STRING, &xml, DBUS_TYPE_INVALID);
-	dbus_connection_send(bus, reply, NULL);
-	dbus_message_unref(reply);
-	return DBUS_HANDLER_RESULT_HANDLED;
-}
-
-static DBusHandlerResult handle_activate(DBusConnection *bus, DBusMessage *msg) {
-	pid_t parent = getppid();
-	if (parent > 1) kill(parent, SIGINT);
-	send_empty_reply(bus, msg);
-	return DBUS_HANDLER_RESULT_HANDLED;
+	return gsni_send_reply(bus, reply);
 }
 
 static DBusHandlerResult sni_handler(DBusConnection *bus, DBusMessage *msg, void *data) {
-	const struct sni_props *p = data;
+	const struct sni_ctx *ctx = data;
 	const char *iface = dbus_message_get_interface(msg);
 	const char *member = dbus_message_get_member(msg);
 	if (!iface || !member) return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	if (strcmp(iface, IFACE_PROPS) == 0) {
-		if (strcmp(member, "Get") == 0) return handle_get(bus, msg, p);
-		if (strcmp(member, "GetAll") == 0) return handle_get_all(bus, msg, p);
+		if (strcmp(member, "Get") == 0) return handle_get(bus, msg, &ctx->props);
+		if (strcmp(member, "GetAll") == 0) return handle_get_all(bus, msg, &ctx->props);
 	}
 	if (strcmp(iface, IFACE_INTROSPECT) == 0 && strcmp(member, "Introspect") == 0) {
-		return handle_introspect(bus, msg);
+		return gsni_reply_string(bus, msg, gsni_introspect_xml);
 	}
 	if (strcmp(iface, ITEM_IFACE) == 0) {
-		if (strcmp(member, "Activate") == 0 ||
-			strcmp(member, "SecondaryActivate") == 0 ||
-			strcmp(member, "ContextMenu") == 0) return handle_activate(bus, msg);
-		if (strcmp(member, "Scroll") == 0) {
-			send_empty_reply(bus, msg);
+		if (strcmp(member, "Activate") == 0) {
+			if (ctx->cfg->on_activate) ctx->cfg->on_activate();
+			gsni_send_empty_reply(bus, msg);
+			return DBUS_HANDLER_RESULT_HANDLED;
+		}
+		if (strcmp(member, "SecondaryActivate") == 0 ||
+			strcmp(member, "ContextMenu") == 0 ||
+			strcmp(member, "Scroll") == 0) {
+			gsni_send_empty_reply(bus, msg);
 			return DBUS_HANDLER_RESULT_HANDLED;
 		}
 	}
@@ -129,21 +110,73 @@ static DBusHandlerResult sni_handler(DBusConnection *bus, DBusMessage *msg, void
 }
 
 static const DBusObjectPathVTable item_vtable = {
-	.unregister_function = NULL,
 	.message_function = sni_handler,
 };
 
-int sni_run(volatile sig_atomic_t *stop) {
-	static struct sni_props props = {
-		.category = "ApplicationStatus",
-		.id = "grabit",
-		.title = "grabit",
-		.status = "Active",
-		.icon_name = "media-record",
-		.overlay_icon_name = "",
-		.attention_icon_name = "",
-		.window_id = 0,
-		.item_is_menu = FALSE,
+static DBusHandlerResult menu_handler(DBusConnection *bus, DBusMessage *msg, void *data) {
+	return gmenu_handle(bus, msg, data);
+}
+
+static const DBusObjectPathVTable menu_vtable = {
+	.message_function = menu_handler,
+};
+
+static DBusMessage *register_msg(const char *name) {
+	DBusMessage *reg = dbus_message_new_method_call(WATCHER_DEST, WATCHER_PATH,
+													WATCHER_IFACE,
+													"RegisterStatusNotifierItem");
+	if (reg) dbus_message_append_args(reg, DBUS_TYPE_STRING, &name, DBUS_TYPE_INVALID);
+	return reg;
+}
+
+static void register_item_async(DBusConnection *bus, const char *name) {
+	DBusMessage *reg = register_msg(name);
+	if (!reg) return;
+	dbus_connection_send(bus, reg, NULL);
+	dbus_message_unref(reg);
+}
+
+static int bail(DBusError *err, DBusConnection *bus) {
+	dbus_error_free(err);
+	dbus_connection_close(bus);
+	dbus_connection_unref(bus);
+	return -1;
+}
+
+static DBusHandlerResult watcher_filter(DBusConnection *bus, DBusMessage *msg,
+										void *data) {
+	const char *name = data;
+	if (dbus_message_is_signal(msg, "org.freedesktop.DBus", "NameOwnerChanged")) {
+		const char *svc = NULL, *old_owner = NULL, *new_owner = NULL;
+		if (dbus_message_get_args(msg, NULL,
+								  DBUS_TYPE_STRING, &svc,
+								  DBUS_TYPE_STRING, &old_owner,
+								  DBUS_TYPE_STRING, &new_owner,
+								  DBUS_TYPE_INVALID) &&
+			strcmp(svc, WATCHER_DEST) == 0 && new_owner[0]) {
+			log_info("tray: host appeared; registering item");
+			register_item_async(bus, name);
+		}
+	}
+	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+int sni_run(volatile sig_atomic_t *stop, volatile sig_atomic_t *layout_update,
+			const struct sni_cfg *cfg) {
+	struct sni_ctx ctx = {
+		.props = {
+			.category = "ApplicationStatus",
+			.id = "grabit",
+			.title = "grabit",
+			.status = "Active",
+			.icon_name = cfg->icon_name,
+			.overlay_icon_name = "",
+			.attention_icon_name = "",
+			.tooltip_body = cfg->tooltip_body,
+			.window_id = 0,
+			.item_is_menu = FALSE,
+		},
+		.cfg = cfg,
 	};
 
 	DBusError err;
@@ -160,63 +193,71 @@ int sni_run(volatile sig_atomic_t *stop) {
 
 	char name[64];
 	snprintf(name, sizeof name, "org.kde.StatusNotifierItem-%d-1", (int)getpid());
-	int rc = dbus_bus_request_name(bus, name, 0, &err);
-	if (rc != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+	if (dbus_bus_request_name(bus, name, 0, &err) !=
+		DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
 		log_warn("tray: could not claim bus name %s: %s", name,
 				 err.message ? err.message : "unknown");
 		notify_tray_unavailable("tray unavailable");
-		dbus_error_free(&err);
-		dbus_connection_close(bus);
-		dbus_connection_unref(bus);
-		return -1;
+		return bail(&err, bus);
 	}
 
-	if (!dbus_connection_register_object_path(bus, ITEM_PATH, &item_vtable, &props)) {
+	if (!dbus_connection_register_object_path(bus, ITEM_PATH, &item_vtable, &ctx)) {
 		log_warn("tray: could not register SNI object path");
 		notify_tray_unavailable("tray unavailable");
-		dbus_connection_close(bus);
-		dbus_connection_unref(bus);
-		dbus_error_free(&err);
-		return -1;
+		return bail(&err, bus);
 	}
 
-	DBusMessage *reg = dbus_message_new_method_call(WATCHER_DEST, WATCHER_PATH,
-													WATCHER_IFACE,
-													"RegisterStatusNotifierItem");
+	if (cfg->menu &&
+		!dbus_connection_register_object_path(bus, MENU_PATH, &menu_vtable,
+											  (void *)cfg->menu)) {
+		log_warn("tray: could not register menu object path");
+	}
+
+	dbus_bus_add_match(bus,
+					   "type='signal',sender='org.freedesktop.DBus',"
+					   "interface='org.freedesktop.DBus',member='NameOwnerChanged',"
+					   "arg0='" WATCHER_DEST "'",
+					   NULL);
+	dbus_connection_add_filter(bus, watcher_filter, name, NULL);
+
+	DBusMessage *reg = register_msg(name);
 	if (!reg) {
 		log_warn("tray: oom building register call");
-		dbus_connection_close(bus);
-		dbus_connection_unref(bus);
-		dbus_error_free(&err);
-		return -1;
+		return bail(&err, bus);
 	}
-	const char *name_arg = name;
-	dbus_message_append_args(reg, DBUS_TYPE_STRING, &name_arg, DBUS_TYPE_INVALID);
 
 	DBusMessage *reply = dbus_connection_send_with_reply_and_block(bus, reg, 2000, &err);
 	dbus_message_unref(reg);
 	if (!reply) {
 		const char *ename = err.name ? err.name : "";
-		if (strstr(ename, "ServiceUnknown") || strstr(ename, "NameHasNoOwner")) {
-			log_warn("tray: no SNI host running (pass --no-tray to silence)");
-			notify_tray_unavailable("no tray host running");
+		if (cfg->persist) {
+			log_info("tray: no tray host yet (%s); waiting for one to appear",
+					 err.message ? err.message : ename);
 		} else {
-			log_warn("tray: register failed: %s",
-					 err.message ? err.message : "unknown");
-			notify_tray_unavailable("tray register failed");
+			if (strstr(ename, "ServiceUnknown") || strstr(ename, "NameHasNoOwner")) {
+				log_warn("tray: no SNI host running (pass --no-tray to silence)");
+				notify_tray_unavailable("no tray host running");
+			} else {
+				log_warn("tray: register failed: %s",
+						 err.message ? err.message : "unknown");
+				notify_tray_unavailable("tray register failed");
+			}
+			return bail(&err, bus);
 		}
-		dbus_error_free(&err);
-		dbus_connection_close(bus);
-		dbus_connection_unref(bus);
-		return -1;
+	} else {
+		dbus_message_unref(reply);
 	}
-	dbus_message_unref(reply);
 	dbus_error_free(&err);
 
 	while (!*stop) {
+		if (layout_update && *layout_update) {
+			*layout_update = 0;
+			gmenu_emit_layout_updated(bus);
+		}
 		if (!dbus_connection_read_write_dispatch(bus, 100)) break;
 	}
 
+	dbus_connection_remove_filter(bus, watcher_filter, name);
 	dbus_connection_close(bus);
 	dbus_connection_unref(bus);
 	return 0;

@@ -6,6 +6,8 @@
 
 #include "log.h"
 
+#include <stddef.h>
+
 #ifdef HAVE_PIPEWIRE
 
 #include "capture/pixels.h"

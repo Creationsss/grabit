@@ -20,9 +20,7 @@
 
 void plugin_dispatch_set_env(const char *name) {
 	char self[1024];
-	ssize_t sn = readlink("/proc/self/exe", self, sizeof self - 1);
-	if (sn > 0) {
-		self[sn] = '\0';
+	if (grabit_self_exe(self, sizeof self) == 0) {
 		setenv("GRABIT_BIN", self, 1);
 	}
 	setenv("GRABIT_PLUGIN_NAME", name, 1);

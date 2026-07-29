@@ -80,9 +80,10 @@ Toggle screen recording (run again to stop). Records a region to MP4/H.264
 (or WebM/GIF via
 .BR "grabit set recording.format webm|gif" )
 with a live border overlay, an on-screen control bar, and an SNI tray icon.
-The bar opens at the top of the current monitor (falling back to a spot that
-stays out of the recording) and offers start (resume), pause, and stop, plus
-a state dot and an elapsed timer; drag it by its background to move it.
+The bar is pinned next to the recorded region (falling back to a spot that
+stays out of the recording) and offers start (resume), pause, stop, and
+abort (discard the recording), plus a state dot and an elapsed timer. The
+tray icon stops on left click and carries a pause/stop/abort context menu.
 Pausing closes the current encoder segment and resuming opens a new one; on
 stop the segments are stitched together, so paused time is cut from the
 output rather than left as a frozen gap. Sending
@@ -101,6 +102,13 @@ stack and persist as long-lived processes.
 Make existing pins interactive (clickable close button + draggable), restore
 them to click-through, or dismiss every pin. Intended to be wired to a
 compositor hold-bind.
+.TP
+.B \-\-tray
+Toggle a persistent tray icon that runs as a background process. Left click
+takes a region screenshot; the context menu offers every action (screenshot,
+record, OCR, pin) as submenus. Run again to stop it. The recording tray icon
+is separate and appears only while recording (see
+.BR \-\-no\-tray " and " recording.tray ).
 .TP
 .B \-\-tesseract
 Capture a region, OCR it via
@@ -354,7 +362,11 @@ skip the auto-upload after recording even if
 .BR default_action=upload .
 .TP
 .B \-\-no\-tray
-Suppress the SNI tray icon during recording.
+Suppress the SNI tray icon during recording for one run. Set
+.B recording.tray
+to
+.B false
+to disable it permanently.
 .TP
 .BR \-\-silent ", " \-q ", " \-\-quiet
 Suppress info logging, desktop notifications, and the shutter sound (errors

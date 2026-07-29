@@ -100,7 +100,27 @@ void gren_output_redraw(struct ro_output *o) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		gren_anno_cache_ensure(o, dst);
+		struct annotation preview = {0};
+		if (o->st->drawing) {
+			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
+			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
+									o->st->draw_x0, o->st->draw_y0, &px1, &py1);
+			preview = (struct annotation){
+				.tool = o->st->current_tool,
+				.x0 = o->st->draw_x0,
+				.y0 = o->st->draw_y0,
+				.x1 = px1,
+				.y1 = py1,
+				.color = o->st->current_color,
+				.width = o->st->current_width,
+				.font_size = ANNO_DEFAULT_FONT,
+				.style = o->st->current_style,
+				.points = o->st->pen_points,
+				.n_points = o->st->pen_n,
+			};
+		}
+		bool spot_preview = o->st->drawing && tool_is_layer(o->st->current_tool);
+		gren_anno_cache_ensure(o, dst, spot_preview ? &preview : NULL);
 		if (!o->anno_cache || o->st->drawing || anno_drag) {
 			cairo_push_group(cr);
 			if (o->anno_cache) {
@@ -116,25 +136,8 @@ void gren_output_redraw(struct ro_output *o) {
 					if (o->st->out_annos->items[i].selected)
 						annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
 			}
-			if (o->st->drawing) {
-				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
-				region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
-										o->st->draw_x0, o->st->draw_y0, &px1, &py1);
-				struct annotation preview = {
-					.tool = o->st->current_tool,
-					.x0 = o->st->draw_x0,
-					.y0 = o->st->draw_y0,
-					.x1 = px1,
-					.y1 = py1,
-					.color = o->st->current_color,
-					.width = o->st->current_width,
-					.font_size = ANNO_DEFAULT_FONT,
-					.style = o->st->current_style,
-					.points = o->st->pen_points,
-					.n_points = o->st->pen_n,
-				};
+			if (o->st->drawing && !spot_preview)
 				annotation_paint(cr, &preview, 1.0);
-			}
 			cairo_pop_group_to_source(cr);
 			cairo_paint(cr);
 		} else {
@@ -162,9 +165,11 @@ void gren_output_redraw(struct ro_output *o) {
 			cairo_fill(cr);
 			if (o->st->text_len > 0) {
 				struct annotation preview = {
-					.tool = TOOL_TEXT,
+					.tool = o->st->text_tool,
 					.x0 = o->st->text_x,
 					.y0 = o->st->text_y,
+					.x1 = o->st->text_ax,
+					.y1 = o->st->text_ay,
 					.color = o->st->current_color,
 					.font_size = (int32_t)font,
 					.text = (char *)o->st->text_buf,

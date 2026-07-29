@@ -59,6 +59,7 @@ struct ro_output {
 	size_t anno_cache_gen;
 	struct rect anno_cache_sel;
 	int32_t anno_cache_skip;
+	uint64_t anno_cache_spot;
 
 	bool dirty;
 	struct wl_callback *frame_cb;
@@ -181,6 +182,9 @@ struct ro_state {
 	size_t text_len;
 	int32_t text_x;
 	int32_t text_y;
+	int32_t text_ax;
+	int32_t text_ay;
+	enum tool_kind text_tool;
 
 	struct annotation_list *out_annos;
 

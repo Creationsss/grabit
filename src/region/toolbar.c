@@ -98,6 +98,9 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	case TB_TOOL_COUNTER:
 		toolbar_icon_counter(cr, cxi, cyi, s_icon);
 		break;
+	case TB_TOOL_CALLOUT:
+		toolbar_icon_callout(cr, cxi, cyi, s_icon);
+		break;
 	case TB_TOOL_ERASER:
 		toolbar_icon_eraser(cr, cxi, cyi, s_icon);
 		break;

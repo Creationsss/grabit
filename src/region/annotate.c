@@ -23,8 +23,10 @@ const char *const grabit_tool_names[] = {
 	"arrow",
 	"blur",
 	"pixelate",
+	"spotlight",
 	"text",
 	"counter",
+	"callout",
 	"eraser",
 	NULL,
 };
@@ -135,6 +137,14 @@ void annotation_list_free(struct annotation_list *list) {
 	memset(list, 0, sizeof *list);
 }
 
+struct rect annotation_text_box(const struct annotation *a) {
+	int32_t fs = annotation_font_size(a);
+	int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
+	int32_t pad = a->tool == TOOL_CALLOUT ? fs / 2 : 0;
+	return (struct rect){a->x0 - pad, a->y0 - fs - pad,
+						 len * fs * 3 / 5 + pad * 2, fs + fs / 4 + pad * 2};
+}
+
 void annotation_update_bbox(struct annotation *a) {
 	int32_t minx, miny, maxx, maxy;
 	if (tool_uses_points(a->tool) && a->n_points > 0) {
@@ -146,13 +156,13 @@ void annotation_update_bbox(struct annotation *a) {
 			miny = i32min(miny, a->points[i * 2 + 1]);
 			maxy = i32max(maxy, a->points[i * 2 + 1]);
 		}
-	} else if (a->tool == TOOL_TEXT) {
-		int32_t fs = annotation_font_size(a);
-		int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
-		minx = a->x0;
-		maxx = a->x0 + len * fs * 3 / 5;
-		miny = a->y0 - fs;
-		maxy = a->y0 + fs / 4;
+	} else if (tool_types_text(a->tool)) {
+		struct rect t = annotation_text_box(a);
+		minx = t.x, maxx = t.x + t.w, miny = t.y, maxy = t.y + t.h;
+		if (a->tool == TOOL_CALLOUT) {
+			minx = i32min(minx, a->x1), maxx = i32max(maxx, a->x1);
+			miny = i32min(miny, a->y1), maxy = i32max(maxy, a->y1);
+		}
 	} else if (a->tool == TOOL_COUNTER) {
 		int32_t r = annotation_counter_radius(a);
 		minx = a->x0 - r;
@@ -184,7 +194,9 @@ static double seg_dist2(double px, double py, double x0, double y0,
 }
 
 int annotation_corner_mask(const struct annotation *a) {
-	if (a->tool == TOOL_LINE || a->tool == TOOL_ARROW) return 0x9;
+	if (a->tool == TOOL_LINE || a->tool == TOOL_ARROW ||
+		a->tool == TOOL_CALLOUT)
+		return 0x9;
 	if (tool_is_rect_region(a->tool))
 		return 0xF;
 	return 0;
@@ -213,6 +225,11 @@ bool annotation_hit(const struct annotation *a, int32_t x, int32_t y) {
 				return true;
 		}
 		return false;
+	case TOOL_CALLOUT: {
+		struct rect b = annotation_text_box(a);
+		if (rect_contains(b, x, y)) return true;
+		return seg_dist2(x, y, b.x + b.w / 2.0, b.y + b.h / 2.0, a->x1, a->y1) <= tol2;
+	}
 	default:
 		return true;
 	}

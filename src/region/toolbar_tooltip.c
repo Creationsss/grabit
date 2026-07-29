@@ -25,6 +25,8 @@ static const char *tooltip_text(enum tb_action act) {
 		return "Text  (8 / t)";
 	case TB_TOOL_COUNTER:
 		return "Counter  (c)";
+	case TB_TOOL_CALLOUT:
+		return "Callout bubble  (k, click what it points at)";
 	case TB_TOOL_ERASER:
 		return "Eraser  (9 / e)";
 	case TB_COLOR_RED:

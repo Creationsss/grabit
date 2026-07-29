@@ -44,6 +44,8 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 
 #define ANNO_DEFAULT_FONT 18
 #define ANNO_DEFAULT_WIDTH 3
+#define CALLOUT_DX 48
+#define CALLOUT_DY (-56)
 
 enum stroke_style {
 	STROKE_SOLID = 0,
@@ -66,8 +68,10 @@ enum tool_kind {
 	TOOL_ARROW,
 	TOOL_BLUR,
 	TOOL_PIXELATE,
+	TOOL_SPOTLIGHT,
 	TOOL_TEXT,
 	TOOL_COUNTER,
+	TOOL_CALLOUT,
 	TOOL_ERASER,
 	TOOL_COUNT,
 };
@@ -78,7 +82,11 @@ static inline bool tool_uses_points(enum tool_kind t) {
 
 static inline bool tool_is_rect_region(enum tool_kind t) {
 	return t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE ||
-		   t == TOOL_BLUR || t == TOOL_PIXELATE;
+		   t == TOOL_BLUR || t == TOOL_PIXELATE || t == TOOL_SPOTLIGHT;
+}
+
+static inline bool tool_is_layer(enum tool_kind t) {
+	return t == TOOL_SPOTLIGHT;
 }
 
 static inline bool tool_samples_backdrop(enum tool_kind t) {
@@ -90,7 +98,11 @@ static inline bool tool_is_line_family(enum tool_kind t) {
 }
 
 static inline bool tool_uses_font(enum tool_kind t) {
-	return t == TOOL_TEXT || t == TOOL_COUNTER;
+	return t == TOOL_TEXT || t == TOOL_COUNTER || t == TOOL_CALLOUT;
+}
+
+static inline bool tool_types_text(enum tool_kind t) {
+	return t == TOOL_TEXT || t == TOOL_CALLOUT;
 }
 
 static inline bool tool_uses_line_style(enum tool_kind t) {
@@ -113,6 +125,11 @@ struct annotation {
 	struct rect bbox;
 	bool selected;
 };
+
+static inline struct rect annotation_norm_rect(const struct annotation *a) {
+	int32_t x = i32min(a->x0, a->x1), y = i32min(a->y0, a->y1);
+	return (struct rect){x, y, i32max(a->x0, a->x1) - x, i32max(a->y0, a->y1) - y};
+}
 
 static inline int32_t annotation_corner_x(const struct annotation *a, int c) {
 	return (c & 1) ? a->x1 : a->x0;

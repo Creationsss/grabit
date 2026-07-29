@@ -346,11 +346,13 @@ void region_commit_text(struct ro_state *st) {
 		return;
 	}
 	struct annotation a = {0};
-	a.tool = TOOL_TEXT;
+	a.tool = st->text_tool;
 	a.color = st->current_color;
 	a.font_size = st->current_font;
 	a.x0 = st->text_x;
 	a.y0 = st->text_y;
+	a.x1 = st->text_ax;
+	a.y1 = st->text_ay;
 	st->text_buf[st->text_len] = '\0';
 	a.text = strdup(st->text_buf);
 	if (!a.text)

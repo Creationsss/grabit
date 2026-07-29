@@ -305,10 +305,14 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			region_render_request_redraw_all(st);
 			return;
 		}
-		if (st->current_tool == TOOL_TEXT) {
+		if (tool_types_text(st->current_tool)) {
+			bool callout = st->current_tool == TOOL_CALLOUT;
 			st->text_input_active = true;
-			st->text_x = st->cursor_x;
-			st->text_y = st->cursor_y;
+			st->text_tool = st->current_tool;
+			st->text_ax = st->cursor_x;
+			st->text_ay = st->cursor_y;
+			st->text_x = st->cursor_x + (callout ? CALLOUT_DX : 0);
+			st->text_y = st->cursor_y + (callout ? CALLOUT_DY : 0);
 			st->text_len = 0;
 			st->text_buf[0] = '\0';
 			region_drag_start(st);

@@ -128,7 +128,7 @@ int ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
 			region_inside_selection(st, abs_x, abs_y))
 			return RCUR_MOVE;
 		if (!region_editing(st)) return RCUR_CROSS;
-		if (st->current_tool == TOOL_TEXT) return RCUR_TEXT;
+		if (tool_types_text(st->current_tool)) return RCUR_TEXT;
 		return RCUR_DEFAULT;
 	}
 	return RCUR_CROSS;

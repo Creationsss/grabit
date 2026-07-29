@@ -22,19 +22,20 @@
 
 static const enum tool_kind LINES_TOOLS[] = {TOOL_PEN, TOOL_MARKER, TOOL_LINE};
 static const enum tool_kind SHAPES_TOOLS[] = {TOOL_RECT, TOOL_RRECT, TOOL_ELLIPSE};
-static const enum tool_kind REDACT_TOOLS[] = {TOOL_BLUR, TOOL_PIXELATE};
+static const enum tool_kind REDACT_TOOLS[] = {TOOL_BLUR, TOOL_PIXELATE,
+											  TOOL_SPOTLIGHT};
 
 static const char *const LINES_LABELS[] = {"Pen", "Marker", "Line"};
 static const char *const SHAPES_LABELS[] = {"Rectangle", "Rounded", "Ellipse"};
-static const char *const REDACT_LABELS[] = {"Blur", "Pixelate"};
+static const char *const REDACT_LABELS[] = {"Blur", "Pixelate", "Spotlight"};
 
 static const struct tool_group GROUPS[TB_TOOL_GROUP_COUNT] = {
 	{TB_TOOL_LINES, LINES_TOOLS, 3, true, LINES_LABELS,
 	 "Line tools  (pen / marker / line + style)"},
 	{TB_TOOL_SHAPES, SHAPES_TOOLS, 3, true, SHAPES_LABELS,
 	 "Shapes  (rectangle / rounded / ellipse + style)"},
-	{TB_TOOL_REDACT, REDACT_TOOLS, 2, false, REDACT_LABELS,
-	 "Redact  (blur / pixelate)"},
+	{TB_TOOL_REDACT, REDACT_TOOLS, 3, false, REDACT_LABELS,
+	 "Redact & focus  (blur / pixelate / spotlight)"},
 };
 
 const struct tool_group *toolbar_tool_group(enum tb_action btn) {
@@ -67,6 +68,8 @@ int32_t toolbar_standalone_tool(enum tb_action btn) {
 		return TOOL_TEXT;
 	case TB_TOOL_COUNTER:
 		return TOOL_COUNTER;
+	case TB_TOOL_CALLOUT:
+		return TOOL_CALLOUT;
 	case TB_TOOL_ERASER:
 		return TOOL_ERASER;
 	default:

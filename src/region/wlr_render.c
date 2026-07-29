@@ -24,7 +24,25 @@
 
 #include "region/render_internal.h"
 
-void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst) {
+static uint64_t spotlight_mix(uint64_t h, const struct annotation *a) {
+	if (!a || !tool_is_layer(a->tool)) return h;
+	int32_t v[5] = {a->x0, a->y0, a->x1, a->y1, a->width};
+	for (int k = 0; k < 5; k++)
+		h = (h ^ (uint64_t)(uint32_t)v[k]) * 1099511628211ULL;
+	return h;
+}
+
+static uint64_t spotlight_sig(const struct annotation_list *l,
+							  const struct annotation *live) {
+	uint64_t h = 1469598103934665603ULL;
+	size_t n = l ? l->n : 0;
+	for (size_t i = 0; i < n; i++)
+		h = spotlight_mix(h, &l->items[i]);
+	return spotlight_mix(h, live);
+}
+
+void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
+							const struct annotation *live) {
 	const struct annotation_list *annos = o->st->out_annos;
 	int32_t S = o->scale;
 	int32_t dragging = region_anno_dragging(o->st) ? 1 : 0;
@@ -50,8 +68,9 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst) {
 		cairo_surface_destroy(o->anno_cache);
 		o->anno_cache = NULL;
 	}
+	uint64_t spot = spotlight_sig(annos, live);
 	if (o->anno_cache && o->anno_cache_gen == annos->gen &&
-		o->anno_cache_skip == dragging &&
+		o->anno_cache_skip == dragging && o->anno_cache_spot == spot &&
 		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
 		return;
 	if (!o->anno_cache) {
@@ -69,6 +88,7 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst) {
 	cairo_set_operator(cc, CAIRO_OPERATOR_OVER);
 	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
 	cairo_scale(cc, S, S);
+	ganno_paint_spotlights(cc, annos, live);
 	for (size_t i = 0; i < annos->n; i++)
 		if (!(dragging && annos->items[i].selected))
 			annotation_paint_backdrop(cc, &annos->items[i], 1.0, dst);
@@ -77,6 +97,7 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst) {
 	o->anno_cache_gen = annos->gen;
 	o->anno_cache_sel = sel;
 	o->anno_cache_skip = dragging;
+	o->anno_cache_spot = spot;
 }
 
 void gren_anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {

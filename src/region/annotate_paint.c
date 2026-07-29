@@ -20,6 +20,14 @@ void ganno_set_color(cairo_t *cr, uint32_t color) {
 	grabit_cairo_set_source_argb(cr, color, 1.0);
 }
 
+static void ganno_set_contrast_ink(cairo_t *cr, uint32_t color) {
+	double lum = (0.299 * ((color >> 16) & 0xff) + 0.587 * ((color >> 8) & 0xff) +
+				  0.114 * (color & 0xff)) /
+				 255.0;
+	double v = lum > 0.6 ? 0.0 : 1.0;
+	cairo_set_source_rgba(cr, v, v, v, 1);
+}
+
 static void apply_stroke_style(cairo_t *cr, enum stroke_style style, double w) {
 	double d[2];
 	int n = grabit_stroke_dash(style, w, d);
@@ -61,6 +69,43 @@ static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 	cairo_fill(cr);
 }
 
+static int32_t spot_strength(const struct annotation *a) {
+	if (!a || !tool_is_layer(a->tool)) return 0;
+	struct rect r = annotation_norm_rect(a);
+	return (r.w >= 2 && r.h >= 2) ? annotation_width(a) : 0;
+}
+
+static void spot_hole(cairo_t *cr, const struct annotation *a) {
+	if (!spot_strength(a)) return;
+	struct rect r = annotation_norm_rect(a);
+	cairo_rectangle(cr, r.x, r.y, r.w, r.h);
+}
+
+void ganno_paint_spotlights(cairo_t *cr, const struct annotation_list *list,
+							const struct annotation *extra) {
+	int32_t strongest = spot_strength(extra);
+	size_t n = list ? list->n : 0;
+	for (size_t i = 0; i < n; i++) {
+		int32_t s = spot_strength(&list->items[i]);
+		if (s > strongest) strongest = s;
+	}
+	if (!strongest) return;
+
+	cairo_save(cr);
+	cairo_push_group(cr);
+	cairo_set_source_rgba(cr, 0, 0, 0, fmin(0.20 + strongest * 0.055, 0.9));
+	cairo_paint(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+	for (size_t i = 0; i < n; i++)
+		spot_hole(cr, &list->items[i]);
+	spot_hole(cr, extra);
+	cairo_fill(cr);
+	cairo_pop_group_to_source(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+	cairo_paint(cr);
+	cairo_restore(cr);
+}
+
 void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double scale,
 							   cairo_surface_t *backdrop) {
 	cairo_save(cr);
@@ -69,10 +114,8 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 
 	switch (a->tool) {
 	case TOOL_RECT: {
-		double x = a->x0 < a->x1 ? a->x0 : a->x1;
-		double y = a->y0 < a->y1 ? a->y0 : a->y1;
-		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
-		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
+		struct rect nr = annotation_norm_rect(a);
+		double x = nr.x, y = nr.y, rw = nr.w, rh = nr.h;
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
 		apply_stroke_style(cr, a->style, w);
@@ -81,10 +124,8 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		break;
 	}
 	case TOOL_RRECT: {
-		double x = a->x0 < a->x1 ? a->x0 : a->x1;
-		double y = a->y0 < a->y1 ? a->y0 : a->y1;
-		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
-		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
+		struct rect nr = annotation_norm_rect(a);
+		double x = nr.x, y = nr.y, rw = nr.w, rh = nr.h;
 		double r = (rw < rh ? rw : rh) * 0.22;
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
@@ -153,10 +194,8 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 	}
 	case TOOL_BLUR:
 	case TOOL_PIXELATE: {
-		double x = a->x0 < a->x1 ? a->x0 : a->x1;
-		double y = a->y0 < a->y1 ? a->y0 : a->y1;
-		double rw = a->x0 < a->x1 ? a->x1 - a->x0 : a->x0 - a->x1;
-		double rh = a->y0 < a->y1 ? a->y1 - a->y0 : a->y0 - a->y1;
+		struct rect nr = annotation_norm_rect(a);
+		double x = nr.x, y = nr.y, rw = nr.w, rh = nr.h;
 		if (rw < 2.0 || rh < 2.0) break;
 		int32_t strength = annotation_width(a);
 		if (a->tool == TOOL_BLUR)
@@ -165,6 +204,8 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 			ganno_paint_pixelate(cr, x, y, rw, rh, scale, strength, backdrop);
 		break;
 	}
+	case TOOL_SPOTLIGHT:
+		break;
 	case TOOL_TEXT: {
 		if (!a->text || !a->text[0]) break;
 		double font_px = annotation_font_size(a) * scale;
@@ -172,6 +213,60 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, font_px);
 		ganno_set_color(cr, a->color);
+		cairo_move_to(cr, a->x0, a->y0);
+		cairo_show_text(cr, a->text);
+		break;
+	}
+	case TOOL_CALLOUT: {
+		if (!a->text || !a->text[0]) break;
+		double fs = annotation_font_size(a) * scale;
+		cairo_select_font_face(cr, "sans-serif",
+							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+		cairo_set_font_size(cr, fs);
+		cairo_text_extents_t ext;
+		cairo_text_extents(cr, a->text, &ext);
+
+		double pad = fs * 0.45;
+		double bx = a->x0 - pad;
+		double by = a->y0 + ext.y_bearing - pad;
+		double bw = ext.width + pad * 2;
+		double bh = ext.height + pad * 2;
+		double bcx = bx + bw / 2.0, bcy = by + bh / 2.0;
+
+		ganno_set_color(cr, a->color);
+		double rad = fmin(bh * 0.32, fs * 0.5);
+		double dx = a->x1 - bcx, dy = a->y1 - bcy;
+		double hx = bw / 2.0, hy = bh / 2.0;
+		if (fabs(dx) > hx || fabs(dy) > hy) {
+			double tx = hx / fabs(dx), ty = hy / fabs(dy);
+			bool vert = ty <= tx;
+			double len = sqrt(dx * dx + dy * dy);
+			double half = fmin(fs * 0.42, len * 0.32);
+			double inset = fmin(rad, hx * 0.8);
+			double b1x, b1y, b2x, b2y;
+			if (vert) {
+				double lo = bx + rad, hi = bx + bw - rad;
+				half = fmin(half, fmax((hi - lo) / 2.0, 1.0));
+				double c = fmin(fmax(bcx + dx * ty, lo + half), hi - half);
+				double y = dy < 0 ? by + inset : by + bh - inset;
+				b1x = c - half, b1y = y, b2x = c + half, b2y = y;
+			} else {
+				double lo = by + rad, hi = by + bh - rad;
+				half = fmin(half, fmax((hi - lo) / 2.0, 1.0));
+				double c = fmin(fmax(bcy + dy * tx, lo + half), hi - half);
+				double x = dx < 0 ? bx + inset : bx + bw - inset;
+				b1x = x, b1y = c - half, b2x = x, b2y = c + half;
+			}
+			cairo_move_to(cr, b1x, b1y);
+			cairo_line_to(cr, a->x1, a->y1);
+			cairo_line_to(cr, b2x, b2y);
+			cairo_close_path(cr);
+			cairo_fill(cr);
+		}
+		grabit_cairo_rounded_rect(cr, bx, by, bw, bh, rad);
+		cairo_fill(cr);
+
+		ganno_set_contrast_ink(cr, a->color);
 		cairo_move_to(cr, a->x0, a->y0);
 		cairo_show_text(cr, a->text);
 		break;
@@ -184,14 +279,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_arc(cr, a->x0, a->y0, R, 0, 2.0 * M_PI);
 		cairo_fill(cr);
 
-		double lum = (0.299 * ((a->color >> 16) & 0xff) +
-					  0.587 * ((a->color >> 8) & 0xff) +
-					  0.114 * (a->color & 0xff)) /
-					 255.0;
-		if (lum > 0.6)
-			cairo_set_source_rgba(cr, 0, 0, 0, 1);
-		else
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+		ganno_set_contrast_ink(cr, a->color);
 		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 							   CAIRO_FONT_WEIGHT_BOLD);
 		double fs = R * 1.35;
@@ -238,6 +326,7 @@ void annotation_list_paint(cairo_t *cr, const struct annotation_list *list,
 	cairo_scale(cr, scale, scale);
 	if (!overlay) {
 		cairo_push_group(cr);
+		ganno_paint_spotlights(cr, list, NULL);
 		for (size_t i = 0; i < list->n; i++)
 			annotation_paint(cr, &list->items[i], 1.0);
 		cairo_pop_group_to_source(cr);
@@ -250,6 +339,7 @@ void annotation_list_paint(cairo_t *cr, const struct annotation_list *list,
 	cairo_t *oc = cairo_create(overlay);
 	cairo_translate(oc, -origin_x * scale, -origin_y * scale);
 	cairo_scale(oc, scale, scale);
+	ganno_paint_spotlights(oc, list, NULL);
 	for (size_t i = 0; i < list->n; i++)
 		annotation_paint_backdrop(oc, &list->items[i], 1.0, target);
 	cairo_destroy(oc);

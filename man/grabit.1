@@ -133,26 +133,10 @@ is the target language (default
 source auto-detected). Falls back to raw OCR if the call fails (20s cap).
 .B translate.backend
 picks the translator:
-.B trans
-(default) shells out to translate-shell's
-.B trans
-binary, while
-.B libretranslate
-POSTs to the LibreTranslate server named by
-.B translate.url
-.RI ( /translate
-is appended if omitted), and
-.B deepl
-POSTs to the DeepL API using
-.B translate.api_key
-.RB ( GRABIT_TRANSLATE_KEY
-overrides it). Neither needs an external binary. For
-.BR deepl ,
-the endpoint is derived from the key and
-.B translate.url
-overrides it. See
+.BR trans " (default), " libretranslate ", or " deepl .
+See
 .B OPTIONS.md
-for DeepL target codes.
+for backend setup and DeepL target codes.
 .PP
 Translating sends the OCR'd text to a third-party server unless you use a
 self-hosted LibreTranslate instance.
@@ -527,45 +511,15 @@ The config lives at
 .IR ~/.config/grabit/config.toml ),
 written with mode 0600. Manage it with
 .B grabit set/get/unset
-or edit the TOML directly. Notable top-level keys:
-.B default_action
-.RB ( copy / upload / save / pin ),
-.BR service ,
-.BR notifications ,
-.BR log_file ,
-.BR also_save ,
-.BR save_dir ,
-.BR filename ,
-.BR filename_preset ,
-.BR format .
-.B save_captures
-is accepted as a legacy alias for
-.BR also_save .
-.B notifications
-carries the same forced-failure caveat as
-.BR \-\-silent .
-Per-service auth tokens go under
+or edit the TOML directly. Per-service auth tokens go under
 .BI services. name .auth
 or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
 .PP
-Other service keys:
-.B services.zipline.domain
-(zipline endpoint; required for zipline uploads,
-.B /api/upload
-is appended when missing),
-.BI services.zipline.headers. name
-(zipline upload metadata; twelve validated header keys, see
-.BR OPTIONS.md ),
-and
-.B services.nest.folder
-(target folder for nest uploads).
-.PP
 See
 .B OPTIONS.md
-for the full key reference, including region snap/confirm, keybinds, encoder
-quality, recording, sound, pin, translate, preview/text card, and edit defaults.
+for the full key reference.
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG

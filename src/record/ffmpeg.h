@@ -18,8 +18,9 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 pid_t *child_pid, int *write_fd);
 
 int wait_ffmpeg(pid_t pid);
-int ffmpeg_exit_rc(int status);
-int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop);
+int ffmpeg_exit_rc(int status, const char *step);
+int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop,
+			   const char *step);
 
 int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 							int max_mb, double duration_secs,

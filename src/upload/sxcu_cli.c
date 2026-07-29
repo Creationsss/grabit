@@ -6,6 +6,7 @@
 
 #include "log.h"
 #include "upload/sxcu.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -32,7 +33,7 @@ static int do_list(void) {
 	char **names = NULL;
 	size_t n = 0;
 	if (sxcu_dir_list(&names, &n) != 0) {
-		log_error("sxcu: cannot read %s", sxcu_dir_path());
+		log_error("sxcu: cannot list uploaders (no config dir?)");
 		return 1;
 	}
 	if (n == 0) {
@@ -79,7 +80,9 @@ static int do_show(const char *name, bool reveal) {
 		return 1;
 	}
 	printf("name:        %s\n", u.name ? u.name : "");
-	printf("url:         %s\n", u.request_url ? u.request_url : "");
+	char safe_url[512];
+	grabit_redact_url(u.request_url, safe_url, sizeof safe_url);
+	printf("url:         %s\n", reveal && u.request_url ? u.request_url : safe_url);
 	printf("method:      %s\n", sxcu_method_str(u.method));
 	printf("body:        %s\n", sxcu_body_str(u.body_type));
 	if (u.file_form_name) printf("file_field:  %s\n", u.file_form_name);

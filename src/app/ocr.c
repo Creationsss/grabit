@@ -76,9 +76,8 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 	if (grabit_ocr_has_lang(bin, lang) != 0) {
-		log_error("ocr: tesseract is installed but the `%s` language data isn't", lang);
-		log_error("  or set TESSDATA_PREFIX to the dir containing %s.traineddata", lang);
-		log_error("  list what's available with: %s --list-langs", bin);
+		log_error("ocr: tesseract has no `%s` language data (see `%s --list-langs`)",
+				  lang, bin);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: language data missing",
 			.body = "tesseract language data missing; install the language pack",
@@ -127,10 +126,8 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			.api_key = api_key,
 		};
 		if (strcmp(backend, "trans") == 0 && !grabit_in_path("trans")) {
-			log_warn("translate: `trans` not in $PATH; copying raw OCR text");
-			log_warn("  or point grabit at a libretranslate server:");
-			log_warn("    grabit set translate.backend libretranslate");
-			log_warn("    grabit set translate.url http://localhost:5000");
+			log_warn("translate: `trans` not in $PATH; copying raw OCR text "
+					 "(or set translate.backend to libretranslate/deepl)");
 			notify_send(&(struct notify_opts){
 				.summary = "Translate skipped",
 				.body = "translate-shell not installed; raw OCR copied",
@@ -153,7 +150,6 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		}
 	}
 
-	bool shown = false;
 	if (a->show) {
 		char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
 		if (!png_path || pin_text_card_render_png(text, png_path) != 0) {
@@ -179,7 +175,6 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			free(text);
 			return 1;
 		}
-		shown = true;
 	}
 
 	if (!a->no_copy && clipboard_set_text(text) != 0) {
@@ -194,13 +189,14 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	size_t tlen = strlen(text);
+	bool want_notify = !a->show && !a->no_copy;
 	enum { PREVIEW_MAX = 800 };
 	char preview[PREVIEW_MAX + 8];
 	char flat[PREVIEW_MAX + 1];
 	size_t fi = 0;
 	bool prev_space = false;
 	bool overflowed = false;
-	for (size_t i = 0; text[i]; i++) {
+	for (size_t i = 0; want_notify && text[i]; i++) {
 		unsigned char ch = (unsigned char)text[i];
 		bool is_ws = (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r');
 		if (fi >= sizeof flat - 1) {
@@ -228,16 +224,16 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	const char *what;
-	if (shown && !a->no_copy)
+	if (a->show && !a->no_copy)
 		what = "shown on screen and copied to clipboard";
-	else if (shown)
+	else if (a->show)
 		what = "shown on screen";
 	else if (!a->no_copy)
 		what = "copied to clipboard";
 	else
 		what = "discarded";
 	log_info("ocr: %zu chars %s%s", tlen, what, translated ? " (translated)" : "");
-	if (!shown && !a->no_copy)
+	if (want_notify)
 		notify_send(&(struct notify_opts){
 			.summary = translated ? "OCR + Translate" : "OCR Complete",
 			.body = preview,

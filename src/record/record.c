@@ -132,9 +132,13 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	struct rect r = {0};
 	int rc = rec_pick_region(&s, cfg, a, &r);
+	if (rc != 0 && rc != REGION_SELECT_CANCELLED) {
+		grabit_wl_finish(&s);
+		return 1;
+	}
 	if (rc != 0 || r.w <= 0 || r.h <= 0) {
 		grabit_wl_finish(&s);
-		log_info("recording cancelled");
+		log_debug("recording cancelled");
 		notify_send(&(struct notify_opts){
 			.summary = "Recording cancelled",
 		});

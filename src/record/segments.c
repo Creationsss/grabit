@@ -91,7 +91,7 @@ bool seg_any_pending_alive(struct seg_ctx *sc) {
 		int status = 0;
 		pid_t r = waitpid(sc->pending[i], &status, WNOHANG);
 		if (r == sc->pending[i]) {
-			if (ffmpeg_exit_rc(status) != 0) sc->failed = true;
+			if (ffmpeg_exit_rc(status, "encode") != 0) sc->failed = true;
 			sc->pending[i] = -1;
 		} else if (r == 0) {
 			alive = true;
@@ -158,13 +158,10 @@ static int concat_segments(struct seg_ctx *sc, const char *output_path) {
 	argv[i++] = (char *)output_path;
 	argv[i] = NULL;
 
-	int rc = ffmpeg_run(sc->ffmpeg_bin, argv, sc->stop);
+	int rc = ffmpeg_run(sc->ffmpeg_bin, argv, sc->stop, "concat");
 	unlink(list_path);
 	free(list_path);
-	if (rc != 0) {
-		log_error("ffmpeg concat failed");
-		return -1;
-	}
+	if (rc != 0) return -1;
 	return 0;
 }
 

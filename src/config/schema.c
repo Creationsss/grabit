@@ -171,9 +171,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "service") == 0 && !upload_service_known(value)) {
-		log_error("service `%s` is not a built-in or a registered sxcu uploader", value);
-		log_error("  built-ins: zipline|nest|fakecrime|ez|guns|pixelvault");
-		log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
+		log_error("service `%s` is not a built-in (zipline|nest|fakecrime|ez|guns|"
+				  "pixelvault) or a registered sxcu uploader; add one with "
+				  "`grabit sxcu add <file.sxcu>`",
+				  value);
 		return -1;
 	}
 	if (strcmp(key, "translate.backend") == 0 &&

@@ -42,11 +42,8 @@ const char *gup_resolve_auth(struct config *cfg, const char *service) {
 	const char *auth = getenv(env_key);
 	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
 	if (!auth || !auth[0]) {
-		log_error("no auth token for %s.", service);
-		log_error("  recommended (password-manager-friendly):");
-		log_error("    export %s=\"$(pass show grabit/%s)\"", env_key, service);
-		log_error("  or fallback (plaintext in config 0600):");
-		log_error("    grabit set %s <token>", cfg_key);
+		log_error("no auth token for %s: set $%s or run `grabit set %s <token>`",
+				  service, env_key, cfg_key);
 		return NULL;
 	}
 	return auth;
@@ -107,7 +104,7 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 		log_error("no service: pass --<service> or `grabit set service <name>`");
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: no upload service",
-			.body = "run: grabit set service zipline (or nest, fakecrime, ez, guns, pixelvault)",
+			.body = "run: grabit set service <name> (see grabit --help)",
 		});
 		return -1;
 	}
@@ -115,7 +112,7 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 		log_error("unknown service: %s", service);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: unknown service",
-			.body = "valid services: zipline, nest, fakecrime, ez, guns, pixelvault",
+			.body = "not a built-in or a registered .sxcu uploader",
 		});
 		return -1;
 	}
@@ -138,8 +135,8 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 	if (strcmp(service, "zipline") == 0) {
 		const char *domain = config_get(cfg, "services.zipline.domain");
 		if (!domain || !domain[0]) {
-			log_error("zipline requires services.zipline.domain (e.g. https://example.com/api/upload)");
-			log_error("    grabit set services.zipline.domain https://<host>/api/upload");
+			log_error("zipline needs a domain: grabit set services.zipline.domain "
+					  "https://<host>/api/upload");
 			notify_send(&(struct notify_opts){
 				.summary = "grabit: zipline domain not set",
 				.body = "run: grabit set services.zipline.domain https://<host>/api/upload",

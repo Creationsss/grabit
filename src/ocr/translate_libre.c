@@ -5,7 +5,6 @@
 #include "ocr/ocr.h"
 
 #include "log.h"
-#include "ocr/internal.h"
 #include "upload/upload.h"
 #include "util/util.h"
 
@@ -128,12 +127,12 @@ char *grabit_translate_libre(const char *text, const char *target,
 	curl_easy_setopt(c, CURLOPT_TIMEOUT, LIBRE_TIMEOUT_S);
 
 	char safe_ep[512];
-	gocr_redact_url(endpoint, safe_ep, sizeof safe_ep);
+	grabit_redact_url(endpoint, safe_ep, sizeof safe_ep);
 	log_debug("translate: POST %s", safe_ep);
 	CURLcode rc = curl_easy_perform(c);
 	if (rc != CURLE_OK) {
 		char safe[512];
-		gocr_redact_url(url, safe, sizeof safe);
+		grabit_redact_url(url, safe, sizeof safe);
 		log_error("translate: libretranslate %s: %s", safe, curl_easy_strerror(rc));
 		goto done;
 	}

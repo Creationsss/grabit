@@ -190,11 +190,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 		}
 
 		if (strcmp(arg, "--filename") == 0) {
-			if (++i >= argc) {
-				log_error("--filename requires a non-empty template");
-				return -1;
-			}
-			if (!argv[i][0]) {
+			if (++i >= argc || !argv[i][0]) {
 				log_error("--filename requires a non-empty template");
 				return -1;
 			}
@@ -204,7 +200,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 		if (strncmp(arg, "--filename=", 11) == 0) {
 			out->filename_tpl = arg + 11;
 			if (!*out->filename_tpl) {
-				log_error("--filename requires a template argument");
+				log_error("--filename requires a non-empty template");
 				return -1;
 			}
 			continue;

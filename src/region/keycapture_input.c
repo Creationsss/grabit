@@ -37,9 +37,7 @@ void gkc_join(struct kc_state *s, char *out, size_t n) {
 	for (size_t i = 0; i < s->n_caps; i++) {
 		char one[80];
 		region_keybind_format(&s->caps[i], one, sizeof one);
-		int w = snprintf(out + used, n - used, "%s%s", i ? ", " : "", one);
-		if (w < 0 || (size_t)w >= n - used) break;
-		used += (size_t)w;
+		if (!grabit_join_appendf(out, n, &used, ", ", "%s", one)) break;
 	}
 }
 

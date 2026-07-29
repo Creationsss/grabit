@@ -59,28 +59,6 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"region.show_coords",
 	"region.repeat_last",
 	"region.last",
-	"keys.confirm",
-	"keys.cancel",
-	"keys.select_all",
-	"keys.undo",
-	"keys.redo",
-	"keys.delete",
-	"keys.edit_mode",
-	"keys.region_mode",
-	"keys.nudge_left",
-	"keys.nudge_right",
-	"keys.nudge_up",
-	"keys.nudge_down",
-	"keys.magnifier",
-	"keys.tool.pen",
-	"keys.tool.marker",
-	"keys.tool.line",
-	"keys.tool.rect",
-	"keys.tool.ellipse",
-	"keys.tool.arrow",
-	"keys.tool.blur",
-	"keys.tool.text",
-	"keys.tool.eraser",
 	"translate.target",
 	"translate.backend",
 	"translate.url",
@@ -118,6 +96,26 @@ const char *cfg_help_suggest_key(const char *input) {
 		if (d < best_dist) {
 			best_dist = d;
 			best = k;
+		}
+	}
+	static char keybuf[64];
+	for (int a = 0; a < KA_COUNT; a++) {
+		const char *k = region_keybind_action_key(a);
+		if (!k) continue;
+		size_t d = grabit_edit_distance(input, k);
+		if (d < best_dist) {
+			best_dist = d;
+			best = k;
+		}
+	}
+	for (int t = 0; t < TOOL_COUNT; t++) {
+		char k[64];
+		snprintf(k, sizeof k, "keys.tool.%s", grabit_tool_names[t]);
+		size_t d = grabit_edit_distance(input, k);
+		if (d < best_dist) {
+			best_dist = d;
+			snprintf(keybuf, sizeof keybuf, "%s", k);
+			best = keybuf;
 		}
 	}
 	if (!best) return NULL;
@@ -159,12 +157,10 @@ static void print_key_line(const char *key, const char *note) {
 
 static void print_key_with_default(const char *key, const char *def,
 								   const char *cur) {
-	if (cur && cur[0] && def)
+	if (cur && cur[0] && def && strcmp(cur, def) != 0)
 		printf("  %-28s = %s  (default: %s)\n", key, cur, def);
 	else if (cur && cur[0])
 		printf("  %-28s = %s\n", key, cur);
-	else if (def)
-		printf("  %-28s default: %s\n", key, def);
 	else
 		printf("  %s\n", key);
 }
@@ -234,6 +230,10 @@ static const char *const G_TEXT_CARD[] = {
 	"text_card.output",
 	NULL,
 };
+static const char *const G_TRAY[] = {
+	"tray.icon",
+	NULL,
+};
 static const char *const G_PREVIEW[] = {
 	"preview.enabled",
 	"preview.size",
@@ -255,6 +255,7 @@ static const char *const *const KEY_GROUPS[] = {
 	G_TRANSLATE,
 	G_TEXT_CARD,
 	G_PREVIEW,
+	G_TRAY,
 	NULL,
 };
 
@@ -272,7 +273,7 @@ void cfg_help_print_all_keys(void) {
 	}
 	config_free(&c);
 	puts("");
-	print_key_line("services.<svc>.auth", "svc: zipline|nest|fakecrime|ez|guns|pixelvault");
+	print_key_line("services.<svc>.auth", "svc: see --help, or an .sxcu name");
 	print_key_line("services.zipline.domain", NULL);
 	print_key_line("services.zipline.chunked", NULL);
 	print_key_line("services.zipline.chunk_size", NULL);
@@ -280,6 +281,4 @@ void cfg_help_print_all_keys(void) {
 	print_key_line("services.zipline.headers.<name>", "zipline upload metadata");
 	puts("");
 	print_key_line("keys.<action>", "run `grabit set keys` to list every binding");
-	puts("");
-	puts("`also_save` is also accepted as `save_captures`.");
 }

@@ -137,30 +137,32 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 	return 0;
 }
 
-int ffmpeg_exit_rc(int status) {
+int ffmpeg_exit_rc(int status, const char *step) {
 	if (WIFEXITED(status)) {
 		int code = WEXITSTATUS(status);
 		if (code == 0) return 0;
 		if (code == 127)
 			log_error("ffmpeg not found in $PATH");
 		else
-			log_error("ffmpeg exited with code %d", code);
+			log_error("ffmpeg (%s) exited with code %d", step, code);
 		return -1;
 	}
 	if (WIFSIGNALED(status)) {
-		log_error("ffmpeg killed by signal %d", WTERMSIG(status));
+		log_error("ffmpeg (%s) killed by signal %d", step, WTERMSIG(status));
 		return -1;
 	}
+	log_error("ffmpeg (%s) did not run", step);
 	return -1;
 }
 
 int wait_ffmpeg(pid_t pid) {
 	int status = 0;
 	if (grabit_waitpid_intr(pid, &status) != 0) return -1;
-	return ffmpeg_exit_rc(status);
+	return ffmpeg_exit_rc(status, "encode");
 }
 
-int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop) {
+int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop,
+			   const char *step) {
 	pid_t pid = fork();
 	if (pid < 0) {
 		log_error("fork: %s", strerror(errno));
@@ -180,7 +182,7 @@ int ffmpeg_run(const char *ffmpeg_bin, char *const argv[], atomic_int *stop) {
 
 	int status = 0;
 	if (grabit_waitpid_intr_stop(pid, &status, stop) != 0) return -1;
-	return ffmpeg_exit_rc(status);
+	return ffmpeg_exit_rc(status, step);
 }
 
 int compress_to_target_size(const char *ffmpeg_bin, const char *path,
@@ -234,8 +236,7 @@ int compress_to_target_size(const char *ffmpeg_bin, const char *path,
 		tmp_path,
 		NULL,
 	};
-	if (ffmpeg_run(ffmpeg_bin, argv, stop) != 0) {
-		log_error("ffmpeg compress failed");
+	if (ffmpeg_run(ffmpeg_bin, argv, stop, "compress") != 0) {
 		unlink(tmp_path);
 		free(tmp_path);
 		return -1;

@@ -5,7 +5,6 @@
 #include "ocr/ocr.h"
 
 #include "log.h"
-#include "ocr/internal.h"
 #include "util/util.h"
 
 #include <errno.h>
@@ -17,20 +16,6 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-
-void gocr_redact_url(const char *url, char *out, size_t cap) {
-	if (!out || cap == 0) return;
-	if (!url) {
-		out[0] = '\0';
-		return;
-	}
-	const char *q = strchr(url, '?');
-	size_t n = q ? (size_t)(q - url) : strlen(url);
-	if (n >= cap) n = cap - 1;
-	memcpy(out, url, n);
-	out[n] = '\0';
-	if (q && n + 4 < cap) memcpy(out + n, "?...", 5);
-}
 
 #define TRANS_BIN "trans"
 #define TRANSLATE_TIMEOUT_MS 20000

@@ -55,7 +55,7 @@ int pin_ipc_open(struct pin_state *st) {
 
 	int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (fd < 0) {
-		log_error("pin: socket: %s", strerror(errno));
+		log_debug("pin: socket: %s", strerror(errno));
 		return -1;
 	}
 	set_cloexec_nonblock(fd);
@@ -164,7 +164,7 @@ int pin_ipc_broadcast(const char *msg) {
 	int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (fd < 0) {
 		closedir(d);
-		log_error("pin: socket: %s", strerror(errno));
+		log_error("pin: broadcast socket: %s", strerror(errno));
 		return -1;
 	}
 	set_cloexec(fd);
@@ -220,12 +220,14 @@ int pin_release(void) {
 int pin_close_all(void) {
 	int n = pin_ipc_broadcast("close\n");
 	if (n < 0) return 1;
-	log_info("pin: closed %d pin(s)", n);
-	char body[64];
-	snprintf(body, sizeof body, "%d pin%s closed", n, n == 1 ? "" : "s");
-	notify_send(&(struct notify_opts){
-		.summary = "grabit",
-		.body = body,
-	});
+	log_debug("pin: closed %d pins", n);
+	if (n > 0) {
+		char body[64];
+		snprintf(body, sizeof body, "%d pin%s closed", n, n == 1 ? "" : "s");
+		notify_send(&(struct notify_opts){
+			.summary = "grabit",
+			.body = body,
+		});
+	}
 	return 0;
 }

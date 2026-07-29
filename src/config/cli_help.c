@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "config/config.h"
 #include "config/internal.h"
 
 #include "region/keybinds.h"
@@ -155,8 +156,13 @@ static void print_key_line(const char *key, const char *note) {
 		printf("  %s\n", key);
 }
 
-static void print_key_with_default(const char *key, const char *def) {
-	if (def)
+static void print_key_with_default(const char *key, const char *def,
+								   const char *cur) {
+	if (cur && cur[0] && def)
+		printf("  %-28s = %s  (default: %s)\n", key, cur, def);
+	else if (cur && cur[0])
+		printf("  %-28s = %s\n", key, cur);
+	else if (def)
 		printf("  %-28s default: %s\n", key, def);
 	else
 		printf("  %s\n", key);
@@ -252,12 +258,18 @@ static const char *const *const KEY_GROUPS[] = {
 };
 
 void cfg_help_print_all_keys(void) {
-	puts("settable config keys (run `grabit set <key>` for values and defaults):");
+	struct config c = {0};
+	if (config_exists()) (void)config_load_full(&c);
+	puts("settable config keys (`=` marks one you have set; run `grabit set <key>` "
+		 "for values):");
 	for (size_t g = 0; KEY_GROUPS[g]; g++) {
 		puts("");
-		for (size_t i = 0; KEY_GROUPS[g][i]; i++)
-			print_key_with_default(KEY_GROUPS[g][i], find_default(KEY_GROUPS[g][i]));
+		for (size_t i = 0; KEY_GROUPS[g][i]; i++) {
+			const char *key = KEY_GROUPS[g][i];
+			print_key_with_default(key, find_default(key), config_get(&c, key));
+		}
 	}
+	config_free(&c);
 	puts("");
 	print_key_line("services.<svc>.auth", "svc: zipline|nest|fakecrime|ez|guns|pixelvault");
 	print_key_line("services.zipline.domain", NULL);

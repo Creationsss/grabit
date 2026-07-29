@@ -74,6 +74,8 @@ void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *
 
 void grabit_redirect_stdio_devnull(void);
 
+bool grabit_desktop_is(const char *needle);
+
 struct grabit_buf {
 	char *data;
 	size_t len;

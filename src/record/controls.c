@@ -6,10 +6,10 @@
 #include "record/controls_internal.h"
 
 #include "cursor.h"
-#include "wm/wm.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 

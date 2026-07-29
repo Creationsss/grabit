@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "record/record.h"
 
+#include "app/app.h"
+
 #include "args.h"
 #include "capture/capture.h"
 #include "capture/region_plan.h"
@@ -17,8 +19,10 @@
 #include "record/overlay.h"
 #include "record/pid.h"
 #include "record/publish.h"
+#include "record/pw.h"
 #include "record/rec_cfg.h"
 #include "record/ring.h"
+#include "record/screencast.h"
 #include "record/segments.h"
 #include "region/edit_persist.h"
 #include "region/region.h"
@@ -110,8 +114,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 
 	const char *upload_service = NULL;
 	if (!a->no_upload) {
-		const char *def_action = config_get(cfg, "default_action");
-		bool default_is_upload = def_action && strcmp(def_action, "upload") == 0;
+		bool default_is_upload =
+			gapp_default_action(config_get(cfg, "default_action")) == ACTION_UPLOAD;
 		if (a->service || default_is_upload) {
 			if (upload_preflight(cfg, a, &upload_service) != 0) return 1;
 		}
@@ -127,14 +131,25 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		return 1;
 	}
 
-	if (!capture_is_streaming_capable(&s)) {
-		log_error("recording needs a frame-streaming capture protocol");
-		log_error("  KWin's org.kde.KWin.ScreenShot2 is single-shot, so only "
-				  "screenshots work on KDE Plasma");
-		fail_notify("recording is not supported on KDE Plasma");
+	bool have_stills = capture_backend_available(&s);
+	bool can_stream = have_stills && capture_is_streaming_capable(&s);
+	bool use_screencast = !can_stream && screencast_available(&s);
+
+	if (!can_stream && !use_screencast) {
+		if (have_stills)
+			log_error("recording needs a frame-streaming capture protocol; "
+					  "KWin's org.kde.KWin.ScreenShot2 is single-shot, so only "
+					  "screenshots work here");
+		else
+			(void)grabit_wl_require_capture(&s);
+		screencast_explain_unavailable();
+		fail_notify("recording is not supported on this compositor");
 		grabit_wl_finish(&s);
 		return 1;
 	}
+	if (use_screencast)
+		log_debug("recording: using the %s screencast source",
+				  screencast_backend_name(&s));
 
 	struct rect r = {0};
 	int rc = pick_region(&s, cfg, a, &r);
@@ -149,12 +164,36 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
 	grabit_sleep_secs(a->delay_secs);
 
+	int fps = rec_cfg_fps(cfg);
+	bool cursor = rec_cfg_cursor(cfg);
 	struct rec_layout layout = {0};
+	struct screencast *scast = NULL;
+	struct pw_capture *cap = NULL;
 	char *output_path = NULL;
-	if (rec_layout_build(&s, r, &layout) != 0) {
-		log_error("region does not overlap any output");
-		fail_notify("selected region did not intersect any output");
-		goto err_wl;
+	int32_t frame_w, frame_h, frame_stride;
+
+	if (use_screencast) {
+		uint32_t node = 0;
+		scast = screencast_start(&s, r, cursor, &node);
+		if (!scast) {
+			fail_notify("the compositor refused to start a screencast");
+			goto err_wl;
+		}
+		cap = pw_capture_open(node, fps);
+		if (!cap) {
+			fail_notify("could not read the screencast stream from pipewire");
+			goto err_source;
+		}
+		pw_capture_size(cap, &frame_w, &frame_h, &frame_stride);
+	} else {
+		if (rec_layout_build(&s, r, &layout) != 0) {
+			log_error("region does not overlap any output");
+			fail_notify("selected region did not intersect any output");
+			goto err_wl;
+		}
+		frame_w = layout.dst_w;
+		frame_h = layout.dst_h;
+		frame_stride = layout.dst_stride;
 	}
 
 	bool keep_locally = !upload_service || config_also_save(cfg);
@@ -163,7 +202,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	if (!output_path) {
 		log_error("recording: could not build output path");
 		fail_notify("could not build output path");
-		goto err_layout;
+		goto err_source;
 	}
 
 	if (write_pid_file() != 0) {
@@ -185,15 +224,14 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct ring ring;
 	ring_init(&ring);
 
-	int fps = rec_cfg_fps(cfg);
 	struct seg_ctx sc = {
 		.ffmpeg_bin = ffmpeg_bin,
 		.format = format,
 		.preset = rec_cfg_preset(cfg),
 		.tune = rec_cfg_tune(cfg),
 		.pix_fmt = rec_cfg_pix_fmt(cfg),
-		.w = layout.dst_w,
-		.h = layout.dst_h,
+		.w = frame_w,
+		.h = frame_h,
 		.fps = fps,
 		.crf = rec_cfg_crf(cfg),
 		.final_path = output_path,
@@ -204,7 +242,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	};
 
 	struct buf_pool pool = {0};
-	size_t buf_size = (size_t)layout.dst_stride * (size_t)layout.dst_h;
+	size_t buf_size = (size_t)frame_stride * (size_t)frame_h;
 	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 	if (seg_begin(&sc) != 0) {
 		fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
@@ -218,18 +256,29 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		goto err_pipeline;
 	}
 
-	log_info("recording %dx%d (%zu output%s) @ %d fps -> %s; "
+	char source_desc[64];
+	if (use_screencast)
+		snprintf(source_desc, sizeof source_desc, "via the %s screencast",
+				 screencast_backend_name(&s));
+	else
+		snprintf(source_desc, sizeof source_desc, "(%zu output%s)", layout.n,
+				 layout.n == 1 ? "" : "s");
+	log_info("recording %dx%d %s @ %d fps -> %s; "
 			 "use the on-screen controls or re-run `grabit --record` to stop "
 			 "(SIGUSR1 toggles pause)",
-			 layout.dst_w, layout.dst_h, layout.n, layout.n == 1 ? "" : "s",
-			 fps, output_path);
+			 frame_w, frame_h, source_desc, fps, output_path);
 
 	struct overlay_state *overlay = overlay_start(&s, r);
 	struct rec_controls *controls =
 		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause);
 
-	double secs = rec_capture_loop(&s, &layout, &pool, rec_cfg_cursor(cfg),
-								   &sc, controls);
+	double secs;
+	if (use_screencast) {
+		pw_capture_bind(cap, &pool, &ring);
+		secs = rec_pw_loop(&s, cap, &sc, controls);
+	} else {
+		secs = rec_capture_loop(&s, &layout, &pool, cursor, &sc, controls);
+	}
 
 	tray_stop(tray);
 	controls_stop(controls);
@@ -274,6 +323,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	seg_ctx_free(&sc);
 	unlink_pid_file();
 	free(output_path);
+	pw_capture_close(cap);
+	screencast_stop(scast);
 	rec_layout_free(&layout);
 	grabit_wl_finish(&s);
 	return ok ? 0 : 1;
@@ -289,7 +340,9 @@ err_pipeline:
 	unlink_pid_file();
 err_path:
 	free(output_path);
-err_layout:
+err_source:
+	pw_capture_close(cap);
+	screencast_stop(scast);
 	rec_layout_free(&layout);
 err_wl:
 	grabit_wl_finish(&s);

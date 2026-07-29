@@ -206,6 +206,20 @@ or
 hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
+.SH NOTES
+.SS KDE Plasma recording
+KWin keeps
+.B zkde_screencast_unstable_v1
+on an interface blacklist and only exposes it to programs whose installed
+.I .desktop
+file declares
+.BR X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1 .
+grabit ships that key, so recording on Plasma requires an installed grabit
+.RB ( make
+.BR install ),
+not one run from a build tree. Starting KWin with
+.B KWIN_WAYLAND_NO_PERMISSION_CHECKS=1
+bypasses the check for testing.
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
@@ -643,6 +657,12 @@ is clamped to 8..256, default 24).
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
+.TP
+.B XDG_PICTURES_DIR
+Screenshot save dir. The
+.B save_dir
+config key takes precedence; otherwise this, else
+.IR ~/Pictures .
 .TP
 .B XDG_VIDEOS_DIR
 Recording save directory. The

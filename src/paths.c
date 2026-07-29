@@ -5,10 +5,10 @@
 #include "paths.h"
 
 #include "config/config.h"
-#include "wm/wm.h"
 #include "log.h"
 #include "template.h"
 #include "util/util.h"
+#include "wm/wm.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -168,13 +168,12 @@ static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 	const char *d = config_get(cfg, "save_dir");
 	if (d && d[0]) return strdup(d);
 
+	bool videos = dest == PATHS_DEST_VIDEOS;
+	const char *xdg = getenv(videos ? "XDG_VIDEOS_DIR" : "XDG_PICTURES_DIR");
+	if (xdg && xdg[0]) return strdup(xdg);
+
 	const char *home = getenv("HOME");
-	const char *fallback = "Pictures";
-	if (dest == PATHS_DEST_VIDEOS) {
-		const char *xdg = getenv("XDG_VIDEOS_DIR");
-		if (xdg && xdg[0]) return strdup(xdg);
-		fallback = "Videos";
-	}
+	const char *fallback = videos ? "Videos" : "Pictures";
 	if (home && home[0]) {
 		char *out = NULL;
 		(void)grabit_xasprintf(&out, "%s/%s", home, fallback);

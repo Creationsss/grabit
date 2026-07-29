@@ -96,6 +96,11 @@ static void config_apply_runtime(struct config *c) {
 		setenv("GRABIT_CAPTURE_BACKEND", v, 1);
 }
 
+bool config_exists(void) {
+	struct stat st;
+	return stat(paths_config_file(), &st) == 0 && st.st_size > 0;
+}
+
 int config_load(struct config *c) {
 	memset(c, 0, sizeof *c);
 
@@ -106,8 +111,7 @@ int config_load(struct config *c) {
 		return -1;
 	}
 
-	struct stat st;
-	bool first_run = stat(file, &st) != 0 || st.st_size == 0;
+	bool first_run = !config_exists();
 	if (first_run) {
 		if (seed_defaults(c) != 0) {
 			log_error("could not seed default config (out of memory)");

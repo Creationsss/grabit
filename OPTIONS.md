@@ -163,7 +163,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
+| `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
 | `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
@@ -172,6 +172,8 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
+recording backends: on wlroots compositors grabit streams frames itself over `wlr-screencopy`/`ext-image-copy`. on **KDE Plasma** it uses KWin's `zkde_screencast_unstable_v1` wayland protocol (screenshots there continue to use `org.kde.KWin.ScreenShot2`). kwin keeps `zkde_screencast_unstable_v1` on an interface blacklist and only hands it to programs whose installed `.desktop` file declares `X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1`, so **recording on KDE requires grabit to be installed** (`make install`) rather than run from a build directory; running kwin with `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses the check for testing, and on **GNOME**, which has no screenshot path at all, it uses `org.gnome.Mutter.ScreenCast` over d-bus; both hand back a pipewire node that grabit reads, so a pipewire build (`libpipewire-0.3`) is required for those two and neither shows a portal dialog. GNOME has no `zwlr_layer_shell_v1`, so the interactive region selector, the recording overlay, and the on-screen controls do not appear there: pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record` or `SIGUSR1` to pause. on fedora and opensuse the stock ffmpeg is built without `libx264`, so `recording.format = webm` (vp9, always available) is the reliable choice there; mp4 needs rpmfusion's `libavcodec-freeworld` or packman. note that `org.gnome.Mutter.ScreenCast` is documented by GNOME as a private API with no compatibility promised between versions, so a GNOME upgrade can break recording there.
+
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
 | `capture.delay` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
@@ -550,7 +552,8 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
-| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
+| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`) |
+| `XDG_PICTURES_DIR` | screenshot save dir (`save_dir` config takes precedence; else this, else `~/Pictures`) |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
 | `GRABIT_TRANSLATE_KEY` | api key for the `deepl` and `libretranslate` backends; overrides `translate.api_key` |
 | `NO_COLOR` | if set to any value, disable ansi color in log output |

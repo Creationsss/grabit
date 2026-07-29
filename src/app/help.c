@@ -42,7 +42,8 @@
 
 int gapp_print_version(void) {
 	puts("grabit " GRABIT_VERSION);
-	puts("capture backends: wlr-screencopy, ext-image-copy, kwin-screenshot (KDE, no recording)");
+	puts("capture backends: wlr-screencopy, ext-image-copy, kwin-screenshot (KDE)");
+	puts("recording sources: wlr/ext screencopy, kwin screencast, mutter screencast (pipewire)");
 	puts("Copyright (C) 2026 creations. AGPL-3.0-or-later.");
 	return 0;
 }

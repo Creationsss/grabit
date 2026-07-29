@@ -204,6 +204,15 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		});
 		return NULL;
 	}
+	if (!grabit_wl_require_capture(&s)) {
+		grabit_wl_finish(&s);
+		notify_send(&(struct notify_opts){
+			.summary = "grabit",
+			.body = "this compositor has no screen-capture protocol",
+			.force = true,
+		});
+		return NULL;
+	}
 
 	struct rect forced_rect;
 	const struct rect *forced = NULL;
@@ -251,7 +260,8 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		}
 		if (a->edit)
 			log_warn("--window: %s rendered the window itself, so it was captured "
-					 "without the editor", grabit_wm_current_name());
+					 "without the editor",
+					 grabit_wm_current_name());
 		log_debug("captured window to %s", path);
 		return path;
 	}

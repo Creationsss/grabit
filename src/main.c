@@ -63,17 +63,7 @@ static int run(const struct args *a) {
 	notify_init(&cfg, a->silent);
 
 	enum action eff = a->action;
-	if (eff == ACTION_NONE) {
-		const char *def = config_get(&cfg, "default_action");
-		if (def && strcmp(def, "upload") == 0)
-			eff = ACTION_UPLOAD;
-		else if (def && strcmp(def, "copy") == 0)
-			eff = ACTION_COPY;
-		else if (def && strcmp(def, "save") == 0)
-			eff = ACTION_OUTPUT;
-		else if (def && strcmp(def, "pin") == 0)
-			eff = ACTION_PIN;
-	}
+	if (eff == ACTION_NONE) eff = gapp_default_action(config_get(&cfg, "default_action"));
 
 	struct args eff_a = *a;
 	if (!eff_a.edit && !a->file &&

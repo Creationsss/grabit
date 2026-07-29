@@ -2,7 +2,7 @@
 
 screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.
 
-works on: hyprland, sway, niri, river. kde plasma 6 is screenshots-only. not supported: x11, gnome.
+works on: hyprland, sway, niri, river. kde plasma screenshots via kwin's ScreenShot2 and now **records** via kwin's screencast protocol; gnome is **recording-only** (mutter's screencast d-bus api). both go through pipewire with no portal dialog. not supported: x11.
 
 ## install
 

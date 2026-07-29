@@ -26,8 +26,9 @@ static char *socket_path(void) {
 
 bool grabit_hyprland_present(void) {
 	char *path = socket_path();
+	if (!path) return false;
 	free(path);
-	return path != NULL;
+	return true;
 }
 
 static int query(const char *cmd, struct json_object **root_out) {

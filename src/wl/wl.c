@@ -7,10 +7,10 @@
 
 #include "capture/capture.h"
 #include "log.h"
+#include "util/util.h"
 #include "region/region.h"
 #include "wl/internal.h"
 
-#include <ctype.h>
 #include <errno.h>
 #include <poll.h>
 #include <stdbool.h>
@@ -29,6 +29,32 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+
+bool grabit_wl_require_capture(struct grabit_wl_state *s) {
+	if (capture_backend_available(s)) return true;
+	const char *known = NULL;
+	const char *alt = NULL;
+	const char *note = NULL;
+	if (grabit_desktop_is("KDE")) {
+		known = "KDE Plasma (KWin)";
+		alt = "spectacle";
+		note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
+	} else if (grabit_desktop_is("GNOME")) {
+		known = "GNOME (Mutter)";
+		alt = "gnome-screenshot, flameshot, or ksnip";
+	} else if (grabit_desktop_is("COSMIC")) {
+		known = "Cosmic";
+	}
+	log_error("compositor advertises no screen-capture protocol");
+	log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
+	if (known)
+		log_error("  %s implements neither, so grabit cannot capture here", known);
+	if (note) log_error("  %s", note);
+	log_error("  works on: hyprland, sway, niri, river");
+	if (alt) log_error("  on this desktop try: %s", alt);
+	return false;
+}
+
 int grabit_wl_init(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);
 
@@ -51,35 +77,6 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 	}
 	if (!s->compositor) {
 		log_error("compositor doesn't advertise wl_compositor");
-		goto fail;
-	}
-	if (!capture_backend_available(s)) {
-		const char *de = getenv("XDG_CURRENT_DESKTOP");
-		char de_up[64] = {0};
-		if (de) {
-			for (size_t i = 0; i < sizeof de_up - 1 && de[i]; i++)
-				de_up[i] = (char)toupper((unsigned char)de[i]);
-		}
-		const char *known = NULL;
-		const char *alt = NULL;
-		const char *note = NULL;
-		if (strstr(de_up, "KDE")) {
-			known = "KDE Plasma (KWin)";
-			alt = "spectacle";
-			note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
-		} else if (strstr(de_up, "GNOME")) {
-			known = "GNOME (Mutter)";
-			alt = "gnome-screenshot, flameshot, or ksnip";
-		} else if (strstr(de_up, "COSMIC")) {
-			known = "Cosmic";
-		}
-		log_error("compositor advertises no screen-capture protocol");
-		log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
-		if (known)
-			log_error("  %s implements neither, so grabit cannot capture here", known);
-		if (note) log_error("  %s", note);
-		log_error("  works on: hyprland, sway, niri, river");
-		if (alt) log_error("  on this desktop try: %s", alt);
 		goto fail;
 	}
 

@@ -5,12 +5,12 @@
 #include "region/region.h"
 
 #include "config/config.h"
-#include "wm/wm.h"
 #include "log.h"
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 #include <string.h>

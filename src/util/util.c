@@ -6,6 +6,7 @@
 
 #include "log.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -204,4 +205,17 @@ void grabit_sleep_secs(int secs) {
 	log_info("waiting %ds before capturing", secs);
 	struct timespec ts = {.tv_sec = secs, .tv_nsec = 0};
 	while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {}
+}
+
+bool grabit_desktop_is(const char *needle) {
+	const char *de = getenv("XDG_CURRENT_DESKTOP");
+	if (!de || !de[0] || !needle) return false;
+	for (const char *p = de; *p; p++) {
+		size_t i = 0;
+		while (needle[i] && p[i] &&
+			   toupper((unsigned char)p[i]) == toupper((unsigned char)needle[i]))
+			i++;
+		if (!needle[i]) return true;
+	}
+	return false;
 }

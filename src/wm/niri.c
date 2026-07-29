@@ -92,8 +92,10 @@ struct niri_layout {
 };
 
 static void layout_free(struct niri_layout *l) {
-	for (size_t i = 0; i < l->n_outs; i++) free(l->outs[i].name);
-	for (size_t i = 0; i < l->n_wss; i++) free(l->wss[i].output);
+	for (size_t i = 0; i < l->n_outs; i++)
+		free(l->outs[i].name);
+	for (size_t i = 0; i < l->n_wss; i++)
+		free(l->wss[i].output);
 	free(l->outs);
 	free(l->wss);
 	*l = (struct niri_layout){0};

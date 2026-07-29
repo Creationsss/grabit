@@ -160,10 +160,17 @@ self-hosted LibreTranslate instance.
 .B \-\-show
 With
 .BR \-\-tesseract :
-render the OCR/translate result on screen as a transient click-through text card
-instead of copying. Auto-dismisses after
+also render the OCR/translate result on screen as a transient click-through
+text card. The text is still copied to the clipboard; add
+.B \-\-no\-copy
+to show without copying. Auto-dismisses after
 .B text_card.dismiss_secs
 (default 8s).
+.TP
+.B \-\-no\-copy
+With
+.BR \-\-tesseract " " \-\-show :
+do not copy the text, only show it.
 .TP
 .BR \-e ", " \-\-edit
 Open the in-tree annotation editor before the action. Pairs with any action;

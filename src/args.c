@@ -218,6 +218,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->show = true;
 			continue;
 		}
+		if (strcmp(arg, "--no-copy") == 0) {
+			out->no_copy = true;
+			continue;
+		}
 		if (strncmp(arg, "--translate=", 12) == 0) {
 			out->translate = true;
 			out->translate_to = arg + 12;
@@ -318,6 +322,12 @@ int args_parse(int argc, char **argv, struct args *out) {
 	if (out->show && out->action != ACTION_OCR) {
 		log_debug("--show only applies to --tesseract");
 		out->show = false;
+	}
+	if (out->no_copy && out->action != ACTION_OCR) {
+		log_debug("--no-copy only applies to --tesseract");
+		out->no_copy = false;
+	} else if (out->no_copy && !out->show) {
+		log_warn("--no-copy without --show discards the OCR text");
 	}
 
 	return 0;

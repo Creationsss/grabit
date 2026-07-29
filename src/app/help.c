@@ -82,7 +82,8 @@ int gapp_print_help(void) {
 		"  --filename <tpl>    per-run filename template\n"
 		"  --cursor            include the pointer this run\n"
 		"  --chunked           chunked zipline upload\n"
-		"  --show              with --tesseract: show the result on screen\n"
+		"  --show              with --tesseract: also show the result on screen\n"
+		"  --no-copy           with --tesseract --show: show only, do not copy\n"
 		"  --no-upload         with --record: skip the auto-upload\n"
 		"  --no-tray           with --record: no tray icon\n"
 		"  --silent, -q        no sound, no info logs, only failure notifications\n"
@@ -139,11 +140,12 @@ int gapp_print_help_filename(void) {
 
 int gapp_print_help_ocr(void) {
 	fputs(
-		"Usage: grabit --tesseract [--translate[=<lang>]] [--show]\n"
+		"Usage: grabit --tesseract [--translate[=<lang>]] [--show] [--no-copy]\n"
 		"\n"
 		"  --tesseract         select a region, OCR it, copy the text\n"
-		"  --translate[=<to>]  translate the text before copying (default en)\n"
-		"  --show              also display the text in an on-screen card\n"
+		"  --translate[=<to>]  translate the text first (default en)\n"
+		"  --show              also show the text on screen as a transient card\n"
+		"  --no-copy           with --show, do not copy (show only)\n"
 		"\n"
 		"Config:\n"
 		"\n"

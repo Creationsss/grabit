@@ -153,6 +153,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		}
 	}
 
+	bool shown = false;
 	if (a->show) {
 		char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
 		if (!png_path || pin_text_card_render_png(text, png_path) != 0) {
@@ -178,14 +179,10 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			free(text);
 			return 1;
 		}
-		log_info("ocr: %zu chars shown on screen%s",
-				 strlen(text), translated ? " (translated)" : "");
-		grabit_sound_play(cfg);
-		free(text);
-		return 0;
+		shown = true;
 	}
 
-	if (clipboard_set_text(text) != 0) {
+	if (!a->no_copy && clipboard_set_text(text) != 0) {
 		log_error("ocr: clipboard write failed");
 		notify_send(&(struct notify_opts){
 			.summary = "Clipboard write failed",
@@ -230,12 +227,21 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		snprintf(preview, sizeof preview, "%s", flat);
 	}
 
-	log_info("ocr: %zu chars copied to clipboard%s", tlen,
-			 translated ? " (translated)" : "");
-	notify_send(&(struct notify_opts){
-		.summary = translated ? "OCR + Translate" : "OCR Complete",
-		.body = preview,
-	});
+	const char *what;
+	if (shown && !a->no_copy)
+		what = "shown on screen and copied to clipboard";
+	else if (shown)
+		what = "shown on screen";
+	else if (!a->no_copy)
+		what = "copied to clipboard";
+	else
+		what = "discarded";
+	log_info("ocr: %zu chars %s%s", tlen, what, translated ? " (translated)" : "");
+	if (!shown && !a->no_copy)
+		notify_send(&(struct notify_opts){
+			.summary = translated ? "OCR + Translate" : "OCR Complete",
+			.body = preview,
+		});
 	grabit_sound_play(cfg);
 
 	free(text);

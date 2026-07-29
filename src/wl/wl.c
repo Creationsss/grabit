@@ -7,8 +7,8 @@
 
 #include "capture/capture.h"
 #include "log.h"
-#include "util/util.h"
 #include "region/region.h"
+#include "util/util.h"
 #include "wl/internal.h"
 
 #include <errno.h>
@@ -33,15 +33,12 @@
 bool grabit_wl_require_capture(struct grabit_wl_state *s) {
 	if (capture_backend_available(s)) return true;
 	const char *known = NULL;
-	const char *alt = NULL;
 	const char *note = NULL;
 	if (grabit_desktop_is("KDE")) {
 		known = "KDE Plasma (KWin)";
-		alt = "spectacle";
 		note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
 	} else if (grabit_desktop_is("GNOME")) {
 		known = "GNOME (Mutter)";
-		alt = "gnome-screenshot, flameshot, or ksnip";
 	} else if (grabit_desktop_is("COSMIC")) {
 		known = "Cosmic";
 	}
@@ -51,7 +48,6 @@ bool grabit_wl_require_capture(struct grabit_wl_state *s) {
 		log_error("  %s implements neither, so grabit cannot capture here", known);
 	if (note) log_error("  %s", note);
 	log_error("  works on: hyprland, sway, niri, river");
-	if (alt) log_error("  on this desktop try: %s", alt);
 	return false;
 }
 

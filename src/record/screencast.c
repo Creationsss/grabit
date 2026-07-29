@@ -4,9 +4,9 @@
 #define _XOPEN_SOURCE 700
 #include "record/screencast.h"
 
+#include "log.h"
 #include "record/pw.h"
 #include "record/sc_backend.h"
-#include "log.h"
 #include "util/util.h"
 
 #include <stdlib.h>

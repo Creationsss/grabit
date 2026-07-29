@@ -52,8 +52,7 @@ static bool client_rect(struct json_object *c, struct rect *out) {
 	if (!grabit_json_pair(c, "at", &x, &y)) return false;
 	if (!grabit_json_pair(c, "size", &w, &h)) return false;
 	if (w < 1 || h < 1) return false;
-	*out = (struct rect){.x = (int32_t)lround(x), .y = (int32_t)lround(y),
-						 .w = (int32_t)lround(w), .h = (int32_t)lround(h)};
+	*out = (struct rect){.x = (int32_t)lround(x), .y = (int32_t)lround(y), .w = (int32_t)lround(w), .h = (int32_t)lround(h)};
 	return true;
 }
 

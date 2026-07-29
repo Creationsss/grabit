@@ -55,6 +55,45 @@ static void fail_notify(const char *body) {
 	});
 }
 
+static const char *format_encoder(const char *format) {
+	if (strcmp(format, "webm") == 0) return "libvpx-vp9";
+	if (strcmp(format, "gif") == 0) return NULL;
+	return "libx264";
+}
+
+static bool ffmpeg_has_encoder(const char *bin, const char *enc) {
+	char *const argv[] = {(char *)bin, (char *)"-hide_banner", (char *)"-loglevel",
+						  (char *)"error", (char *)"-encoders", NULL};
+	struct grabit_buf out = {0};
+	bool capped = false;
+	int status = 0;
+	if (grabit_spawn_capture(argv, true, 1 << 20, &out, &capped, &status) != 0) {
+		grabit_buf_free(&out);
+		return true;
+	}
+	bool found = out.data && strstr(out.data, enc) != NULL;
+	grabit_buf_free(&out);
+	return found;
+}
+
+static bool explain_missing_encoder(const char *bin, const char *format) {
+	const char *enc = format_encoder(format);
+	if (!enc || ffmpeg_has_encoder(bin, enc)) return false;
+
+	log_error("recording: `%s` has no %s encoder, which %s output needs",
+			  bin, enc, format);
+	static const char *const ALT[] = {"webm", "mp4", "gif"};
+	for (size_t i = 0; i < sizeof ALT / sizeof ALT[0]; i++) {
+		if (strcmp(ALT[i], format) == 0) continue;
+		const char *aenc = format_encoder(ALT[i]);
+		if (aenc && !ffmpeg_has_encoder(bin, aenc)) continue;
+		log_error("  this ffmpeg can do %s: `grabit set recording.format %s`",
+				  ALT[i], ALT[i]);
+		break;
+	}
+	return true;
+}
+
 static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 					   const struct args *a, struct rect *out) {
 	struct region_plan_req req = {
@@ -111,6 +150,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		fail_notify("ffmpeg not found; install ffmpeg or set recording.ffmpeg");
 		return 1;
 	}
+
+	const char *format = rec_cfg_format(cfg);
 
 	const char *upload_service = NULL;
 	if (!a->no_upload) {
@@ -197,7 +238,6 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	bool keep_locally = !upload_service || config_also_save(cfg);
-	const char *format = rec_cfg_format(cfg);
 	output_path = build_record_path(cfg, a, format, keep_locally);
 	if (!output_path) {
 		log_error("recording: could not build output path");
@@ -245,7 +285,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	size_t buf_size = (size_t)frame_stride * (size_t)frame_h;
 	struct tray_state *tray = a->no_tray ? NULL : tray_start();
 	if (seg_begin(&sc) != 0) {
-		fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
+		if (explain_missing_encoder(ffmpeg_bin, format))
+			fail_notify("ffmpeg lacks the encoder for this recording format");
+		else
+			fail_notify("ffmpeg failed to start; install ffmpeg or set recording.ffmpeg");
 		goto err_pipeline;
 	}
 	size_t pool_slots = pool_slots_for(buf_size);
@@ -314,7 +357,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		record_publish(cfg, &po);
 	} else {
 		log_error("recording failed; output may be incomplete: %s", output_path);
-		fail_notify(grabit_basename(output_path));
+		if (explain_missing_encoder(ffmpeg_bin, format))
+			fail_notify("ffmpeg lacks the encoder for this recording format");
+		else
+			fail_notify(grabit_basename(output_path));
 	}
 
 	record_signals_restore(&prev);

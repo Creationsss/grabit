@@ -180,7 +180,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
-| `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
+| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
@@ -432,6 +432,24 @@ the mouse pointer is included in screenshots by default (`capture.cursor`, defau
 
 with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
 
+## window
+
+```sh
+grabit -w -o                  # save the active window
+grabit --window -c            # copy the active window
+grabit -w -e -u               # annotate the active window, then upload
+```
+
+`-w`/`--window` captures the focused window instead of dragging a region. it pairs with the same actions `-F` does, and it cannot be combined with `-f`, `-F`, or `--record`.
+
+how the window is captured depends on what the compositor can tell grabit:
+
+- **hyprland** reports the geometry of every window, so `-w` resolves the focused window to a rectangle and crops the screen to it. this behaves exactly like `-F` with a smaller region: `-e` works, and anything drawn on top of the window is included.
+- **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
+- **other compositors** have no way to report the active window; `-w` fails with a notification.
+
+`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-v1` is available.
+
 ## edit
 
 ```sh
@@ -486,8 +504,8 @@ last-picked color, width, and tool persist via:
 | `%s` | unix timestamp |
 | `%r` | 12-char random alnum (`%r8` etc. picks length) |
 | `%u` | uuid v4 |
-| `%w` | active window class (hyprland ipc) |
-| `%t` | active window title (hyprland ipc) |
+| `%w` | active window class / app id |
+| `%t` | active window title |
 | `%%` | literal `%` |
 
 presets via `filename_preset`:
@@ -496,7 +514,7 @@ presets via `filename_preset`:
 - `uuid`: `%u`
 - `timestamp`: `%s`
 
-`%w`/`%t` resolve to empty on non-hyprland compositors.
+`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
 
 ## plugins
 
@@ -528,7 +546,8 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
 | `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
-| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and the `%w`/`%t` tokens |
+| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
+| `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
 | `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |

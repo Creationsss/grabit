@@ -142,6 +142,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->chunked = true;
 			continue;
 		}
+		if (strcmp(arg, "-w") == 0 || strcmp(arg, "--window") == 0) {
+			out->window = true;
+			continue;
+		}
 		if (strcmp(arg, "-F") == 0 || strcmp(arg, "--fullscreen") == 0) {
 			out->fullscreen = true;
 			continue;
@@ -269,13 +273,20 @@ int args_parse(int argc, char **argv, struct args *out) {
 		return -1;
 	}
 
-	if (out->action == ACTION_RECORD && out->file) {
-		log_error("--record cannot be combined with -f");
-		return -1;
-	}
-
-	if (out->fullscreen && out->file) {
-		log_error("--fullscreen cannot be combined with -f");
+	bool recording = out->action == ACTION_RECORD;
+	const struct {
+		bool a, b;
+		const char *na, *nb;
+	} CLASH[] = {
+		{recording, out->file, "--record", "-f"},
+		{out->fullscreen, out->file, "--fullscreen", "-f"},
+		{out->window, out->file, "--window", "-f"},
+		{out->window, out->fullscreen, "--window", "--fullscreen"},
+		{out->window, recording, "--window", "--record"},
+	};
+	for (size_t i = 0; i < sizeof CLASH / sizeof CLASH[0]; i++) {
+		if (!CLASH[i].a || !CLASH[i].b) continue;
+		log_error("%s cannot be combined with %s", CLASH[i].na, CLASH[i].nb);
 		return -1;
 	}
 

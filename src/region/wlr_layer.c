@@ -6,7 +6,6 @@
 
 #include "config/config.h"
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "region/edit_persist.h"
 #include "region/toolbar_internal.h"

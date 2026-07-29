@@ -67,6 +67,7 @@ int gapp_print_help(void) {
 		"Modifiers:\n"
 		"  -e, --edit          annotate before the action\n"
 		"  -F, --fullscreen[=<n|name|all>]  capture a whole monitor\n"
+		"  -w, --window        capture the active window\n"
 		"  -L, --last          reuse the last region instead of selecting one\n"
 		"  --no-last           force the selector even if region.repeat_last is set\n"
 		"  --delay <secs>      wait before capturing (menus, tooltips)\n"
@@ -120,8 +121,8 @@ int gapp_print_help_filename(void) {
 		"  %s                  unix timestamp\n"
 		"  %r[N]               random alphanumeric, N chars (default 12)\n"
 		"  %u                  uuid v4\n"
-		"  %w                  active window class (hyprland)\n"
-		"  %t                  active window title (hyprland)\n"
+		"  %w                  active window class / app id\n"
+		"  %t                  active window title\n"
 		"  %%                  a literal percent sign\n"
 		"\n"
 		"`filename_preset` (date|random|uuid|timestamp) sets a ready-made template.\n",

@@ -53,9 +53,12 @@ static void fail_notify(const char *body) {
 
 static int pick_region(struct grabit_wl_state *s, struct config *cfg,
 					   const struct args *a, struct rect *out) {
-	enum region_plan plan = region_plan_resolve(s, cfg, a->fullscreen,
-												a->fullscreen_target,
-												a->last_region, out);
+	struct region_plan_req req = {
+		.fullscreen = a->fullscreen,
+		.fullscreen_target = a->fullscreen_target,
+		.use_last = a->last_region,
+	};
+	enum region_plan plan = region_plan_resolve(s, cfg, &req, out);
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		fail_notify("no matching monitor");
 		return -1;

@@ -125,3 +125,12 @@ int grabit_save_png_surface(cairo_surface_t *surface, const char *path, int leve
 	}
 	return 0;
 }
+
+cairo_surface_t *grabit_load_png_surface(const char *path, const char *tag) {
+	cairo_surface_t *img = cairo_image_surface_create_from_png(path);
+	cairo_status_t st = cairo_surface_status(img);
+	if (st == CAIRO_STATUS_SUCCESS) return img;
+	log_error("%s: load %s: %s", tag, path, cairo_status_to_string(st));
+	cairo_surface_destroy(img);
+	return NULL;
+}

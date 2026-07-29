@@ -4,9 +4,14 @@
 #ifndef GRABIT_JSON_PATH_H
 #define GRABIT_JSON_PATH_H
 
+#include <stdbool.h>
+
 struct json_object;
 
 char *grabit_json_path_string(struct json_object *root, const char *path);
+
+bool grabit_json_pair(struct json_object *obj, const char *key,
+					  double *a, double *b);
 
 char *grabit_json_get_string(struct json_object *obj, const char *key);
 

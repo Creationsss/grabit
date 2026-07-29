@@ -229,6 +229,34 @@ Use
 to capture every monitor stitched into one image. An unknown value lists the
 available monitors and exits.
 .TP
+.BR \-w ", " \-\-window
+Capture the focused window instead of dragging a region. Pairs with the same
+actions as
+.BR \-F ;
+cannot be combined with
+.BR \-f ,
+.BR \-F ,
+or
+.BR \-\-record .
+On Hyprland the window's geometry is read over IPC and the screen is cropped to
+it, so
+.B \-e
+works and anything overlapping the window is included. On niri, geometry is only
+published for floating windows; a floating window takes the same crop path,
+while a tiled window is rendered by niri itself via its
+.B screenshot\-window
+action. That path needs niri 25.11 or newer, captures only the window's own
+contents, cannot be annotated (grabit warns and captures without
+.BR \-e ),
+ignores
+.B png.level
+for PNG output because niri's own file is used as-is,
+and, because niri always copies its window screenshots to the clipboard,
+replaces the clipboard contents as a side effect. Other compositors cannot
+report the active window and
+.B \-w
+fails there.
+.TP
 .BR \-L ", " \-\-last
 Reuse the region from the previous capture instead of opening the selector.
 The rect is recorded after every region capture and kept in the state file as
@@ -440,10 +468,18 @@ characters (default 12).
 UUID v4.
 .TP
 .B %w
-Active window class (Hyprland IPC; empty elsewhere).
+Active window class / app ID.
 .TP
 .B %t
-Active window title (Hyprland IPC; empty elsewhere).
+Active window title.
+.PP
+.RB ( %w
+and
+.B %t
+read the focused toplevel over
+.BR wlr\-foreign\-toplevel\-management\-v1 ,
+so they work on Hyprland, sway, niri, and river, and resolve to empty where
+that protocol is missing.)
 .TP
 .B %%
 Literal
@@ -591,9 +627,13 @@ fallbacks.
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
 .B XDG_RUNTIME_DIR
-it locates the Hyprland IPC socket that powers window-title snapping and the
-.BR %w / %t
-filename tokens. Absent elsewhere, those degrade gracefully.
+it locates the Hyprland IPC socket that powers window snapping and
+.BR \-w / \-\-window .
+.TP
+.B NIRI_SOCKET
+Set by niri; locates the niri IPC socket that powers
+.BR \-w / \-\-window
+and window snapping. Absent elsewhere, both degrade gracefully.
 .TP
 .BR XCURSOR_THEME ", " XCURSOR_SIZE
 Cursor theme and size for the region selector and overlays

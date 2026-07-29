@@ -57,8 +57,9 @@ WL_PROTOCOLS := \
 	xdg-output-unstable-v1 \
 	xdg-shell \
 	ext-image-capture-source-v1 \
+	ext-foreign-toplevel-list-v1 \
 	ext-image-copy-capture-v1 \
-	ext-foreign-toplevel-list-v1
+	wlr-foreign-toplevel-management-unstable-v1
 
 WL_PROTO_DIR     := $(BUILDDIR)/protocols
 WL_PROTO_HEADERS := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -client-protocol.h,$(WL_PROTOCOLS)))
@@ -102,9 +103,13 @@ GRABIT_SRCS := \
 	src/config/help_examples.c \
 	src/config/help_groups.c \
 	src/template.c \
-	src/hyprland.c \
+	src/wm/wm.c \
+	src/wm/ipc.c \
+	src/wm/hyprland.c \
+	src/wm/niri.c \
 	src/mime.c \
 	src/wl/wl.c \
+	src/wl/toplevel.c \
 	src/wl/output.c \
 	src/wl/monitors.c \
 	src/wl/registry.c \

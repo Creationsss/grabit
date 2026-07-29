@@ -58,13 +58,8 @@ int pin_preview_render_surface(cairo_surface_t *src, int target_w,
 int pin_preview_render_png(const char *src_image_path, int target_w,
 						   const char *out_path) {
 	if (!src_image_path) return -1;
-	cairo_surface_t *src = cairo_image_surface_create_from_png(src_image_path);
-	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) {
-		log_error("preview: load %s: %s", src_image_path,
-				  cairo_status_to_string(cairo_surface_status(src)));
-		cairo_surface_destroy(src);
-		return -1;
-	}
+	cairo_surface_t *src = grabit_load_png_surface(src_image_path, "preview");
+	if (!src) return -1;
 	int rc = pin_preview_render_surface(src, target_w, out_path);
 	cairo_surface_destroy(src);
 	return rc;

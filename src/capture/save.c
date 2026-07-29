@@ -109,6 +109,30 @@ int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 	return 0;
 }
 
+int grabit_save_surface(cairo_surface_t *dst,
+						const struct grabit_save_opts *opts, const char *path) {
+	if (!dst || !opts || !path) return -1;
+
+	int rc;
+	switch (opts->format) {
+	case GRABIT_FMT_JPEG:
+		rc = grabit_save_jpeg_surface(dst, path, opts->jpeg_quality);
+		break;
+	case GRABIT_FMT_WEBP:
+		rc = grabit_save_webp_surface(dst, path, opts->webp_quality, opts->webp_lossless);
+		break;
+	case GRABIT_FMT_PNG:
+	default:
+		rc = grabit_save_png_surface(dst, path, opts->png_level);
+		break;
+	}
+
+	if (rc == 0 && opts->preview_path && opts->preview_width > 0)
+		(void)pin_preview_render_surface(dst, opts->preview_width, opts->preview_path);
+
+	return rc;
+}
+
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
 									const struct rect *region, int32_t scale,
@@ -131,23 +155,7 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 		cairo_destroy(cr);
 	}
 
-	int rc;
-	switch (opts->format) {
-	case GRABIT_FMT_JPEG:
-		rc = grabit_save_jpeg_surface(dst, path, opts->jpeg_quality);
-		break;
-	case GRABIT_FMT_WEBP:
-		rc = grabit_save_webp_surface(dst, path, opts->webp_quality, opts->webp_lossless);
-		break;
-	case GRABIT_FMT_PNG:
-	default:
-		rc = grabit_save_png_surface(dst, path, opts->png_level);
-		break;
-	}
-
-	if (rc == 0 && opts->preview_path && opts->preview_width > 0)
-		(void)pin_preview_render_surface(dst, opts->preview_width, opts->preview_path);
-
+	int rc = grabit_save_surface(dst, opts, path);
 	cairo_surface_destroy(dst);
 	return rc;
 }

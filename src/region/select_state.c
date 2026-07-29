@@ -5,7 +5,7 @@
 #include "region/region.h"
 
 #include "config/config.h"
-#include "hyprland.h"
+#include "wm/wm.h"
 #include "log.h"
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
@@ -72,8 +72,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 			st->n_snap_windows = n_snap_rects;
 		}
 	} else if (snap_enabled) {
-		if (grabit_hyprland_clients(&st->snap_windows, &st->n_snap_windows) != 0) {
-			log_debug("region: window snap disabled (no hyprland ipc)");
+		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
+			log_debug("region: window snap disabled (no compositor window geometry)");
 		}
 	}
 }

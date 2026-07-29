@@ -5,7 +5,7 @@
 #include "paths.h"
 
 #include "config/config.h"
-#include "hyprland.h"
+#include "wm/wm.h"
 #include "log.h"
 #include "template.h"
 #include "util/util.h"
@@ -194,7 +194,7 @@ char *paths_build_output(struct config *cfg, const char *cli_template,
 
 	char *win_class = NULL, *win_title = NULL;
 	if (template_uses_window(tpl))
-		(void)grabit_hyprland_active_window(&win_class, &win_title);
+		(void)grabit_wm_active_window(&win_class, &win_title);
 	struct template_ctx ctx = {
 		.window_class = win_class,
 		.window_title = win_title,

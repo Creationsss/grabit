@@ -56,6 +56,8 @@ struct grabit_wl_state {
 	struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
 	struct ext_output_image_capture_source_manager_v1 *ext_source_manager;
+	uint32_t toplevel_manager_name;
+	uint32_t toplevel_manager_version;
 
 	struct grabit_output **outputs;
 	size_t n_outputs;

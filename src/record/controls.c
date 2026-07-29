@@ -6,7 +6,7 @@
 #include "record/controls_internal.h"
 
 #include "cursor.h"
-#include "hyprland.h"
+#include "wm/wm.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
@@ -82,10 +82,7 @@ static bool try_output(const struct grabit_output *o, struct rect r,
 
 static bool place_bar(struct grabit_wl_state *s, struct rect r,
 					  int32_t w, int32_t h, int32_t *bx, int32_t *by) {
-	const struct grabit_output *cur = NULL;
-	int32_t cpx = 0, cpy = 0;
-	if (grabit_hyprland_cursorpos(&cpx, &cpy) == 0)
-		cur = grabit_wl_output_at(s, cpx, cpy);
+	const struct grabit_output *cur = grabit_wm_active_output(s);
 	if (!cur) cur = grabit_wl_output_at(s, r.x + r.w / 2, r.y + r.h / 2);
 	if (!cur) cur = grabit_wl_primary_output(s);
 	if (!cur) return false;

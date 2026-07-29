@@ -30,6 +30,7 @@ struct args {
 	bool cursor;
 	bool chunked;
 	bool fullscreen;
+	bool window;
 	bool last_region;
 	bool no_last;
 	int delay_secs;

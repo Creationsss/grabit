@@ -5,7 +5,6 @@
 #include "region/keybinds.h"
 
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"

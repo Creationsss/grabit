@@ -35,6 +35,7 @@
 #include "upload/upload.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #ifndef GRABIT_VERSION
 #define GRABIT_VERSION "0.0.0"
@@ -138,6 +139,38 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 	return 0;
 }
 
+static int capture_wm_window(struct config *cfg, bool cursor,
+							 const struct grabit_save_opts *opts, const char *path) {
+	if (opts->format == GRABIT_FMT_PNG && !opts->preview_path)
+		return grabit_wm_capture_active_window(cursor, path);
+
+	char *tmp = paths_build_output(cfg, "grabit-window-%s-%r", ".png",
+								   PATHS_DEST_TEMP);
+	if (!tmp) return -1;
+
+	int rc = -1;
+	if (grabit_wm_capture_active_window(cursor, tmp) == 0) {
+		cairo_surface_t *img = grabit_load_png_surface(tmp, "window capture");
+		if (img) {
+			rc = grabit_save_surface(img, opts, path);
+			cairo_surface_destroy(img);
+		}
+	}
+
+	(void)unlink(tmp);
+	free(tmp);
+	return rc;
+}
+
+static char *discard_capture(char *path, const char *summary) {
+	unlink(path);
+	gapp_clear_tmpfile();
+	free(path);
+	if (summary)
+		notify_send(&(struct notify_opts){.summary = summary, .force = true});
+	return NULL;
+}
+
 static char *build_capture_path(const struct args *a, struct config *cfg,
 								enum action eff, bool *is_temp,
 								const struct grabit_save_opts *opts) {
@@ -174,9 +207,13 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 
 	struct rect forced_rect;
 	const struct rect *forced = NULL;
-	enum region_plan plan = region_plan_resolve(&s, cfg, a->fullscreen,
-												a->fullscreen_target,
-												a->last_region, &forced_rect);
+	struct region_plan_req plan_req = {
+		.fullscreen = a->fullscreen,
+		.fullscreen_target = a->fullscreen_target,
+		.window = a->window,
+		.use_last = a->last_region,
+	};
+	enum region_plan plan = region_plan_resolve(&s, cfg, &plan_req, &forced_rect);
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
@@ -201,6 +238,24 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 
 	if (*is_temp) register_tmpfile(path);
 
+	const char *cursor_cfg = config_get(cfg, "capture.cursor");
+	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
+	grabit_sleep_secs(a->delay_secs);
+
+	if (plan == REGION_PLAN_NO_WINDOW) {
+		grabit_wl_finish(&s);
+		if (capture_wm_window(cfg, cursor, &opts, path) != 0) {
+			log_error("--window: %s cannot capture the active window",
+					  grabit_wm_current_name());
+			return discard_capture(path, "grabit: window capture failed");
+		}
+		if (a->edit)
+			log_warn("--window: %s rendered the window itself, so it was captured "
+					 "without the editor", grabit_wm_current_name());
+		log_debug("captured window to %s", path);
+		return path;
+	}
+
 	struct rect *mon_rects = NULL;
 	size_t n_mon = 0;
 	if (plan == REGION_PLAN_MONITOR_PICK)
@@ -211,9 +266,6 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	int32_t edit_tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
 	bool edit_dirty = false;
 
-	const char *cursor_cfg = config_get(cfg, "capture.cursor");
-	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
-	grabit_sleep_secs(a->delay_secs);
 	struct rect got = {0};
 	int rc = grabit_freeze_capture(&s, cfg, path, &opts, &got, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
@@ -228,18 +280,10 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	persist_capture_state(cfg, (a->edit && edit_dirty) ? &ec : NULL,
 						  (rc == 0 && !a->fullscreen) ? &got : NULL);
 
-	if (rc != 0) {
-		unlink(path);
-		gapp_clear_tmpfile();
-		free(path);
-		if (rc != GRABIT_CAPTURE_CANCELLED) {
-			notify_send(&(struct notify_opts){
-				.summary = "grabit: capture failed",
-				.force = true,
-			});
-		}
-		return NULL;
-	}
+	if (rc != 0)
+		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
+										 ? NULL
+										 : "grabit: capture failed");
 
 	log_debug("captured to %s", path);
 	return path;

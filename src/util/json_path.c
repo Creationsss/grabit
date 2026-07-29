@@ -67,3 +67,14 @@ char *grabit_json_get_string(struct json_object *obj, const char *key) {
 	const char *s = json_object_get_string(v);
 	return s ? strdup(s) : NULL;
 }
+
+bool grabit_json_pair(struct json_object *obj, const char *key,
+					  double *a, double *b) {
+	struct json_object *arr = NULL;
+	if (!json_object_object_get_ex(obj, key, &arr)) return false;
+	if (!json_object_is_type(arr, json_type_array)) return false;
+	if (json_object_array_length(arr) < 2) return false;
+	*a = json_object_get_double(json_object_array_get_idx(arr, 0));
+	*b = json_object_get_double(json_object_array_get_idx(arr, 1));
+	return true;
+}

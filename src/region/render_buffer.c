@@ -24,26 +24,18 @@
 
 #include "region/render_internal.h"
 
-int gren_output_alloc_buffer(struct ro_output *o) {
+void gren_output_configure(struct ro_output *o) {
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
 	o->pixel_width = o->width * o->scale;
 	o->pixel_height = o->height * o->scale;
 
-	struct grabit_shm_buf b;
-	if (grabit_shm_argb_buf(o->st->wls->shm, "grabit-region",
-							o->pixel_width, o->pixel_height, &b) != 0) {
-		return -1;
+	if (o->cairo_frozen_pat) {
+		cairo_pattern_destroy(o->cairo_frozen_pat);
+		o->cairo_frozen_pat = NULL;
 	}
-	o->buffer = b.buffer;
-	o->buf_data = b.map;
-	o->buf_size = b.size;
-	o->stride = o->pixel_width * 4;
-
-	o->cairo_dst = grabit_cairo_image_argb(o->buf_data, o->pixel_width,
-										   o->pixel_height, o->stride);
-	if (!o->cairo_dst) {
-		log_error("region: cairo dst surface failed");
-		return -1;
+	if (o->cairo_frozen) {
+		cairo_surface_destroy(o->cairo_frozen);
+		o->cairo_frozen = NULL;
 	}
 
 	const struct image *frozen = NULL;
@@ -75,7 +67,6 @@ int gren_output_alloc_buffer(struct ro_output *o) {
 	}
 
 	wl_surface_set_buffer_scale(o->surface, o->scale);
-	return 0;
 }
 
 void region_render_free_buffer(struct ro_output *o) {
@@ -92,9 +83,5 @@ void region_render_free_buffer(struct ro_output *o) {
 		cairo_surface_destroy(o->cairo_frozen);
 		o->cairo_frozen = NULL;
 	}
-	if (o->cairo_dst) {
-		cairo_surface_destroy(o->cairo_dst);
-		o->cairo_dst = NULL;
-	}
-	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+	grabit_shm_pool_finish(&o->pool);
 }

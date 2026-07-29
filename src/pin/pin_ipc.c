@@ -24,6 +24,13 @@
 
 #define PIN_SOCK_PREFIX "grabit_pin-"
 #define PIN_SOCK_SUFFIX ".sock"
+#define PIN_LOCK_SUFFIX ".lock"
+
+static int pin_path(char *out, size_t cap, const char *dir, pid_t pid,
+					const char *suffix) {
+	int n = snprintf(out, cap, "%s/" PIN_SOCK_PREFIX "%d%s", dir, (int)pid, suffix);
+	return (n <= 0 || (size_t)n >= cap) ? -1 : 0;
+}
 
 static void set_cloexec(int fd) {
 	int fl = fcntl(fd, F_GETFD);
@@ -40,9 +47,9 @@ int pin_ipc_open(struct pin_state *st) {
 	char dir[200];
 	if (grabit_runtime_dir(dir, sizeof dir) != 0) return -1;
 
-	int n = snprintf(st->ipc_path, sizeof st->ipc_path,
-					 "%s/" PIN_SOCK_PREFIX "%d" PIN_SOCK_SUFFIX, dir, (int)getpid());
-	if (n <= 0 || (size_t)n >= sizeof st->ipc_path) return -1;
+	if (pin_path(st->ipc_path, sizeof st->ipc_path, dir, getpid(),
+				 PIN_SOCK_SUFFIX) != 0)
+		return -1;
 
 	unlink(st->ipc_path);
 
@@ -67,6 +74,16 @@ int pin_ipc_open(struct pin_state *st) {
 		return -1;
 	}
 	chmod(st->ipc_path, 0600);
+
+	if (pin_path(st->ipc_lock_path, sizeof st->ipc_lock_path, dir, getpid(),
+				 PIN_LOCK_SUFFIX) != 0 ||
+		(st->ipc_lock_fd = grabit_lock_acquire(st->ipc_lock_path)) < 0) {
+		close(fd);
+		unlink(st->ipc_path);
+		st->ipc_path[0] = '\0';
+		st->ipc_lock_path[0] = '\0';
+		return -1;
+	}
 	st->ipc_fd = fd;
 	return 0;
 }
@@ -75,6 +92,14 @@ void pin_ipc_close(struct pin_state *st) {
 	if (st->ipc_fd >= 0) {
 		close(st->ipc_fd);
 		st->ipc_fd = -1;
+	}
+	if (st->ipc_lock_fd >= 0) {
+		close(st->ipc_lock_fd);
+		st->ipc_lock_fd = -1;
+	}
+	if (st->ipc_lock_path[0]) {
+		unlink(st->ipc_lock_path);
+		st->ipc_lock_path[0] = '\0';
 	}
 	if (st->ipc_path[0]) {
 		unlink(st->ipc_path);
@@ -99,7 +124,7 @@ void pin_ipc_handle(struct pin_state *st) {
 				st->input_grabbed = true;
 				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
-				pin_input_refresh_cursor(st);
+				pin_cursor_refresh(st);
 			}
 		} else if (strcmp(buf, "release") == 0) {
 			if (st->input_grabbed) {
@@ -107,7 +132,7 @@ void pin_ipc_handle(struct pin_state *st) {
 				st->dragging = false;
 				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
-				pin_input_refresh_cursor(st);
+				pin_cursor_refresh(st);
 			}
 		} else if (strcmp(buf, "close") == 0) {
 			st->finished = true;
@@ -154,8 +179,11 @@ int pin_ipc_broadcast(const char *msg) {
 		int pn = snprintf(path, sizeof path, "%s/%s", dir, ent->d_name);
 		if (pn <= 0 || (size_t)pn >= sizeof path) continue;
 
-		if (!grabit_process_alive(pid) || !grabit_is_grabit_process(pid)) {
+		char lock[320];
+		if (pin_path(lock, sizeof lock, dir, pid, PIN_LOCK_SUFFIX) != 0) continue;
+		if (grabit_lock_owner(lock) <= 0) {
 			unlink(path);
+			unlink(lock);
 			continue;
 		}
 

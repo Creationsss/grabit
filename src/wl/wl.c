@@ -8,9 +8,9 @@
 #include "capture/capture.h"
 #include "log.h"
 #include "region/region.h"
+#include "util/util.h"
 #include "wl/internal.h"
 
-#include <ctype.h>
 #include <errno.h>
 #include <poll.h>
 #include <stdbool.h>
@@ -19,13 +19,38 @@
 
 #include <wayland-client.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+
+bool grabit_wl_require_capture(struct grabit_wl_state *s) {
+	if (capture_backend_available(s)) return true;
+	const char *known = NULL;
+	const char *note = NULL;
+	if (grabit_desktop_is("KDE")) {
+		known = "KDE Plasma (KWin)";
+		note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
+	} else if (grabit_desktop_is("GNOME")) {
+		known = "GNOME (Mutter)";
+	} else if (grabit_desktop_is("COSMIC")) {
+		known = "Cosmic";
+	}
+	log_error("compositor advertises no screen-capture protocol");
+	log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
+	if (known)
+		log_error("  %s implements neither, so grabit cannot capture here", known);
+	if (note) log_error("  %s", note);
+	log_error("  works on: hyprland, sway, niri, river");
+	return false;
+}
+
 int grabit_wl_init(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);
 
@@ -50,59 +75,18 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 		log_error("compositor doesn't advertise wl_compositor");
 		goto fail;
 	}
-	if (!capture_backend_available(s)) {
-		const char *de = getenv("XDG_CURRENT_DESKTOP");
-		char de_up[64] = {0};
-		if (de) {
-			for (size_t i = 0; i < sizeof de_up - 1 && de[i]; i++)
-				de_up[i] = (char)toupper((unsigned char)de[i]);
-		}
-		const char *known = NULL;
-		const char *alt = NULL;
-		const char *note = NULL;
-		if (strstr(de_up, "KDE")) {
-			known = "KDE Plasma (KWin)";
-			alt = "spectacle";
-			note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
-		} else if (strstr(de_up, "GNOME")) {
-			known = "GNOME (Mutter)";
-			alt = "gnome-screenshot, flameshot, or ksnip";
-		} else if (strstr(de_up, "COSMIC")) {
-			known = "Cosmic";
-		}
-		log_error("compositor advertises no screen-capture protocol");
-		log_error("  (wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1)");
-		if (known)
-			log_error("  %s implements neither, so grabit cannot capture here", known);
-		if (note) log_error("  %s", note);
-		log_error("  works on: hyprland, sway, niri, river");
-		if (alt) log_error("  on this desktop try: %s", alt);
-		goto fail;
-	}
 
 	if (wl_display_roundtrip(s->display) < 0) goto fail;
 
 	if (s->xdg_output_manager) {
 		for (size_t i = 0; i < s->n_outputs; i++) {
-			struct grabit_output *o = s->outputs[i];
-			if (o->dead || !o->wl_output) continue;
-			o->xdg_output = zxdg_output_manager_v1_get_xdg_output(
-				s->xdg_output_manager, o->wl_output);
-			zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);
+			if (!s->outputs[i]->dead) gwl_output_attach_xdg(s, s->outputs[i]);
 		}
 		if (wl_display_roundtrip(s->display) < 0) goto fail;
 	}
 
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		struct grabit_output *o = s->outputs[i];
-		if (o->scale <= 0) o->scale = 1;
-		// fallback if xdg-output didn't fill in logical dims; bit 0 of wl_output.transform set => 90° rotation, swap w/h.
-		bool rotated = (o->transform & 1) != 0;
-		int32_t native_logical_w = (rotated ? o->height : o->width) / o->scale;
-		int32_t native_logical_h = (rotated ? o->width : o->height) / o->scale;
-		if (o->logical_width <= 0) o->logical_width = native_logical_w;
-		if (o->logical_height <= 0) o->logical_height = native_logical_h;
-	}
+	for (size_t i = 0; i < s->n_outputs; i++)
+		gwl_output_finalize(s->outputs[i]);
 
 	if (s->n_outputs == 0) {
 		log_error("no outputs reported by the compositor");
@@ -145,6 +129,11 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	s->outputs = NULL;
 	s->n_outputs = s->cap_outputs = 0;
 
+	if (s->viewporter) wp_viewporter_destroy(s->viewporter);
+	if (s->fractional_scale_manager)
+		wp_fractional_scale_manager_v1_destroy(s->fractional_scale_manager);
+	if (s->cursor_shape_manager)
+		wp_cursor_shape_manager_v1_destroy(s->cursor_shape_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);

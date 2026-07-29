@@ -9,14 +9,15 @@
 #include <stdint.h>
 
 #include "region/region.h"
+#include "util/util.h"
 
 struct grabit_wl_state;
 struct grabit_output;
 struct wl_surface;
-struct wl_buffer;
 struct wl_callback;
 struct wl_pointer;
 struct wl_cursor_theme;
+struct wp_cursor_shape_device_v1;
 struct wl_cursor;
 struct zwlr_layer_surface_v1;
 
@@ -40,9 +41,8 @@ struct ctl_output {
 	struct grabit_output *go;
 	struct wl_surface *surface;
 	struct zwlr_layer_surface_v1 *layer;
-	struct wl_buffer *buffer;
-	void *buf_data;
-	size_t buf_size;
+	struct grabit_shm_pool pool;
+	struct rect slot_shown[GRABIT_SHM_SLOTS];
 	int32_t width;
 	int32_t height;
 	int32_t pixel_w;
@@ -76,6 +76,7 @@ struct rec_controls {
 	int32_t cx;
 	int32_t cy;
 
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor_hand;
 	struct wl_surface *cursor_surface;

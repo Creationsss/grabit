@@ -10,12 +10,13 @@
 #include "region/wlr_state.h"
 
 extern const struct wl_callback_listener gren_frame_listener_g;
-void gren_anno_cache_ensure(struct ro_output *o);
+void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
+							const struct annotation *live);
 void gren_anno_cache_paint(cairo_t *cr, cairo_surface_t *cache);
 void gren_output_redraw(struct ro_output *o);
 void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st);
 void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char *hint);
 
-int gren_output_alloc_buffer(struct ro_output *o);
+void gren_output_configure(struct ro_output *o);
 
 #endif

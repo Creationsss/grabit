@@ -7,6 +7,7 @@
 #include "log.h"
 #include "record/compose.h"
 #include "record/controls.h"
+#include "record/pw.h"
 #include "record/ring.h"
 #include "record/segments.h"
 #include "util/util.h"
@@ -100,54 +101,79 @@ static int pump_or_stop(struct grabit_wl_state *s, int timeout_ms) {
 	return 0;
 }
 
+struct rec_clock {
+	bool paused;
+	int64_t seg_start;
+	int64_t active_ns;
+};
+
+enum rec_clock_ev {
+	REC_CLOCK_ERR = -1,
+	REC_CLOCK_NONE = 0,
+	REC_CLOCK_PAUSED,
+	REC_CLOCK_RESUMED,
+};
+
+static int64_t rec_clock_active_ns(const struct rec_clock *k) {
+	return k->active_ns + (k->paused ? 0 : grabit_now_ns() - k->seg_start);
+}
+
+static enum rec_clock_ev rec_clock_step(struct rec_clock *k,
+										struct grabit_wl_state *s,
+										struct seg_ctx *sc,
+										struct rec_controls *ctrl) {
+	enum rec_clock_ev ev = REC_CLOCK_NONE;
+	bool want_pause =
+		atomic_load_explicit(&grabit_rec_pause, memory_order_relaxed) != 0;
+	if (want_pause != k->paused) {
+		k->paused = want_pause;
+		controls_set_paused(ctrl, k->paused);
+		if (g_tray_pid > 0) kill(g_tray_pid, SIGUSR2);
+		if (k->paused) {
+			k->active_ns += grabit_now_ns() - k->seg_start;
+			seg_finish(sc, s);
+			log_info("recording paused");
+			ev = REC_CLOCK_PAUSED;
+		} else if (seg_begin(sc) != 0) {
+			log_error("recording: could not start a new segment");
+			sc->failed = true;
+			atomic_store_explicit(&grabit_rec_stop, 1, memory_order_relaxed);
+			return REC_CLOCK_ERR;
+		} else {
+			k->seg_start = grabit_now_ns();
+			log_info("recording resumed");
+			ev = REC_CLOCK_RESUMED;
+		}
+	}
+
+	controls_tick(ctrl, rec_clock_active_ns(k) / 1000000000);
+	return ev;
+}
+
 double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						struct buf_pool *pool, bool cursor,
 						struct seg_ctx *sc, struct rec_controls *ctrl) {
 	int64_t period_ns = 1000000000 / sc->fps;
 	struct ring *ring = sc->ring;
-	bool paused = false;
-	int64_t seg_start = grabit_now_ns();
-	int64_t active_ns = 0;
+	struct rec_clock k = {.seg_start = grabit_now_ns()};
 	int64_t frame_idx = 0;
 	int consec_fail = 0;
 	bool direct = rec_layout_is_direct(layout);
 
 	while (!atomic_load_explicit(&grabit_rec_stop, memory_order_relaxed)) {
-		bool want_pause =
-			atomic_load_explicit(&grabit_rec_pause, memory_order_relaxed) != 0;
-		if (want_pause != paused) {
-			paused = want_pause;
-			controls_set_paused(ctrl, paused);
-			if (g_tray_pid > 0) kill(g_tray_pid, SIGUSR2);
-			if (paused) {
-				active_ns += grabit_now_ns() - seg_start;
-				seg_finish(sc, s);
-				log_info("recording paused");
-			} else {
-				if (seg_begin(sc) != 0) {
-					log_error("recording: could not start a new segment");
-					sc->failed = true;
-					atomic_store_explicit(&grabit_rec_stop, 1, memory_order_relaxed);
-					break;
-				}
-				seg_start = grabit_now_ns();
-				frame_idx = 0;
-				log_info("recording resumed");
-			}
-		}
+		enum rec_clock_ev ev = rec_clock_step(&k, s, sc, ctrl);
+		if (ev == REC_CLOCK_ERR) break;
+		if (ev == REC_CLOCK_RESUMED) frame_idx = 0;
 
-		int64_t active_now = active_ns + (paused ? 0 : grabit_now_ns() - seg_start);
-		controls_tick(ctrl, active_now / 1000000000);
-
-		if (paused) {
+		if (k.paused) {
 			if (pump_or_stop(s, 30) != 0) break;
 			continue;
 		}
 
-		int64_t deadline = seg_start + frame_idx * period_ns;
+		int64_t deadline = k.seg_start + frame_idx * period_ns;
 		int64_t cur = grabit_now_ns();
 		if (cur - deadline > period_ns * 4)
-			frame_idx = (cur - seg_start) / period_ns;
+			frame_idx = (cur - k.seg_start) / period_ns;
 		bool interrupted = false;
 		while (cur < deadline) {
 			if (atomic_load_explicit(&grabit_rec_stop, memory_order_relaxed) ||
@@ -210,6 +236,27 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 		frame_idx++;
 	}
 
-	if (!paused) active_ns += grabit_now_ns() - seg_start;
-	return (double)active_ns / 1e9;
+	return (double)rec_clock_active_ns(&k) / 1e9;
+}
+
+double rec_pw_loop(struct grabit_wl_state *s, struct pw_capture *cap,
+				   struct seg_ctx *sc, struct rec_controls *ctrl) {
+	struct rec_clock k = {.seg_start = grabit_now_ns()};
+
+	while (!atomic_load_explicit(&grabit_rec_stop, memory_order_relaxed)) {
+		if (pw_capture_failed(cap)) {
+			log_error("recording: the screencast stream ended");
+			atomic_store_explicit(&grabit_rec_stop, 1, memory_order_relaxed);
+			break;
+		}
+
+		enum rec_clock_ev ev = rec_clock_step(&k, s, sc, ctrl);
+		if (ev == REC_CLOCK_ERR) break;
+		if (ev != REC_CLOCK_NONE) pw_capture_set_paused(cap, k.paused);
+
+		if (pump_or_stop(s, 30) != 0) break;
+	}
+
+	pw_capture_set_paused(cap, true);
+	return (double)rec_clock_active_ns(&k) / 1e9;
 }

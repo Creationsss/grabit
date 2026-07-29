@@ -16,12 +16,21 @@
 
 #include "region/keybinds.h"
 #include "region/region.h"
+#include "util/util.h"
+
+#define RCUR_CROSS 0
+#define RCUR_TEXT 1
+#define RCUR_DEFAULT 2
+#define RCUR_MOVE 3
+#define RCUR_HAND 4
+#define RCUR_RESIZE0 5
 
 struct grabit_wl_state;
 struct grabit_output;
 struct image;
 struct wl_cursor_theme;
 struct wl_cursor;
+struct wp_cursor_shape_device_v1;
 struct zwlr_layer_surface_v1;
 
 struct ro_state;
@@ -41,12 +50,8 @@ struct ro_output {
 	int32_t scale;
 	bool configured;
 
-	int stride;
-	size_t buf_size;
-	void *buf_data;
-	struct wl_buffer *buffer;
+	struct grabit_shm_pool pool;
 
-	cairo_surface_t *cairo_dst;
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
 
@@ -54,6 +59,7 @@ struct ro_output {
 	size_t anno_cache_gen;
 	struct rect anno_cache_sel;
 	int32_t anno_cache_skip;
+	uint64_t anno_cache_spot;
 
 	bool dirty;
 	struct wl_callback *frame_cb;
@@ -68,6 +74,7 @@ enum undo_kind {
 	UNDO_ANNO_MOVE,
 	UNDO_ANNO_GEOM,
 	UNDO_ANNO_SIZE,
+	UNDO_ANNO_COLOR,
 };
 
 struct undo_item {
@@ -93,6 +100,10 @@ struct undo_item {
 			int32_t font_size;
 		} size;
 		struct {
+			size_t idx;
+			uint32_t color;
+		} color;
+		struct {
 			struct annotation a;
 		} readd;
 		struct {
@@ -110,6 +121,7 @@ struct ro_state {
 	struct wl_pointer *pointer;
 	struct wl_keyboard *keyboard;
 
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor;
 	struct wl_cursor *cursor_text;
@@ -117,7 +129,7 @@ struct ro_state {
 	struct wl_cursor *cursor_move;
 	struct wl_cursor *cursor_hand;
 	struct wl_cursor *cursor_resize[8];
-	struct wl_cursor *current_cursor;
+	int current_cursor_kind;
 	struct wl_surface *cursor_surface;
 	uint32_t last_cursor_serial;
 
@@ -170,6 +182,9 @@ struct ro_state {
 	size_t text_len;
 	int32_t text_x;
 	int32_t text_y;
+	int32_t text_ax;
+	int32_t text_ay;
+	enum tool_kind text_tool;
 
 	struct annotation_list *out_annos;
 
@@ -177,7 +192,7 @@ struct ro_state {
 	int32_t current_width;
 	int32_t current_font;
 	enum stroke_style current_style;
-	enum tool_kind current_line_tool;
+	enum tool_kind group_tool[TB_TOOL_GROUP_COUNT];
 	double scroll_accum;
 	bool edit_choices_dirty;
 	bool shift_held;
@@ -203,7 +218,7 @@ struct ro_state {
 	bool eyedropper_mode;
 	bool color_picker_open;
 	bool color_picker_dragging;
-	bool line_picker_open;
+	enum tb_action picker_group;
 	bool color_input_active;
 	char color_input_buf[8];
 	size_t color_input_len;
@@ -251,24 +266,12 @@ static inline bool region_editing(const struct ro_state *st) {
 }
 
 static inline bool region_tool_uses_font(const struct ro_state *st) {
-	return st->current_tool == TOOL_TEXT || st->current_tool == TOOL_COUNTER ||
-		   st->text_input_active;
+	return tool_uses_font(st->current_tool) || st->text_input_active;
 }
 
 static inline bool region_multi_select_held(const struct ro_state *st) {
 	return st->xkb_state && st->multi_select_mods &&
 		   (region_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
-}
-
-static inline int32_t *region_slider_field(struct ro_state *st, int32_t *lo, int32_t *hi) {
-	if (region_tool_uses_font(st)) {
-		*lo = FONT_MIN;
-		*hi = FONT_MAX;
-		return &st->current_font;
-	}
-	*lo = WIDTH_MIN;
-	*hi = WIDTH_MAX;
-	return &st->current_width;
 }
 
 #define ANNO_DRAG_NONE (-1)

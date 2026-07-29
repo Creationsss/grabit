@@ -105,6 +105,11 @@ void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
 				 int32_t w, int32_t h, enum pixels_conv conv, bool y_invert) {
+	if (conv == PIX_COPY && !y_invert && dst_stride == src_stride &&
+		dst_stride == w * 4) {
+		memcpy(dst, src, (size_t)dst_stride * (size_t)h);
+		return;
+	}
 	for (int32_t row = 0; row < h; row++) {
 		int32_t src_row = y_invert ? (h - 1 - row) : row;
 		const uint8_t *sp = (const uint8_t *)src + (size_t)src_row * (size_t)src_stride;

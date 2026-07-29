@@ -18,14 +18,16 @@ bool grabit_in_path(const char *bin);
 int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
+void grabit_sleep_secs(int secs);
 
 const char *grabit_basename(const char *path);
 
 int grabit_runtime_dir(char *out, size_t cap);
 int grabit_write_all(int fd, const void *buf, size_t n);
 bool grabit_process_alive(pid_t pid);
-bool grabit_is_grabit_process(pid_t pid);
 int grabit_self_exe(char *out, size_t cap);
+int grabit_lock_acquire(const char *path);
+pid_t grabit_lock_owner(const char *path);
 
 int grabit_waitpid_intr(pid_t pid, int *status);
 
@@ -50,9 +52,30 @@ int grabit_shm_argb_buf(struct wl_shm *shm, const char *tag,
 						int32_t pixel_w, int32_t pixel_h,
 						struct grabit_shm_buf *out);
 void grabit_shm_buf_destroy(struct grabit_shm_buf *b);
-void grabit_shm_release(struct wl_buffer **buf, void **map, size_t *size);
+
+#define GRABIT_SHM_SLOTS 2
+
+struct grabit_shm_slot {
+	struct grabit_shm_buf buf;
+	int32_t w;
+	int32_t h;
+	bool busy;
+};
+
+struct grabit_shm_pool {
+	struct grabit_shm_slot slots[GRABIT_SHM_SLOTS];
+};
+
+struct grabit_shm_slot *grabit_shm_pool_next(struct wl_shm *shm, const char *tag,
+											 struct grabit_shm_pool *p,
+											 int32_t pixel_w, int32_t pixel_h);
+void grabit_shm_pool_finish(struct grabit_shm_pool *p);
+struct wl_surface;
+void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *slot);
 
 void grabit_redirect_stdio_devnull(void);
+
+bool grabit_desktop_is(const char *needle);
 
 struct grabit_buf {
 	char *data;

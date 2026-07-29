@@ -64,17 +64,7 @@ static int run(const struct args *a) {
 	notify_init(&cfg, a->silent);
 
 	enum action eff = a->action;
-	if (eff == ACTION_NONE) {
-		const char *def = config_get(&cfg, "default_action");
-		if (def && strcmp(def, "upload") == 0)
-			eff = ACTION_UPLOAD;
-		else if (def && strcmp(def, "copy") == 0)
-			eff = ACTION_COPY;
-		else if (def && strcmp(def, "save") == 0)
-			eff = ACTION_OUTPUT;
-		else if (def && strcmp(def, "pin") == 0)
-			eff = ACTION_PIN;
-	}
+	if (eff == ACTION_NONE) eff = gapp_default_action(config_get(&cfg, "default_action"));
 
 	struct args eff_a = *a;
 	if (!eff_a.edit && !a->file &&
@@ -83,6 +73,12 @@ static int run(const struct args *a) {
 		const char *v = config_get(&cfg, "edit.default");
 		if (v && strcmp(v, "true") == 0) eff_a.edit = true;
 	}
+	if (!eff_a.last_region && !eff_a.no_last) {
+		const char *v = config_get(&cfg, "region.repeat_last");
+		if (v && strcmp(v, "true") == 0) eff_a.last_region = true;
+	}
+	if (eff_a.delay_secs == 0)
+		eff_a.delay_secs = gapp_read_int_cfg_clamp(&cfg, "capture.delay", 0, 0, 3600);
 	a = &eff_a;
 
 	int rc;
@@ -115,7 +111,7 @@ static int run(const struct args *a) {
 		rc = pin_close_all();
 		break;
 	case ACTION_TRAY:
-		rc = tray_app_run();
+		rc = tray_app_run(&cfg);
 		break;
 	default:
 		log_error("no action specified; try -u, -c, -o, --pin, --record, or --tesseract");

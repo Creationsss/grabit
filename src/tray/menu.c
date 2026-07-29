@@ -11,25 +11,61 @@
 
 dbus_uint32_t gmenu_revision = 1;
 
+static bool dispatch_event(const struct tray_menu *m, dbus_int32_t id,
+						   const char *event_id) {
+	const struct tray_menu_item *it = gmenu_find_item(m->items, m->n, id);
+	if (!it) return false;
+	if (strcmp(event_id, "clicked") == 0 && it->on_click && it->n_children == 0)
+		it->on_click(it);
+	return true;
+}
+
+static bool read_event(DBusMessageIter *iter, const struct tray_menu *m) {
+	dbus_int32_t id;
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_INT32) return false;
+	dbus_message_iter_get_basic(iter, &id);
+	dbus_message_iter_next(iter);
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRING) return false;
+	const char *event_id;
+	dbus_message_iter_get_basic(iter, &event_id);
+	return dispatch_event(m, id, event_id);
+}
+
 static DBusHandlerResult handle_event(DBusConnection *bus, DBusMessage *msg,
 									  const struct tray_menu *m) {
 	DBusMessageIter iter;
-	if (dbus_message_iter_init(msg, &iter) &&
-		dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_INT32) {
-		dbus_int32_t id;
-		dbus_message_iter_get_basic(&iter, &id);
-		dbus_message_iter_next(&iter);
-		if (dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_STRING) {
-			const char *event_id;
-			dbus_message_iter_get_basic(&iter, &event_id);
-			if (strcmp(event_id, "clicked") == 0) {
-				const struct tray_menu_item *it = gmenu_find_item(m->items, m->n, id);
-				if (it && it->on_click && it->n_children == 0) it->on_click(it);
-			}
-		}
-	}
+	if (dbus_message_iter_init(msg, &iter)) read_event(&iter, m);
 	gsni_send_empty_reply(bus, msg);
 	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_event_group(DBusConnection *bus, DBusMessage *msg,
+											const struct tray_menu *m) {
+	DBusMessage *reply = dbus_message_new_method_return(msg);
+	if (!reply) return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+	DBusMessageIter out, errs;
+	dbus_message_iter_init_append(reply, &out);
+	dbus_message_iter_open_container(&out, DBUS_TYPE_ARRAY, "i", &errs);
+
+	DBusMessageIter iter, arr;
+	if (dbus_message_iter_init(msg, &iter) &&
+		dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_ARRAY) {
+		dbus_message_iter_recurse(&iter, &arr);
+		while (dbus_message_iter_get_arg_type(&arr) == DBUS_TYPE_STRUCT) {
+			DBusMessageIter ev;
+			dbus_message_iter_recurse(&arr, &ev);
+			dbus_int32_t id = 0;
+			if (dbus_message_iter_get_arg_type(&ev) == DBUS_TYPE_INT32)
+				dbus_message_iter_get_basic(&ev, &id);
+			if (!read_event(&ev, m))
+				dbus_message_iter_append_basic(&errs, DBUS_TYPE_INT32, &id);
+			dbus_message_iter_next(&arr);
+		}
+	}
+
+	dbus_message_iter_close_container(&out, &errs);
+	return gsni_send_reply(bus, reply);
 }
 
 static DBusHandlerResult handle_about_to_show(DBusConnection *bus, DBusMessage *msg) {
@@ -38,6 +74,19 @@ static DBusHandlerResult handle_about_to_show(DBusConnection *bus, DBusMessage *
 	dbus_bool_t need_update = FALSE;
 	dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &need_update,
 							 DBUS_TYPE_INVALID);
+	return gsni_send_reply(bus, reply);
+}
+
+static DBusHandlerResult handle_about_to_show_group(DBusConnection *bus,
+													DBusMessage *msg) {
+	DBusMessage *reply = dbus_message_new_method_return(msg);
+	if (!reply) return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	DBusMessageIter out, updates, errs;
+	dbus_message_iter_init_append(reply, &out);
+	dbus_message_iter_open_container(&out, DBUS_TYPE_ARRAY, "i", &updates);
+	dbus_message_iter_close_container(&out, &updates);
+	dbus_message_iter_open_container(&out, DBUS_TYPE_ARRAY, "i", &errs);
+	dbus_message_iter_close_container(&out, &errs);
 	return gsni_send_reply(bus, reply);
 }
 
@@ -128,9 +177,18 @@ static DBusHandlerResult handle_introspect(DBusConnection *bus, DBusMessage *msg
 		"   <arg name=\"data\" type=\"v\" direction=\"in\"/>"
 		"   <arg name=\"timestamp\" type=\"u\" direction=\"in\"/>"
 		"  </method>"
+		"  <method name=\"EventGroup\">"
+		"   <arg name=\"events\" type=\"a(isvu)\" direction=\"in\"/>"
+		"   <arg name=\"idErrors\" type=\"ai\" direction=\"out\"/>"
+		"  </method>"
 		"  <method name=\"AboutToShow\">"
 		"   <arg name=\"id\" type=\"i\" direction=\"in\"/>"
 		"   <arg name=\"needUpdate\" type=\"b\" direction=\"out\"/>"
+		"  </method>"
+		"  <method name=\"AboutToShowGroup\">"
+		"   <arg name=\"ids\" type=\"ai\" direction=\"in\"/>"
+		"   <arg name=\"updatesNeeded\" type=\"ai\" direction=\"out\"/>"
+		"   <arg name=\"idErrors\" type=\"ai\" direction=\"out\"/>"
 		"  </method>"
 		"  <signal name=\"LayoutUpdated\">"
 		"   <arg name=\"revision\" type=\"u\"/>"
@@ -153,7 +211,10 @@ DBusHandlerResult gmenu_handle(DBusConnection *bus, DBusMessage *msg,
 		if (strcmp(member, "GetGroupProperties") == 0)
 			return gmenu_handle_group_props(bus, msg, m);
 		if (strcmp(member, "Event") == 0) return handle_event(bus, msg, m);
+		if (strcmp(member, "EventGroup") == 0) return handle_event_group(bus, msg, m);
 		if (strcmp(member, "AboutToShow") == 0) return handle_about_to_show(bus, msg);
+		if (strcmp(member, "AboutToShowGroup") == 0)
+			return handle_about_to_show_group(bus, msg);
 	}
 	if (strcmp(iface, IFACE_PROPS) == 0) {
 		if (strcmp(member, "Get") == 0) return handle_prop_get(bus, msg);

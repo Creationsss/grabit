@@ -40,6 +40,24 @@
 #endif
 #include "app/app.h"
 
+enum action gapp_default_action(const char *name) {
+	static const struct {
+		const char *name;
+		enum action act;
+	} MAP[] = {
+		{"upload", ACTION_UPLOAD},
+		{"copy", ACTION_COPY},
+		{"save", ACTION_OUTPUT},
+		{"pin", ACTION_PIN},
+	};
+	if (!name || !name[0]) return ACTION_COPY;
+	for (size_t i = 0; i < sizeof MAP / sizeof MAP[0]; i++) {
+		if (strcmp(name, MAP[i].name) == 0) return MAP[i].act;
+	}
+	log_warn("default_action `%s` is not one of upload|copy|save|pin; copying", name);
+	return ACTION_COPY;
+}
+
 int gapp_run_upload(struct config *cfg, const struct args *a) {
 	const char *service = NULL;
 	if (upload_preflight(cfg, a, &service) != 0) return 1;

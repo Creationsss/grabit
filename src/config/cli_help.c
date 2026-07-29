@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "config/config.h"
 #include "config/internal.h"
 
 #include "region/keybinds.h"
@@ -52,9 +53,12 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"ocr.lang",
 	"capture.backend",
 	"capture.cursor",
+	"capture.delay",
 	"region.window_snap",
 	"region.confirm",
 	"region.show_coords",
+	"region.repeat_last",
+	"region.last",
 	"keys.confirm",
 	"keys.cancel",
 	"keys.select_all",
@@ -89,6 +93,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"preview.position",
 	"preview.output",
 	"preview.dismiss_secs",
+	"tray.icon",
 	"services.zipline.auth",
 	"services.zipline.domain",
 	"services.zipline.chunked",
@@ -152,8 +157,13 @@ static void print_key_line(const char *key, const char *note) {
 		printf("  %s\n", key);
 }
 
-static void print_key_with_default(const char *key, const char *def) {
-	if (def)
+static void print_key_with_default(const char *key, const char *def,
+								   const char *cur) {
+	if (cur && cur[0] && def)
+		printf("  %-28s = %s  (default: %s)\n", key, cur, def);
+	else if (cur && cur[0])
+		printf("  %-28s = %s\n", key, cur);
+	else if (def)
 		printf("  %-28s default: %s\n", key, def);
 	else
 		printf("  %s\n", key);
@@ -206,9 +216,11 @@ static const char *const G_EDIT[] = {
 static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quality",
 										"webp.lossless", NULL};
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
-static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor", NULL};
+static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
+										"capture.delay", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.confirm",
-									   "region.show_coords", NULL};
+									   "region.show_coords", "region.repeat_last",
+									   "region.last", NULL};
 static const char *const G_TRANSLATE[] = {
 	"translate.target",
 	"translate.backend",
@@ -247,12 +259,18 @@ static const char *const *const KEY_GROUPS[] = {
 };
 
 void cfg_help_print_all_keys(void) {
-	puts("settable config keys (run `grabit set <key>` for values and defaults):");
+	struct config c = {0};
+	if (config_exists()) (void)config_load_full(&c);
+	puts("settable config keys (`=` marks one you have set; run `grabit set <key>` "
+		 "for values):");
 	for (size_t g = 0; KEY_GROUPS[g]; g++) {
 		puts("");
-		for (size_t i = 0; KEY_GROUPS[g][i]; i++)
-			print_key_with_default(KEY_GROUPS[g][i], find_default(KEY_GROUPS[g][i]));
+		for (size_t i = 0; KEY_GROUPS[g][i]; i++) {
+			const char *key = KEY_GROUPS[g][i];
+			print_key_with_default(key, find_default(key), config_get(&c, key));
+		}
 	}
+	config_free(&c);
 	puts("");
 	print_key_line("services.<svc>.auth", "svc: zipline|nest|fakecrime|ez|guns|pixelvault");
 	print_key_line("services.zipline.domain", NULL);

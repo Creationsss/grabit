@@ -81,7 +81,8 @@ bool capture_backend_available(const struct grabit_wl_state *s) {
 }
 
 bool capture_is_streaming_capable(const struct grabit_wl_state *s) {
-	return resolve_backend(s) != CAP_KWIN;
+	enum capture_backend b = resolve_backend(s);
+	return b == CAP_WLR || b == CAP_EXT;
 }
 
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,

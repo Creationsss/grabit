@@ -31,6 +31,10 @@ struct args {
 	bool cursor;
 	bool chunked;
 	bool fullscreen;
+	bool window;
+	bool last_region;
+	bool no_last;
+	int delay_secs;
 	const char *file;
 	const char *service;
 	const char *filename_tpl;

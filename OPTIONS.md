@@ -68,7 +68,7 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 `~/.config/grabit/config.toml` is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, and the editor toolbar position (`edit.toolbar_pos`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
 
@@ -163,7 +163,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
+| `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
 | `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
@@ -172,15 +172,20 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
+recording backends: on wlroots compositors grabit streams frames itself over `wlr-screencopy`/`ext-image-copy`. on **KDE Plasma** it uses KWin's `zkde_screencast_unstable_v1` wayland protocol (screenshots there continue to use `org.kde.KWin.ScreenShot2`). kwin keeps `zkde_screencast_unstable_v1` on an interface blacklist and only hands it to programs whose installed `.desktop` file declares `X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1`, so **recording on KDE requires grabit to be installed** (`make install`) rather than run from a build directory; running kwin with `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses the check for testing, and on **GNOME**, which has no screenshot path at all, it uses `org.gnome.Mutter.ScreenCast` over d-bus; both hand back a pipewire node that grabit reads, so a pipewire build (`libpipewire-0.3`) is required for those two and neither shows a portal dialog. GNOME has no `zwlr_layer_shell_v1`, so the interactive region selector, the recording overlay, and the on-screen controls do not appear there: pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record` or `SIGUSR1` to pause. some distros ship ffmpeg without `libx264`, so mp4 will fail there; `recording.format = webm` (vp9) works anywhere. grabit names the missing encoder and a format that does work when a recording fails for this reason. note that `org.gnome.Mutter.ScreenCast` is documented by GNOME as a private API with no compatibility promised between versions, so a GNOME upgrade can break recording there.
+
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
+| `capture.delay` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 
 ### region selector
 
 | key | default | notes |
 |---|---|---|
-| `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
+| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
+| `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
+| `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 
@@ -199,7 +204,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
 | `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` … `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, ellipse, arrow, blur, text, eraser |
+| `keys.tool.<name>` | `p, 1` … `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no default binding) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
@@ -272,6 +277,22 @@ config keys (all optional):
 | `recording.tray` | `true` | show the tray icon while recording; `--no-tray` overrides one run |
 | `recording.max_size_mb` | (none) | re-encode if file exceeds this (0-100000) |
 | `recording.ffmpeg` | `ffmpeg` | path to ffmpeg binary |
+
+## tray
+
+`grabit --tray` starts a persistent StatusNotifierItem with every action in its menu. running it a second time stops the one already running.
+
+| key | default | notes |
+|---|---|---|
+| `tray.icon` | `camera-photo` | icon name looked up in your icon theme |
+
+left click captures a region, right click opens the menu. the icon is resolved by name against the active icon theme, so the exact artwork depends on the theme you use. if it collides with another app's icon, point `tray.icon` at any other name your theme ships:
+
+```sh
+grabit set tray.icon camera-video
+```
+
+the recording tray shown during `--record` is separate and always uses `media-record`.
 
 ## sound
 
@@ -430,6 +451,24 @@ the mouse pointer is included in screenshots by default (`capture.cursor`, defau
 
 with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
 
+## window
+
+```sh
+grabit -w -o                  # save the active window
+grabit --window -c            # copy the active window
+grabit -w -e -u               # annotate the active window, then upload
+```
+
+`-w`/`--window` captures the focused window instead of dragging a region. it pairs with the same actions `-F` does, and it cannot be combined with `-f`, `-F`, or `--record`.
+
+how the window is captured depends on what the compositor can tell grabit:
+
+- **hyprland** reports the geometry of every window, so `-w` resolves the focused window to a rectangle and crops the screen to it. this behaves exactly like `-F` with a smaller region: `-e` works, and anything drawn on top of the window is included.
+- **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
+- **other compositors** have no way to report the active window; `-w` fails with a notification.
+
+`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-v1` is available.
+
 ## edit
 
 ```sh
@@ -442,7 +481,9 @@ grabit -e -o                  # annotate, then save
 
 - **select region** (`q`) - drag out or replace the capture area
 - **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
-- **pen, marker, line, rect, ellipse, arrow, blur, text, eraser** - keyboard shortcuts `1`–`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `t` text, `e` eraser
+- **pen, marker, line, rect, rounded rect, ellipse, arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`–`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser
+- **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. each spotlight dims everything outside *itself*, so a second one will also dim the first one's bright area
+- **callout** (`k`) draws a speech bubble: click the thing it should point at, type the text, press Enter. the bubble appears offset from that point with a tail leading back to it; in the move/resize tool (`s`) both the bubble and the tail tip are draggable handles, so you can re-aim it
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1–12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8–72) instead
@@ -482,8 +523,8 @@ last-picked color, width, and tool persist via:
 | `%s` | unix timestamp |
 | `%r` | 12-char random alnum (`%r8` etc. picks length) |
 | `%u` | uuid v4 |
-| `%w` | active window class (hyprland ipc) |
-| `%t` | active window title (hyprland ipc) |
+| `%w` | active window class / app id |
+| `%t` | active window title |
 | `%%` | literal `%` |
 
 presets via `filename_preset`:
@@ -492,7 +533,7 @@ presets via `filename_preset`:
 - `uuid`: `%u`
 - `timestamp`: `%s`
 
-`%w`/`%t` resolve to empty on non-hyprland compositors.
+`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
 
 ## plugins
 
@@ -524,10 +565,12 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
 | `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
-| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and the `%w`/`%t` tokens |
+| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
+| `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
-| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
+| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`) |
+| `XDG_PICTURES_DIR` | screenshot save dir (`save_dir` config takes precedence; else this, else `~/Pictures`) |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
 | `GRABIT_TRANSLATE_KEY` | api key for the `deepl` and `libretranslate` backends; overrides `translate.api_key` |
 | `NO_COLOR` | if set to any value, disable ansi color in log output |

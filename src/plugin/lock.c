@@ -10,7 +10,6 @@
 #include "util/util.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,17 +23,12 @@ static int lock_open(bool log_failures) {
 
 	char *path = NULL;
 	if (grabit_xasprintf(&path, "%s/.lock", root) != 0) return -1;
-	int fd = open(path, O_WRONLY | O_CREAT | O_CLOEXEC, 0644);
-	if (fd < 0) {
-		if (log_failures) log_error("plugin: cannot open lock file %s: %s", path, strerror(errno));
-		free(path);
-		return -1;
-	}
-	if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-		if (log_failures) log_error("plugin: another grabit plugin operation is in progress");
-		close(fd);
-		free(path);
-		return -1;
+	int fd = grabit_lock_acquire(path);
+	if (fd < 0 && log_failures) {
+		if (errno == EWOULDBLOCK)
+			log_error("plugin: another grabit plugin operation is in progress");
+		else
+			log_error("plugin: cannot open lock file %s: %s", path, strerror(errno));
 	}
 	free(path);
 	return fd;

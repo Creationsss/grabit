@@ -4,13 +4,14 @@
 #define _XOPEN_SOURCE 700
 #include "tray/apptray.h"
 
+#include "config/config.h"
+
 #include "log.h"
 #include "tray/menu.h"
 #include "tray/sni.h"
 #include "util/util.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,56 +25,38 @@ static void app_stop_signal(int sig) {
 	g_app_stop = 1;
 }
 
-static void tray_pid_path(char *out, size_t cap) {
+static int g_tray_lock_fd = -1;
+
+static const char *tray_pid_path(void) {
+	static char path[1024];
 	char dir[512];
-	if (grabit_runtime_dir(dir, sizeof dir) != 0) {
-		snprintf(out, cap, "/tmp/grabit-tray.pid");
-		return;
-	}
-	snprintf(out, cap, "%s/grabit-tray.pid", dir);
+	if (grabit_runtime_dir(dir, sizeof dir) != 0)
+		snprintf(path, sizeof path, "/tmp/grabit-tray.pid");
+	else
+		snprintf(path, sizeof path, "%s/grabit-tray.pid", dir);
+	return path;
 }
 
 static int stop_running_tray(void) {
-	char path[1024];
-	tray_pid_path(path, sizeof path);
-	FILE *f = fopen(path, "r");
-	if (!f) return -1;
-	long pid = 0;
-	int got = fscanf(f, "%ld", &pid);
-	fclose(f);
-	if (got != 1 || pid <= 1 || !grabit_is_grabit_process((pid_t)pid)) {
-		log_warn("tray: removing stale pidfile (pid %ld not a running grabit)", pid);
-		unlink(path);
-		return -1;
-	}
-	log_info("tray: stopping (pid %ld)", pid);
-	if (kill((pid_t)pid, SIGTERM) != 0) {
-		log_error("tray: kill(%ld): %s", pid, strerror(errno));
+	pid_t pid = grabit_lock_owner(tray_pid_path());
+	if (pid <= 0) return -1;
+	log_info("tray: stopping (pid %d)", (int)pid);
+	if (kill(pid, SIGTERM) != 0) {
+		log_error("tray: kill(%d): %s", (int)pid, strerror(errno));
 		return -1;
 	}
 	return 0;
 }
 
 static int write_tray_pid(void) {
-	char path[1024];
-	tray_pid_path(path, sizeof path);
-	int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
-	if (fd < 0) return -1;
-	char buf[32];
-	int n = snprintf(buf, sizeof buf, "%d\n", (int)getpid());
-	ssize_t w = write(fd, buf, (size_t)n);
-	close(fd);
-	if (w != n) {
-		unlink(path);
-		return -1;
-	}
-	return 0;
+	g_tray_lock_fd = grabit_lock_acquire(tray_pid_path());
+	return g_tray_lock_fd < 0 ? -1 : 0;
 }
 
 static void unlink_tray_pid(void) {
-	char path[1024];
-	tray_pid_path(path, sizeof path);
-	unlink(path);
+	unlink(tray_pid_path());
+	if (g_tray_lock_fd >= 0) close(g_tray_lock_fd);
+	g_tray_lock_fd = -1;
 }
 
 static void spawn_grabit(const char *const *args) {
@@ -168,16 +151,19 @@ static const struct tray_menu app_menu = {
 	.n = sizeof app_items / sizeof app_items[0],
 };
 
-static const struct sni_cfg app_sni_cfg = {
-	.icon_name = "accessories-screenshot",
+static struct sni_cfg app_sni_cfg = {
+	.icon_name = "camera-photo",
 	.tooltip_body = "Left click to screenshot, right click for actions",
 	.persist = true,
 	.on_activate = activate_screenshot,
 	.menu = &app_menu,
 };
 
-int tray_app_run(void) {
+int tray_app_run(struct config *cfg) {
 	if (stop_running_tray() == 0) return 0;
+
+	const char *icon = config_get(cfg, "tray.icon");
+	if (icon && icon[0]) app_sni_cfg.icon_name = icon;
 
 	pid_t pid = fork();
 	if (pid < 0) {

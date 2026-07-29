@@ -193,10 +193,15 @@ button (or key
 .BR q )
 drags out (or replaces) the capture area, and Save stays disabled
 until one is set. Tools: pen, marker, line, rect, ellipse, arrow, blur,
-text, eraser (keys
+pixelate, spotlight, text, counter, callout, eraser (keys
 .B 1\-9
 or letters
-.BR p / m / l / r / o / a / b / t / e ),
+.BR p / m / l / r / o / a / b / x / h / t / c / k / e ).
+The spotlight tool dims everything outside the rectangle you drag, with the
+width slider setting how dark the surround goes.
+The callout tool draws a speech bubble: click what it should point at, type the
+text, and the bubble appears offset from that spot with a tail leading back to
+it; in the move/resize tool both the bubble and the tail tip are draggable.
 a move/resize tool
 .RB ( s )
 that repositions drawn annotations (corner handles resize shapes, lines, and
@@ -209,6 +214,20 @@ or
 hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
+.SH NOTES
+.SS KDE Plasma recording
+KWin keeps
+.B zkde_screencast_unstable_v1
+on an interface blacklist and only exposes it to programs whose installed
+.I .desktop
+file declares
+.BR X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1 .
+grabit ships that key, so recording on Plasma requires an installed grabit
+.RB ( make
+.BR install ),
+not one run from a build tree. Starting KWin with
+.B KWIN_WAYLAND_NO_PERMISSION_CHECKS=1
+bypasses the check for testing.
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
@@ -231,6 +250,71 @@ Use
 .B \-\-fullscreen=all
 to capture every monitor stitched into one image. An unknown value lists the
 available monitors and exits.
+.TP
+.BR \-w ", " \-\-window
+Capture the focused window instead of dragging a region. Pairs with the same
+actions as
+.BR \-F ;
+cannot be combined with
+.BR \-f ,
+.BR \-F ,
+or
+.BR \-\-record .
+On Hyprland the window's geometry is read over IPC and the screen is cropped to
+it, so
+.B \-e
+works and anything overlapping the window is included. On niri, geometry is only
+published for floating windows; a floating window takes the same crop path,
+while a tiled window is rendered by niri itself via its
+.B screenshot\-window
+action. That path needs niri 25.11 or newer, captures only the window's own
+contents, cannot be annotated (grabit warns and captures without
+.BR \-e ),
+ignores
+.B png.level
+for PNG output because niri's own file is used as-is,
+and, because niri always copies its window screenshots to the clipboard,
+replaces the clipboard contents as a side effect. Other compositors cannot
+report the active window and
+.B \-w
+fails there.
+.TP
+.BR \-L ", " \-\-last
+Reuse the region from the previous capture instead of opening the selector.
+The rect is recorded after every region capture and kept in the state file as
+.BR region.last .
+Works for screenshots and
+.BR \-\-record .
+With
+.BR \-e
+the region is applied and locked, so the editor opens on the last-used tool
+rather than in region-select mode. Set
+.B region.repeat_last
+to
+.B true
+to make this the default without passing the flag.
+.B \-F
+takes precedence, and the flag is ignored when no region has been recorded yet.
+.TP
+.BI \-\-delay " secs"
+Wait
+.I secs
+seconds before capturing, so a menu or tooltip can be opened first (0\-3600).
+For screenshots the wait happens before the screen is frozen, so anything
+opened during it is captured; for
+.B \-\-record
+it happens after the region is picked, immediately before recording starts.
+Set
+.B capture.delay
+for a default without passing the flag.
+.TP
+.B \-\-no\-last
+Force the region selector for this run even when
+.B region.repeat_last
+is
+.BR true .
+Overrides
+.BR \-L .
 .TP
 .B \-\-cursor
 Include the mouse pointer in the screenshot for this run even if
@@ -410,10 +494,18 @@ characters (default 12).
 UUID v4.
 .TP
 .B %w
-Active window class (Hyprland IPC; empty elsewhere).
+Active window class / app ID.
 .TP
 .B %t
-Active window title (Hyprland IPC; empty elsewhere).
+Active window title.
+.PP
+.RB ( %w
+and
+.B %t
+read the focused toplevel over
+.BR wlr\-foreign\-toplevel\-management\-v1 ,
+so they work on Hyprland, sway, niri, and river, and resolve to empty where
+that protocol is missing.)
 .TP
 .B %%
 Literal
@@ -561,9 +653,13 @@ fallbacks.
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
 .B XDG_RUNTIME_DIR
-it locates the Hyprland IPC socket that powers window-title snapping and the
-.BR %w / %t
-filename tokens. Absent elsewhere, those degrade gracefully.
+it locates the Hyprland IPC socket that powers window snapping and
+.BR \-w / \-\-window .
+.TP
+.B NIRI_SOCKET
+Set by niri; locates the niri IPC socket that powers
+.BR \-w / \-\-window
+and window snapping. Absent elsewhere, both degrade gracefully.
 .TP
 .BR XCURSOR_THEME ", " XCURSOR_SIZE
 Cursor theme and size for the region selector and overlays
@@ -573,6 +669,12 @@ is clamped to 8..256, default 24).
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
+.TP
+.B XDG_PICTURES_DIR
+Screenshot save dir. The
+.B save_dir
+config key takes precedence; otherwise this, else
+.IR ~/Pictures .
 .TP
 .B XDG_VIDEOS_DIR
 Recording save directory. The

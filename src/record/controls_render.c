@@ -121,7 +121,7 @@ static void output_request_redraw(struct ctl_output *o) {
 }
 
 void ctl_output_redraw(struct ctl_output *o) {
-	if (!o->configured || !o->buf_data) return;
+	if (!o->configured) return;
 	struct rec_controls *c = o->st;
 	o->dirty = false;
 
@@ -135,14 +135,22 @@ void ctl_output_redraw(struct ctl_output *o) {
 	}
 	if (cur.w == 0 && o->shown.w == 0 && o->mapped) return;
 
-	if (cur.w > 0 || o->shown.w > 0) {
-		cairo_surface_t *surf = grabit_cairo_image_argb(o->buf_data, o->pixel_w,
+	struct grabit_shm_slot *slot = grabit_shm_pool_next(
+		c->wls->shm, "grabit-rec-controls", &o->pool, o->pixel_w, o->pixel_h);
+	if (!slot) {
+		o->dirty = true;
+		return;
+	}
+	struct rect *sshown = &o->slot_shown[slot - o->pool.slots];
+
+	if (cur.w > 0 || sshown->w > 0) {
+		cairo_surface_t *surf = grabit_cairo_image_argb(slot->buf.map, o->pixel_w,
 														o->pixel_h, o->pixel_w * 4);
 		if (!surf) return;
 		cairo_t *cr = cairo_create(surf);
 		cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-		if (o->shown.w > 0) {
-			cairo_rectangle(cr, o->shown.x, o->shown.y, o->shown.w, o->shown.h);
+		if (sshown->w > 0) {
+			cairo_rectangle(cr, sshown->x, sshown->y, sshown->w, sshown->h);
 			cairo_fill(cr);
 		}
 		if (cur.w > 0) {
@@ -160,7 +168,7 @@ void ctl_output_redraw(struct ctl_output *o) {
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
+	grabit_shm_slot_attach(o->surface, slot);
 	if (o->shown.w > 0)
 		wl_surface_damage_buffer(o->surface, o->shown.x, o->shown.y,
 								 o->shown.w, o->shown.h);
@@ -168,6 +176,7 @@ void ctl_output_redraw(struct ctl_output *o) {
 		wl_surface_damage_buffer(o->surface, cur.x, cur.y, cur.w, cur.h);
 	wl_surface_commit(o->surface);
 	wl_display_flush(c->wls->display);
+	*sshown = cur;
 	o->shown = cur;
 	o->mapped = true;
 }

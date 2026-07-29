@@ -35,7 +35,8 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
 	st->last_cursor_serial = serial;
-	ginp_apply_cursor(st, p, serial, o, ginp_pick_cursor(st, st->cursor_x, st->cursor_y));
+	st->current_cursor_kind = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
+	ginp_apply_cursor(st, p, serial, o, st->current_cursor_kind);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
@@ -45,6 +46,11 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)surface;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
+	if (st->dragging || st->tb_dragging || st->slider_dragging ||
+		st->color_picker_dragging || st->moving_region ||
+		st->handle_dragging != HANDLE_NONE || region_anno_dragging(st) ||
+		st->drawing)
+		return;
 	st->cursor_on = NULL;
 	if (region_set_hover(st, -1)) region_render_request_redraw_all(st);
 }
@@ -65,13 +71,11 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 		st->tb_y = st->cursor_y - st->tb_grab_dy;
 		st->tb_moved = true;
 	} else if (st->slider_dragging) {
-		ginp_slider_set_width_from_cursor(st);
+		ginp_slider_set_width_from_cursor(st, false);
 	} else if (st->color_picker_dragging) {
 		uint32_t picked = 0;
-		if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked)) {
-			st->current_color = picked;
-			st->edit_choices_dirty = true;
-		}
+		if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked))
+			region_apply_color(st, picked, false);
 	} else if (st->region_locked) {
 		if (st->moving_region) {
 			int32_t px = st->sel_x, py = st->sel_y;
@@ -138,17 +142,13 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 
 	if (st->anno_edit_mode && region_has_selection(st) && st->out_annos) {
 		if (!st->resizing_anno) {
-			region_undo_group_begin(st);
-			for (size_t i = 0; i < st->out_annos->n; i++)
-				if (st->out_annos->items[i].selected)
-					region_undo_record_anno_size(st, i);
-			region_undo_group_end(st);
+			region_undo_record_selected_sizes(st, -1);
 			st->resizing_anno = true;
 		}
 		for (size_t i = 0; i < st->out_annos->n; i++) {
 			struct annotation *a = &st->out_annos->items[i];
 			if (!a->selected) continue;
-			if (a->tool == TOOL_TEXT || a->tool == TOOL_COUNTER) {
+			if (tool_uses_font(a->tool)) {
 				int32_t fv = a->font_size - n * 2;
 				a->font_size = fv < FONT_MIN ? FONT_MIN : (fv > FONT_MAX ? FONT_MAX : fv);
 			} else {
@@ -163,14 +163,13 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 	}
 
 	int32_t lo, hi;
-	int32_t *f = region_slider_field(st, &lo, &hi);
+	int32_t cur = region_active_slider(st, &lo, &hi);
 	int32_t step = region_tool_uses_font(st) ? 2 : 1;
-	int32_t v = *f - n * step;
+	int32_t v = cur - n * step;
 	if (v < lo) v = lo;
 	if (v > hi) v = hi;
-	if (v == *f) return;
-	*f = v;
-	if (!region_tool_uses_font(st)) st->edit_choices_dirty = true;
+	if (v == cur) return;
+	region_apply_slider(st, v, false);
 	region_render_request_redraw_all(st);
 }
 

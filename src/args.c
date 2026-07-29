@@ -7,6 +7,7 @@
 #include "upload/upload.h"
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 static bool is_silent_flag(const char *a) {
@@ -25,6 +26,17 @@ void args_pre_scan(int argc, char **argv, bool *silent, bool *debug) {
 		else if (is_debug_flag(argv[i]))
 			*debug = true;
 	}
+}
+
+static int parse_delay(const char *v, int *out) {
+	char *end = NULL;
+	long n = v && *v ? strtol(v, &end, 10) : 0;
+	if (!v || !*v || !end || *end != '\0' || n < 0 || n > 3600) {
+		log_error("--delay requires a whole number of seconds (0-3600)");
+		return -1;
+	}
+	*out = (int)n;
+	return 0;
 }
 
 static int set_action(struct args *a, enum action act, const char *flag) {
@@ -110,8 +122,32 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->cursor = true;
 			continue;
 		}
+		if (strcmp(arg, "-L") == 0 || strcmp(arg, "--last") == 0) {
+			out->last_region = true;
+			continue;
+		}
+		if (strcmp(arg, "--no-last") == 0) {
+			out->no_last = true;
+			continue;
+		}
+		if (strcmp(arg, "--delay") == 0) {
+			if (++i >= argc) {
+				log_error("--delay requires a number of seconds");
+				return -1;
+			}
+			if (parse_delay(argv[i], &out->delay_secs) != 0) return -1;
+			continue;
+		}
+		if (strncmp(arg, "--delay=", 8) == 0) {
+			if (parse_delay(arg + 8, &out->delay_secs) != 0) return -1;
+			continue;
+		}
 		if (strcmp(arg, "--chunked") == 0) {
 			out->chunked = true;
+			continue;
+		}
+		if (strcmp(arg, "-w") == 0 || strcmp(arg, "--window") == 0) {
+			out->window = true;
 			continue;
 		}
 		if (strcmp(arg, "-F") == 0 || strcmp(arg, "--fullscreen") == 0) {
@@ -241,13 +277,20 @@ int args_parse(int argc, char **argv, struct args *out) {
 		return -1;
 	}
 
-	if (out->action == ACTION_RECORD && out->file) {
-		log_error("--record cannot be combined with -f");
-		return -1;
-	}
-
-	if (out->fullscreen && out->file) {
-		log_error("--fullscreen cannot be combined with -f");
+	bool recording = out->action == ACTION_RECORD;
+	const struct {
+		bool a, b;
+		const char *na, *nb;
+	} CLASH[] = {
+		{recording, out->file, "--record", "-f"},
+		{out->fullscreen, out->file, "--fullscreen", "-f"},
+		{out->window, out->file, "--window", "-f"},
+		{out->window, out->fullscreen, "--window", "--fullscreen"},
+		{out->window, recording, "--window", "--record"},
+	};
+	for (size_t i = 0; i < sizeof CLASH / sizeof CLASH[0]; i++) {
+		if (!CLASH[i].a || !CLASH[i].b) continue;
+		log_error("%s cannot be combined with %s", CLASH[i].na, CLASH[i].nb);
 		return -1;
 	}
 

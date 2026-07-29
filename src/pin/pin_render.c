@@ -17,39 +17,13 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
-
-int pin_render_output_alloc(struct pin_output *o) {
-	o->pixel_w = o->width * o->scale;
-	o->pixel_h = o->height * o->scale;
-	if (o->pixel_w <= 0 || o->pixel_h <= 0) return -1;
-
-	struct grabit_shm_buf b;
-	if (grabit_shm_argb_buf(o->st->wls->shm, "grabit-pin",
-							o->pixel_w, o->pixel_h, &b) != 0) {
-		return -1;
-	}
-	o->buffer = b.buffer;
-	o->buf_data = b.map;
-	o->buf_size = b.size;
-	o->dst = grabit_cairo_image_argb(o->buf_data, o->pixel_w, o->pixel_h,
-									 o->pixel_w * 4);
-	if (!o->dst) {
-		grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
-		return -1;
-	}
-	wl_surface_set_buffer_scale(o->surface, o->scale);
-	o->shown = (struct rect){0, 0, 0, 0};
-	return 0;
-}
 
 void pin_render_output_free(struct pin_output *o) {
 	grabit_wl_callback_drop(&o->frame_cb);
-	if (o->dst) {
-		cairo_surface_destroy(o->dst);
-		o->dst = NULL;
-	}
-	grabit_shm_release(&o->buffer, &o->buf_data, &o->buf_size);
+	grabit_shm_pool_finish(&o->pool);
 }
 
 static void draw_close_button(cairo_t *cr, int32_t width) {
@@ -140,64 +114,60 @@ void pin_render_output_redraw(struct pin_output *o) {
 	struct pin_state *st = o->st;
 	o->dirty = false;
 
-	struct rect cur = {0, 0, 0, 0};
-	struct rect p = pin_rect(st);
-	int32_t ix, iy, iw, ih;
-	if (grabit_output_rect_intersect(o->go, &p, &ix, &iy, &iw, &ih)) {
-		cur = (struct rect){(ix - o->go->x) * o->scale, (iy - o->go->y) * o->scale,
-							iw * o->scale, ih * o->scale};
+	bool frac = o->frac_scale > 0;
+	uint32_t scale_120 = frac ? o->frac_scale : (uint32_t)o->scale * 120;
+	double scale = scale_120 / 120.0;
+	int32_t pixel_w = (int32_t)((o->width * scale_120 + 60) / 120);
+	int32_t pixel_h = (int32_t)((o->height * scale_120 + 60) / 120);
+	if (pixel_w <= 0 || pixel_h <= 0) return;
+
+	struct grabit_shm_slot *slot = grabit_shm_pool_next(
+		st->wls->shm, "grabit-pin", &o->pool, pixel_w, pixel_h);
+	if (!slot) {
+		o->dirty = true;
+		return;
 	}
-	if (cur.w == 0 && o->shown.w == 0) return;
+	cairo_surface_t *dst = grabit_cairo_image_argb(slot->buf.map, pixel_w,
+												   pixel_h, pixel_w * 4);
+	if (!dst) return;
 
-	if (!o->buf_data && pin_render_output_alloc(o) != 0) return;
+	cairo_t *cr = cairo_create(dst);
 
-	cairo_t *cr = cairo_create(o->dst);
-
-	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-	if (o->shown.w > 0) {
-		cairo_rectangle(cr, o->shown.x, o->shown.y, o->shown.w, o->shown.h);
-		cairo_fill(cr);
-	}
-
-	if (cur.w > 0 && st->image) {
-		cairo_save(cr);
-		cairo_rectangle(cr, cur.x, cur.y, cur.w, cur.h);
-		cairo_clip(cr);
-		cairo_scale(cr, o->scale, o->scale);
-		cairo_translate(cr, st->px - o->go->x, st->py - o->go->y);
-
+	if (st->image) {
 		cairo_save(cr);
 		double sx = st->img_w > 0 ? (double)st->width / (double)st->img_w : 1.0;
 		double sy = st->img_h > 0 ? (double)st->height / (double)st->img_h : 1.0;
 		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+		cairo_scale(cr, scale, scale);
 		cairo_scale(cr, sx, sy);
 		cairo_set_source_surface(cr, st->image, 0, 0);
 		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
 		cairo_paint(cr);
 		cairo_restore(cr);
 
+		cairo_scale(cr, scale, scale);
 		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 		if (st->input_grabbed && st->width > 0)
 			draw_close_button(cr, st->width);
 		if (st->transient && st->hover_caption && st->hover_active && st->width > 0)
 			draw_caption(cr, st);
-
-		cairo_restore(cr);
 	}
 
 	cairo_destroy(cr);
-	cairo_surface_flush(o->dst);
+	cairo_surface_flush(dst);
+	cairo_surface_destroy(dst);
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
-	if (o->shown.w > 0)
-		wl_surface_damage_buffer(o->surface, o->shown.x, o->shown.y,
-								 o->shown.w, o->shown.h);
-	if (cur.w > 0)
-		wl_surface_damage_buffer(o->surface, cur.x, cur.y, cur.w, cur.h);
+	if (frac) {
+		wl_surface_set_buffer_scale(o->surface, 1);
+		wp_viewport_set_destination(o->viewport, o->width, o->height);
+	} else {
+		wl_surface_set_buffer_scale(o->surface, o->scale);
+	}
+	grabit_shm_slot_attach(o->surface, slot);
+	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
 	wl_surface_commit(o->surface);
-	o->shown = cur;
 }
 
 static void output_request_redraw(struct pin_output *o) {
@@ -206,9 +176,42 @@ static void output_request_redraw(struct pin_output *o) {
 	pin_render_output_redraw(o);
 }
 
+static void fractional_preferred_scale(void *data,
+									   struct wp_fractional_scale_v1 *f,
+									   uint32_t scale) {
+	(void)f;
+	struct pin_output *o = data;
+	if (o->frac_scale == scale) return;
+	o->frac_scale = scale;
+	output_request_redraw(o);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_listener_g = {
+	.preferred_scale = fractional_preferred_scale,
+};
+
+void pin_render_create_fractional(struct pin_output *o) {
+	struct grabit_wl_state *wls = o->st->wls;
+	if (!wls->viewporter || !wls->fractional_scale_manager) return;
+	o->viewport = wp_viewporter_get_viewport(wls->viewporter, o->surface);
+	o->fractional = wp_fractional_scale_manager_v1_get_fractional_scale(
+		wls->fractional_scale_manager, o->surface);
+	wp_fractional_scale_v1_add_listener(o->fractional, &fractional_listener_g, o);
+}
+
 void pin_render_redraw_all(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++)
-		output_request_redraw(&st->outs[i]);
+		output_request_redraw(st->outs[i]);
+}
+
+void pin_render_move_all(struct pin_state *st) {
+	for (size_t i = 0; i < st->n; i++) {
+		struct pin_output *o = st->outs[i];
+		if (!o->layer || !o->configured) continue;
+		zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
+										 st->px - o->go->x);
+		wl_surface_commit(o->surface);
+	}
 }
 
 static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls,
@@ -218,11 +221,6 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	if (w > 0) o->width = (int32_t)w;
 	if (h > 0) o->height = (int32_t)h;
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
-
-	int32_t want_pw = o->width * o->scale;
-	int32_t want_ph = o->height * o->scale;
-	if (o->buf_data && (want_pw != o->pixel_w || want_ph != o->pixel_h))
-		pin_render_output_free(o);
 	o->configured = true;
 	pin_input_apply_region(o);
 	pin_render_output_redraw(o);
@@ -233,11 +231,10 @@ static void layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *ls) {
 	struct pin_output *o = data;
 	o->configured = false;
 	pin_render_output_free(o);
-	o->shown = (struct rect){0, 0, 0, 0};
 
 	struct pin_state *st = o->st;
 	for (size_t i = 0; i < st->n; i++) {
-		if (st->outs[i].configured) return;
+		if (st->outs[i]->configured) return;
 	}
 	st->finished = true;
 }
@@ -247,6 +244,21 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener_g = {
 	.closed = layer_surface_closed,
 };
 
-void pin_render_attach_layer(struct pin_output *o) {
+int pin_render_create_layer(struct pin_output *o) {
+	struct pin_state *st = o->st;
+	o->layer = zwlr_layer_shell_v1_get_layer_surface(
+		st->wls->layer_shell, o->surface, o->go->wl_output,
+		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
+	if (!o->layer) return -1;
 	zwlr_layer_surface_v1_add_listener(o->layer, &layer_surface_listener_g, o);
+	zwlr_layer_surface_v1_set_anchor(o->layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+												   ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
+	zwlr_layer_surface_v1_set_size(o->layer, (uint32_t)st->width,
+								   (uint32_t)st->height);
+	zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
+									 st->px - o->go->x);
+	zwlr_layer_surface_v1_set_exclusive_zone(o->layer, -1);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(
+		o->layer, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
+	return 0;
 }

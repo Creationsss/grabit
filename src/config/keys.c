@@ -23,6 +23,7 @@ static const char *BOOL_KEYS[] = {
 	"region.window_snap",
 	"region.confirm",
 	"region.show_coords",
+	"region.repeat_last",
 	"services.zipline.chunked",
 	"edit.default",
 	"edit.instant_capture",
@@ -36,6 +37,7 @@ static const char *STATE_KEYS[] = {
 	"edit.width",
 	"edit.tool",
 	"edit.toolbar_pos",
+	"region.last",
 	NULL,
 };
 
@@ -176,14 +178,21 @@ static bool valid_preview_key(const char *key) {
 static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
 	const char *leaf = key + 8;
-	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0;
+	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0 ||
+		   strcmp(leaf, "delay") == 0;
 }
 
 static bool valid_region_key(const char *key) {
 	if (strncmp(key, "region.", 7) != 0) return false;
 	const char *leaf = key + 7;
 	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0 ||
-		   strcmp(leaf, "show_coords") == 0;
+		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "repeat_last") == 0 ||
+		   strcmp(leaf, "last") == 0;
+}
+
+static bool valid_tray_key(const char *key) {
+	if (strncmp(key, "tray.", 5) != 0) return false;
+	return strcmp(key + 5, "icon") == 0;
 }
 
 static bool valid_keys_key(const char *key) {
@@ -208,5 +217,6 @@ bool cfg_key_is_known(const char *key) {
 		   valid_png_key(key) || valid_jpeg_key(key) || valid_webp_key(key) ||
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key) || valid_keys_key(key);
+		   valid_preview_key(key) || valid_tray_key(key) ||
+		   valid_keys_key(key);
 }

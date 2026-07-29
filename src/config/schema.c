@@ -6,6 +6,7 @@
 
 #include "config/internal.h"
 #include "log.h"
+#include "region/edit_persist.h"
 #include "region/keybinds.h"
 #include "region/region.h"
 #include "upload/upload.h"
@@ -185,6 +186,16 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
 		return -1;
 	}
+	if (strcmp(key, "capture.delay") == 0 &&
+		validate_int_in_range(key, value, 0, 3600) != 0)
+		return -1;
+	if (strcmp(key, "region.last") == 0) {
+		struct rect tmp;
+		if (!last_region_parse(value, &tmp)) {
+			log_error("region.last must be <x>,<y>,<w>,<h> with w,h > 0");
+			return -1;
+		}
+	}
 	if (strcmp(key, "edit.line_style") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_line_style_names)) {
 		log_error("edit.line_style must be one of solid|dashed|dotted");
@@ -193,7 +204,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
 		log_error("edit.tool must be one of "
-				  "pen|marker|line|rect|ellipse|arrow|blur|text|eraser");
+				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|blur|"
+				  "pixelate|spotlight|text|counter|callout|eraser");
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&

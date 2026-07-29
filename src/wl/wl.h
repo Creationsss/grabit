@@ -51,15 +51,24 @@ struct grabit_wl_state {
 	struct ext_data_control_manager_v1 *ext_data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
+	struct wp_viewporter *viewporter;
+	struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
+	struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
 	struct ext_output_image_capture_source_manager_v1 *ext_source_manager;
+	uint32_t toplevel_manager_name;
+	uint32_t toplevel_manager_version;
+	uint32_t screencast_name;
+	uint32_t screencast_version;
 
 	struct grabit_output **outputs;
 	size_t n_outputs;
 	size_t cap_outputs;
+	uint32_t outputs_serial;
 };
 
 int grabit_wl_init(struct grabit_wl_state *s);
+bool grabit_wl_require_capture(struct grabit_wl_state *s);
 int grabit_wl_probe(struct grabit_wl_state *s);
 int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms);
 void grabit_wl_finish(struct grabit_wl_state *s);

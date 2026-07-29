@@ -78,8 +78,6 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 	if (grabit_ocr_has_lang(bin, lang) != 0) {
 		log_error("ocr: tesseract is installed but the `%s` language data isn't", lang);
-		log_error("  install: tesseract-data-%s (arch), tesseract-ocr-%s (debian/ubuntu)",
-				  lang, lang);
 		log_error("  or set TESSDATA_PREFIX to the dir containing %s.traineddata", lang);
 		log_error("  list what's available with: %s --list-langs", bin);
 		notify_send(&(struct notify_opts){
@@ -131,7 +129,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		};
 		if (strcmp(backend, "trans") == 0 && !grabit_in_path("trans")) {
 			log_warn("translate: `trans` not in $PATH; copying raw OCR text");
-			log_warn("  install translate-shell, or point grabit at a libretranslate server:");
+			log_warn("  or point grabit at a libretranslate server:");
 			log_warn("    grabit set translate.backend libretranslate");
 			log_warn("    grabit set translate.url http://localhost:5000");
 			notify_send(&(struct notify_opts){

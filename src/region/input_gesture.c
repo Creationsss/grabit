@@ -52,7 +52,7 @@ bool region_drag_active(const struct ro_state *st) {
 		   region_anno_dragging(st) ||
 		   st->eyedropper_mode || st->color_picker_open ||
 		   st->color_picker_dragging || st->color_input_active ||
-		   st->line_picker_open;
+		   st->picker_group != TB_NONE;
 }
 
 void region_drag_abort(struct ro_state *st) {
@@ -83,7 +83,7 @@ void region_drag_abort(struct ro_state *st) {
 	st->anno_drag = ANNO_DRAG_NONE;
 	st->eyedropper_mode = false;
 	st->color_picker_open = false;
-	st->line_picker_open = false;
+	st->picker_group = TB_NONE;
 	st->color_picker_dragging = false;
 	st->color_input_active = false;
 	st->color_input_len = 0;
@@ -182,6 +182,78 @@ bool region_has_selection(const struct ro_state *st) {
 	return false;
 }
 
+static const struct annotation *first_selected(const struct ro_state *st) {
+	if (!st->anno_edit_mode || !st->out_annos) return NULL;
+	for (size_t i = 0; i < st->out_annos->n; i++)
+		if (st->out_annos->items[i].selected) return &st->out_annos->items[i];
+	return NULL;
+}
+
+uint32_t region_active_color(const struct ro_state *st) {
+	const struct annotation *a = first_selected(st);
+	return a ? a->color : st->current_color;
+}
+
+static bool slider_is_font(const struct ro_state *st, const struct annotation *a) {
+	return a ? tool_uses_font(a->tool) : region_tool_uses_font(st);
+}
+
+void region_slider_range(const struct ro_state *st, int32_t *lo, int32_t *hi) {
+	bool font = slider_is_font(st, first_selected(st));
+	*lo = font ? FONT_MIN : WIDTH_MIN;
+	*hi = font ? FONT_MAX : WIDTH_MAX;
+}
+
+int32_t region_active_slider(const struct ro_state *st, int32_t *lo, int32_t *hi) {
+	const struct annotation *a = first_selected(st);
+	bool font = slider_is_font(st, a);
+	*lo = font ? FONT_MIN : WIDTH_MIN;
+	*hi = font ? FONT_MAX : WIDTH_MAX;
+	if (!a) return font ? st->current_font : st->current_width;
+	return font ? annotation_font_size(a) : annotation_width(a);
+}
+
+void region_apply_slider(struct ro_state *st, int32_t value, bool record) {
+	const struct annotation *sel = first_selected(st);
+	if (sel) {
+		bool font_mode = tool_uses_font(sel->tool);
+		if (record) region_undo_record_selected_sizes(st, font_mode ? 1 : 0);
+		for (size_t i = 0; i < st->out_annos->n; i++) {
+			struct annotation *a = &st->out_annos->items[i];
+			if (!a->selected || tool_uses_font(a->tool) != font_mode) continue;
+			if (font_mode)
+				a->font_size = value;
+			else
+				a->width = value;
+			annotation_update_bbox(a);
+		}
+		st->out_annos->gen++;
+		return;
+	}
+	if (region_tool_uses_font(st)) {
+		st->current_font = value;
+		return;
+	}
+	st->current_width = value;
+	st->edit_choices_dirty = true;
+}
+
+void region_apply_color(struct ro_state *st, uint32_t color, bool record) {
+	if (first_selected(st)) {
+		if (record) region_undo_group_begin(st);
+		for (size_t i = 0; i < st->out_annos->n; i++) {
+			if (!st->out_annos->items[i].selected) continue;
+			if (record) region_undo_record_anno_color(st, i);
+			st->out_annos->items[i].color = color;
+		}
+		if (record) region_undo_group_end(st);
+		st->out_annos->gen++;
+		return;
+	}
+	st->current_color = color;
+	st->edit_choices_dirty = true;
+}
+
 const struct annotation *region_single_selection(const struct ro_state *st) {
 	if (!st->out_annos) return NULL;
 	const struct annotation *found = NULL;
@@ -274,11 +346,13 @@ void region_commit_text(struct ro_state *st) {
 		return;
 	}
 	struct annotation a = {0};
-	a.tool = TOOL_TEXT;
+	a.tool = st->text_tool;
 	a.color = st->current_color;
 	a.font_size = st->current_font;
 	a.x0 = st->text_x;
 	a.y0 = st->text_y;
+	a.x1 = st->text_ax;
+	a.y1 = st->text_ay;
 	st->text_buf[st->text_len] = '\0';
 	a.text = strdup(st->text_buf);
 	if (!a.text)

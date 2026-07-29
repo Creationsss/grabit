@@ -108,6 +108,20 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "capture.delay") == 0) {
+		*example_out = "0..3600 (seconds to wait before capturing)";
+		*def_out = "0";
+		return 0;
+	}
+	if (strcmp(key, "region.repeat_last") == 0) {
+		*example_out = "true|false";
+		*def_out = "false";
+		return 0;
+	}
+	if (strcmp(key, "region.last") == 0) {
+		*example_out = "<x>,<y>,<w>,<h> (written automatically after each region capture)";
+		return 0;
+	}
 	if (strcmp(key, "edit.multi_select") == 0) {
 		*example_out = "ctrl|shift|alt|super";
 		*def_out = "ctrl";
@@ -182,6 +196,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	if (strcmp(key, "preview.dismiss_secs") == 0) {
 		*example_out = "0-600 (0 = stay until next capture)";
 		*def_out = "5";
+		return 0;
+	}
+	if (strcmp(key, "tray.icon") == 0) {
+		*example_out = "<icon name from your icon theme>";
+		*def_out = "camera-photo";
 		return 0;
 	}
 	return -1;

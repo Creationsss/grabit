@@ -25,14 +25,22 @@
 #include "region/render_internal.h"
 
 void gren_output_redraw(struct ro_output *o) {
-	if (!o->configured || !o->buf_data || !o->cairo_dst) return;
+	if (!o->configured) return;
 	o->dirty = false;
 
 	const int32_t S = o->scale;
 	const int32_t pw = o->pixel_width;
 	const int32_t ph = o->pixel_height;
 
-	cairo_t *cr = cairo_create(o->cairo_dst);
+	struct grabit_shm_slot *slot = grabit_shm_pool_next(
+		o->st->wls->shm, "grabit-region", &o->pool, pw, ph);
+	if (!slot) {
+		o->dirty = true;
+		return;
+	}
+	cairo_surface_t *dst = grabit_cairo_image_argb(slot->buf.map, pw, ph, pw * 4);
+	if (!dst) return;
+	cairo_t *cr = cairo_create(dst);
 
 	int32_t sel_l = 0, sel_t = 0, sel_r = 0, sel_b = 0;
 	bool sel_visible = false;
@@ -92,7 +100,27 @@ void gren_output_redraw(struct ro_output *o) {
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		gren_anno_cache_ensure(o);
+		struct annotation preview = {0};
+		if (o->st->drawing) {
+			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
+			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
+									o->st->draw_x0, o->st->draw_y0, &px1, &py1);
+			preview = (struct annotation){
+				.tool = o->st->current_tool,
+				.x0 = o->st->draw_x0,
+				.y0 = o->st->draw_y0,
+				.x1 = px1,
+				.y1 = py1,
+				.color = o->st->current_color,
+				.width = o->st->current_width,
+				.font_size = ANNO_DEFAULT_FONT,
+				.style = o->st->current_style,
+				.points = o->st->pen_points,
+				.n_points = o->st->pen_n,
+			};
+		}
+		bool spot_preview = o->st->drawing && tool_is_layer(o->st->current_tool);
+		gren_anno_cache_ensure(o, dst, spot_preview ? &preview : NULL);
 		if (!o->anno_cache || o->st->drawing || anno_drag) {
 			cairo_push_group(cr);
 			if (o->anno_cache) {
@@ -108,25 +136,8 @@ void gren_output_redraw(struct ro_output *o) {
 					if (o->st->out_annos->items[i].selected)
 						annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
 			}
-			if (o->st->drawing) {
-				int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
-				region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
-										o->st->draw_x0, o->st->draw_y0, &px1, &py1);
-				struct annotation preview = {
-					.tool = o->st->current_tool,
-					.x0 = o->st->draw_x0,
-					.y0 = o->st->draw_y0,
-					.x1 = px1,
-					.y1 = py1,
-					.color = o->st->current_color,
-					.width = o->st->current_width,
-					.font_size = ANNO_DEFAULT_FONT,
-					.style = o->st->current_style,
-					.points = o->st->pen_points,
-					.n_points = o->st->pen_n,
-				};
+			if (o->st->drawing && !spot_preview)
 				annotation_paint(cr, &preview, 1.0);
-			}
 			cairo_pop_group_to_source(cr);
 			cairo_paint(cr);
 		} else {
@@ -153,15 +164,17 @@ void gren_output_redraw(struct ro_output *o) {
 			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
 			cairo_fill(cr);
 			if (o->st->text_len > 0) {
-				struct annotation preview = {
-					.tool = TOOL_TEXT,
+				struct annotation typing = {
+					.tool = o->st->text_tool,
 					.x0 = o->st->text_x,
 					.y0 = o->st->text_y,
+					.x1 = o->st->text_ax,
+					.y1 = o->st->text_ay,
 					.color = o->st->current_color,
 					.font_size = (int32_t)font,
 					.text = (char *)o->st->text_buf,
 				};
-				annotation_paint(cr, &preview, 1.0);
+				annotation_paint(cr, &typing, 1.0);
 			}
 
 			double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
@@ -244,7 +257,7 @@ void gren_output_redraw(struct ro_output *o) {
 	if (region_editing(o->st)) {
 		region_toolbar_render(cr, o);
 		region_color_picker_render(cr, o);
-		region_line_picker_render(cr, o);
+		region_tool_picker_render(cr, o);
 		region_toolbar_tooltip_render(cr, o);
 	}
 
@@ -252,12 +265,13 @@ void gren_output_redraw(struct ro_output *o) {
 	if (region_coords_active(o)) region_coords_render(cr, o);
 
 	cairo_destroy(cr);
-	cairo_surface_flush(o->cairo_dst);
+	cairo_surface_flush(dst);
+	cairo_surface_destroy(dst);
 
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &gren_frame_listener_g, o);
 
-	wl_surface_attach(o->surface, o->buffer, 0, 0);
+	grabit_shm_slot_attach(o->surface, slot);
 	wl_surface_damage_buffer(o->surface, 0, 0, pw, ph);
 	wl_surface_commit(o->surface);
 }

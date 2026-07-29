@@ -9,14 +9,13 @@ struct kc_state {
 	struct grabit_output *go;
 	struct wl_surface *surface;
 	struct zwlr_layer_surface_v1 *layer;
-	struct wl_buffer *buffer;
-	void *buf_data;
-	size_t buf_size;
+	struct grabit_shm_buf buf;
 	int32_t scale;
 	bool mapped;
 
 	struct wl_keyboard *keyboard;
 	struct wl_pointer *pointer;
+	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_surface *cursor_surface;
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *cursor;

@@ -5,12 +5,12 @@
 #include "region/region.h"
 
 #include "config/config.h"
-#include "hyprland.h"
 #include "log.h"
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +20,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate_mode,
@@ -71,8 +72,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 			st->n_snap_windows = n_snap_rects;
 		}
 	} else if (snap_enabled) {
-		if (grabit_hyprland_clients(&st->snap_windows, &st->n_snap_windows) != 0) {
-			log_debug("region: window snap disabled (no hyprland ipc)");
+		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
+			log_debug("region: window snap disabled (no compositor window geometry)");
 		}
 	}
 }
@@ -112,7 +113,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 	for (size_t i = 0; i < st->n_outs; i++) {
 		struct ro_output *o = &st->outs[i];
 		grabit_wl_callback_drop(&o->frame_cb);
-		if (o->surface && o->buffer) {
+		if (o->surface) {
 			wl_surface_attach(o->surface, NULL, 0, 0);
 			wl_surface_commit(o->surface);
 		}
@@ -130,6 +131,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 
 	region_color_picker_release_cache(st);
 
+	if (st->cursor_shape) wp_cursor_shape_device_v1_destroy(st->cursor_shape);
 	if (st->cursor_surface) wl_surface_destroy(st->cursor_surface);
 	if (st->cursor_theme) wl_cursor_theme_destroy(st->cursor_theme);
 

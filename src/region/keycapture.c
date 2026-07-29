@@ -5,10 +5,10 @@
 #include "region/keybinds.h"
 
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +20,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #define KC_MAX_CAPS 12
@@ -39,8 +40,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 
 	struct kc_state st = {.wls = s, .scale = 1};
 
-	int32_t cpx = 0, cpy = 0;
-	if (grabit_hyprland_cursorpos(&cpx, &cpy) == 0) st.go = grabit_wl_output_at(s, cpx, cpy);
+	st.go = grabit_wm_active_output(s);
 	if (!st.go) st.go = grabit_wl_primary_output(s);
 	if (!st.go) {
 		log_error("watch: no output");
@@ -67,11 +67,17 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 		st.pointer = wl_seat_get_pointer(s->seat);
 		if (st.pointer) {
 			wl_pointer_add_listener(st.pointer, &gkc_ptr_listener, &st);
-			st.cursor_theme = grabit_cursor_theme_load(s->shm, st.go->scale > 0 ? st.go->scale : 1);
-			if (st.cursor_theme) {
-				st.cursor = grabit_cursor_load_default(st.cursor_theme);
-				if (st.cursor)
-					st.cursor_surface = wl_compositor_create_surface(s->compositor);
+			if (s->cursor_shape_manager) {
+				st.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
+					s->cursor_shape_manager, st.pointer);
+			} else {
+				st.cursor_theme = grabit_cursor_theme_load(
+					s->shm, st.go->scale > 0 ? st.go->scale : 1);
+				if (st.cursor_theme) {
+					st.cursor = grabit_cursor_load_default(st.cursor_theme);
+					if (st.cursor)
+						st.cursor_surface = wl_compositor_create_surface(s->compositor);
+				}
 			}
 		}
 	}
@@ -93,11 +99,12 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 	if (st.pointer) wl_pointer_release(st.pointer);
 	if (st.keyboard) wl_keyboard_release(st.keyboard);
 	if (st.cursor_surface) wl_surface_destroy(st.cursor_surface);
+	if (st.cursor_shape) wp_cursor_shape_device_v1_destroy(st.cursor_shape);
 	if (st.cursor_theme) wl_cursor_theme_destroy(st.cursor_theme);
 	if (st.xkb_state) xkb_state_unref(st.xkb_state);
 	if (st.xkb_keymap) xkb_keymap_unref(st.xkb_keymap);
 	xkb_context_unref(st.xkb_ctx);
-	grabit_shm_release(&st.buffer, &st.buf_data, &st.buf_size);
+	grabit_shm_buf_destroy(&st.buf);
 	zwlr_layer_surface_v1_destroy(st.layer);
 	wl_surface_destroy(st.surface);
 	wl_display_roundtrip(s->display);

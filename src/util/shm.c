@@ -66,14 +66,44 @@ void grabit_shm_buf_destroy(struct grabit_shm_buf *b) {
 	memset(b, 0, sizeof *b);
 }
 
-void grabit_shm_release(struct wl_buffer **buf, void **map, size_t *size) {
-	if (buf && *buf) {
-		wl_buffer_destroy(*buf);
-		*buf = NULL;
+static void slot_handle_release(void *data, struct wl_buffer *buffer) {
+	(void)buffer;
+	struct grabit_shm_slot *slot = data;
+	slot->busy = false;
+}
+
+static const struct wl_buffer_listener slot_listener_g = {
+	.release = slot_handle_release,
+};
+
+struct grabit_shm_slot *grabit_shm_pool_next(struct wl_shm *shm, const char *tag,
+											 struct grabit_shm_pool *p,
+											 int32_t pixel_w, int32_t pixel_h) {
+	for (size_t i = 0; i < sizeof p->slots / sizeof p->slots[0]; i++) {
+		struct grabit_shm_slot *slot = &p->slots[i];
+		if (slot->busy) continue;
+		if (slot->buf.buffer && (slot->w != pixel_w || slot->h != pixel_h))
+			grabit_shm_buf_destroy(&slot->buf);
+		if (!slot->buf.buffer) {
+			if (grabit_shm_argb_buf(shm, tag, pixel_w, pixel_h, &slot->buf) != 0)
+				return NULL;
+			wl_buffer_add_listener(slot->buf.buffer, &slot_listener_g, slot);
+			slot->w = pixel_w;
+			slot->h = pixel_h;
+		}
+		return slot;
 	}
-	if (map && *map && size) {
-		munmap(*map, *size);
-		*map = NULL;
-		*size = 0;
+	return NULL;
+}
+
+void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *slot) {
+	wl_surface_attach(surface, slot->buf.buffer, 0, 0);
+	slot->busy = true;
+}
+
+void grabit_shm_pool_finish(struct grabit_shm_pool *p) {
+	for (size_t i = 0; i < sizeof p->slots / sizeof p->slots[0]; i++) {
+		grabit_shm_buf_destroy(&p->slots[i].buf);
+		p->slots[i].busy = false;
 	}
 }

@@ -235,9 +235,7 @@ int sni_run(volatile sig_atomic_t *stop, volatile sig_atomic_t *layout_update,
 					 err.message ? err.message : ename);
 		} else {
 			if (strstr(ename, "ServiceUnknown") || strstr(ename, "NameHasNoOwner")) {
-				log_warn("tray: no SNI host running (install a status bar with tray "
-						 "support, e.g. waybar with tray module; or pass --no-tray "
-						 "to silence)");
+				log_warn("tray: no SNI host running (pass --no-tray to silence)");
 				notify_tray_unavailable("no tray host running");
 			} else {
 				log_warn("tray: register failed: %s",

@@ -129,7 +129,8 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			return 0;
 		}
 		if (strcmp(leaf, "tool") == 0) {
-			*example_out = "pen|marker|line|rect|ellipse|arrow|blur|text|eraser";
+			*example_out = "pen|marker|line|rect|rounded_rect|ellipse|arrow|"
+						   "blur|pixelate|spotlight|text|counter|callout|eraser";
 			*def_out = "pen";
 			return 0;
 		}

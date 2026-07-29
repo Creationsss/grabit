@@ -44,8 +44,10 @@ static void output_mode(void *data, struct wl_output *wo, uint32_t flags,
 }
 
 static void output_done(void *data, struct wl_output *wo) {
-	(void)data;
 	(void)wo;
+	struct grabit_output *o = data;
+	gwl_output_finalize(o);
+	o->state->outputs_serial++;
 }
 
 static void output_scale(void *data, struct wl_output *wo, int32_t factor) {
@@ -93,8 +95,9 @@ static void xdg_output_logical_size(void *data, struct zxdg_output_v1 *xo,
 }
 
 static void xdg_output_done(void *data, struct zxdg_output_v1 *xo) {
-	(void)data;
 	(void)xo;
+	struct grabit_output *o = data;
+	o->state->outputs_serial++;
 }
 
 static void xdg_output_xname(void *data, struct zxdg_output_v1 *xo, const char *name) {
@@ -119,6 +122,22 @@ const struct zxdg_output_v1_listener grabit_xdg_output_listener = {
 	.description = xdg_output_xdescription,
 };
 
+void gwl_output_attach_xdg(struct grabit_wl_state *s, struct grabit_output *o) {
+	if (!s->xdg_output_manager || o->xdg_output || !o->wl_output) return;
+	o->xdg_output = zxdg_output_manager_v1_get_xdg_output(s->xdg_output_manager,
+														  o->wl_output);
+	zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);
+}
+
+void gwl_output_finalize(struct grabit_output *o) {
+	if (o->scale <= 0) o->scale = 1;
+	bool rotated = (o->transform & 1) != 0;
+	int32_t native_logical_w = (rotated ? o->height : o->width) / o->scale;
+	int32_t native_logical_h = (rotated ? o->width : o->height) / o->scale;
+	if (o->logical_width <= 0) o->logical_width = native_logical_w;
+	if (o->logical_height <= 0) o->logical_height = native_logical_h;
+}
+
 int gwl_outputs_push(struct grabit_wl_state *s, struct grabit_output *o) {
 	if (s->n_outputs == s->cap_outputs) {
 		size_t cap = s->cap_outputs ? s->cap_outputs * 2 : 4;
@@ -132,12 +151,16 @@ int gwl_outputs_push(struct grabit_wl_state *s, struct grabit_output *o) {
 }
 
 struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s) {
-	return s->n_outputs > 0 ? s->outputs[0] : NULL;
+	for (size_t i = 0; i < s->n_outputs; i++) {
+		if (!s->outputs[i]->dead) return s->outputs[i];
+	}
+	return NULL;
 }
 
 struct grabit_output *grabit_wl_output_by_name(struct grabit_wl_state *s, const char *name) {
 	if (!name) return NULL;
 	for (size_t i = 0; i < s->n_outputs; i++) {
+		if (s->outputs[i]->dead) continue;
 		if (s->outputs[i]->name && strcmp(s->outputs[i]->name, name) == 0)
 			return s->outputs[i];
 	}
@@ -151,78 +174,10 @@ void grabit_output_rect(const struct grabit_output *o, struct rect *r) {
 	r->h = o->logical_height;
 }
 
-static void grabit_wl_log_monitors(const struct grabit_wl_state *s) {
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		const struct grabit_output *o = s->outputs[i];
-		log_info("  %zu: %s (%dx%d)", i + 1,
-				 o->name ? o->name : "?", o->logical_width, o->logical_height);
-	}
-}
-
-void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out) {
-	*out = NULL;
-	*n_out = 0;
-	if (s->n_outputs == 0) return;
-	struct rect *r = malloc(s->n_outputs * sizeof *r);
-	if (!r) return;
-	for (size_t i = 0; i < s->n_outputs; i++)
-		grabit_output_rect(s->outputs[i], &r[i]);
-	*out = r;
-	*n_out = s->n_outputs;
-}
-
-void grabit_wl_outputs_bbox(struct grabit_wl_state *s, struct rect *out) {
-	memset(out, 0, sizeof *out);
-	if (s->n_outputs == 0) return;
-	grabit_output_rect(s->outputs[0], out);
-	int32_t max_x = out->x + out->w, max_y = out->y + out->h;
-	for (size_t i = 1; i < s->n_outputs; i++) {
-		struct rect r;
-		grabit_output_rect(s->outputs[i], &r);
-		if (r.x < out->x) out->x = r.x;
-		if (r.y < out->y) out->y = r.y;
-		if (r.x + r.w > max_x) max_x = r.x + r.w;
-		if (r.y + r.h > max_y) max_y = r.y + r.h;
-	}
-	out->w = max_x - out->x;
-	out->h = max_y - out->y;
-}
-
-int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out) {
-	if (s->n_outputs == 0) {
-		log_error("fullscreen: no outputs");
-		return -1;
-	}
-	if (spec && strcmp(spec, "all") == 0) {
-		grabit_wl_outputs_bbox(s, out);
-		return 0;
-	}
-	if (spec && spec[0]) {
-		struct grabit_output *target = NULL;
-		char *end = NULL;
-		long n = strtol(spec, &end, 10);
-		if (end && *end == '\0' && n >= 1 && (size_t)n <= s->n_outputs)
-			target = s->outputs[n - 1];
-		else
-			target = grabit_wl_output_by_name(s, spec);
-		if (!target) {
-			log_error("fullscreen: no monitor matches `%s`; available:", spec);
-			grabit_wl_log_monitors(s);
-			return -1;
-		}
-		grabit_output_rect(target, out);
-		return 0;
-	}
-	if (s->n_outputs == 1) {
-		grabit_output_rect(grabit_wl_primary_output(s), out);
-		return 0;
-	}
-	return 1;
-}
-
 struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, int32_t y) {
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];
+		if (o->dead) continue;
 		if (x >= o->x && y >= o->y &&
 			x < o->x + o->logical_width &&
 			y < o->y + o->logical_height)

@@ -33,6 +33,12 @@ PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo libpng xkbcommon
 CFLAGS    += $(shell $(PKG_CONFIG) --cflags $(PKGS_CORE)) -pthread
 LDLIBS    += $(shell $(PKG_CONFIG) --libs   $(PKGS_CORE)) -lmagic -lrt -lm -pthread
 
+HAVE_PIPEWIRE := $(shell $(PKG_CONFIG) --exists libpipewire-0.3 && echo 1)
+ifeq ($(HAVE_PIPEWIRE),1)
+  CFLAGS += -DHAVE_PIPEWIRE $(shell $(PKG_CONFIG) --cflags libpipewire-0.3 | sed 's/-I/-isystem /g')
+  LDLIBS += $(shell $(PKG_CONFIG) --libs libpipewire-0.3)
+endif
+
 HAVE_JPEG := $(shell $(PKG_CONFIG) --exists libjpeg && echo 1)
 HAVE_WEBP := $(shell $(PKG_CONFIG) --exists libwebp && echo 1)
 
@@ -46,6 +52,10 @@ ifeq ($(HAVE_WEBP),1)
 endif
 
 WL_PROTOCOLS := \
+	viewporter \
+	fractional-scale-v1 \
+	cursor-shape-v1 \
+	tablet-unstable-v2 \
 	wlr-screencopy-unstable-v1 \
 	wlr-data-control-unstable-v1 \
 	ext-data-control-v1 \
@@ -53,8 +63,10 @@ WL_PROTOCOLS := \
 	xdg-output-unstable-v1 \
 	xdg-shell \
 	ext-image-capture-source-v1 \
+	ext-foreign-toplevel-list-v1 \
 	ext-image-copy-capture-v1 \
-	ext-foreign-toplevel-list-v1
+	wlr-foreign-toplevel-management-unstable-v1 \
+	zkde-screencast-unstable-v1
 
 WL_PROTO_DIR     := $(BUILDDIR)/protocols
 WL_PROTO_HEADERS := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -client-protocol.h,$(WL_PROTOCOLS)))
@@ -98,10 +110,15 @@ GRABIT_SRCS := \
 	src/config/help_examples.c \
 	src/config/help_groups.c \
 	src/template.c \
-	src/hyprland.c \
+	src/wm/wm.c \
+	src/wm/ipc.c \
+	src/wm/hyprland.c \
+	src/wm/niri.c \
 	src/mime.c \
 	src/wl/wl.c \
+	src/wl/toplevel.c \
 	src/wl/output.c \
+	src/wl/monitors.c \
 	src/wl/registry.c \
 	src/capture/capture.c \
 	src/capture/pixels.c \
@@ -116,6 +133,7 @@ GRABIT_SRCS := \
 	src/capture/webp.c \
 	src/capture/transform.c \
 	src/capture/freeze.c \
+	src/capture/region_plan.c \
 	src/region/annotate.c \
 	src/region/annotate_paint.c \
 	src/region/annotate_blur.c \
@@ -125,7 +143,7 @@ GRABIT_SRCS := \
 	src/region/toolbar_icons.c \
 	src/region/color_picker.c \
 	src/region/color_picker_render.c \
-	src/region/line_picker.c \
+	src/region/tool_picker.c \
 	src/region/magnifier_render.c \
 	src/region/keybinds.c \
 	src/region/keybinds_parse.c \
@@ -163,6 +181,10 @@ GRABIT_SRCS := \
 	src/record/compose.c \
 	src/record/overlay.c \
 	src/record/controls.c \
+	src/record/screencast.c \
+	src/record/pw.c \
+	src/record/sc_kde.c \
+	src/record/sc_gnome.c \
 	src/record/controls_input.c \
 	src/record/controls_render.c \
 	src/tray/apptray.c \
@@ -198,6 +220,8 @@ GRABIT_SRCS := \
 	src/ocr/translate_deepl.c \
 	src/sound/sound.c \
 	src/pin/pin.c \
+	src/pin/pin_cursor.c \
+	src/pin/pin_outputs.c \
 	src/pin/spawn.c \
 	src/pin/pin_render.c \
 	src/pin/pin_input.c \

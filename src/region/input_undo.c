@@ -137,6 +137,26 @@ void region_undo_record_anno_size(struct ro_state *st, size_t idx) {
 	undo_push(st, it);
 }
 
+void region_undo_record_selected_sizes(struct ro_state *st, int font_filter) {
+	if (!st->out_annos) return;
+	region_undo_group_begin(st);
+	for (size_t i = 0; i < st->out_annos->n; i++) {
+		const struct annotation *a = &st->out_annos->items[i];
+		if (!a->selected) continue;
+		if (font_filter >= 0 && (int)tool_uses_font(a->tool) != font_filter) continue;
+		region_undo_record_anno_size(st, i);
+	}
+	region_undo_group_end(st);
+}
+
+void region_undo_record_anno_color(struct ro_state *st, size_t idx) {
+	if (!st->out_annos || idx >= st->out_annos->n) return;
+	struct undo_item it = {.kind = UNDO_ANNO_COLOR};
+	it.u.color.idx = idx;
+	it.u.color.color = st->out_annos->items[idx].color;
+	undo_push(st, it);
+}
+
 void region_undo_record_anno_delete(struct ro_state *st, size_t idx,
 									struct annotation *a) {
 	struct undo_item it = {.kind = UNDO_ANNO_DELETE};
@@ -233,6 +253,17 @@ struct undo_item gist_undo_apply(struct ro_state *st, const struct undo_item *it
 		} else {
 			inv.u.size.width = it->u.size.width;
 			inv.u.size.font_size = it->u.size.font_size;
+		}
+		break;
+	case UNDO_ANNO_COLOR:
+		inv.u.color.idx = it->u.color.idx;
+		if (annos && it->u.color.idx < annos->n) {
+			struct annotation *a = &annos->items[it->u.color.idx];
+			inv.u.color.color = a->color;
+			a->color = it->u.color.color;
+			annos->gen++;
+		} else {
+			inv.u.color.color = it->u.color.color;
 		}
 		break;
 	}

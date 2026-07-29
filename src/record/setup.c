@@ -6,7 +6,7 @@
 
 #include "args.h"
 #include "capture/capture.h"
-#include "config/config.h"
+#include "capture/region_plan.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -35,6 +35,18 @@ void rec_fail_notify(const char *body) {
 
 int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 					const struct args *a, struct rect *out) {
+	struct region_plan_req req = {
+		.fullscreen = a->fullscreen,
+		.fullscreen_target = a->fullscreen_target,
+		.use_last = a->last_region,
+	};
+	enum region_plan plan = region_plan_resolve(s, cfg, &req, out);
+	if (plan == REGION_PLAN_NO_MONITOR) {
+		rec_fail_notify("no matching monitor");
+		return -1;
+	}
+	if (plan == REGION_PLAN_FIXED) return 0;
+
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
 	if (!frozen) {
 		log_error("oom");
@@ -54,28 +66,13 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 		}
 	}
 
-	int rc;
-	if (a->fullscreen) {
-		struct rect fs_rect;
-		int plan = grabit_wl_fullscreen_plan(s, a->fullscreen_target, &fs_rect);
-		if (plan < 0) {
-			rec_fail_notify("no matching monitor");
-			rc = -1;
-		} else if (plan == 0) {
-			*out = fs_rect;
-			rc = 0;
-		} else {
-			struct rect *mon = NULL;
-			size_t n_mon = 0;
-			grabit_wl_monitor_rects(s, &mon, &n_mon);
-			rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-							   NULL, NULL, mon, n_mon);
-			free(mon);
-		}
-	} else {
-		rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-						   NULL, NULL, NULL, 0);
-	}
+	struct rect *mon = NULL;
+	size_t n_mon = 0;
+	if (plan == REGION_PLAN_MONITOR_PICK) grabit_wl_monitor_rects(s, &mon, &n_mon);
+	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
+						   NULL, NULL, mon, n_mon);
+	free(mon);
+
 	for (size_t i = 0; i < s->n_outputs; i++)
 		image_free(&frozen[i]);
 	free(frozen);

@@ -6,9 +6,9 @@
 
 #include "config/config.h"
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "region/edit_persist.h"
+#include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
@@ -24,6 +24,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 int region_select(struct grabit_wl_state *s, struct config *cfg,
@@ -35,7 +36,10 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  bool *out_choices_dirty, const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
-		log_error("region: compositor lacks zwlr_layer_shell_v1");
+		log_error("region: compositor lacks zwlr_layer_shell_v1, so the "
+				  "interactive selector is unavailable");
+		log_error("  select a region up front instead: -F/--fullscreen[=<monitor>] "
+				  "or -L/--last");
 		return -1;
 	}
 	if (!s->compositor) {
@@ -54,8 +58,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.current_tool = (inout_tool && *inout_tool >= 0 && *inout_tool < TOOL_COUNT)
 						  ? (enum tool_kind) * inout_tool
 						  : TOOL_PEN;
-	st.current_line_tool =
-		tool_is_line_family(st.current_tool) ? st.current_tool : TOOL_LINE;
+	st.picker_group = TB_NONE;
+	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
+		st.group_tool[i] = toolbar_group_default(i);
+	const struct tool_group *cur_g = toolbar_group_of_tool(st.current_tool);
+	if (cur_g) st.group_tool[toolbar_group_index(cur_g)] = st.current_tool;
 	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
 	st.current_font = ANNO_DEFAULT_FONT;
@@ -95,14 +102,19 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.keyboard = wl_seat_get_keyboard(s->seat);
 	region_input_attach(&st);
 
-	int32_t max_scale = 1;
-	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
-	}
-	st.cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
-	if (!st.cursor_theme) {
-		log_warn("region: no cursor theme found; cursor may be invisible");
+	if (s->cursor_shape_manager && st.pointer) {
+		st.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
+			s->cursor_shape_manager, st.pointer);
 	} else {
+		int32_t max_scale = 1;
+		for (size_t i = 0; i < s->n_outputs; i++) {
+			if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
+		}
+		st.cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
+	}
+	if (!st.cursor_shape && !st.cursor_theme) {
+		log_warn("region: no cursor theme found; cursor may be invisible");
+	} else if (st.cursor_theme) {
 		static const char *const cross_names[] = {
 			"crosshair",
 			"tcross",
@@ -148,9 +160,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			st.cursor_resize[i] = grabit_cursor_load_first(st.cursor_theme, resize_names[i]);
 		}
 		if (!st.cursor) log_warn("region: cursor theme has no usable cursor");
-	}
-	if (st.cursor) {
-		st.cursor_surface = wl_compositor_create_surface(s->compositor);
+		if (st.cursor)
+			st.cursor_surface = wl_compositor_create_surface(s->compositor);
 	}
 
 	gregion_create_surfaces(&st, s);

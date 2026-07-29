@@ -5,7 +5,6 @@
 #include "region/keybinds.h"
 
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
@@ -20,6 +19,7 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #define KC_MAX_CAPS 12
@@ -71,15 +71,11 @@ static void layer_configure(void *data, struct zwlr_layer_surface_v1 *ls,
 	int32_t pw = (int32_t)w * s->scale;
 	int32_t ph = (int32_t)h * s->scale;
 
-	struct grabit_shm_buf b;
-	if (grabit_shm_argb_buf(s->wls->shm, "grabit-keycapture", pw, ph, &b) != 0)
+	if (grabit_shm_argb_buf(s->wls->shm, "grabit-keycapture", pw, ph, &s->buf) != 0)
 		return;
-	s->buffer = b.buffer;
-	s->buf_data = b.map;
-	s->buf_size = b.size;
 
 	wl_surface_set_buffer_scale(s->surface, s->scale);
-	wl_surface_attach(s->surface, s->buffer, 0, 0);
+	wl_surface_attach(s->surface, s->buf.buffer, 0, 0);
 	wl_surface_damage_buffer(s->surface, 0, 0, pw, ph);
 	wl_surface_commit(s->surface);
 	wl_display_flush(s->wls->display);
@@ -181,7 +177,10 @@ static void ptr_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)sx;
 	(void)sy;
 	struct kc_state *s = data;
-	if (s->cursor)
+	if (s->cursor_shape)
+		wp_cursor_shape_device_v1_set_shape(s->cursor_shape, serial,
+											WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
+	else if (s->cursor)
 		grabit_cursor_apply(p, serial, s->cursor_surface, s->cursor, s->scale);
 }
 

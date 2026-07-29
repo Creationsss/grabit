@@ -8,3 +8,4 @@ Terminal=false
 Categories=Graphics;
 Keywords=screenshot;capture;record;ocr;screen;
 X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1

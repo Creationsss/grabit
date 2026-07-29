@@ -5,44 +5,27 @@
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
+#include "region/wlr_input_state.h"
 #include "wl/wl.h"
 
 #include <math.h>
 
 #include <cairo/cairo.h>
 
-_Static_assert(TB_TOOL_ERASER - TB_TOOL_RECT == TOOL_ERASER - TOOL_RECT,
-			   "TB_TOOL_RECT..ERASER order must match tool_kind (act - TB_TOOL_RECT + TOOL_RECT)");
-
 static bool button_active(const struct ro_state *st, enum tb_action act) {
 	if (act == TB_REGION) return !st->region_locked;
 	if (act == TB_EDIT) return st->anno_edit_mode;
-	if (act == TB_TOOL_LINES)
-		return st->line_picker_open ||
-			   (st->region_locked && !st->anno_edit_mode &&
-				tool_is_line_family(st->current_tool));
-	if (act >= TB_TOOL_RECT && act <= TB_TOOL_ERASER)
-		return st->region_locked && !st->anno_edit_mode &&
-			   st->current_tool ==
-				   (enum tool_kind)(act - TB_TOOL_RECT + TOOL_RECT);
-	switch (act) {
-	case TB_COLOR_RED:
-		return st->current_color == TOOLBAR_COLORS[0];
-	case TB_COLOR_YELLOW:
-		return st->current_color == TOOLBAR_COLORS[1];
-	case TB_COLOR_GREEN:
-		return st->current_color == TOOLBAR_COLORS[2];
-	case TB_COLOR_BLUE:
-		return st->current_color == TOOLBAR_COLORS[3];
-	case TB_COLOR_BLACK:
-		return st->current_color == TOOLBAR_COLORS[4];
-	case TB_COLOR_WHITE:
-		return st->current_color == TOOLBAR_COLORS[5];
-	case TB_UNDO:
-		return st->undo_held;
-	default:
-		return false;
-	}
+	bool tool_active = st->region_locked && !st->anno_edit_mode;
+	const struct tool_group *g = toolbar_tool_group(act);
+	if (g)
+		return st->picker_group == act ||
+			   (tool_active && toolbar_group_of_tool(st->current_tool) == g);
+	int32_t stool = toolbar_standalone_tool(act);
+	if (stool >= 0)
+		return tool_active && st->current_tool == (enum tool_kind)stool;
+	if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE)
+		return region_active_color(st) == TOOLBAR_COLORS[act - TB_COLOR_RED];
+	return act == TB_UNDO && st->undo_held;
 }
 
 static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
@@ -83,7 +66,7 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_stroke(cr);
 
 	int32_t lo, hi;
-	int32_t val = *region_slider_field(st, &lo, &hi);
+	int32_t val = region_active_slider(st, &lo, &hi);
 	if (val < lo) val = lo;
 	if (val > hi) val = hi;
 	double frac = (double)(val - lo) / (double)(hi - lo);
@@ -106,26 +89,17 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	case TB_EDIT:
 		toolbar_icon_select(cr, cxi, cyi, s_icon);
 		break;
-	case TB_TOOL_RECT:
-		toolbar_icon_rect(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_ELLIPSE:
-		toolbar_icon_ellipse(cr, cxi, cyi, s_icon);
-		break;
 	case TB_TOOL_ARROW:
 		toolbar_icon_arrow(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_BLUR:
-		toolbar_icon_blur(cr, cxi, cyi, s_icon);
-		break;
-	case TB_TOOL_PIXELATE:
-		toolbar_icon_pixelate(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_TEXT:
 		toolbar_icon_text(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_COUNTER:
 		toolbar_icon_counter(cr, cxi, cyi, s_icon);
+		break;
+	case TB_TOOL_CALLOUT:
+		toolbar_icon_callout(cr, cxi, cyi, s_icon);
 		break;
 	case TB_TOOL_ERASER:
 		toolbar_icon_eraser(cr, cxi, cyi, s_icon);
@@ -199,7 +173,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		}
 		if (is_current) {
 			toolbar_color_current(cr, cxi, cyi, s_icon,
-								  o->st->current_color, o->st->color_picker_open);
+								  region_active_color(o->st),
+								  o->st->color_picker_open);
 			continue;
 		}
 		if (is_slider) {
@@ -211,8 +186,10 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		cairo_set_source_rgba(cr, active ? 1.0 : 0.92,
 							  active ? 1.0 : 0.92,
 							  active ? 1.0 : 0.92, ia);
-		if (act == TB_TOOL_LINES) {
-			toolbar_icon_line_group(cr, cxi, cyi, s_icon, o->st->current_line_tool);
+		const struct tool_group *g = toolbar_tool_group(act);
+		if (g) {
+			enum tool_kind gt = o->st->group_tool[toolbar_group_index(g)];
+			toolbar_icon_for_tool(cr, gt, cxi, cyi, s_icon);
 			continue;
 		}
 		paint_tool_icon(cr, act, cxi, cyi, s_icon);

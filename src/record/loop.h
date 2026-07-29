@@ -41,4 +41,8 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						struct buf_pool *pool, bool cursor,
 						struct seg_ctx *sc, struct rec_controls *ctrl);
 
+struct pw_capture;
+double rec_pw_loop(struct grabit_wl_state *s, struct pw_capture *cap,
+				   struct seg_ctx *sc, struct rec_controls *ctrl);
+
 #endif

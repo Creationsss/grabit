@@ -4,6 +4,8 @@
 #ifndef GRABIT_TRAY_APPTRAY_H
 #define GRABIT_TRAY_APPTRAY_H
 
-int tray_app_run(void);
+struct config;
+
+int tray_app_run(struct config *cfg);
 
 #endif

@@ -12,27 +12,21 @@
 #include <cairo/cairo.h>
 
 static const char *tooltip_text(enum tb_action act) {
+	const struct tool_group *g = toolbar_tool_group(act);
+	if (g) return g->tip;
 	switch (act) {
 	case TB_REGION:
 		return "Select region (q, drag to set the capture area)";
 	case TB_EDIT:
 		return "Move/resize annotations  (s)";
-	case TB_TOOL_LINES:
-		return "Line tools  (pen / marker / line + style)";
-	case TB_TOOL_RECT:
-		return "Rectangle  (4 / r)";
-	case TB_TOOL_ELLIPSE:
-		return "Ellipse  (5 / o)";
 	case TB_TOOL_ARROW:
 		return "Arrow  (6 / a)";
-	case TB_TOOL_BLUR:
-		return "Blur  (7 / b)";
-	case TB_TOOL_PIXELATE:
-		return "Pixelate  (0 / x)";
 	case TB_TOOL_TEXT:
 		return "Text  (8 / t)";
 	case TB_TOOL_COUNTER:
 		return "Counter  (c)";
+	case TB_TOOL_CALLOUT:
+		return "Callout bubble  (k, click what it points at)";
 	case TB_TOOL_ERASER:
 		return "Eraser  (9 / e)";
 	case TB_COLOR_RED:

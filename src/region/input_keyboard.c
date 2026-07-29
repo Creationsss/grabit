@@ -239,6 +239,15 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	int32_t pick = region_key_tool(&st->keys, sym, mods);
 	if (pick >= 0 && pick < TOOL_COUNT) {
+		const struct tool_group *g = toolbar_group_of_tool((enum tool_kind)pick);
+		if (g && (enum tool_kind)pick == g->tools[0] &&
+			toolbar_group_of_tool(st->current_tool) == g) {
+			int idx = 0;
+			for (; idx < g->n; idx++) {
+				if (g->tools[idx] == st->current_tool) break;
+			}
+			pick = g->tools[(idx + 1) % g->n];
+		}
 		ginp_mode_select_tool(st, (enum tool_kind)pick);
 		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
 		region_render_request_redraw_all(st);

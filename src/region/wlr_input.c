@@ -78,6 +78,9 @@ void ginp_mode_enter_region(struct ro_state *st) {
 	st->color_picker_open = false;
 	st->picker_group = TB_NONE;
 	st->eyedropper_mode = false;
+	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
+		st->group_tool[i] = toolbar_group_default(i);
+	st->current_tool = TOOL_PEN;
 }
 
 void ginp_mode_enter_anno_edit(struct ro_state *st) {
@@ -87,12 +90,20 @@ void ginp_mode_enter_anno_edit(struct ro_state *st) {
 	st->color_picker_open = false;
 	st->picker_group = TB_NONE;
 	st->eyedropper_mode = false;
+	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
+		st->group_tool[i] = toolbar_group_default(i);
+	st->current_tool = TOOL_PEN;
 }
 
 void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
+	const struct tool_group *old_g = toolbar_group_of_tool(st->current_tool);
+	const struct tool_group *new_g = toolbar_group_of_tool(t);
+	if (old_g && old_g != new_g) {
+		st->group_tool[toolbar_group_index(old_g)] = old_g->tools[0];
+	}
+
 	st->current_tool = t;
-	const struct tool_group *g = toolbar_group_of_tool(t);
-	if (g) st->group_tool[toolbar_group_index(g)] = t;
+	if (new_g) st->group_tool[toolbar_group_index(new_g)] = t;
 	st->region_locked = true;
 	st->anno_edit_mode = false;
 	st->picker_group = TB_NONE;

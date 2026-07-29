@@ -147,8 +147,13 @@ static int build_body(CURL *c, const struct sxcu_uploader *u, const char *file_p
 			return -1;
 		}
 		struct stat sb;
-		if (fstat(fileno(f), &sb) != 0 || !S_ISREG(sb.st_mode)) {
-			log_error("sxcu: stat %s failed", file_path);
+		if (fstat(fileno(f), &sb) != 0) {
+			log_error("sxcu: stat %s: %s", file_path, strerror(errno));
+			fclose(f);
+			return -1;
+		}
+		if (!S_ISREG(sb.st_mode)) {
+			log_error("sxcu: %s is not a regular file", file_path);
 			fclose(f);
 			return -1;
 		}

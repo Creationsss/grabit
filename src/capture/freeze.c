@@ -55,7 +55,6 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	captured = s->n_outputs;
 
 	if (n_want > 0 && capture_outputs_full(s, want, n_want, cursor, shot) != 0) {
-		log_error("freeze: capture failed");
 		free(want);
 		free(want_idx);
 		free(shot);
@@ -77,13 +76,18 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	}
 	free(want_idx);
 
-	if (!forced_only &&
-		region_select(s, cfg, frozen, annotate, &r, annotate ? &annos : NULL,
-					  inout_color, inout_width, inout_tool, out_choices_dirty,
-					  forced_region, snap_rects, n_snap_rects) != 0) {
-		log_info("region selection cancelled");
-		rc = GRABIT_CAPTURE_CANCELLED;
-		goto cleanup;
+	if (!forced_only) {
+		int sel = region_select(s, cfg, frozen, annotate, &r,
+								annotate ? &annos : NULL, inout_color, inout_width,
+								inout_tool, out_choices_dirty, forced_region,
+								snap_rects, n_snap_rects);
+		if (sel != 0) {
+			if (sel == REGION_SELECT_CANCELLED) {
+				log_debug("region selection cancelled");
+				rc = GRABIT_CAPTURE_CANCELLED;
+			}
+			goto cleanup;
+		}
 	}
 	if (r.w <= 0 || r.h <= 0) {
 		log_error("empty selection");

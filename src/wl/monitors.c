@@ -3,6 +3,7 @@
 
 #define _XOPEN_SOURCE 700
 
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include "log.h"
@@ -11,15 +12,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include <wayland-client.h>
 
-static void grabit_wl_log_monitors(const struct grabit_wl_state *s) {
-	size_t idx = 0;
+static void monitor_names(const struct grabit_wl_state *s, char *out, size_t cap) {
+	size_t off = 0;
+	out[0] = '\0';
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		const struct grabit_output *o = s->outputs[i];
 		if (o->dead) continue;
-		log_info("  %zu: %s (%dx%d)", ++idx,
-				 o->name ? o->name : "?", o->logical_width, o->logical_height);
+		if (!grabit_join_appendf(out, cap, &off, ", ", "%s (%dx%d)",
+								 o->name ? o->name : "?", o->logical_width,
+								 o->logical_height))
+			break;
 	}
 }
 
@@ -91,8 +97,10 @@ int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struc
 			target = grabit_wl_output_by_name(s, spec);
 		}
 		if (!target) {
-			log_error("fullscreen: no monitor matches `%s`; available:", spec);
-			grabit_wl_log_monitors(s);
+			char have[512];
+			monitor_names(s, have, sizeof have);
+			log_error("fullscreen: no monitor matches `%s` (have: %s)", spec,
+					  have[0] ? have : "none");
 			return -1;
 		}
 		grabit_output_rect(target, out);

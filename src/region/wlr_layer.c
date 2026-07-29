@@ -36,10 +36,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  bool *out_choices_dirty, const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
-		log_error("region: compositor lacks zwlr_layer_shell_v1, so the "
-				  "interactive selector is unavailable");
-		log_error("  select a region up front instead: -F/--fullscreen[=<monitor>] "
-				  "or -L/--last");
+		log_error("region: compositor lacks zwlr_layer_shell_v1; pick the area up "
+				  "front with -F/--fullscreen[=<monitor>] or -L/--last");
 		return -1;
 	}
 	if (!s->compositor) {
@@ -265,7 +263,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	}
 loop_done:;
 
-	int rc = -1;
+	int rc = REGION_SELECT_CANCELLED;
 	if (!st.cancelled && st.has_selection) {
 		out->x = st.sel_x;
 		out->y = st.sel_y;

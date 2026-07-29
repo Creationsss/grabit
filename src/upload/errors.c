@@ -75,7 +75,7 @@ void upload_log_http_failure(long code, const char *body) {
 		log_error("upload failed (HTTP %ld): %s", code, summary);
 	else
 		log_error("upload failed (HTTP %ld)", code);
-	if (!summary || code == 0) upload_log_response_body(body);
+	if (!summary) upload_log_response_body(body);
 }
 
 void upload_log_curl_failure(int code) {

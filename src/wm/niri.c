@@ -330,16 +330,19 @@ int grabit_niri_capture_active_window(bool cursor, const char *png_path) {
 
 	struct json_object *reply = NULL;
 	int rc = -1;
-	if (gwm_ipc_query(sock, req, &reply) == 0) {
-		if (unwrap(reply, NULL))
+	if (gwm_ipc_query(sock, req, &reply) != 0) {
+		log_error("niri: screenshot-window request failed");
+	} else {
+		if (!unwrap(reply, NULL)) {
+			log_error("niri: screenshot-window action was rejected");
+		} else {
 			rc = wait_for_file(png_path,
 							   gwm_ipc_deadline(NIRI_SCREENSHOT_TIMEOUT_MS));
-		else
-			log_error("niri: screenshot-window action was rejected");
+			if (rc != 0)
+				log_error("niri: the window screenshot never appeared");
+		}
 		json_object_put(reply);
 	}
-	if (rc != 0)
-		log_error("niri: the window screenshot never appeared at %s", png_path);
 	free(req);
 	return rc;
 }

@@ -147,9 +147,8 @@ int plugin_verify_sha256(const char *path, const char *expect_hex) {
 		return -1;
 	}
 	if (!plugin_sha256_equal(expect_hex, actual)) {
-		log_error("plugin: sha256 mismatch on %s", path);
-		log_error("  expected: %s", expect_hex);
-		log_error("  actual:   %s", actual);
+		log_error("plugin: sha256 mismatch on %s (expected %s, got %s)", path,
+				  expect_hex, actual);
 		return -1;
 	}
 	return 0;

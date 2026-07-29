@@ -15,6 +15,7 @@ int gapp_print_help(void);
 int gapp_print_help_topics(void);
 int gapp_print_help_filename(void);
 int gapp_print_help_env(void);
+int gapp_print_help_ocr(void);
 int gapp_print_help_examples(void);
 
 enum action gapp_default_action(const char *name);

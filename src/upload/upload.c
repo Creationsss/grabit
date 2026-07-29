@@ -90,13 +90,20 @@ static bool header_name_ok(const char *name) {
 
 struct curl_slist *upload_header_append(struct curl_slist *list, const char *name,
 										const char *value, bool *oom) {
+	static bool warned_name, warned_value;
 	if (!header_name_ok(name)) {
-		log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		if (!warned_name) {
+			warned_name = true;
+			log_warn("upload: dropping header with invalid name `%s`", name ? name : "");
+		}
 		return list;
 	}
 	size_t vlen = value_clean_len(value);
 	if (vlen == 0) {
-		log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
+		if (!warned_value) {
+			warned_value = true;
+			log_warn("upload: dropping header `%s` (empty or contains CR/LF)", name);
+		}
 		return list;
 	}
 	size_t n = strlen(name) + vlen + 3;
@@ -124,7 +131,7 @@ int upload_perform(const char *service_name, const char *file_path,
 			sxcu_free(&u);
 			return rc;
 		}
-		log_error("unknown service: %s", service_name);
+		log_debug("unknown service: %s", service_name);
 		return -1;
 	}
 
@@ -132,7 +139,7 @@ int upload_perform(const char *service_name, const char *file_path,
 	if (!url) {
 		url = config_get(cfg, "services.zipline.domain");
 		if (!url) {
-			log_error("zipline requires services.zipline.domain (e.g. https://example.com/api/upload)");
+			log_debug("zipline requires services.zipline.domain");
 			return -1;
 		}
 	}
@@ -198,7 +205,9 @@ int upload_perform(const char *service_name, const char *file_path,
 	upload_curl_common(curl);
 
 	log_info("uploading %s to %s ...", grabit_basename(file_path), svc->name);
-	log_debug("POST %s", url);
+	char safe_url[512];
+	grabit_redact_url(url, safe_url, sizeof safe_url);
+	log_debug("POST %s", safe_url);
 	CURLcode rc = curl_easy_perform(curl);
 	long http_code = 0;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);

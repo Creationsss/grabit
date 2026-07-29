@@ -148,6 +148,8 @@ struct annotation_list {
 
 void annotation_list_free(struct annotation_list *list);
 
+#define REGION_SELECT_CANCELLED (-2)
+
 int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  const struct image *frozen_per_output,
 				  bool annotate_mode, struct rect *out,

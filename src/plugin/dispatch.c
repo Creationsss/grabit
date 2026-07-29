@@ -102,7 +102,7 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 
 	const char *self = getenv("GRABIT_BIN");
 	if (!self || !*self) {
-		log_error("plugin: GRABIT_BIN not set");
+		log_error("plugin: cannot resolve the grabit executable path");
 		grabit_buf_free(&out);
 		return 1;
 	}

@@ -26,6 +26,7 @@ static const struct example TOP_EXAMPLES[] = {
 	{"notifications", "true|false", "true"},
 	{"log_file", "true|false", "true"},
 	{"also_save", "true|false (alias: save_captures)", "false"},
+	{"save_state", "true|false", "true"},
 	{"save_dir", "~/Pictures", NULL},
 	{"filename", "%Y-%m-%d-%H-%M-%S", NULL},
 	{"filename_preset", "date|random|uuid|timestamp", "date"},

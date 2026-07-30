@@ -287,6 +287,29 @@ fmt:
 fmt-check:
 	clang-format --dry-run -Werror $(FMT_SRCS)
 
+CLANGD          ?= clangd
+CLANGD_SRCS      = $(if $(FILE),$(FILE),$(GRABIT_SRCS))
+
+compile_commands.json:
+	@command -v bear >/dev/null 2>&1 || { \
+		echo "bear not found; needed to generate compile_commands.json" >&2; exit 1; }
+	bear -- $(MAKE) -B all
+
+.PHONY: clangd-check
+clangd-check: compile_commands.json
+	@command -v $(CLANGD) >/dev/null 2>&1 || { echo "$(CLANGD) not found" >&2; exit 1; }
+	@rc=0; for f in $(CLANGD_SRCS); do \
+		out=$$($(CLANGD) --check=$$f --check-lines=1-1 2>&1); \
+		n=$$(printf '%s\n' "$$out" | sed -n 's/.*All checks completed, \([0-9]\{1,\}\) error.*/\1/p'); \
+		if [ -z "$$n" ]; then \
+			echo "$$f: clangd produced no verdict"; rc=1; \
+		elif [ "$$n" != 0 ]; then \
+			echo "$$f: $$n error(s); open it in your editor for the messages"; rc=1; \
+		fi; \
+	done; \
+	if [ $$rc = 0 ]; then echo "clangd: no errors in $(words $(CLANGD_SRCS)) files"; fi; \
+	exit $$rc
+
 SAN_BUILDDIR := build-san
 SAN_OBJS     := $(GRABIT_SRCS:%.c=$(SAN_BUILDDIR)/%.o)
 SAN_VOBJS    := $(GRABIT_VENDOR_SRCS:%.c=$(SAN_BUILDDIR)/%.o)

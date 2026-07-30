@@ -33,6 +33,14 @@ make test        # spdx-header lint
 make apply-headers
 make fmt         # clang-format -i
 make fmt-check   # dry-run, errors on diff
+make clangd-check  # parse every source with clangd, fail on errors
+```
+
+`clangd-check` generates `compile_commands.json` with `bear` if it is missing, then
+runs `clangd --check` over each source. one file at a time with `FILE=`:
+
+```sh
+make clangd-check FILE=src/record/record.c
 ```
 
 ### development build
@@ -43,7 +51,8 @@ generate `compile_commands.json` for clangd / your editor's lsp:
 bear -- make all
 ```
 
-re-run after adding/removing source files.
+re-run after adding/removing source files. `make clangd-check` generates it for you
+when it is absent, but not when it is merely stale.
 
 ## configuration
 

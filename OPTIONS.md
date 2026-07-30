@@ -197,7 +197,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
 | `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no default binding) |
+| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no binding of its own; press `r` again to cycle the shapes group and reach it) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 

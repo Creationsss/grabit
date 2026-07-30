@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
+#define _DEFAULT_SOURCE
 #define _XOPEN_SOURCE 700
 #include "record/loop.h"
 

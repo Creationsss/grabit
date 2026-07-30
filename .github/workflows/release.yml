@@ -54,6 +54,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          draft: true
           files: |
             grabit-x86_64-linux
             grabit-x86_64-linux.sha256

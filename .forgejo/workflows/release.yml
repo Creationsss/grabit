@@ -43,7 +43,7 @@ jobs:
           RESPONSE=$(curl -sS -X POST \
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"$TAG\"}" \
+            -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"$TAG\",\"draft\":true}" \
             "$SERVER/api/v1/repos/$REPO/releases")
           RELEASE_ID=$(echo "$RESPONSE" | jq -r .id)
           if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then

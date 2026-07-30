@@ -126,11 +126,14 @@ char *grabit_translate_libre(const char *text, const char *target,
 	upload_curl_common(c);
 	curl_easy_setopt(c, CURLOPT_TIMEOUT, LIBRE_TIMEOUT_S);
 
-	log_debug("translate: POST %s", endpoint);
+	char safe_ep[512];
+	grabit_redact_url(endpoint, safe_ep, sizeof safe_ep);
+	log_debug("translate: POST %s", safe_ep);
 	CURLcode rc = curl_easy_perform(c);
 	if (rc != CURLE_OK) {
-		log_error("translate: libretranslate request failed: %s", curl_easy_strerror(rc));
-		log_error("  is a server reachable at %s ?", url);
+		char safe[512];
+		grabit_redact_url(url, safe, sizeof safe);
+		log_error("translate: libretranslate %s: %s", safe, curl_easy_strerror(rc));
 		goto done;
 	}
 

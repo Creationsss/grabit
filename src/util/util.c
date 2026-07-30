@@ -6,6 +6,7 @@
 
 #include "log.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -204,4 +205,56 @@ void grabit_sleep_secs(int secs) {
 	log_info("waiting %ds before capturing", secs);
 	struct timespec ts = {.tv_sec = secs, .tv_nsec = 0};
 	while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {}
+}
+
+bool grabit_desktop_is(const char *needle) {
+	const char *de = getenv("XDG_CURRENT_DESKTOP");
+	if (!de || !de[0] || !needle) return false;
+	for (const char *p = de; *p; p++) {
+		size_t i = 0;
+		while (needle[i] && p[i] &&
+			   toupper((unsigned char)p[i]) == toupper((unsigned char)needle[i]))
+			i++;
+		if (!needle[i]) return true;
+	}
+	return false;
+}
+
+bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
+						 const char *fmt, ...) {
+	if (!out || cap == 0 || *off >= cap - 1) return false;
+	size_t start = *off;
+	size_t at = start;
+
+	int w = snprintf(out + at, cap - at, "%s", at ? sep : "");
+	if (w < 0 || (size_t)w >= cap - at) {
+		out[start] = '\0';
+		return false;
+	}
+	at += (size_t)w;
+
+	va_list ap;
+	va_start(ap, fmt);
+	w = vsnprintf(out + at, cap - at, fmt, ap);
+	va_end(ap);
+	if (w < 0 || (size_t)w >= cap - at) {
+		out[start] = '\0';
+		return false;
+	}
+	*off = at + (size_t)w;
+	return true;
+}
+
+void grabit_redact_url(const char *url, char *out, size_t cap) {
+	if (!out || cap == 0) return;
+	if (!url) {
+		out[0] = '\0';
+		return;
+	}
+	const char *q = strchr(url, '?');
+	size_t n = q ? (size_t)(q - url) : strlen(url);
+	if (n >= cap) n = cap - 1;
+	memcpy(out, url, n);
+	out[n] = '\0';
+	if (q && n + 4 < cap) memcpy(out + n, "?...", 5);
 }

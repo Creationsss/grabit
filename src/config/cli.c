@@ -32,7 +32,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 	if (rc == 0) {
 		const char *stored = config_get(c, key);
 		log_info("set %s = %s", key, stored ? stored : val);
-		if (cfg_is_state_key(key)) (void)config_state_clear(key);
+		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;
@@ -68,17 +68,15 @@ static void print_keys_row(struct config *c, const char *key) {
 	const char *cur = config_get(c, key);
 	const char *def = region_keybind_default(key);
 	if (cur && *cur)
-		printf("  %-28s %s\n", key, cur);
+		printf("  %-28s %s  (custom)\n", key, cur);
 	else
-		printf("  %-28s %s  (default)\n", key, def ? def : "");
+		printf("  %-28s %s\n", key, def && def[0] ? def : "-");
 }
 
 static int cmd_set_keys_list(void) {
 	struct config c;
 	config_load(&c);
-	puts("keybinds (set one with `grabit set <key> \"<bindings>\"`, capture it");
-	puts("with `--watch`, restore it with `--reset`, or reset all with");
-	puts("`grabit set keys --reset`):");
+	puts("keybinds (see `grabit help set` to change them):");
 	for (int a = 0; a < KA_COUNT; a++)
 		print_keys_row(&c, region_keybind_action_key(a));
 	for (int t = 0; t < TOOL_COUNT; t++) {
@@ -257,7 +255,7 @@ int cmd_unset(int argc, char **argv) {
 	int rc = 0;
 	bool found = cfg_kv_remove(&c, argv[0], false) > 0;
 	if (cfg_is_state_key(argv[0])) {
-		(void)config_state_clear(argv[0]);
+		(void)config_state_clear(&c, argv[0]);
 		found = true;
 	}
 	if (!found) {

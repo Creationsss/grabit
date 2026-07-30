@@ -20,9 +20,11 @@
 #include "fractional-scale-v1-client-protocol.h"
 #include "viewporter-client-protocol.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+#include "zkde-screencast-unstable-v1-client-protocol.h"
 
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t caps) {
 	(void)seat;
@@ -103,6 +105,18 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		uint32_t v = version > 1 ? 1 : version;
 		s->ext_source_manager = wl_registry_bind(
 			reg, name, &ext_output_image_capture_source_manager_v1_interface, v);
+		return;
+	}
+
+	if (strcmp(interface, zkde_screencast_unstable_v1_interface.name) == 0) {
+		s->screencast_name = name;
+		s->screencast_version = version > 6 ? 6 : version;
+		return;
+	}
+
+	if (strcmp(interface, zwlr_foreign_toplevel_manager_v1_interface.name) == 0) {
+		s->toplevel_manager_name = name;
+		s->toplevel_manager_version = version > 3 ? 3 : version;
 		return;
 	}
 

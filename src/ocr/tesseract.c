@@ -49,9 +49,9 @@ int grabit_ocr_check(const char *bin) {
 		goto done;
 	}
 	if (!strstr(out, "leptonica")) {
-		log_error("ocr: `%s` is not Tesseract OCR (no leptonica in --version)", bin);
-		log_error("  if this is the Tesseract FPS game, set ocr.tesseract to the OCR binary:");
-		log_error("    grabit set ocr.tesseract /usr/bin/tesseract-ocr  # or the right path");
+		log_error("ocr: `%s` is not tesseract OCR; point ocr.tesseract at the real "
+				  "one: grabit set ocr.tesseract <path>",
+				  bin);
 		goto done;
 	}
 	rc = 0;
@@ -115,11 +115,7 @@ char *grabit_ocr_run(const char *bin, const char *path, const char *lang) {
 	int code = WEXITSTATUS(status);
 	if (code != 0) {
 		grabit_buf_free(&buf);
-		if (code == 127) {
-			log_error("ocr: tesseract not found in $PATH");
-		} else {
-			log_error("ocr: tesseract exited with code %d (see stderr above)", code);
-		}
+		log_error("ocr: tesseract exited %d", code);
 		return NULL;
 	}
 

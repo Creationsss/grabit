@@ -5,10 +5,10 @@
 #include "region/keybinds.h"
 
 #include "cursor.h"
-#include "hyprland.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -40,8 +40,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 
 	struct kc_state st = {.wls = s, .scale = 1};
 
-	int32_t cpx = 0, cpy = 0;
-	if (grabit_hyprland_cursorpos(&cpx, &cpy) == 0) st.go = grabit_wl_output_at(s, cpx, cpy);
+	st.go = grabit_wm_active_output(s);
 	if (!st.go) st.go = grabit_wl_primary_output(s);
 	if (!st.go) {
 		log_error("watch: no output");

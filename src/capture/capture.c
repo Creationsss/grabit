@@ -36,27 +36,28 @@ static enum capture_backend pick_backend(const struct grabit_wl_state *s) {
 	bool have_ext = s->ext_copy_manager && s->ext_source_manager;
 	const char *pref = getenv("GRABIT_CAPTURE_BACKEND");
 	if (!pref || !pref[0]) pref = "auto";
-	if (strcmp(pref, "wlr") == 0) {
-		if (!have_wlr) {
-			log_error("capture.backend=wlr but wlr-screencopy isn't advertised");
-			return CAP_NONE;
-		}
-		return CAP_WLR;
+
+	static const struct {
+		const char *name;
+		enum capture_backend backend;
+		const char *missing;
+	} FORCED[] = {
+		{"wlr", CAP_WLR, "wlr-screencopy isn't advertised"},
+		{"ext", CAP_EXT, "ext-image-copy isn't advertised"},
+		{"kwin", CAP_KWIN, "org.kde.KWin.ScreenShot2 isn't on the bus"},
+	};
+	for (size_t i = 0; i < sizeof FORCED / sizeof FORCED[0]; i++) {
+		if (strcmp(pref, FORCED[i].name) != 0) continue;
+		bool ok = FORCED[i].backend == CAP_WLR	 ? have_wlr
+				  : FORCED[i].backend == CAP_EXT ? have_ext
+												 : kwin_available();
+		if (ok) return FORCED[i].backend;
+		log_error("capture backend `%s` requested but %s; unset capture.backend / "
+				  "GRABIT_CAPTURE_BACKEND to auto-pick",
+				  pref, FORCED[i].missing);
+		return CAP_NONE;
 	}
-	if (strcmp(pref, "ext") == 0) {
-		if (!have_ext) {
-			log_error("capture.backend=ext but ext-image-copy isn't advertised");
-			return CAP_NONE;
-		}
-		return CAP_EXT;
-	}
-	if (strcmp(pref, "kwin") == 0) {
-		if (!kwin_available()) {
-			log_error("capture.backend=kwin but org.kde.KWin.ScreenShot2 isn't on the bus");
-			return CAP_NONE;
-		}
-		return CAP_KWIN;
-	}
+
 	if (have_wlr) return CAP_WLR;
 	if (have_ext) return CAP_EXT;
 	if (kwin_available()) return CAP_KWIN;
@@ -81,7 +82,8 @@ bool capture_backend_available(const struct grabit_wl_state *s) {
 }
 
 bool capture_is_streaming_capable(const struct grabit_wl_state *s) {
-	return resolve_backend(s) != CAP_KWIN;
+	enum capture_backend b = resolve_backend(s);
+	return b == CAP_WLR || b == CAP_EXT;
 }
 
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,

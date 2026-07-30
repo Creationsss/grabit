@@ -55,6 +55,14 @@ bool grabit_process_alive(pid_t pid) {
 	return errno != ESRCH;
 }
 
+int grabit_self_exe(char *out, size_t cap) {
+	if (!out || cap == 0) return -1;
+	ssize_t n = readlink("/proc/self/exe", out, cap - 1);
+	if (n <= 0 || (size_t)n >= cap - 1) return -1;
+	out[n] = '\0';
+	return 0;
+}
+
 void grabit_redirect_stdio_devnull(void) {
 	int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
 	if (fd < 0) return;

@@ -35,11 +35,10 @@ otherwise the
 .B org.kde.KWin.ScreenShot2
 dbus service on KDE Plasma.
 .PP
-Supported compositors: Hyprland, sway, niri, river. KDE Plasma works for
-screenshots only: KWin implements neither capture protocol, and its ScreenShot2
-service is single-shot, so
-.B \-\-record
-is unavailable there. X11 and GNOME are not supported.
+Supported compositors: Hyprland, sway, niri, river. KDE Plasma: screenshots via
+ScreenShot2, recording via zkde_screencast_unstable_v1 (see
+.BR NOTES ).
+GNOME: recording only, via org.gnome.Mutter.ScreenCast. X11 is not supported.
 .PP
 With no action flag, grabit performs the configured
 .B default_action
@@ -76,22 +75,14 @@ notification and shutter sound are emitted only when standard output is a
 terminal, so redirecting the path to a file or pipe is silent by design.
 .TP
 .B \-\-record
-Toggle screen recording (run again to stop). Records a region to MP4/H.264
-(or WebM/GIF via
-.BR "grabit set recording.format webm|gif" )
-with a live border overlay, an on-screen control bar, and an SNI tray icon.
-The bar opens at the top of the current monitor (falling back to a spot that
-stays out of the recording) and offers start (resume), pause, and stop, plus
-a state dot and an elapsed timer; drag it by its background to move it.
-Pausing closes the current encoder segment and resuming opens a new one; on
-stop the segments are stitched together, so paused time is cut from the
-output rather than left as a frozen gap. Sending
+Toggle screen recording (run again to stop). Records a region to MP4/H.264,
+or WebM/GIF via
+.BR "grabit set recording.format webm|gif" .
+Shows a border overlay, an on-screen control bar (start, pause, stop, abort)
+and a tray icon. Sending
 .B SIGUSR1
-to the recording process also toggles pause (for compositor keybinds). After
-stopping, a "Recording finishing" notification is shown while encoders flush
-and segments are stitched. If the region covers every monitor there is no
-room for the bar; stop via the tray icon or by re-running
-.BR \-\-record .
+to the recording process toggles pause, for compositor keybinds. See the
+recording section of OPTIONS.md for backends and pause/segment behaviour.
 .TP
 .B \-\-pin
 Capture a region and pin it to the desktop as a click-through overlay. Pins
@@ -101,6 +92,13 @@ stack and persist as long-lived processes.
 Make existing pins interactive (clickable close button + draggable), restore
 them to click-through, or dismiss every pin. Intended to be wired to a
 compositor hold-bind.
+.TP
+.B \-\-tray
+Toggle a persistent tray icon that runs as a background process. Left click
+takes a region screenshot; the context menu offers every action (screenshot,
+record, OCR, pin) as submenus. Run again to stop it. The recording tray icon
+is separate and appears only while recording (see
+.BR \-\-no\-tray " and " recording.tray ).
 .TP
 .B \-\-tesseract
 Capture a region, OCR it via
@@ -135,26 +133,10 @@ is the target language (default
 source auto-detected). Falls back to raw OCR if the call fails (20s cap).
 .B translate.backend
 picks the translator:
-.B trans
-(default) shells out to translate-shell's
-.B trans
-binary, while
-.B libretranslate
-POSTs to the LibreTranslate server named by
-.B translate.url
-.RI ( /translate
-is appended if omitted), and
-.B deepl
-POSTs to the DeepL API using
-.B translate.api_key
-.RB ( GRABIT_TRANSLATE_KEY
-overrides it). Neither needs an external binary. For
-.BR deepl ,
-the endpoint is derived from the key and
-.B translate.url
-overrides it. See
+.BR trans " (default), " libretranslate ", or " deepl .
+See
 .B OPTIONS.md
-for DeepL target codes.
+for backend setup and DeepL target codes.
 .PP
 Translating sends the OCR'd text to a third-party server unless you use a
 self-hosted LibreTranslate instance.
@@ -162,10 +144,17 @@ self-hosted LibreTranslate instance.
 .B \-\-show
 With
 .BR \-\-tesseract :
-render the OCR/translate result on screen as a transient click-through text card
-instead of copying. Auto-dismisses after
+also render the OCR/translate result on screen as a transient click-through
+text card. The text is still copied to the clipboard; add
+.B \-\-no\-copy
+to show without copying. Auto-dismisses after
 .B text_card.dismiss_secs
 (default 8s).
+.TP
+.B \-\-no\-copy
+With
+.BR \-\-tesseract " " \-\-show :
+do not copy the text, only show it.
 .TP
 .BR \-e ", " \-\-edit
 Open the in-tree annotation editor before the action. Pairs with any action;
@@ -206,6 +195,20 @@ or
 hold to repeat) steps back through annotations, annotation moves/resizes,
 and region changes alike. Last-used color, width, and tool persist across
 runs.
+.SH NOTES
+.SS KDE Plasma recording
+KWin keeps
+.B zkde_screencast_unstable_v1
+on an interface blacklist and only exposes it to programs whose installed
+.I .desktop
+file declares
+.BR X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1 .
+grabit ships that key, so recording on Plasma requires an installed grabit
+.RB ( make
+.BR install ),
+not one run from a build tree. Starting KWin with
+.B KWIN_WAYLAND_NO_PERMISSION_CHECKS=1
+bypasses the check for testing.
 .SH MODIFIERS
 .TP
 .BR \-F ", " \-\-fullscreen
@@ -228,6 +231,34 @@ Use
 .B \-\-fullscreen=all
 to capture every monitor stitched into one image. An unknown value lists the
 available monitors and exits.
+.TP
+.BR \-w ", " \-\-window
+Capture the focused window instead of dragging a region. Pairs with the same
+actions as
+.BR \-F ;
+cannot be combined with
+.BR \-f ,
+.BR \-F ,
+or
+.BR \-\-record .
+On Hyprland the window's geometry is read over IPC and the screen is cropped to
+it, so
+.B \-e
+works and anything overlapping the window is included. On niri, geometry is only
+published for floating windows; a floating window takes the same crop path,
+while a tiled window is rendered by niri itself via its
+.B screenshot\-window
+action. That path needs niri 25.11 or newer, captures only the window's own
+contents, cannot be annotated (grabit warns and captures without
+.BR \-e ),
+ignores
+.B png.level
+for PNG output because niri's own file is used as-is,
+and, because niri always copies its window screenshots to the clipboard,
+replaces the clipboard contents as a side effect. Other compositors cannot
+report the active window and
+.B \-w
+fails there.
 .TP
 .BR \-L ", " \-\-last
 Reuse the region from the previous capture instead of opening the selector.
@@ -312,7 +343,11 @@ skip the auto-upload after recording even if
 .BR default_action=upload .
 .TP
 .B \-\-no\-tray
-Suppress the SNI tray icon during recording.
+Suppress the SNI tray icon during recording for one run. Set
+.B recording.tray
+to
+.B false
+to disable it permanently.
 .TP
 .BR \-\-silent ", " \-q ", " \-\-quiet
 Suppress info logging, desktop notifications, and the shutter sound (errors
@@ -440,10 +475,18 @@ characters (default 12).
 UUID v4.
 .TP
 .B %w
-Active window class (Hyprland IPC; empty elsewhere).
+Active window class / app ID.
 .TP
 .B %t
-Active window title (Hyprland IPC; empty elsewhere).
+Active window title.
+.PP
+.RB ( %w
+and
+.B %t
+read the focused toplevel over
+.BR wlr\-foreign\-toplevel\-management\-v1 ,
+so they work on Hyprland, sway, niri, and river, and resolve to empty where
+that protocol is missing.)
 .TP
 .B %%
 Literal
@@ -468,45 +511,15 @@ The config lives at
 .IR ~/.config/grabit/config.toml ),
 written with mode 0600. Manage it with
 .B grabit set/get/unset
-or edit the TOML directly. Notable top-level keys:
-.B default_action
-.RB ( copy / upload / save / pin ),
-.BR service ,
-.BR notifications ,
-.BR log_file ,
-.BR also_save ,
-.BR save_dir ,
-.BR filename ,
-.BR filename_preset ,
-.BR format .
-.B save_captures
-is accepted as a legacy alias for
-.BR also_save .
-.B notifications
-carries the same forced-failure caveat as
-.BR \-\-silent .
-Per-service auth tokens go under
+or edit the TOML directly. Per-service auth tokens go under
 .BI services. name .auth
 or, preferred, the
 .BI GRABIT_ SERVICE _AUTH
 environment variable.
 .PP
-Other service keys:
-.B services.zipline.domain
-(zipline endpoint; required for zipline uploads,
-.B /api/upload
-is appended when missing),
-.BI services.zipline.headers. name
-(zipline upload metadata; twelve validated header keys, see
-.BR OPTIONS.md ),
-and
-.B services.nest.folder
-(target folder for nest uploads).
-.PP
 See
 .B OPTIONS.md
-for the full key reference, including region snap/confirm, keybinds, encoder
-quality, recording, sound, pin, translate, preview/text card, and edit defaults.
+for the full key reference.
 .SH ENVIRONMENT
 .TP
 .B GRABIT_DEBUG
@@ -533,13 +546,6 @@ Set by plugin dispatch; absolute path to the grabit binary.
 Also set by plugin dispatch: the plugin's name, install directory, and
 per-plugin cache directory. See
 .BR PLUGINS.md .
-.TP
-.B png.level
-PNG zlib compression, 0\-9, default
-.BR 1 .
-PNG is lossless, so this trades encode time against file size only. Level 6 (the
-old behaviour) costs roughly 2\-6x the encode time of level 1 for about 15\-20%
-less size, and dominates the wall time of a screenshot.
 .TP
 .B GRABIT_LOG_FILE
 Set to
@@ -591,9 +597,13 @@ fallbacks.
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
 .B XDG_RUNTIME_DIR
-it locates the Hyprland IPC socket that powers window-title snapping and the
-.BR %w / %t
-filename tokens. Absent elsewhere, those degrade gracefully.
+it locates the Hyprland IPC socket that powers window snapping and
+.BR \-w / \-\-window .
+.TP
+.B NIRI_SOCKET
+Set by niri; locates the niri IPC socket that powers
+.BR \-w / \-\-window
+and window snapping. Absent elsewhere, both degrade gracefully.
 .TP
 .BR XCURSOR_THEME ", " XCURSOR_SIZE
 Cursor theme and size for the region selector and overlays
@@ -603,6 +613,12 @@ is clamped to 8..256, default 24).
 .B XDG_RUNTIME_DIR
 Holds the recording pid file and per-pin IPC sockets (falls back to
 .IR /tmp ).
+.TP
+.B XDG_PICTURES_DIR
+Screenshot save dir. The
+.B save_dir
+config key takes precedence; otherwise this, else
+.IR ~/Pictures .
 .TP
 .B XDG_VIDEOS_DIR
 Recording save directory. The
@@ -641,14 +657,21 @@ environment variables instead if you track it in version control.
 .TP
 .I $XDG_STATE_HOME/grabit/state.toml
 Machine-local state grabit writes on its own: the last-used
-.BR edit.color ", " edit.width ", " edit.tool
-and the editor toolbar position
-.RB ( edit.toolbar_pos ).
+.BR edit.color ", " edit.width ", " edit.tool ,
+the editor toolbar position
+.RB ( edit.toolbar_pos )
+and the last captured region
+.RB ( region.last ,
+used by
+.BR \-L / \-\-last ).
 Falls back to
 .IR ~/.local/state/grabit/state.toml .
-These override the matching
-.B edit.*
-keys in config.toml, which then act only as an initial value.
+These override the matching keys in config.toml, which then act only as an
+initial value. Set
+.B save_state
+to
+.B false
+to stop reading and writing this file entirely.
 .TP
 .I ~/.config/grabit/uploaders/<name>.sxcu
 Registered ShareX uploaders.

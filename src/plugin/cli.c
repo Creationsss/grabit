@@ -13,14 +13,14 @@
 #include <sys/stat.h>
 
 static int usage(void) {
-	log_error("usage: grabit plugin <install|list|show|update|remove> [args]");
+	fputs("usage: grabit plugin <install|list|show|update|remove> [args]\n", stderr);
 	return 2;
 }
 
 static int help(void) {
 	puts("usage: grabit plugin <subcommand> [args]");
 	puts("");
-	puts("  install <git-url>  clone, build (or fetch prebuilt), install (alias: add)");
+	puts("  install <git-url>  install a plugin (alias: add)");
 	puts("  list               list installed plugins (alias: ls)");
 	puts("  show <name>        print parsed manifest");
 	puts("  update [<name>]    update one plugin (or all if omitted)");
@@ -38,7 +38,6 @@ static int list_one_cb(const char *name, void *ud) {
 static int do_list(void) {
 	int n = 0;
 	if (plugin_foreach_installed(list_one_cb, &n) != 0) return 1;
-	if (n == 0) log_info("no plugins installed in %s", plugin_dir_path());
 	return 0;
 }
 
@@ -65,9 +64,12 @@ static int do_show(const char *name) {
 		printf("prebuilt:    %s\n", m.prebuilt_url);
 		if (m.prebuilt_sha256) printf("sha256:      %s\n", m.prebuilt_sha256);
 	}
-	printf("auto-update: %d hour(s)\n", m.update_check_hours);
+	if (m.update_check_hours > 0)
+		printf("auto-update: every %dh\n", m.update_check_hours);
+	else
+		printf("auto-update: off\n");
 	if (m.branch) printf("branch:      %s\n", m.branch);
-	printf("auto-capture: %s\n", m.capture_auto ? "yes" : "no");
+	printf("capture:     %s\n", m.capture_auto ? "yes" : "no");
 	for (size_t i = 0; i < m.n_actions; i++) {
 		printf("action:      %s%s%s\n", m.actions[i].name,
 			   m.actions[i].description ? ": " : "",

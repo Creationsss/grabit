@@ -76,7 +76,7 @@ int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int qua
 	(void)surface;
 	(void)path;
 	(void)quality;
-	log_error("jpeg: not compiled in (rebuild with libjpeg-turbo-dev installed)");
+	log_error("jpeg: not compiled in (rebuild with libjpeg headers)");
 	return -1;
 }
 

@@ -16,7 +16,7 @@ static const char *tooltip_text(enum tb_action act) {
 	if (g) return g->tip;
 	switch (act) {
 	case TB_REGION:
-		return "Select region (q, drag to set the capture area)";
+		return "Select region  (q)";
 	case TB_EDIT:
 		return "Move/resize annotations  (s)";
 	case TB_TOOL_ARROW:
@@ -26,31 +26,19 @@ static const char *tooltip_text(enum tb_action act) {
 	case TB_TOOL_COUNTER:
 		return "Counter  (c)";
 	case TB_TOOL_CALLOUT:
-		return "Callout bubble  (k, click what it points at)";
+		return "Callout  (k)";
 	case TB_TOOL_ERASER:
 		return "Eraser  (9 / e)";
-	case TB_COLOR_RED:
-		return "Red";
-	case TB_COLOR_YELLOW:
-		return "Yellow";
-	case TB_COLOR_GREEN:
-		return "Green";
-	case TB_COLOR_BLUE:
-		return "Blue";
-	case TB_COLOR_BLACK:
-		return "Black";
-	case TB_COLOR_WHITE:
-		return "White";
 	case TB_COLOR_CURRENT:
-		return "Current color  (click to open picker)";
+		return "Current color";
 	case TB_WIDTH_SLIDER:
-		return "Line width  (drag or scroll)";
+		return "Size  (drag or scroll)";
 	case TB_UNDO:
 		return "Undo  (u or ctrl+z, hold to repeat)";
 	case TB_REDO:
 		return "Redo  (ctrl+y or ctrl+shift+z)";
 	case TB_SAVE:
-		return "Save  (Enter)";
+		return "Capture  (Enter)";
 	case TB_CANCEL:
 		return "Cancel  (Esc)";
 	default:

@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -105,6 +106,11 @@ void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
 void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
 				 int32_t w, int32_t h, enum pixels_conv conv, bool y_invert) {
+	if (conv == PIX_COPY && !y_invert && dst_stride == src_stride &&
+		dst_stride == w * 4) {
+		memcpy(dst, src, (size_t)dst_stride * (size_t)h);
+		return;
+	}
 	for (int32_t row = 0; row < h; row++) {
 		int32_t src_row = y_invert ? (h - 1 - row) : row;
 		const uint8_t *sp = (const uint8_t *)src + (size_t)src_row * (size_t)src_stride;
@@ -166,13 +172,18 @@ int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 
 void pixels_log_advertised(const char *backend,
 						   const uint32_t *advertised, size_t n) {
-	log_error("%s: compositor advertised no supported shm format "
-			  "(want XRGB8888/ARGB8888/XBGR8888/ABGR8888/BGR888/RGB888)",
-			  backend);
+	char saw[512];
+	saw[0] = '\0';
+	size_t off = 0;
 	for (size_t i = 0; i < n; i++) {
 		const char *name = pixels_shm_format_name(advertised[i]);
-		log_error("  saw: %s (0x%08x)", name ? name : "unknown", advertised[i]);
+		if (!grabit_join_appendf(saw, sizeof saw, &off, ", ", "%s",
+								 name ? name : "unknown"))
+			break;
 	}
+	log_error("%s: compositor advertised no supported shm format (want "
+			  "XRGB8888/ARGB8888/XBGR8888/ABGR8888/BGR888/RGB888, saw %s)",
+			  backend, off ? saw : "none");
 }
 
 int pixels_shm_buf_alloc(struct wl_shm *shm, const char *tag,

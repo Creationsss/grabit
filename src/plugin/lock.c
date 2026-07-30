@@ -26,7 +26,7 @@ static int lock_open(bool log_failures) {
 	int fd = grabit_lock_acquire(path);
 	if (fd < 0 && log_failures) {
 		if (errno == EWOULDBLOCK)
-			log_error("plugin: another grabit plugin operation is in progress");
+			log_error("plugin: another plugin operation is in progress");
 		else
 			log_error("plugin: cannot open lock file %s: %s", path, strerror(errno));
 	}

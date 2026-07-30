@@ -7,9 +7,7 @@
 #include "log.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <dbus/dbus.h>
@@ -106,8 +104,7 @@ void notify_send(const struct notify_opts *o) {
 		if (!g_warned_daemon) {
 			const char *name = err.name ? err.name : "";
 			if (strstr(name, "ServiceUnknown") || strstr(name, "NameHasNoOwner")) {
-				log_warn("notifications unavailable: no notification daemon running "
-						 "(install dunst, mako, or similar)");
+				log_warn("notifications unavailable: no notification daemon running");
 			} else {
 				log_warn("notify: %s: %s", name[0] ? name : "(no name)",
 						 err.message ? err.message : "send failed");

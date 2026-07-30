@@ -140,7 +140,9 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 			curl_easy_setopt(c, CURLOPT_HTTPHEADER, headers);
 			curl_easy_setopt(c, CURLOPT_MIMEPOST, mime);
 
-			log_debug("POST %s (offset %lld, %zu bytes)", purl, start, send);
+			char safe_url[512];
+			grabit_redact_url(purl, safe_url, sizeof safe_url);
+			log_debug("POST %s (offset %lld, %zu bytes)", safe_url, start, send);
 			CURLcode rc = oom ? CURLE_OUT_OF_MEMORY : curl_easy_perform(c);
 			long http_code = 0;
 			curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &http_code);
@@ -155,9 +157,9 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 			if (http_code == 413 && chunk > (1 << 20)) {
 				chunk /= 2;
 				if (chunk < (1 << 20)) chunk = 1 << 20;
-				log_warn("zipline: chunk rejected as too large (HTTP 413); "
-						 "retrying with %lld MiB chunks",
-						 chunk >> 20);
+				log_debug("zipline: chunk rejected (HTTP 413); retrying with "
+						  "%lld MiB chunks",
+						  chunk >> 20);
 				grabit_buf_free(&resp);
 				continue;
 			}

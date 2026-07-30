@@ -15,7 +15,10 @@ int gapp_print_help(void);
 int gapp_print_help_topics(void);
 int gapp_print_help_filename(void);
 int gapp_print_help_env(void);
+int gapp_print_help_ocr(void);
 int gapp_print_help_examples(void);
+
+enum action gapp_default_action(const char *name);
 
 int gapp_read_int_cfg_clamp(struct config *cfg, const char *key, int def, int lo, int hi);
 void gapp_maybe_show_preview(struct config *cfg, const char *image_path,

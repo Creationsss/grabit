@@ -26,6 +26,7 @@ static const struct example TOP_EXAMPLES[] = {
 	{"notifications", "true|false", "true"},
 	{"log_file", "true|false", "true"},
 	{"also_save", "true|false (alias: save_captures)", "false"},
+	{"save_state", "true|false", "true"},
 	{"save_dir", "~/Pictures", NULL},
 	{"filename", "%Y-%m-%d-%H-%M-%S", NULL},
 	{"filename_preset", "date|random|uuid|timestamp", "date"},
@@ -196,6 +197,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	if (strcmp(key, "preview.dismiss_secs") == 0) {
 		*example_out = "0-600 (0 = stay until next capture)";
 		*def_out = "5";
+		return 0;
+	}
+	if (strcmp(key, "tray.icon") == 0) {
+		*example_out = "<icon name from your icon theme>";
+		*def_out = "camera-photo";
 		return 0;
 	}
 	return -1;

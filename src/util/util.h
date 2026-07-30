@@ -25,6 +25,7 @@ const char *grabit_basename(const char *path);
 int grabit_runtime_dir(char *out, size_t cap);
 int grabit_write_all(int fd, const void *buf, size_t n);
 bool grabit_process_alive(pid_t pid);
+int grabit_self_exe(char *out, size_t cap);
 int grabit_lock_acquire(const char *path);
 pid_t grabit_lock_owner(const char *path);
 
@@ -36,6 +37,10 @@ int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
 size_t grabit_edit_distance(const char *a, const char *b);
 
 size_t grabit_rstrip(char *s, size_t len);
+void grabit_redact_url(const char *url, char *out, size_t cap);
+bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
+						 const char *fmt, ...)
+	__attribute__((format(printf, 5, 6)));
 
 #include <stdint.h>
 bool grabit_parse_hex_color(const char *s, uint32_t *out);
@@ -73,6 +78,8 @@ struct wl_surface;
 void grabit_shm_slot_attach(struct wl_surface *surface, struct grabit_shm_slot *slot);
 
 void grabit_redirect_stdio_devnull(void);
+
+bool grabit_desktop_is(const char *needle);
 
 struct grabit_buf {
 	char *data;

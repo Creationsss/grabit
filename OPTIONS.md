@@ -1,16 +1,14 @@
 # grabit options
 
-everything beyond the at-a-glance README. see `README.md` for install.
-
 ## usage
 
 ```sh
-grabit -c                     # region screenshot → clipboard
+grabit -c                     # region screenshot -> clipboard
 grabit -u                     # upload to default service
 grabit -o > path.txt          # save and print path
 grabit --record               # toggle recording (run again to stop)
 grabit --pin                  # pin a region screenshot to the desktop
-grabit --tesseract            # ocr a region → clipboard
+grabit --tesseract            # ocr a region -> clipboard
 grabit -e -c                  # annotate before copying
 grabit -f file.png -u         # upload an existing file
 ```
@@ -18,8 +16,6 @@ grabit -f file.png -u         # upload an existing file
 first run writes a default config to `~/.config/grabit/config.toml`.
 
 ## build
-
-dependencies and per-distro install are in `README.md`.
 
 ```sh
 make
@@ -59,18 +55,16 @@ grabit set <key>=<value>      # same, single-argument form
 grabit get                    # dump current config
 grabit get <key>              # one key
 grabit unset <key>
-grabit help [<subcommand>]    # help for set/get/unset/sxcu/plugin
+grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/ocr
 ```
 
 every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 ### config vs state
 
-`~/.config/grabit/config.toml` is yours: grabit only writes it when you run `set` or `unset`.
+config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted.
-
-config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`).
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
 
 ### auth tokens
 
@@ -137,7 +131,7 @@ import any sharex custom uploader file:
 ```sh
 grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into config dir (alias: install)
 grabit sxcu list                              # registered names (alias: ls)
-grabit sxcu show <name>                       # parsed fields (url, method, headers, ...)
+grabit sxcu show <name>                       # parsed fields (auth masked; --show-secrets unmasks)
 grabit sxcu remove <name>                     # alias: rm
 ```
 
@@ -163,7 +157,8 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_dir` | string | save dir for screenshots and recordings (takes precedence over `XDG_VIDEOS_DIR`; default `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` else `~/Videos` for videos) |
+| `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
+| `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
 | `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
@@ -180,7 +175,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
-| `region.window_snap` | `true` | on hyprland, hover-highlight visible windows and click to capture one; set `false` to always require a drag |
+| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
@@ -202,7 +197,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
 | `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` … `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no default binding) |
+| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no default binding) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
@@ -228,9 +223,9 @@ grabit set keys --reset             # every keybind back to defaults
 
 | key | default | notes |
 |---|---|---|
-| `png.level` | `1` | PNG zlib compression 0–9. `1` is the default because PNG is lossless: higher levels only shrink the file, and level 6 (what cairo used before) costs roughly 2–6x the encode time for ~15–20% less size. Raise it if you care more about upload size than shutter latency. |
-| `jpeg.quality` | `90` | JPEG quality 1–100 |
-| `webp.quality` | `85` | WebP quality 0–100 (ignored when `webp.lossless = true`) |
+| `png.level` | `1` | PNG zlib compression 0-9. `1` is the default because PNG is lossless: higher levels only shrink the file, and level 6 (what cairo used before) costs roughly 2-6x the encode time for ~15-20% less size. Raise it if you care more about upload size than shutter latency. |
+| `jpeg.quality` | `90` | JPEG quality 1-100 |
+| `webp.quality` | `85` | WebP quality 0-100 (ignored when `webp.lossless = true`) |
 | `webp.lossless` | `false` | use WebP lossless mode |
 
 JPEG and WebP support is detected at build time via `pkg-config libjpeg` and `pkg-config libwebp`. If a format wasn't compiled in, picking it at runtime errors out clearly. PNG is always available.
@@ -242,9 +237,23 @@ grabit --record               # start (region selector, then begins)
 grabit --record               # stop
 ```
 
+### backends
+
+| compositor | source | notes |
+|---|---|---|
+| wlroots (hyprland, sway, niri, river) | `wlr-screencopy` / `ext-image-copy` | grabit streams frames itself |
+| KDE Plasma | `zkde_screencast_unstable_v1` | needs an installed grabit, see below |
+| GNOME | `org.gnome.Mutter.ScreenCast` | recording only, no region selector |
+
+KDE and GNOME both hand back a pipewire node, so a `libpipewire-0.3` build is required for either. neither shows a portal dialog.
+
+KWin keeps `zkde_screencast_unstable_v1` on an interface blacklist and only grants it to programs whose installed `.desktop` declares `X-KDE-Wayland-Interfaces`, so recording on KDE needs `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
+
+GNOME has no `zwlr_layer_shell_v1`, so the region selector, overlay and control bar do not appear. pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record`. `org.gnome.Mutter.ScreenCast` is a private API, so a GNOME upgrade can break recording there.
+
 while recording you'll see:
 - a thin red border around the captured region
-- a control bar (start / pause / stop, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
+- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
 - a recording icon in your status bar tray (waybar with `tray` module, etc.)
 
 the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.
@@ -272,8 +281,25 @@ config keys (all optional):
 | `recording.tune` | (none) | one of: `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
 | `recording.pix_fmt` | `yuv420p` | one of: `yuv420p`, `yuv422p`, `yuv444p`, `yuv420p10le` |
 | `recording.cursor` | `true` | record the cursor |
+| `recording.tray` | `true` | show the tray icon while recording; `--no-tray` overrides one run |
 | `recording.max_size_mb` | (none) | re-encode if file exceeds this (0-100000) |
 | `recording.ffmpeg` | `ffmpeg` | path to ffmpeg binary |
+
+## tray
+
+`grabit --tray` starts a persistent StatusNotifierItem with every action in its menu. running it a second time stops the one already running.
+
+| key | default | notes |
+|---|---|---|
+| `tray.icon` | `camera-photo` | icon name looked up in your icon theme |
+
+left click captures a region, right click opens the menu. if the icon collides with another app's, point `tray.icon` at any other name your theme ships:
+
+```sh
+grabit set tray.icon camera-video
+```
+
+the recording tray shown during `--record` is separate and always uses `media-record`.
 
 ## sound
 
@@ -313,7 +339,7 @@ requires `zwp_relative_pointer_manager_v1` for drag (universal in modern wlroots
 grabit --tesseract            # select a region; text lands in clipboard
 ```
 
-requires `tesseract` on `$PATH` and the training data for the language you OCR in (typically in `/usr/share/tessdata/` or `$TESSDATA_PREFIX`). override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
+requires `tesseract` on `$PATH` and the training data for the language you OCR in. override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
 
 | key | default | notes |
 |---|---|---|
@@ -346,11 +372,10 @@ grabit set translate.url http://localhost:5000
 | `translate.url` | (unset) | server url. required for `libretranslate`; optional override for `deepl`. the api path is appended if you leave it off |
 | `translate.api_key` | (unset) | api key. required for `deepl`, optional for `libretranslate`. `GRABIT_TRANSLATE_KEY` overrides it |
 
-- `trans` pipes the text through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`). install `translate-shell` from your distro to enable it; if it is missing grabit copies the raw OCR text.
+- `trans` pipes the text through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`). needs the `trans` binary on `$PATH`; without it grabit copies the raw OCR text.
 - `libretranslate` POSTs to a [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) server (`/translate`, json in, json out). no extra binary needed, and pointing it at a local instance means the text never leaves your machine:
 
 ```sh
-docker run --rm -p 5000:5000 libretranslate/libretranslate --load-only en,es
 grabit set translate.backend libretranslate
 grabit set translate.url http://localhost:5000
 ```
@@ -369,11 +394,12 @@ grabit set translate.target EN-US            # deepl codes: EN-US, PT-BR, ZH-HAN
 
 ### show on screen
 
-combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped) instead of copying:
+combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped). the text is still copied; add `--no-copy` to show without copying:
 
 ```sh
 grabit --tesseract --show                 # show the raw OCR
 grabit --tesseract --translate --show     # show the translation
+grabit --tesseract --show --no-copy       # show only, leave the clipboard alone
 grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until replaced)
 ```
 
@@ -400,8 +426,6 @@ the preview is the scaled screenshot with a thin dark border. hovering over it o
 - after `-u`: runs `xdg-open <url>` (opens the upload link in your browser)
 - after `-o`: runs `xdg-open <dir>` (opens the containing folder in your file manager)
 - after `-c`: just dismisses (the file may already be gone if it was a temp)
-
-only one preview card is on screen at a time.
 
 the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
 
@@ -432,6 +456,24 @@ the mouse pointer is included in screenshots by default (`capture.cursor`, defau
 
 with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
 
+## window
+
+```sh
+grabit -w -o                  # save the active window
+grabit --window -c            # copy the active window
+grabit -w -e -u               # annotate the active window, then upload
+```
+
+`-w`/`--window` captures the focused window instead of dragging a region. it pairs with the same actions `-F` does, and it cannot be combined with `-f`, `-F`, or `--record`.
+
+how the window is captured depends on what the compositor can tell grabit:
+
+- **hyprland** reports the geometry of every window, so `-w` resolves the focused window to a rectangle and crops the screen to it. this behaves exactly like `-F` with a smaller region: `-e` works, and anything drawn on top of the window is included.
+- **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
+- **other compositors** have no way to report the active window; `-w` fails with a notification.
+
+`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-v1` is available.
+
 ## edit
 
 ```sh
@@ -440,16 +482,16 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`–`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
+`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
 
 - **select region** (`q`) - drag out or replace the capture area
 - **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
-- **pen, marker, line, rect, rounded rect, ellipse, arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`–`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser
+- **pen, marker, line, rect, rounded rect, ellipse, arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`-`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser
 - **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. each spotlight dims everything outside *itself*, so a second one will also dim the first one's bright area
 - **callout** (`k`) draws a speech bubble: click the thing it should point at, type the text, press Enter. the bubble appears offset from that point with a tail leading back to it; in the move/resize tool (`s`) both the bubble and the tail tip are draggable handles, so you can re-aim it
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
-- **width slider** (1–12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8–72) instead
+- **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8-72) instead
 - **undo** (`u` or `ctrl+z`, hold to repeat) - steps back through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
 - **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles
@@ -486,8 +528,8 @@ last-picked color, width, and tool persist via:
 | `%s` | unix timestamp |
 | `%r` | 12-char random alnum (`%r8` etc. picks length) |
 | `%u` | uuid v4 |
-| `%w` | active window class (hyprland ipc) |
-| `%t` | active window title (hyprland ipc) |
+| `%w` | active window class / app id |
+| `%t` | active window title |
 | `%%` | literal `%` |
 
 presets via `filename_preset`:
@@ -496,7 +538,7 @@ presets via `filename_preset`:
 - `uuid`: `%u`
 - `timestamp`: `%s`
 
-`%w`/`%t` resolve to empty on non-hyprland compositors.
+`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
 
 ## plugins
 
@@ -528,10 +570,12 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
 | `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
-| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and the `%w`/`%t` tokens |
+| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
+| `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
-| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`). Screenshots use `save_dir` else `~/Pictures` |
+| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`) |
+| `XDG_PICTURES_DIR` | screenshot save dir (`save_dir` config takes precedence; else this, else `~/Pictures`) |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
 | `GRABIT_TRANSLATE_KEY` | api key for the `deepl` and `libretranslate` backends; overrides `translate.api_key` |
 | `NO_COLOR` | if set to any value, disable ansi color in log output |

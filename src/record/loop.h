@@ -14,13 +14,22 @@ struct buf_pool;
 struct seg_ctx;
 struct rec_controls;
 
-extern atomic_int grabit_rec_stop;
-extern atomic_int grabit_rec_pause;
+extern atomic_int *grabit_rec_stop_ptr;
+extern atomic_int *grabit_rec_pause_ptr;
+extern atomic_int *grabit_rec_abort_ptr;
+
+#define grabit_rec_stop (*grabit_rec_stop_ptr)
+#define grabit_rec_pause (*grabit_rec_pause_ptr)
+#define grabit_rec_abort (*grabit_rec_abort_ptr)
+
+void loop_init_shared(void);
+void loop_set_tray_pid(pid_t pid);
 
 struct prev_sigs {
 	struct sigaction sigint;
 	struct sigaction sigterm;
 	struct sigaction sighup;
+	struct sigaction sigquit;
 	struct sigaction sigusr1;
 	struct sigaction sigpipe;
 };
@@ -31,5 +40,9 @@ void record_signals_restore(const struct prev_sigs *prev);
 double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 						struct buf_pool *pool, bool cursor,
 						struct seg_ctx *sc, struct rec_controls *ctrl);
+
+struct pw_capture;
+double rec_pw_loop(struct grabit_wl_state *s, struct pw_capture *cap,
+				   struct seg_ctx *sc, struct rec_controls *ctrl);
 
 #endif

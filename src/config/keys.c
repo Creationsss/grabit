@@ -5,12 +5,9 @@
 #include "config/config.h"
 
 #include "config/internal.h"
-#include "log.h"
 #include "region/keybinds.h"
-#include "util/util.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 
 static const char *BOOL_KEYS[] = {
@@ -18,8 +15,10 @@ static const char *BOOL_KEYS[] = {
 	"log_file",
 	"save_captures",
 	"also_save",
+	"save_state",
 	"webp.lossless",
 	"recording.cursor",
+	"recording.tray",
 	"sound.enabled",
 	"capture.cursor",
 	"region.window_snap",
@@ -49,6 +48,7 @@ static const char *KNOWN_TOP[] = {
 	"log_file",
 	"save_captures",
 	"also_save",
+	"save_state",
 	"save_dir",
 	"filename",
 	"filename_preset",
@@ -192,6 +192,11 @@ static bool valid_region_key(const char *key) {
 		   strcmp(leaf, "last") == 0;
 }
 
+static bool valid_tray_key(const char *key) {
+	if (strncmp(key, "tray.", 5) != 0) return false;
+	return strcmp(key + 5, "icon") == 0;
+}
+
 static bool valid_keys_key(const char *key) {
 	return region_keybind_default(key) != NULL;
 }
@@ -203,7 +208,8 @@ static bool valid_recording_key(const char *key) {
 	return strcmp(leaf, "fps") == 0 || strcmp(leaf, "crf") == 0 ||
 		   strcmp(leaf, "max_size_mb") == 0 || strcmp(leaf, "cursor") == 0 ||
 		   strcmp(leaf, "ffmpeg") == 0 || strcmp(leaf, "preset") == 0 ||
-		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0;
+		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0 ||
+		   strcmp(leaf, "tray") == 0;
 }
 
 bool cfg_key_is_known(const char *key) {
@@ -213,5 +219,6 @@ bool cfg_key_is_known(const char *key) {
 		   valid_png_key(key) || valid_jpeg_key(key) || valid_webp_key(key) ||
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key) || valid_keys_key(key);
+		   valid_preview_key(key) || valid_tray_key(key) ||
+		   valid_keys_key(key);
 }

@@ -14,22 +14,12 @@
 #include "cursor-shape-v1-client-protocol.h"
 
 static int btn_at(int32_t x, int32_t y) {
-	for (int b = 0; b < 3; b++) {
+	for (int b = 0; b < CB_BTN_COUNT; b++) {
 		int32_t bx, by, bw, bh;
 		ctl_btn_rect(b, &bx, &by, &bw, &bh);
 		if (rect_contains((struct rect){bx, by, bw, bh}, x, y)) return b;
 	}
 	return -1;
-}
-
-static void commit_input_regions(struct rec_controls *c) {
-	for (size_t i = 0; i < c->n; i++) {
-		struct ctl_output *o = &c->outs[i];
-		if (!o->configured) continue;
-		ctl_apply_input_region(o);
-		wl_surface_commit(o->surface);
-	}
-	wl_display_flush(c->wls->display);
 }
 
 static struct ctl_output *find_by_surface(struct rec_controls *c,
@@ -38,16 +28,6 @@ static struct ctl_output *find_by_surface(struct rec_controls *c,
 		if (c->outs[i].surface == s) return &c->outs[i];
 	}
 	return NULL;
-}
-
-static void bar_move_to(struct rec_controls *c, int32_t x, int32_t y) {
-	struct rect r = rect_clamp_into((struct rect){x, y, c->bw, c->bh}, c->bounds);
-	x = r.x;
-	y = r.y;
-	if (x == c->bx && y == c->by) return;
-	c->bx = x;
-	c->by = y;
-	ctl_redraw_all(c);
 }
 
 static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
@@ -81,14 +61,6 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	if (!c->ptr_on) return;
 	c->cx = c->ptr_on->go->x + wl_fixed_to_int(sx);
 	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
-	if (c->dragging)
-		bar_move_to(c, c->cx - c->grab_dx, c->cy - c->grab_dy);
-}
-
-static void drag_end(struct rec_controls *c) {
-	if (!c->dragging) return;
-	c->dragging = false;
-	commit_input_regions(c);
 }
 
 static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
@@ -98,10 +70,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)time;
 	struct rec_controls *c = data;
 	if (button != BTN_LEFT) return;
-	if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		drag_end(c);
-		return;
-	}
+	if (state == WL_POINTER_BUTTON_STATE_RELEASED) return;
 	if (!c->ptr_on || !rect_contains(ctl_bar_rect(c), c->cx, c->cy)) return;
 	switch (btn_at(c->cx - c->bx, c->cy - c->by)) {
 	case CB_BTN_START:
@@ -113,11 +82,11 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	case CB_BTN_STOP:
 		atomic_store(c->stop_flag, 1);
 		break;
+	case CB_BTN_ABORT:
+		atomic_store(c->abort_flag, 1);
+		atomic_store(c->stop_flag, 1);
+		break;
 	default:
-		c->dragging = true;
-		c->grab_dx = c->cx - c->bx;
-		c->grab_dy = c->cy - c->by;
-		commit_input_regions(c);
 		break;
 	}
 }

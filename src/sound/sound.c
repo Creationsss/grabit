@@ -6,7 +6,6 @@
 
 #include "config/config.h"
 #include "log.h"
-#include "notify/notify.h"
 #include "util/util.h"
 
 #include <stdbool.h>
@@ -50,13 +49,8 @@ void grabit_sound_play(struct config *cfg) {
 	const char *player = find_player(config_get(cfg, "sound.player"));
 	if (!player) {
 		if (!g_warned_player) {
-			log_error("sound: no audio player found in $PATH (tried pw-play, paplay, play, aplay)");
-			log_error("  install one or set: grabit set sound.player <path>");
-			notify_send(&(struct notify_opts){
-				.summary = "grabit: no audio player",
-				.body = "no audio player found",
-				.log_hint = true,
-			});
+			log_warn("sound: no audio player in $PATH; set one with `grabit set "
+					 "sound.player <path>`");
 			g_warned_player = true;
 		}
 		return;
@@ -65,13 +59,8 @@ void grabit_sound_play(struct config *cfg) {
 	const char *file = find_sound_file(config_get(cfg, "sound.file"));
 	if (!file) {
 		if (!g_warned_file) {
-			log_error("sound: no sound file found in standard freedesktop paths");
-			log_error("  install sound-theme-freedesktop or set: grabit set sound.file <path>");
-			notify_send(&(struct notify_opts){
-				.summary = "grabit: no sound file",
-				.body = "no sound file found",
-				.log_hint = true,
-			});
+			log_warn("sound: no sound file found; set one with `grabit set "
+					 "sound.file <path>`");
 			g_warned_file = true;
 		}
 		return;

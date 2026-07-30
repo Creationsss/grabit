@@ -17,6 +17,7 @@ enum action {
 	ACTION_PIN_GRAB,
 	ACTION_PIN_RELEASE,
 	ACTION_PIN_CLOSE_ALL,
+	ACTION_TRAY,
 };
 
 struct args {
@@ -27,9 +28,11 @@ struct args {
 	bool no_upload;
 	bool translate;
 	bool show;
+	bool no_copy;
 	bool cursor;
 	bool chunked;
 	bool fullscreen;
+	bool window;
 	bool last_region;
 	bool no_last;
 	int delay_secs;

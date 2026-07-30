@@ -39,7 +39,7 @@ void unlink_pid_file(void) {
 int stop_running_recording(void) {
 	pid_t prev = grabit_lock_owner(pid_file_path());
 	if (prev <= 0) return -1;
-	log_info("stopping recording (pid %d)", (int)prev);
+	log_debug("stopping recording (pid %d)", (int)prev);
 	if (kill(prev, SIGINT) != 0) {
 		if (errno == EPERM) {
 			log_error("recording PID %d not owned by us; cannot signal", (int)prev);

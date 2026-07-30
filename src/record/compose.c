@@ -128,10 +128,7 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 
 	cairo_surface_t *dst = grabit_cairo_image_argb(dst_buf, layout->dst_w,
 												   layout->dst_h, layout->dst_stride);
-	if (!dst) {
-		log_error("compose: dst surface failed");
-		return -1;
-	}
+	if (!dst) return -1;
 	cairo_t *cr = cairo_create(dst);
 
 	size_t alive = 0, captured = 0;

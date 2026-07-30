@@ -164,7 +164,7 @@ void gren_output_redraw(struct ro_output *o) {
 			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
 			cairo_fill(cr);
 			if (o->st->text_len > 0) {
-				struct annotation preview = {
+				struct annotation typing = {
 					.tool = o->st->text_tool,
 					.x0 = o->st->text_x,
 					.y0 = o->st->text_y,
@@ -174,7 +174,7 @@ void gren_output_redraw(struct ro_output *o) {
 					.font_size = (int32_t)font,
 					.text = (char *)o->st->text_buf,
 				};
-				annotation_paint(cr, &preview, 1.0);
+				annotation_paint(cr, &typing, 1.0);
 			}
 
 			double cursor_x = (double)o->st->text_x + typed_ext.x_advance;

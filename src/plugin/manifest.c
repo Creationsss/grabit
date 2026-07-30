@@ -131,6 +131,11 @@ int plugin_manifest_parse_file(const char *path, struct plugin_manifest *out) {
 		plugin_manifest_free(out);
 		return -1;
 	}
+	if (!out->build_cmd && !out->prebuilt_url) {
+		log_error("plugin: manifest must define [build] or [prebuilt]");
+		plugin_manifest_free(out);
+		return -1;
+	}
 	if (out->kind == PLUGIN_KIND_BUILD &&
 		(!out->build_cmd || !out->build_binary)) {
 		log_error("plugin: [build] requires both `cmd` and `binary`");
@@ -144,13 +149,7 @@ int plugin_manifest_parse_file(const char *path, struct plugin_manifest *out) {
 	}
 	if (out->kind == PLUGIN_KIND_PREBUILT &&
 		(!out->prebuilt_sha256 || !out->prebuilt_sha256[0])) {
-		log_error("plugin: [prebuilt] requires `sha256` (the binary is fetched over the "
-				  "network and cannot be trusted without a pinned hash)");
-		plugin_manifest_free(out);
-		return -1;
-	}
-	if (!out->build_cmd && !out->prebuilt_url) {
-		log_error("plugin: manifest must define [build] or [prebuilt]");
+		log_error("plugin: [prebuilt] requires `sha256`");
 		plugin_manifest_free(out);
 		return -1;
 	}

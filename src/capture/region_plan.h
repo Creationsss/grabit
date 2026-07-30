@@ -11,14 +11,22 @@ struct grabit_wl_state;
 struct rect;
 
 enum region_plan {
+	REGION_PLAN_NO_WINDOW = -2,
 	REGION_PLAN_NO_MONITOR = -1,
 	REGION_PLAN_FIXED,
 	REGION_PLAN_SELECT,
 	REGION_PLAN_MONITOR_PICK,
 };
 
+struct region_plan_req {
+	bool fullscreen;
+	const char *fullscreen_target;
+	bool window;
+	bool use_last;
+};
+
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,
-									 bool fullscreen, const char *fullscreen_target,
-									 bool use_last, struct rect *out);
+									 const struct region_plan_req *req,
+									 struct rect *out);
 
 #endif

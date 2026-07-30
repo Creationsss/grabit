@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "pin/pin.h"
 
+#include "capture/save.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "pin/pin_state.h"
@@ -94,11 +95,8 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		return -1;
 	}
 
-	cairo_surface_t *img = cairo_image_surface_create_from_png(path);
-	if (cairo_surface_status(img) != CAIRO_STATUS_SUCCESS) {
-		log_error("pin: load %s: %s", path,
-				  cairo_status_to_string(cairo_surface_status(img)));
-		cairo_surface_destroy(img);
+	cairo_surface_t *img = grabit_load_png_surface(path, "pin");
+	if (!img) {
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: pin failed",
 			.body = "could not load image",

@@ -33,6 +33,12 @@ PKGS_CORE := json-c libcurl wayland-client wayland-cursor cairo libpng xkbcommon
 CFLAGS    += $(shell $(PKG_CONFIG) --cflags $(PKGS_CORE)) -pthread
 LDLIBS    += $(shell $(PKG_CONFIG) --libs   $(PKGS_CORE)) -lmagic -lrt -lm -pthread
 
+HAVE_PIPEWIRE := $(shell $(PKG_CONFIG) --exists libpipewire-0.3 && echo 1)
+ifeq ($(HAVE_PIPEWIRE),1)
+  CFLAGS += -DHAVE_PIPEWIRE $(shell $(PKG_CONFIG) --cflags libpipewire-0.3 | sed 's/-I/-isystem /g')
+  LDLIBS += $(shell $(PKG_CONFIG) --libs libpipewire-0.3)
+endif
+
 HAVE_JPEG := $(shell $(PKG_CONFIG) --exists libjpeg && echo 1)
 HAVE_WEBP := $(shell $(PKG_CONFIG) --exists libwebp && echo 1)
 
@@ -57,8 +63,10 @@ WL_PROTOCOLS := \
 	xdg-output-unstable-v1 \
 	xdg-shell \
 	ext-image-capture-source-v1 \
+	ext-foreign-toplevel-list-v1 \
 	ext-image-copy-capture-v1 \
-	ext-foreign-toplevel-list-v1
+	wlr-foreign-toplevel-management-unstable-v1 \
+	zkde-screencast-unstable-v1
 
 WL_PROTO_DIR     := $(BUILDDIR)/protocols
 WL_PROTO_HEADERS := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -client-protocol.h,$(WL_PROTOCOLS)))
@@ -102,9 +110,13 @@ GRABIT_SRCS := \
 	src/config/help_examples.c \
 	src/config/help_groups.c \
 	src/template.c \
-	src/hyprland.c \
+	src/wm/wm.c \
+	src/wm/ipc.c \
+	src/wm/hyprland.c \
+	src/wm/niri.c \
 	src/mime.c \
 	src/wl/wl.c \
+	src/wl/toplevel.c \
 	src/wl/output.c \
 	src/wl/monitors.c \
 	src/wl/registry.c \
@@ -159,6 +171,7 @@ GRABIT_SRCS := \
 	src/region/render_buffer.c \
 	src/region/wlr_input_state.c \
 	src/record/record.c \
+	src/record/setup.c \
 	src/record/loop.c \
 	src/record/segments.c \
 	src/record/publish.c \
@@ -168,8 +181,15 @@ GRABIT_SRCS := \
 	src/record/compose.c \
 	src/record/overlay.c \
 	src/record/controls.c \
+	src/record/screencast.c \
+	src/record/pw.c \
+	src/record/sc_kde.c \
+	src/record/sc_gnome.c \
 	src/record/controls_input.c \
 	src/record/controls_render.c \
+	src/tray/apptray.c \
+	src/tray/menu.c \
+	src/tray/menu_layout.c \
 	src/tray/sni.c \
 	src/tray/sni_props.c \
 	src/tray/tray.c \

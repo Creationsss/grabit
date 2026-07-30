@@ -24,11 +24,12 @@ int config_save(struct config *c);
 void config_free(struct config *c);
 
 int config_load_full(struct config *c);
+bool config_exists(void);
 void config_state_overlay(struct config *cfg);
 void config_state_migrate(struct config *cfg);
 int config_state_put(struct config *cfg, const char *const *keys,
 					 const char *const *vals, size_t n);
-int config_state_clear(const char *key);
+int config_state_clear(struct config *cfg, const char *key);
 
 const char *config_get(struct config *c, const char *key);
 int config_set(struct config *c, const char *key, const char *value);

@@ -185,7 +185,8 @@ void plugin_maybe_auto_update(const char *name) {
 					strcmp(source_kind, "prebuilt") == 0;
 	plugin_touch_check(plugin_dir);
 	if (!prebuilt) {
-		log_debug("plugin: %s is due an update check", name);
+		log_info("plugin: %s may have updates; run `grabit plugin update %s`", name,
+				 name);
 		goto out;
 	}
 	should_spawn = true;

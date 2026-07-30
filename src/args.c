@@ -312,11 +312,11 @@ int args_parse(int argc, char **argv, struct args *out) {
 		log_debug("--filename is ignored when -f is used");
 	}
 	if (out->translate && out->action != ACTION_OCR) {
-		log_debug("--translate only applies to --tesseract");
+		log_warn("--translate only applies to --tesseract");
 		out->translate = false;
 	}
 	if (out->show && out->action != ACTION_OCR) {
-		log_debug("--show only applies to --tesseract");
+		log_warn("--show only applies to --tesseract");
 		out->show = false;
 	}
 	if (out->no_copy && out->action != ACTION_OCR) {

@@ -31,6 +31,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"recording.pix_fmt",
 	"recording.max_size_mb",
 	"recording.cursor",
+	"recording.show_dimensions",
 	"recording.ffmpeg",
 	"sound.enabled",
 	"sound.player",
@@ -196,6 +197,7 @@ static const char *const G_RECORDING[] = {
 	"recording.pix_fmt",
 	"recording.max_size_mb",
 	"recording.cursor",
+	"recording.show_dimensions",
 	"recording.ffmpeg",
 	NULL,
 };

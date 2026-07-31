@@ -253,7 +253,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			 "(SIGUSR1 toggles pause)",
 			 frame_w, frame_h, source_desc, fps, output_path);
 
-	struct overlay_state *overlay = overlay_start(&s, r);
+	bool show_dims = rec_cfg_show_dimensions(cfg);
+	struct overlay_state *overlay = overlay_start(&s, r, show_dims);
 	struct rec_controls *controls =
 		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
 

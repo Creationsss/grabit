@@ -18,6 +18,7 @@ static const char *BOOL_KEYS[] = {
 	"webp.lossless",
 	"recording.cursor",
 	"recording.tray",
+	"recording.show_dimensions",
 	"sound.enabled",
 	"capture.cursor",
 	"region.window_snap",

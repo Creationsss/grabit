@@ -37,6 +37,7 @@ struct overlay_output {
 struct overlay_state {
 	struct grabit_wl_state *wls;
 	struct rect r;
+	bool show_dimensions;
 	struct overlay_output *outs;
 	size_t n;
 };
@@ -81,28 +82,30 @@ static void draw_border(struct overlay_output *o) {
 	cairo_stroke(cr);
 	cairo_set_dash(cr, NULL, 0, 0);
 
-	char dims[32];
-	snprintf(dims, sizeof dims, "%dx%d", o->st->r.w, o->st->r.h);
-	cairo_select_font_face(cr, "sans-serif",
-						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(cr, 14.0 * S);
-	cairo_text_extents_t ext;
-	cairo_text_extents(cr, dims, &ext);
+	if (o->st->show_dimensions) {
+		char dims[32];
+		snprintf(dims, sizeof dims, "%dx%d", o->st->r.w, o->st->r.h);
+		cairo_select_font_face(cr, "sans-serif",
+							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+		cairo_set_font_size(cr, 14.0 * S);
+		cairo_text_extents_t ext;
+		cairo_text_extents(cr, dims, &ext);
 
-	double pad = 4.0 * S;
-	double pillw = ext.width + 2 * pad;
-	double pillh = ext.height + 2 * pad;
-	double pillx = rx + rw - pillw;
-	double pilly = ry - bw - pillh - 2.0 * S;
+		double pad = 4.0 * S;
+		double pillw = ext.width + 2 * pad;
+		double pillh = ext.height + 2 * pad;
+		double pillx = rx + rw - pillw;
+		double pilly = ry - bw - pillh - 2.0 * S;
 
-	cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
-	cairo_rectangle(cr, pillx, pilly, pillw, pillh);
-	cairo_fill(cr);
+		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
+		cairo_rectangle(cr, pillx, pilly, pillw, pillh);
+		cairo_fill(cr);
 
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
-	cairo_move_to(cr, pillx + pad - ext.x_bearing,
-				  pilly + pad - ext.y_bearing);
-	cairo_show_text(cr, dims);
+		cairo_set_source_rgba(cr, 1, 1, 1, 1);
+		cairo_move_to(cr, pillx + pad - ext.x_bearing,
+					  pilly + pad - ext.y_bearing);
+		cairo_show_text(cr, dims);
+	}
 
 	cairo_destroy(cr);
 	cairo_surface_flush(surf);
@@ -137,7 +140,8 @@ static const struct zwlr_layer_surface_v1_listener layer_listener_g = {
 	.closed = layer_surface_closed,
 };
 
-struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r) {
+struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
+									bool show_dimensions) {
 	if (!s || !s->layer_shell || !s->compositor) return NULL;
 
 	size_t n_overlap = 0;
@@ -150,6 +154,7 @@ struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r) {
 	if (!st) return NULL;
 	st->wls = s;
 	st->r = r;
+	st->show_dimensions = show_dimensions;
 	st->outs = calloc(n_overlap, sizeof *st->outs);
 	if (!st->outs) {
 		free(st);

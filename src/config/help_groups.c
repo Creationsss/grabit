@@ -96,6 +96,11 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = "true";
 			return 0;
 		}
+		if (strcmp(leaf, "show_dimensions") == 0) {
+			*example_out = "true|false";
+			*def_out = "true";
+			return 0;
+		}
 		if (strcmp(leaf, "ffmpeg") == 0) {
 			*example_out = "ffmpeg | /usr/bin/ffmpeg";
 			*def_out = "ffmpeg";

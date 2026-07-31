@@ -4,11 +4,14 @@
 #ifndef GRABIT_RECORD_OVERLAY_H
 #define GRABIT_RECORD_OVERLAY_H
 
+#include <stdbool.h>
+
 struct grabit_wl_state;
 struct rect;
 struct overlay_state;
 
-struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r);
+struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
+									bool show_dimensions);
 void overlay_stop(struct overlay_state *st);
 
 #endif

@@ -39,6 +39,8 @@ struct grabit_output {
 };
 
 double grabit_output_pixel_ratio(const struct grabit_output *o);
+void grabit_output_region_pixels(const struct grabit_output *o, int32_t w, int32_t h,
+								 int32_t *out_w, int32_t *out_h);
 
 struct grabit_wl_state {
 	struct wl_display *display;

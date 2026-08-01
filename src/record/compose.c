@@ -64,15 +64,13 @@ int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout
 		if (dy + lround(ih * max_ratio) > dst_h) ih = (int32_t)((dst_h - dy) / max_ratio);
 		if (iw <= 0 || ih <= 0) continue;
 
-		double pr = grabit_output_pixel_ratio(o);
 		struct rec_slice *sl = &out->slices[k++];
 		sl->out = o;
 		sl->src_x = ix - o->x;
 		sl->src_y = iy - o->y;
 		sl->src_w = iw;
 		sl->src_h = ih;
-		sl->cap_w = (int32_t)lround(iw * pr);
-		sl->cap_h = (int32_t)lround(ih * pr);
+		grabit_output_region_pixels(o, iw, ih, &sl->cap_w, &sl->cap_h);
 		sl->dst_x = dx;
 		sl->dst_y = dy;
 		sl->dst_w = (int32_t)lround(iw * max_ratio);
@@ -137,6 +135,44 @@ static void clear_slice(cairo_t *cr, const struct rec_slice *sl) {
 	cairo_restore(cr);
 }
 
+static bool draw_slice(struct grabit_wl_state *s, struct rec_layout *layout,
+					   size_t i, bool cursor, cairo_t *cr) {
+	const struct rec_slice *sl = &layout->slices[i];
+	if (ensure_slice_scratch(layout, sl->cap_w, sl->cap_h) != 0) return false;
+	int32_t scratch_stride = sl->cap_w * 4;
+	uint32_t fmt_raw;
+	if (capture_output_region_into(s, sl->out, sl->src_x, sl->src_y, sl->src_w, sl->src_h,
+								   cursor, layout->slice_scratch, scratch_stride,
+								   sl->cap_h, &fmt_raw, &layout->slice_caches[i]) != 0)
+		return false;
+
+	cairo_format_t fmt = grabit_cairo_format_for_shm(fmt_raw);
+	cairo_surface_t *src = grabit_cairo_image(layout->slice_scratch, fmt,
+											  sl->cap_w, sl->cap_h, scratch_stride);
+	if (!src) return false;
+
+	int32_t visible_w = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_h : sl->cap_w;
+	int32_t visible_h = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_w : sl->cap_h;
+	bool needs_scale = visible_w != sl->dst_w || visible_h != sl->dst_h;
+	double sx = visible_w > 0 ? (double)sl->dst_w / (double)visible_w : 1.0;
+	double sy = visible_h > 0 ? (double)sl->dst_h / (double)visible_h : 1.0;
+
+	cairo_save(cr);
+	cairo_rectangle(cr, sl->dst_x, sl->dst_y, sl->dst_w, sl->dst_h);
+	cairo_clip(cr);
+	cairo_translate(cr, sl->dst_x, sl->dst_y);
+	if (needs_scale) cairo_scale(cr, sx, sy);
+	grabit_wl_transform_apply_inverse(cr, sl->out->transform, sl->cap_w, sl->cap_h);
+	cairo_set_source_surface(cr, src, 0, 0);
+	cairo_pattern_set_filter(cairo_get_source(cr),
+							 needs_scale ? CAIRO_FILTER_GOOD : CAIRO_FILTER_NEAREST);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_paint(cr);
+	cairo_restore(cr);
+	cairo_surface_destroy(src);
+	return true;
+}
+
 int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *layout,
 							   bool cursor, void *dst_buf) {
 	if (!s || !layout || !dst_buf) return -1;
@@ -151,51 +187,10 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 		const struct rec_slice *sl = &layout->slices[i];
 		if (sl->out->dead) continue;
 		alive++;
-
-		if (ensure_slice_scratch(layout, sl->cap_w, sl->cap_h) != 0) {
+		if (draw_slice(s, layout, i, cursor, cr))
+			captured++;
+		else
 			clear_slice(cr, sl);
-			continue;
-		}
-		int32_t scratch_stride = sl->cap_w * 4;
-		uint32_t fmt_raw;
-		if (capture_output_region_into(s, sl->out,
-									   sl->src_x, sl->src_y, sl->src_w, sl->src_h,
-									   cursor, layout->slice_scratch,
-									   scratch_stride, sl->cap_h, &fmt_raw,
-									   &layout->slice_caches[i]) != 0) {
-			clear_slice(cr, sl);
-			continue;
-		}
-		captured++;
-
-		cairo_format_t fmt = grabit_cairo_format_for_shm(fmt_raw);
-		cairo_surface_t *src = grabit_cairo_image(layout->slice_scratch, fmt,
-												  sl->cap_w, sl->cap_h, scratch_stride);
-		if (!src) {
-			clear_slice(cr, sl);
-			continue;
-		}
-
-		int32_t visible_w = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_h : sl->cap_w;
-		int32_t visible_h = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_w : sl->cap_h;
-		bool needs_scale = visible_w != sl->dst_w || visible_h != sl->dst_h;
-		double sx = visible_w > 0 ? (double)sl->dst_w / (double)visible_w : 1.0;
-		double sy = visible_h > 0 ? (double)sl->dst_h / (double)visible_h : 1.0;
-
-		cairo_save(cr);
-		cairo_rectangle(cr, sl->dst_x, sl->dst_y, sl->dst_w, sl->dst_h);
-		cairo_clip(cr);
-		cairo_translate(cr, sl->dst_x, sl->dst_y);
-		if (needs_scale) cairo_scale(cr, sx, sy);
-		grabit_wl_transform_apply_inverse(cr, sl->out->transform, sl->cap_w, sl->cap_h);
-		cairo_set_source_surface(cr, src, 0, 0);
-		cairo_pattern_set_filter(cairo_get_source(cr),
-								 needs_scale ? CAIRO_FILTER_GOOD : CAIRO_FILTER_NEAREST);
-		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-		cairo_paint(cr);
-		cairo_restore(cr);
-
-		cairo_surface_destroy(src);
 	}
 
 	cairo_destroy(cr);

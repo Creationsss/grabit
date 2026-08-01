@@ -115,6 +115,7 @@ void gren_output_redraw(struct ro_output *o) {
 				.width = o->st->current_width,
 				.font_size = ANNO_DEFAULT_FONT,
 				.style = o->st->current_style,
+				.smooth = o->st->current_smooth,
 				.points = o->st->pen_points,
 				.n_points = o->st->pen_n,
 			};

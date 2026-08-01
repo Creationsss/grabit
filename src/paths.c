@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,13 +100,8 @@ static int fsync_dir(const char *path) {
 }
 
 int paths_atomic_write(const char *path, const void *buf, size_t len) {
-	char resolved[4096];
-	char *real = realpath(path, NULL);
-	if (real) {
-		int rn = snprintf(resolved, sizeof resolved, "%s", real);
-		free(real);
-		if (rn > 0 && (size_t)rn < sizeof resolved) path = resolved;
-	}
+	char resolved[PATH_MAX];
+	if (realpath(path, resolved)) path = resolved;
 
 	char *path_copy = strdup(path);
 	if (!path_copy) return -1;

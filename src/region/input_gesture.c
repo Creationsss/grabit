@@ -314,6 +314,7 @@ void region_commit_drawing(struct ro_state *st) {
 	a.width = st->current_width;
 	a.font_size = ANNO_DEFAULT_FONT;
 	a.style = st->current_style;
+	a.smooth = st->current_smooth;
 
 	if (tool_uses_points(st->current_tool)) {
 		if (st->pen_n == 0) {

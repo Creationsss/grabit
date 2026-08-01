@@ -192,6 +192,7 @@ struct ro_state {
 	int32_t current_width;
 	int32_t current_font;
 	enum stroke_style current_style;
+	bool current_smooth;
 	enum tool_kind group_tool[TB_TOOL_GROUP_COUNT];
 	double scroll_accum;
 	bool edit_choices_dirty;

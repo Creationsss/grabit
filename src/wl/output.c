@@ -9,6 +9,7 @@
 #include "region/region.h"
 #include "wl/internal.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,6 +128,13 @@ void gwl_output_attach_xdg(struct grabit_wl_state *s, struct grabit_output *o) {
 	o->xdg_output = zxdg_output_manager_v1_get_xdg_output(s->xdg_output_manager,
 														  o->wl_output);
 	zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);
+}
+
+void grabit_output_region_pixels(const struct grabit_output *o, int32_t w, int32_t h,
+								 int32_t *out_w, int32_t *out_h) {
+	double pr = grabit_output_pixel_ratio(o);
+	*out_w = (int32_t)lround(w * pr);
+	*out_h = (int32_t)lround(h * pr);
 }
 
 double grabit_output_pixel_ratio(const struct grabit_output *o) {

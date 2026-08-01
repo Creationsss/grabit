@@ -122,6 +122,7 @@ struct annotation {
 	int32_t width;
 	int32_t font_size;
 	enum stroke_style style;
+	bool smooth;
 	struct rect bbox;
 	bool selected;
 };

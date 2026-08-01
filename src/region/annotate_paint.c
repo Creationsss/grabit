@@ -75,6 +75,87 @@ static int32_t spot_strength(const struct annotation *a) {
 	return (r.w >= 2 && r.h >= 2) ? annotation_width(a) : 0;
 }
 
+#define SMOOTH_WINDOW 3
+
+static void polyline_path(cairo_t *cr, const int32_t *p, size_t n) {
+	cairo_move_to(cr, p[0], p[1]);
+	for (size_t i = 1; i < n; i++)
+		cairo_line_to(cr, p[i * 2], p[i * 2 + 1]);
+}
+
+static void curve_push(cairo_t *cr, double *wx, double *wy, size_t *nw, double x, double y) {
+	if (*nw < 4) {
+		wx[*nw] = x;
+		wy[*nw] = y;
+		(*nw)++;
+	} else {
+		for (size_t j = 0; j < 3; j++) {
+			wx[j] = wx[j + 1];
+			wy[j] = wy[j + 1];
+		}
+		wx[3] = x;
+		wy[3] = y;
+	}
+	if (*nw == 4)
+		cairo_curve_to(cr, wx[1] + (wx[2] - wx[0]) / 6.0, wy[1] + (wy[2] - wy[0]) / 6.0,
+					   wx[2] - (wx[3] - wx[1]) / 6.0, wy[2] - (wy[3] - wy[1]) / 6.0,
+					   wx[2], wy[2]);
+}
+
+static void stroke_path(cairo_t *cr, const int32_t *p, size_t n, bool smooth, double lw) {
+	if (!smooth || n < 4) {
+		polyline_path(cr, p, n);
+		return;
+	}
+
+	double step = lw * 0.75;
+	if (step < 2.0) step = 2.0;
+
+	size_t lo = 0;
+	size_t hi = n - 1 < (size_t)SMOOTH_WINDOW ? n - 1 : (size_t)SMOOTH_WINDOW;
+	double sx = 0, sy = 0;
+	for (size_t j = lo; j <= hi; j++) {
+		sx += p[j * 2];
+		sy += p[j * 2 + 1];
+	}
+
+	double wx[4], wy[4];
+	size_t nw = 0;
+	double lastx = 0, lasty = 0;
+
+	for (size_t i = 0; i < n; i++) {
+		double cx = sx / (double)(hi - lo + 1);
+		double cy = sy / (double)(hi - lo + 1);
+
+		bool take = nw == 0 || i + 1 == n;
+		if (!take) {
+			double dx = cx - lastx, dy = cy - lasty;
+			take = dx * dx + dy * dy >= step * step;
+		}
+		if (take) {
+			if (nw == 0) {
+				cairo_move_to(cr, cx, cy);
+				curve_push(cr, wx, wy, &nw, cx, cy);
+			}
+			curve_push(cr, wx, wy, &nw, cx, cy);
+			lastx = cx;
+			lasty = cy;
+		}
+
+		if (i + 1 + (size_t)SMOOTH_WINDOW < n) {
+			hi++;
+			sx += p[hi * 2];
+			sy += p[hi * 2 + 1];
+		}
+		if (i + 1 > (size_t)SMOOTH_WINDOW) {
+			sx -= p[lo * 2];
+			sy -= p[lo * 2 + 1];
+			lo++;
+		}
+	}
+	curve_push(cr, wx, wy, &nw, lastx, lasty);
+}
+
 static void spot_hole(cairo_t *cr, const struct annotation *a) {
 	if (!spot_strength(a)) return;
 	struct rect r = annotation_norm_rect(a);
@@ -180,10 +261,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
 		if (tool_uses_line_style(a->tool)) apply_stroke_style(cr, a->style, lw);
-		cairo_move_to(cr, a->points[0], a->points[1]);
-		for (size_t i = 1; i < a->n_points; i++) {
-			cairo_line_to(cr, a->points[i * 2], a->points[i * 2 + 1]);
-		}
+		stroke_path(cr, a->points, a->n_points, a->smooth, lw);
 		if (a->n_points == 1) {
 			cairo_arc(cr, a->points[0], a->points[1], lw / 2.0, 0, 2.0 * M_PI);
 			cairo_fill(cr);

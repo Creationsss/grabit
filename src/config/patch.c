@@ -101,9 +101,8 @@ static bool line_key(const struct line *l, const char *section, char *out, size_
 	unquote(&k, &klen);
 	if (klen == 0) return false;
 
-	int n = section && section[0]
-				? snprintf(out, cap, "%.*s.%.*s", (int)strlen(section), section, (int)klen, k)
-				: snprintf(out, cap, "%.*s", (int)klen, k);
+	int n = section[0] ? snprintf(out, cap, "%s.%.*s", section, (int)klen, k)
+					   : snprintf(out, cap, "%.*s", (int)klen, k);
 	return n > 0 && (size_t)n < cap;
 }
 
@@ -242,25 +241,55 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 		memcpy(want_section, key, sl);
 	}
 
+	bool found = false;
+	size_t insert_line = 0;
+	bool have_insert = (want_section[0] == '\0');
+	{
+		char section[256] = {0};
+		bool in_want = have_insert;
+		for (size_t i = 0; i < n_lines; i++) {
+			char sec[256];
+			bool is_header = line_is_section(&lines[i], sec, sizeof sec);
+			if (is_header) {
+				snprintf(section, sizeof section, "%s", sec);
+				in_want = strcmp(section, want_section) == 0;
+			}
+			char full[512];
+			bool is_kv = line_key(&lines[i], section, full, sizeof full);
+			if (is_kv && key_matches(full, key, prefix)) found = true;
+			if (in_want && (is_header || is_kv)) {
+				insert_line = i + 1;
+				have_insert = true;
+			}
+		}
+	}
+
+	bool need_new = value && !found;
+	if (need_new && !have_insert) insert_line = n_lines;
+
 	struct grabit_buf out = {0};
 	char section[256] = {0};
-	bool replaced = false;
-	size_t insert_at = 0;
-	bool have_insert = false;
-	bool in_want_section = (want_section[0] == '\0');
-	if (in_want_section && value) have_insert = true;
 
-	for (size_t i = 0; i < n_lines; i++) {
-		char sec[256];
-		bool is_header = line_is_section(&lines[i], sec, sizeof sec);
-		if (is_header) {
-			snprintf(section, sizeof section, "%s", sec);
-			in_want_section = strcmp(section, want_section) == 0;
+	for (size_t i = 0; i <= n_lines; i++) {
+		if (need_new && i == insert_line) {
+			if (!have_insert) {
+				if (out.len > 0 && out.data[out.len - 1] != '\n')
+					grabit_buf_putc(&out, '\n');
+				grabit_buf_putc(&out, '\n');
+				if (gcfg_emit_section(&out, want_section, strlen(want_section)) != 0)
+					goto oom;
+			}
+			if (!emit_kv(&out, NULL, 0, key, value, false, NULL, 0)) goto oom;
 		}
+		if (i == n_lines) break;
+
+		char sec[256];
+		if (line_is_section(&lines[i], sec, sizeof sec))
+			snprintf(section, sizeof section, "%s", sec);
 
 		char full[512];
-		bool is_kv = line_key(&lines[i], section, full, sizeof full);
-		if (is_kv && key_matches(full, key, prefix)) {
+		if (line_key(&lines[i], section, full, sizeof full) &&
+			key_matches(full, key, prefix)) {
 			if (!value) continue;
 			const char *p = lines[i].p;
 			size_t plen = lines[i].len;
@@ -279,41 +308,11 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 			bool was_bare = vlen > 0 && *vs != '"' && *vs != '\'';
 			if (!emit_kv(&out, p, lhs_len, key, value, was_bare, comment, comment_len))
 				goto oom;
-			replaced = true;
 			continue;
 		}
 
 		if (grabit_buf_putn(&out, lines[i].p, lines[i].len) != 0) goto oom;
 		if (grabit_buf_putc(&out, '\n') != 0) goto oom;
-		if (value && in_want_section && (is_header || is_kv)) {
-			insert_at = out.len;
-			have_insert = true;
-		}
-	}
-
-	if (value && !replaced) {
-		struct grabit_buf kv = {0};
-		if (want_section[0] && !have_insert) {
-			if (out.len > 0 && out.data[out.len - 1] != '\n')
-				grabit_buf_putc(&kv, '\n');
-			grabit_buf_putc(&kv, '\n');
-			grabit_buf_putc(&kv, '[');
-			grabit_buf_puts(&kv, want_section);
-			grabit_buf_puts(&kv, "]\n");
-		}
-		if (!emit_kv(&kv, NULL, 0, key, value, false, NULL, 0)) {
-			grabit_buf_free(&kv);
-			goto oom;
-		}
-		size_t at = have_insert ? insert_at : out.len;
-		if (grabit_buf_grow(&out, kv.len) != 0) {
-			grabit_buf_free(&kv);
-			goto oom;
-		}
-		memmove(out.data + at + kv.len, out.data + at, out.len - at);
-		memcpy(out.data + at, kv.data, kv.len);
-		out.len += kv.len;
-		grabit_buf_free(&kv);
 	}
 
 	int rc = paths_atomic_write(path, out.data ? out.data : "\n", out.len ? out.len : 1);

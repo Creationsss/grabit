@@ -79,6 +79,26 @@ void gcfg_emit_value(struct grabit_buf *out, const char *key, const char *val) {
 		gcfg_emit_string(out, val);
 }
 
+int gcfg_emit_section(struct grabit_buf *out, const char *prefix, size_t len) {
+	char *p = strndup(prefix, len);
+	if (!p) return -1;
+	grabit_buf_putc(out, '[');
+	const char *seg = p;
+	bool first = true;
+	char *dot;
+	while ((dot = strchr(seg, '.')) != NULL) {
+		if (!first) grabit_buf_putc(out, '.');
+		*dot = '\0';
+		gcfg_emit_key(out, seg);
+		seg = dot + 1;
+		first = false;
+	}
+	if (!first) grabit_buf_putc(out, '.');
+	gcfg_emit_key(out, seg);
+	free(p);
+	return grabit_buf_puts(out, "]\n");
+}
+
 static int kv_strcmp_cmp(const void *a, const void *b) {
 	const struct kv *ka = a;
 	const struct kv *kb = b;
@@ -128,23 +148,7 @@ static int config_write_to(struct config *c, const char *path) {
 				current_section_len != prefix_len ||
 				strncmp(current_section, key, prefix_len) != 0) {
 				if (out.len > 0) grabit_buf_putc(&out, '\n');
-				grabit_buf_putc(&out, '[');
-				char *prefix = strndup(key, prefix_len);
-				if (!prefix) goto oom;
-				const char *seg = prefix;
-				bool first_seg = true;
-				char *dot;
-				while ((dot = strchr(seg, '.')) != NULL) {
-					if (!first_seg) grabit_buf_putc(&out, '.');
-					*dot = '\0';
-					gcfg_emit_key(&out, seg);
-					seg = dot + 1;
-					first_seg = false;
-				}
-				if (!first_seg) grabit_buf_putc(&out, '.');
-				gcfg_emit_key(&out, seg);
-				free(prefix);
-				grabit_buf_puts(&out, "]\n");
+				if (gcfg_emit_section(&out, key, prefix_len) != 0) goto oom;
 				current_section = key;
 				current_section_len = prefix_len;
 			}

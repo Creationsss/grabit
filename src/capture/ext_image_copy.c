@@ -183,9 +183,9 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, overlay_cursor, cache, &c) == 0) {
-		double pr = grabit_output_pixel_ratio(o);
-		int32_t px = (int32_t)lround(x * pr), py = (int32_t)lround(y * pr);
-		int32_t pw = (int32_t)lround(w * pr), ph = (int32_t)lround(h * pr);
+		int32_t px, py, pw, ph;
+		grabit_output_region_pixels(o, x, y, &px, &py);
+		grabit_output_region_pixels(o, w, h, &pw, &ph);
 		if (px < 0 || py < 0 || pw > c.sess->width - px || ph > c.sess->height - py) {
 			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",
 					  px, py, pw, ph, c.sess->width, c.sess->height);

@@ -39,6 +39,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "true") == 0) st->show_coords = true;
 		st->current_style =
 			(enum stroke_style)edit_line_style_from_str(config_get(cfg, "edit.line_style"));
+		v = config_get(cfg, "edit.smooth");
+		st->current_smooth = v && strcmp(v, "true") == 0;
 		v = config_get(cfg, "edit.instant_capture");
 		if (v && strcmp(v, "true") == 0) st->edit_instant = true;
 		v = config_get(cfg, "edit.start_with_tool");

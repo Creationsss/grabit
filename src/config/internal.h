@@ -36,6 +36,7 @@ struct grabit_buf;
 void gcfg_emit_string(struct grabit_buf *out, const char *s);
 void gcfg_emit_key(struct grabit_buf *out, const char *k);
 void gcfg_emit_value(struct grabit_buf *out, const char *key, const char *val);
+int gcfg_emit_section(struct grabit_buf *out, const char *prefix, size_t len);
 int cfg_file_edit(const char *path, const char *key, const char *value, bool prefix);
 const char *cfg_canonical_key(const char *key);
 bool cfg_is_state_key(const char *key);

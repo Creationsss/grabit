@@ -7,8 +7,10 @@
 #include "config/internal.h"
 #include "log.h"
 #include "paths.h"
+
 #include "region/keybinds.h"
 #include "wl/wl.h"
+#include <unistd.h>
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -27,17 +29,27 @@ static char *split_eq(const char *arg, const char **val_out) {
 	return k;
 }
 
+static int cfg_persist(struct config *c, const char *key, const char *val, bool prefix) {
+	const char *path = paths_config_file();
+	if (cfg_file_edit(path, key, val, prefix) == 0) return 0;
+	if (access(path, F_OK) == 0) {
+		log_error("could not update %s in place; leaving it untouched", path);
+		return -1;
+	}
+	return config_save(c);
+}
+
 static int cfg_store(struct config *c, const char *key, const char *val) {
 	int rc = config_set(c, key, val);
 	const char *canon = cfg_canonical_key(key);
+	const char *stored = NULL;
 	if (rc == 0) {
-		const char *stored = config_get(c, canon);
-		rc = cfg_file_edit(paths_config_file(), canon, stored ? stored : val, false);
-		if (rc != 0) rc = config_save(c);
+		stored = config_get(c, canon);
+		if (!stored) stored = val;
+		rc = cfg_persist(c, canon, stored, false);
 	}
 	if (rc == 0) {
-		const char *stored = config_get(c, canon);
-		log_info("set %s = %s", key, stored ? stored : val);
+		log_info("set %s = %s", key, stored);
 		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
 	}
 	config_free(c);
@@ -109,8 +121,7 @@ static int cmd_set_reset(const char *key) {
 	int rc = 0;
 	if (removed == 0) {
 		log_info("%s already at default", key);
-	} else if (cfg_file_edit(paths_config_file(), all ? "keys." : key, NULL, all) != 0 &&
-			   config_save(&c) != 0) {
+	} else if (cfg_persist(&c, all ? "keys." : key, NULL, all) != 0) {
 		log_error("could not save config");
 		rc = 1;
 	} else if (all) {
@@ -263,8 +274,7 @@ int cmd_unset(int argc, char **argv) {
 	}
 	if (!found) {
 		log_info("%s was not set", argv[0]);
-	} else if (cfg_file_edit(paths_config_file(), cfg_canonical_key(argv[0]), NULL, false) != 0 &&
-			   config_save(&c) != 0) {
+	} else if (cfg_persist(&c, cfg_canonical_key(argv[0]), NULL, false) != 0) {
 		log_error("could not save config");
 		rc = 1;
 	} else {

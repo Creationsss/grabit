@@ -95,16 +95,23 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		goto cleanup;
 	}
 
-	int32_t max_scale = 1;
+	double max_ratio = 1.0;
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];
 		int32_t ix, iy, iw, ih;
 		if (!grabit_output_rect_intersect(o, &r, &ix, &iy, &iw, &ih)) continue;
-		if (o->scale > max_scale) max_scale = o->scale;
+		if (o->logical_width > 0) {
+			double sxr = (double)frozen[i].width / (double)o->logical_width;
+			if (sxr > max_ratio) max_ratio = sxr;
+		}
+		if (o->logical_height > 0) {
+			double syr = (double)frozen[i].height / (double)o->logical_height;
+			if (syr > max_ratio) max_ratio = syr;
+		}
 	}
 
-	int32_t dst_w = r.w * max_scale;
-	int32_t dst_h = r.h * max_scale;
+	int32_t dst_w = (int32_t)lround(r.w * max_ratio);
+	int32_t dst_h = (int32_t)lround(r.h * max_ratio);
 
 	slices = calloc(s->n_outputs, sizeof *slices);
 	if (!slices) {
@@ -136,10 +143,10 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		if (sl->src_y + sl->src_h > frozen[i].height)
 			sl->src_h = frozen[i].height - sl->src_y;
 
-		sl->dst_x = (ix0 - r.x) * max_scale;
-		sl->dst_y = (iy0 - r.y) * max_scale;
-		sl->dst_w = iw * max_scale;
-		sl->dst_h = ih * max_scale;
+		sl->dst_x = (int32_t)lround((ix0 - r.x) * max_ratio);
+		sl->dst_y = (int32_t)lround((iy0 - r.y) * max_ratio);
+		sl->dst_w = (int32_t)lround(iw * max_ratio);
+		sl->dst_h = (int32_t)lround(ih * max_ratio);
 	}
 
 	if (n_slices == 0) {
@@ -148,7 +155,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	}
 
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices,
-										 &r, max_scale,
+										 &r, max_ratio,
 										 annos.n > 0 ? &annos : NULL, save_opts, path);
 
 	if (rc == 0 && out_rect) *out_rect = r;

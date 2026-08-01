@@ -135,7 +135,7 @@ int grabit_save_surface(cairo_surface_t *dst,
 
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
-									const struct rect *region, int32_t scale,
+									const struct rect *region, double scale,
 									const struct annotation_list *annos,
 									const struct grabit_save_opts *opts,
 									const char *path) {
@@ -151,7 +151,7 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 
 	if (annos && region && scale > 0) {
 		cairo_t *cr = cairo_create(dst);
-		annotation_list_paint(cr, annos, region->x, region->y, (double)scale);
+		annotation_list_paint(cr, annos, region->x, region->y, scale);
 		cairo_destroy(cr);
 	}
 

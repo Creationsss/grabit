@@ -41,7 +41,7 @@ struct rect;
 struct annotation_list;
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
-									const struct rect *region, int32_t scale,
+									const struct rect *region, double scale,
 									const struct annotation_list *annos,
 									const struct grabit_save_opts *opts,
 									const char *path);

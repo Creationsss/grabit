@@ -117,8 +117,21 @@ int sxcu_dir_list(char ***names_out, size_t *n_out) {
 static int copy_file(const char *src, const char *dst) {
 	FILE *in = fopen(src, "rb");
 	if (!in) return -1;
-	FILE *out = fopen(dst, "wb");
+	char tmpl[SXCU_PATH_MAX];
+	int n = snprintf(tmpl, sizeof tmpl, "%s.XXXXXX", dst);
+	if (n <= 0 || (size_t)n >= sizeof tmpl) {
+		fclose(in);
+		return -1;
+	}
+	int fd = mkstemp(tmpl);
+	if (fd < 0) {
+		fclose(in);
+		return -1;
+	}
+	FILE *out = fdopen(fd, "wb");
 	if (!out) {
+		close(fd);
+		unlink(tmpl);
 		fclose(in);
 		return -1;
 	}
@@ -128,20 +141,33 @@ static int copy_file(const char *src, const char *dst) {
 		if (fwrite(buf, 1, got, out) != got) {
 			fclose(in);
 			fclose(out);
-			unlink(dst);
+			unlink(tmpl);
 			return -1;
 		}
 	}
 	int rc = ferror(in) ? -1 : 0;
 	fclose(in);
 	if (fclose(out) != 0) rc = -1;
-	if (rc != 0) unlink(dst);
+	if (rc == 0) {
+		(void)chmod(tmpl, SXCU_FILE_MODE);
+		if (rename(tmpl, dst) != 0) rc = -1;
+	}
+	if (rc != 0) unlink(tmpl);
 	return rc;
+}
+
+static bool sxcu_name_ok(const char *name) {
+	if (!name || !name[0]) return false;
+	if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) return false;
+	for (const char *p = name; *p; p++) {
+		if (*p == '/' || *p == '\\') return false;
+	}
+	return true;
 }
 
 static int sxcu_path_for(const char *name, char *buf, size_t cap) {
 	const char *dir = sxcu_dir_path();
-	if (!name || !dir[0]) return -1;
+	if (!sxcu_name_ok(name) || !dir[0]) return -1;
 	int n = snprintf(buf, cap, "%s/%s" SXCU_EXT, dir, name);
 	return (n <= 0 || (size_t)n >= cap) ? -1 : 0;
 }
@@ -156,7 +182,7 @@ static char *sanitize(const char *src) {
 	return out;
 }
 
-int sxcu_dir_add(const char *file_path) {
+int sxcu_dir_add(const char *file_path, bool force) {
 	if (!file_path) return -1;
 
 	struct sxcu_uploader probe = {0};
@@ -180,20 +206,32 @@ int sxcu_dir_add(const char *file_path) {
 
 	char dst[SXCU_PATH_MAX];
 	int rc = sxcu_path_for(name, dst, sizeof dst);
+	if (rc != 0) {
+		free(name);
+		return -1;
+	}
+	if (!force && access(dst, F_OK) == 0) {
+		log_error("sxcu: `%s` already exists; `grabit sxcu add %s --force` replaces "
+				  "it, or remove it first",
+				  name, file_path);
+		free(name);
+		return -1;
+	}
 	free(name);
-	if (rc != 0) return -1;
 
 	if (copy_file(file_path, dst) != 0) {
 		log_error("sxcu: copy %s -> %s failed", file_path, dst);
 		return -1;
 	}
-	chmod(dst, SXCU_FILE_MODE);
 	return 0;
 }
 
 int sxcu_dir_remove(const char *name) {
 	char path[SXCU_PATH_MAX];
-	if (sxcu_path_for(name, path, sizeof path) != 0) return -1;
+	if (sxcu_path_for(name, path, sizeof path) != 0) {
+		log_error("sxcu: `%s` is not a valid uploader name", name ? name : "");
+		return -1;
+	}
 	if (unlink(path) != 0) {
 		log_error("sxcu: remove %s: %s", path, strerror(errno));
 		return -1;

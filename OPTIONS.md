@@ -141,6 +141,7 @@ import any sharex custom uploader file:
 
 ```sh
 grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into config dir (alias: install)
+grabit sxcu add  myhost.sxcu --force          # replace an uploader that already exists
 grabit sxcu list                              # registered names (alias: ls)
 grabit sxcu show <name>                       # parsed fields (auth masked; --show-secrets unmasks)
 grabit sxcu remove <name>                     # alias: rm

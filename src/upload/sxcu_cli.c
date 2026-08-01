@@ -22,7 +22,7 @@ static int usage(void) {
 static int help(void) {
 	puts("usage: grabit sxcu <subcommand> [args]");
 	puts("");
-	puts("  add <file>     register a .sxcu uploader (alias: install)");
+	puts("  add <file>     register a .sxcu uploader (--force replaces; alias: install)");
 	puts("  list           show registered uploaders (alias: ls)");
 	puts("  show <name>    print parsed fields (--show-secrets unmasks auth)");
 	puts("  remove <name>  remove an uploader (alias: rm)");
@@ -106,8 +106,18 @@ int cmd_sxcu(int argc, char **argv) {
 		return help();
 	}
 	if (strcmp(sub, "add") == 0 || strcmp(sub, "install") == 0) {
-		if (argc != 2) return usage();
-		if (sxcu_dir_add(argv[1]) != 0) return 1;
+		bool force = false;
+		const char *file = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--force") == 0)
+				force = true;
+			else if (!file)
+				file = argv[i];
+			else
+				return usage();
+		}
+		if (!file) return usage();
+		if (sxcu_dir_add(file, force) != 0) return 1;
 		log_info("sxcu: added to %s", sxcu_dir_path());
 		return 0;
 	}

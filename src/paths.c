@@ -260,7 +260,7 @@ char *paths_build_output(struct config *cfg, const char *cli_template,
 		free(clean);
 		return NULL;
 	}
-	if (dest == PATHS_DEST_PICTURES && access(path, F_OK) == 0) {
+	if (dest != PATHS_DEST_TEMP && access(path, F_OK) == 0) {
 		for (int n = 1; n < 10000; n++) {
 			char *candidate = NULL;
 			if (grabit_xasprintf(&candidate, "%s/%s-%d%s",

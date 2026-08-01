@@ -38,6 +38,11 @@ static inline bool rec_cfg_tray(struct config *cfg) {
 	return !v || strcmp(v, "true") == 0;
 }
 
+static inline bool rec_cfg_show_dimensions(struct config *cfg) {
+	const char *v = config_get(cfg, "recording.show_dimensions");
+	return !v || strcmp(v, "true") == 0;
+}
+
 static inline const char *rec_cfg_format(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.format");
 	if (v && (strcmp(v, "webm") == 0 || strcmp(v, "gif") == 0)) return v;

@@ -250,7 +250,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		log_debug("recording %zu output%s", layout.n, layout.n == 1 ? "" : "s");
 	log_info("recording %dx%d @ %d fps -> %s", frame_w, frame_h, fps, output_path);
 
-	struct overlay_state *overlay = overlay_start(&s, r);
+	bool show_dims = rec_cfg_show_dimensions(cfg);
+	struct overlay_state *overlay = overlay_start(&s, r, show_dims);
 	struct rec_controls *controls =
 		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
 

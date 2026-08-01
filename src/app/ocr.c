@@ -211,8 +211,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			prev_space = false;
 		}
 	}
-	while (fi > 0 && ((unsigned char)flat[fi - 1] & 0xC0) == 0x80)
-		fi--;
+	fi = grabit_utf8_valid_prefix(flat, fi);
 	while (fi > 0 && flat[fi - 1] == ' ')
 		fi--;
 	flat[fi] = '\0';

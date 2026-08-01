@@ -5,6 +5,7 @@
 
 #include "config/config.h"
 #include "log.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -38,15 +39,26 @@ void notify_init(struct config *cfg, bool silent) {
 	g_show = !v || strcmp(v, "true") == 0;
 }
 
+static const char *utf8_safe(const char *s, char *buf, size_t cap) {
+	if (!s || !*s) return "";
+	size_t n = strlen(s);
+	if (n >= cap) n = cap - 1;
+	n = grabit_utf8_valid_prefix(s, n);
+	memcpy(buf, s, n);
+	buf[n] = '\0';
+	return buf;
+}
+
 static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	DBusMessageIter args;
 	dbus_message_iter_init_append(msg, &args);
 
 	char body_buf[1024];
+	char summary_buf[512], icon_buf[4096], scrub_buf[1024];
 	const char *app = APP_NAME;
-	const char *icon = o->icon_path ? o->icon_path : "";
-	const char *summary = o->summary;
-	const char *body = o->body ? o->body : "";
+	const char *icon = utf8_safe(o->icon_path, icon_buf, sizeof icon_buf);
+	const char *summary = utf8_safe(o->summary, summary_buf, sizeof summary_buf);
+	const char *body = utf8_safe(o->body, scrub_buf, sizeof scrub_buf);
 	if ((o->log_hint || o->force) && log_file_enabled()) {
 		snprintf(body_buf, sizeof body_buf, "%s%scheck the log file",
 				 body, body[0] ? "\n" : "");

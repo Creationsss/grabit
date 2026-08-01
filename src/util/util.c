@@ -245,6 +245,32 @@ bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
 	return true;
 }
 
+size_t grabit_utf8_valid_prefix(const char *s, size_t n) {
+	if (!s) return 0;
+	size_t i = 0, ok = 0;
+	while (i < n) {
+		unsigned char c = (unsigned char)s[i];
+		size_t need;
+		if (c < 0x80)
+			need = 0;
+		else if ((c & 0xE0) == 0xC0)
+			need = 1;
+		else if ((c & 0xF0) == 0xE0)
+			need = 2;
+		else if ((c & 0xF8) == 0xF0)
+			need = 3;
+		else
+			return ok;
+		if (i + need >= n && need > 0) return ok;
+		for (size_t k = 1; k <= need; k++) {
+			if (((unsigned char)s[i + k] & 0xC0) != 0x80) return ok;
+		}
+		i += need + 1;
+		ok = i;
+	}
+	return ok;
+}
+
 void grabit_redact_url(const char *url, char *out, size_t cap) {
 	if (!out || cap == 0) return;
 	if (!url) {

@@ -162,7 +162,10 @@ static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 		if (grabit_runtime_dir(rt, sizeof rt) == 0 &&
 			grabit_xasprintf(&out, "%s/grabit", rt) == 0)
 			return out;
-		return strdup("/tmp");
+		log_error("no private runtime directory; refusing to use a world-writable "
+				  "one. set XDG_RUNTIME_DIR, or remove a stale /tmp/grabit-%u",
+				  (unsigned)getuid());
+		return NULL;
 	}
 
 	const char *d = config_get(cfg, "save_dir");
@@ -180,6 +183,20 @@ static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 		if (out) return out;
 	}
 	return strdup("/tmp");
+}
+
+char *paths_temp_file(const char *name) {
+	char *dir = resolve_dir(NULL, PATHS_DEST_TEMP);
+	if (!dir) return NULL;
+	if (paths_mkdir_p(dir) != 0) {
+		log_error("mkdir %s: %s", dir, strerror(errno));
+		free(dir);
+		return NULL;
+	}
+	char *out = NULL;
+	int rc = grabit_xasprintf(&out, "%s/%s", dir, name);
+	free(dir);
+	return rc == 0 ? out : NULL;
 }
 
 char *paths_build_output(struct config *cfg, const char *cli_template,

@@ -88,8 +88,9 @@ void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 	if (!preview_enabled(cfg)) return;
 
 	bool prerendered = g_preview_png && access(g_preview_png, R_OK) == 0;
-	char *png_path = prerendered ? g_preview_png
-								 : paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+	char fallback_name[64];
+	snprintf(fallback_name, sizeof fallback_name, "preview-%d.png", (int)getpid());
+	char *png_path = prerendered ? g_preview_png : paths_temp_file(fallback_name);
 	if (!png_path) return;
 
 	int width = preview_width(cfg);
@@ -128,7 +129,10 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 	out->png_level = gapp_read_int_cfg_clamp(cfg, "png.level", 1, 0, 9);
 	if (preview_enabled(cfg)) {
 		free(g_preview_png);
-		g_preview_png = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+		char name[64];
+		snprintf(name, sizeof name, "preview-%d.png", (int)getpid());
+		g_preview_png = paths_temp_file(name);
+		if (g_preview_png) (void)unlink(g_preview_png);
 		out->preview_path = g_preview_png;
 		out->preview_width = preview_width(cfg);
 	}

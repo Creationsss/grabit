@@ -14,6 +14,7 @@ const char *paths_state_dir(void);
 const char *paths_state_file(void);
 
 int paths_mkdir_p(const char *path);
+char *paths_temp_file(const char *name);
 
 int paths_atomic_write(const char *path, const void *buf, size_t len);
 

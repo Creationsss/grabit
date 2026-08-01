@@ -15,6 +15,7 @@ struct rect;
 struct rec_slice {
 	struct grabit_output *out;
 	int32_t src_x, src_y, src_w, src_h;
+	int32_t cap_w, cap_h;
 	int32_t dst_x, dst_y, dst_w, dst_h;
 };
 

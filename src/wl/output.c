@@ -129,6 +129,15 @@ void gwl_output_attach_xdg(struct grabit_wl_state *s, struct grabit_output *o) {
 	zxdg_output_v1_add_listener(o->xdg_output, &grabit_xdg_output_listener, o);
 }
 
+double grabit_output_pixel_ratio(const struct grabit_output *o) {
+	if (!o) return 1.0;
+	bool rotated = (o->transform & 1) != 0;
+	int32_t pw = rotated ? o->height : o->width;
+	if (o->logical_width > 0 && pw > 0)
+		return (double)pw / (double)o->logical_width;
+	return o->scale > 0 ? (double)o->scale : 1.0;
+}
+
 void gwl_output_finalize(struct grabit_output *o) {
 	if (o->scale <= 0) o->scale = 1;
 	bool rotated = (o->transform & 1) != 0;

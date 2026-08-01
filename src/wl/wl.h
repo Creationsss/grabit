@@ -38,6 +38,8 @@ struct grabit_output {
 	int32_t transform; // wl_output.transform; bit 0 set ⇒ 90° rotated
 };
 
+double grabit_output_pixel_ratio(const struct grabit_output *o);
+
 struct grabit_wl_state {
 	struct wl_display *display;
 	struct wl_registry *registry;

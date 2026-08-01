@@ -102,6 +102,7 @@ GRABIT_SRCS := \
 	src/config/config.c \
 	src/config/kv.c \
 	src/config/save.c \
+	src/config/patch.c \
 	src/config/schema.c \
 	src/config/keys.c \
 	src/config/zipline.c \

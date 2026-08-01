@@ -7,8 +7,10 @@
 #include "capture/pixels.h"
 
 #include "log.h"
+
 #include "notify/notify.h"
 #include "wl/wl.h"
+#include <math.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -181,16 +183,19 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, overlay_cursor, cache, &c) == 0) {
-		if (x < 0 || y < 0 || w > c.sess->width - x || h > c.sess->height - y) {
+		double pr = grabit_output_pixel_ratio(o);
+		int32_t px = (int32_t)lround(x * pr), py = (int32_t)lround(y * pr);
+		int32_t pw = (int32_t)lround(w * pr), ph = (int32_t)lround(h * pr);
+		if (px < 0 || py < 0 || pw > c.sess->width - px || ph > c.sess->height - py) {
 			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",
-					  x, y, w, h, c.sess->width, c.sess->height);
-		} else if (h != dst_h || w * 4 != dst_stride) {
+					  px, py, pw, ph, c.sess->width, c.sess->height);
+		} else if (ph != dst_h || pw * 4 != dst_stride) {
 			log_error("ext-image-copy: size mismatch (got %dx%d, dst stride=%d h=%d)",
-					  w, h, dst_stride, dst_h);
+					  pw, ph, dst_stride, dst_h);
 		} else {
 			const uint8_t *src = (const uint8_t *)c.buf.map +
-								 (size_t)y * (size_t)c.sess->stride + (size_t)x * 4;
-			pixels_copy(dst, dst_stride, src, c.sess->stride, w, h,
+								 (size_t)py * (size_t)c.sess->stride + (size_t)px * 4;
+			pixels_copy(dst, dst_stride, src, c.sess->stride, pw, ph,
 						c.sess->fmt.conv, false);
 			if (out_format)
 				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.conv);

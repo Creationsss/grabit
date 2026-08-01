@@ -37,7 +37,7 @@ static int section_depth(const char *key) {
 	return d;
 }
 
-static void emit_string_value(struct grabit_buf *out, const char *s) {
+void gcfg_emit_string(struct grabit_buf *out, const char *s) {
 	grabit_buf_putc(out, '"');
 	for (const char *p = s; *p; p++) {
 		unsigned char ch = (unsigned char)*p;
@@ -64,12 +64,19 @@ static bool key_needs_quoting(const char *k) {
 	return false;
 }
 
-static void emit_bare_or_quoted_key(struct grabit_buf *out, const char *k) {
+void gcfg_emit_key(struct grabit_buf *out, const char *k) {
 	if (key_needs_quoting(k)) {
-		emit_string_value(out, k);
+		gcfg_emit_string(out, k);
 	} else {
 		grabit_buf_puts(out, k);
 	}
+}
+
+void gcfg_emit_value(struct grabit_buf *out, const char *key, const char *val) {
+	if (cfg_is_bool_key(key) && (strcmp(val, "true") == 0 || strcmp(val, "false") == 0))
+		grabit_buf_puts(out, val);
+	else
+		gcfg_emit_string(out, val);
 }
 
 static int kv_strcmp_cmp(const void *a, const void *b) {
@@ -130,12 +137,12 @@ static int config_write_to(struct config *c, const char *path) {
 				while ((dot = strchr(seg, '.')) != NULL) {
 					if (!first_seg) grabit_buf_putc(&out, '.');
 					*dot = '\0';
-					emit_bare_or_quoted_key(&out, seg);
+					gcfg_emit_key(&out, seg);
 					seg = dot + 1;
 					first_seg = false;
 				}
 				if (!first_seg) grabit_buf_putc(&out, '.');
-				emit_bare_or_quoted_key(&out, seg);
+				gcfg_emit_key(&out, seg);
 				free(prefix);
 				grabit_buf_puts(&out, "]\n");
 				current_section = key;
@@ -144,14 +151,9 @@ static int config_write_to(struct config *c, const char *path) {
 		}
 
 		const char *short_key = is_top ? key : strrchr(key, '.') + 1;
-		emit_bare_or_quoted_key(&out, short_key);
+		gcfg_emit_key(&out, short_key);
 		grabit_buf_puts(&out, " = ");
-		const char *val = c->kvs[i].val;
-		if (cfg_is_bool_key(key) && (strcmp(val, "true") == 0 || strcmp(val, "false") == 0)) {
-			grabit_buf_puts(&out, val);
-		} else {
-			emit_string_value(&out, val);
-		}
+		gcfg_emit_value(&out, key, c->kvs[i].val);
 		grabit_buf_putc(&out, '\n');
 	}
 

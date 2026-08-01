@@ -98,8 +98,12 @@ static const char *VALS_show_position[] = {
 	NULL,
 };
 
+const char *cfg_canonical_key(const char *key) {
+	return strcmp(key, "save_captures") == 0 ? "also_save" : key;
+}
+
 int config_set(struct config *c, const char *key, const char *value) {
-	if (strcmp(key, "save_captures") == 0) key = "also_save";
+	key = cfg_canonical_key(key);
 	if (!cfg_key_is_known(key)) {
 		cfg_help_report_unknown_key(key);
 		return -1;

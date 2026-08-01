@@ -6,6 +6,7 @@
 
 #include "config/internal.h"
 #include "log.h"
+#include "paths.h"
 #include "region/keybinds.h"
 #include "wl/wl.h"
 
@@ -28,9 +29,14 @@ static char *split_eq(const char *arg, const char **val_out) {
 
 static int cfg_store(struct config *c, const char *key, const char *val) {
 	int rc = config_set(c, key, val);
-	if (rc == 0) rc = config_save(c);
+	const char *canon = cfg_canonical_key(key);
 	if (rc == 0) {
-		const char *stored = config_get(c, key);
+		const char *stored = config_get(c, canon);
+		rc = cfg_file_edit(paths_config_file(), canon, stored ? stored : val, false);
+		if (rc != 0) rc = config_save(c);
+	}
+	if (rc == 0) {
+		const char *stored = config_get(c, canon);
 		log_info("set %s = %s", key, stored ? stored : val);
 		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
 	}
@@ -103,7 +109,8 @@ static int cmd_set_reset(const char *key) {
 	int rc = 0;
 	if (removed == 0) {
 		log_info("%s already at default", key);
-	} else if (config_save(&c) != 0) {
+	} else if (cfg_file_edit(paths_config_file(), all ? "keys." : key, NULL, all) != 0 &&
+			   config_save(&c) != 0) {
 		log_error("could not save config");
 		rc = 1;
 	} else if (all) {
@@ -256,7 +263,8 @@ int cmd_unset(int argc, char **argv) {
 	}
 	if (!found) {
 		log_info("%s was not set", argv[0]);
-	} else if (config_save(&c) != 0) {
+	} else if (cfg_file_edit(paths_config_file(), cfg_canonical_key(argv[0]), NULL, false) != 0 &&
+			   config_save(&c) != 0) {
 		log_error("could not save config");
 		rc = 1;
 	} else {

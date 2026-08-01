@@ -51,17 +51,17 @@ void grabit_wl_transform_apply_inverse(cairo_t *cr, int32_t transform,
 		cairo_scale(cr, -1, 1);
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		cairo_translate(cr, src_h, src_w);
-		cairo_scale(cr, -1, 1);
-		cairo_rotate(cr, -M_PI / 2);
+		cairo_rotate(cr, M_PI / 2);
+		cairo_scale(cr, 1, -1);
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
 		cairo_translate(cr, 0, src_h);
 		cairo_scale(cr, 1, -1);
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		cairo_rotate(cr, M_PI / 2);
-		cairo_scale(cr, 1, -1);
+		cairo_translate(cr, src_h, src_w);
+		cairo_scale(cr, -1, 1);
+		cairo_rotate(cr, -M_PI / 2);
 		break;
 	}
 }

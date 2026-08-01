@@ -175,9 +175,7 @@ int cmd_set(int argc, char **argv) {
 		const char *ex = NULL, *def = NULL;
 		bool have_ex = cfg_help_example_for_key(argv[0], &ex, &def) == 0;
 		if (!have_ex && !cfg_key_is_known(argv[0])) {
-			log_error("unknown config key: `%s`", argv[0]);
-			const char *hint = cfg_help_suggest_key(argv[0]);
-			if (hint) log_info("did you mean: `%s`?", hint);
+			cfg_help_report_unknown_key(argv[0]);
 			return 2;
 		}
 		if (have_ex) {
@@ -227,9 +225,7 @@ int cmd_get(int argc, char **argv) {
 		if (v) {
 			puts(v);
 		} else if (!cfg_key_is_known(argv[0])) {
-			log_error("unknown config key: `%s`", argv[0]);
-			const char *hint = cfg_help_suggest_key(argv[0]);
-			if (hint) log_info("did you mean: `%s`?", hint);
+			cfg_help_report_unknown_key(argv[0]);
 			rc = 2;
 		} else {
 			log_error("not set: `%s`", argv[0]);

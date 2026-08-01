@@ -5,6 +5,8 @@
 #include "config/config.h"
 #include "config/internal.h"
 
+#include "log.h"
+
 #include "region/keybinds.h"
 #include "util/util.h"
 
@@ -86,8 +88,44 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	NULL,
 };
 
+static bool key_namespace_exists(const char *input) {
+	size_t n = strlen(input);
+	if (n == 0) return false;
+	for (size_t i = 0; ALL_KNOWN_KEYS[i]; i++) {
+		if (strncmp(ALL_KNOWN_KEYS[i], input, n) == 0 && ALL_KNOWN_KEYS[i][n] == '.')
+			return true;
+	}
+	return false;
+}
+
+void cfg_help_report_unknown_key(const char *key) {
+	if (key_namespace_exists(key)) {
+		log_error("`%s` is a group of keys, not a key itself; run `grabit set` to "
+				  "list what is under it",
+				  key);
+		return;
+	}
+	const char *hint = cfg_help_suggest_key(key);
+	if (hint)
+		log_error("unknown config key `%s`; did you mean `%s`?", key, hint);
+	else
+		log_error("unknown config key `%s`", key);
+}
+
 const char *cfg_help_suggest_key(const char *input) {
 	if (!input || !*input) return NULL;
+
+	static char hdrbuf[128];
+	if (strncmp(input, "services.", 9) == 0) {
+		const char *dot = strchr(input + 9, '.');
+		if (dot && strncmp(dot + 1, "x-", 2) == 0 &&
+			strncmp(dot + 1, "headers.", 8) != 0) {
+			int n = snprintf(hdrbuf, sizeof hdrbuf, "%.*s.headers.%s",
+							 (int)(dot - input), input, dot + 1);
+			if (n > 0 && (size_t)n < sizeof hdrbuf) return hdrbuf;
+		}
+	}
+
 	size_t in_len = strlen(input);
 	const char *best = NULL;
 	size_t best_dist = (size_t)-1;

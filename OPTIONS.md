@@ -123,13 +123,15 @@ zipline supports per-upload metadata via headers. set them with `services.ziplin
 | `x-zipline-image-compression-type` | `jpg`, `png`, `webp`, `jxl` |
 | `x-zipline-password` | string |
 | `x-zipline-max-views` | non-negative integer |
-| `x-zipline-no-json` | `true` |
-| `x-zipline-original-name` | `true` |
+| `x-zipline-no-json` | `true` only (see below) |
+| `x-zipline-original-name` | `true` only (see below) |
 | `x-zipline-folder` | folder id |
 | `x-zipline-filename` | string |
 | `x-zipline-domain` | string |
 | `x-zipline-file-extension` | string |
 | `x-zipline-deletes-at` | duration string (e.g. `1d`, `30m`) |
+
+`x-zipline-no-json` and `x-zipline-original-name` are presence flags: zipline enables them whenever the header is sent, whatever the value, so `false` would not disable them and grabit rejects it. `grabit unset services.zipline.headers.<name>` turns them off.
 
 unknown header names are forwarded as-is with a warning.
 

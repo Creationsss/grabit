@@ -101,9 +101,7 @@ static const char *VALS_show_position[] = {
 int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "save_captures") == 0) key = "also_save";
 	if (!cfg_key_is_known(key)) {
-		log_error("unknown config key: `%s`", key);
-		const char *hint = cfg_help_suggest_key(key);
-		if (hint) log_info("did you mean: `%s`?", hint);
+		cfg_help_report_unknown_key(key);
 		return -1;
 	}
 	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {

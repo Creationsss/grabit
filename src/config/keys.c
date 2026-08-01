@@ -210,7 +210,7 @@ static bool valid_recording_key(const char *key) {
 		   strcmp(leaf, "max_size_mb") == 0 || strcmp(leaf, "cursor") == 0 ||
 		   strcmp(leaf, "ffmpeg") == 0 || strcmp(leaf, "preset") == 0 ||
 		   strcmp(leaf, "tune") == 0 || strcmp(leaf, "pix_fmt") == 0 ||
-		   strcmp(leaf, "tray") == 0;
+		   strcmp(leaf, "tray") == 0 || strcmp(leaf, "show_dimensions") == 0;
 }
 
 bool cfg_key_is_known(const char *key) {

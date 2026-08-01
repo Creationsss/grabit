@@ -107,6 +107,7 @@ void cfg_help_report_unknown_key(const char *key) {
 		return;
 	}
 	const char *hint = cfg_help_suggest_key(key);
+	if (hint && strcmp(hint, key) == 0) hint = NULL;
 	if (hint)
 		log_error("unknown config key `%s`; did you mean `%s`?", key, hint);
 	else

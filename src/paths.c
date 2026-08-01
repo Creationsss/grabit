@@ -155,6 +155,15 @@ fail: {
 }
 }
 
+static char *expand_tilde(const char *p) {
+	if (!p || p[0] != '~' || (p[1] && p[1] != '/')) return strdup(p);
+	const char *home = getenv("HOME");
+	if (!home || !home[0]) return strdup(p);
+	char *out = NULL;
+	if (grabit_xasprintf(&out, "%s%s", home, p + 1) != 0) return NULL;
+	return out;
+}
+
 static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 	if (dest == PATHS_DEST_TEMP) {
 		char rt[4096];
@@ -169,7 +178,7 @@ static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 	}
 
 	const char *d = config_get(cfg, "save_dir");
-	if (d && d[0]) return strdup(d);
+	if (d && d[0]) return expand_tilde(d);
 
 	bool videos = dest == PATHS_DEST_VIDEOS;
 	const char *xdg = getenv(videos ? "XDG_VIDEOS_DIR" : "XDG_PICTURES_DIR");

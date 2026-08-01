@@ -104,6 +104,12 @@ int config_set(struct config *c, const char *key, const char *value) {
 		cfg_help_report_unknown_key(key);
 		return -1;
 	}
+	if (strcmp(key, "save_dir") == 0 && value[0] != '/' && value[0] != '~') {
+		log_error("save_dir must be an absolute path or start with ~/");
+		log_error("  a relative path is resolved against whatever directory grabit "
+				  "was launched from, which for a keybind is unpredictable");
+		return -1;
+	}
 	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
 		log_error("format must be one of png|jpeg|webp");
 		return -1;

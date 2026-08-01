@@ -17,14 +17,17 @@ static int g_pid_fd = -1;
 
 static const char *pid_file_path(void) {
 	static char path[256];
-	char dir[200];
-	if (grabit_runtime_dir(dir, sizeof dir) != 0) return "/tmp/grabit_recording.pid";
-	snprintf(path, sizeof path, "%s/grabit_recording.pid", dir);
+	if (grabit_runtime_file("grabit_recording.pid", path, sizeof path) != 0) {
+		log_error("no usable runtime dir for the recording pid file");
+		return NULL;
+	}
 	return path;
 }
 
 int write_pid_file(void) {
-	g_pid_fd = grabit_lock_acquire(pid_file_path());
+	const char *p = pid_file_path();
+	if (!p) return -1;
+	g_pid_fd = grabit_lock_acquire(p);
 	return g_pid_fd < 0 ? -1 : 0;
 }
 
@@ -33,11 +36,14 @@ void unlink_pid_file(void) {
 		close(g_pid_fd);
 		g_pid_fd = -1;
 	}
-	unlink(pid_file_path());
+	const char *p = pid_file_path();
+	if (p) unlink(p);
 }
 
 int stop_running_recording(void) {
-	pid_t prev = grabit_lock_owner(pid_file_path());
+	const char *p = pid_file_path();
+	if (!p) return -1;
+	pid_t prev = grabit_lock_owner(p);
 	if (prev <= 0) return -1;
 	log_debug("stopping recording (pid %d)", (int)prev);
 	if (kill(prev, SIGINT) != 0) {

@@ -27,20 +27,19 @@
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-static void show_pid_path(char *out, size_t cap) {
-	char dir[512];
-	if (grabit_runtime_dir(dir, sizeof dir) != 0) {
-		snprintf(out, cap, "/tmp/grabit-show.pid");
-		return;
+static int show_pid_path(char *out, size_t cap) {
+	if (grabit_runtime_file("grabit-show.pid", out, cap) != 0) {
+		log_error("pin: no usable runtime dir for the show pid file");
+		return -1;
 	}
-	snprintf(out, cap, "%s/grabit-show.pid", dir);
+	return 0;
 }
 
 static int g_show_lock_fd = -1;
 
 static void kill_previous_show(void) {
 	char path[1024];
-	show_pid_path(path, sizeof path);
+	if (show_pid_path(path, sizeof path) != 0) return;
 	pid_t pid = grabit_lock_owner(path);
 	if (pid > 1) kill(pid, SIGTERM);
 	unlink(path);
@@ -48,14 +47,14 @@ static void kill_previous_show(void) {
 
 static void write_show_pid_self(void) {
 	char path[1024];
-	show_pid_path(path, sizeof path);
+	if (show_pid_path(path, sizeof path) != 0) return;
 	g_show_lock_fd = grabit_lock_acquire(path);
 }
 
 static void clear_show_pid_self(void) {
 	if (g_show_lock_fd < 0) return;
 	char path[1024];
-	show_pid_path(path, sizeof path);
+	if (show_pid_path(path, sizeof path) != 0) return;
 	if (grabit_lock_owner(path) == getpid()) unlink(path);
 	close(g_show_lock_fd);
 	g_show_lock_fd = -1;

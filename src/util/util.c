@@ -114,6 +114,13 @@ int grabit_runtime_dir(char *out, size_t cap) {
 	return (m > 0 && (size_t)m < cap) ? 0 : -1;
 }
 
+int grabit_runtime_file(const char *name, char *out, size_t cap) {
+	char dir[512];
+	if (grabit_runtime_dir(dir, sizeof dir) != 0) return -1;
+	int n = snprintf(out, cap, "%s/%s", dir, name);
+	return (n > 0 && (size_t)n < cap) ? 0 : -1;
+}
+
 int grabit_write_all(int fd, const void *buf, size_t n) {
 	const uint8_t *p = buf;
 	while (n > 0) {

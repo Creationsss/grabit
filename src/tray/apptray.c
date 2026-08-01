@@ -29,16 +29,17 @@ static int g_tray_lock_fd = -1;
 
 static const char *tray_pid_path(void) {
 	static char path[1024];
-	char dir[512];
-	if (grabit_runtime_dir(dir, sizeof dir) != 0)
-		snprintf(path, sizeof path, "/tmp/grabit-tray.pid");
-	else
-		snprintf(path, sizeof path, "%s/grabit-tray.pid", dir);
+	if (grabit_runtime_file("grabit-tray.pid", path, sizeof path) != 0) {
+		log_error("tray: no usable runtime dir for the tray pid file");
+		return NULL;
+	}
 	return path;
 }
 
 static int stop_running_tray(void) {
-	pid_t pid = grabit_lock_owner(tray_pid_path());
+	const char *p = tray_pid_path();
+	if (!p) return -1;
+	pid_t pid = grabit_lock_owner(p);
 	if (pid <= 0) return -1;
 	log_info("tray: stopping (pid %d)", (int)pid);
 	if (kill(pid, SIGTERM) != 0) {
@@ -49,12 +50,15 @@ static int stop_running_tray(void) {
 }
 
 static int write_tray_pid(void) {
-	g_tray_lock_fd = grabit_lock_acquire(tray_pid_path());
+	const char *p = tray_pid_path();
+	if (!p) return -1;
+	g_tray_lock_fd = grabit_lock_acquire(p);
 	return g_tray_lock_fd < 0 ? -1 : 0;
 }
 
 static void unlink_tray_pid(void) {
-	unlink(tray_pid_path());
+	const char *p = tray_pid_path();
+	if (p) unlink(p);
 	if (g_tray_lock_fd >= 0) close(g_tray_lock_fd);
 	g_tray_lock_fd = -1;
 }

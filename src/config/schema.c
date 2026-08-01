@@ -101,9 +101,7 @@ static const char *VALS_show_position[] = {
 int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "save_captures") == 0) key = "also_save";
 	if (!cfg_key_is_known(key)) {
-		log_error("unknown config key: `%s`", key);
-		const char *hint = cfg_help_suggest_key(key);
-		if (hint) log_info("did you mean: `%s`?", hint);
+		cfg_help_report_unknown_key(key);
 		return -1;
 	}
 	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
@@ -171,9 +169,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "service") == 0 && !upload_service_known(value)) {
-		log_error("service `%s` is not a built-in or a registered sxcu uploader", value);
-		log_error("  built-ins: zipline|nest|fakecrime|ez|guns|pixelvault");
-		log_error("  add a custom one with: grabit sxcu add <file.sxcu>");
+		log_error("service `%s` is not a built-in (zipline|nest|fakecrime|ez|guns|"
+				  "pixelvault) or a registered sxcu uploader; add one with "
+				  "`grabit sxcu add <file.sxcu>`",
+				  value);
 		return -1;
 	}
 	if (strcmp(key, "translate.backend") == 0 &&

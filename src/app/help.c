@@ -68,7 +68,7 @@ int gapp_print_help(void) {
 		"  --grab, --release, --close-all   manage existing pins\n"
 		"  --tray              toggle the persistent tray icon (background process)\n"
 		"  --tesseract         OCR a region to the clipboard\n"
-		"  --translate[=lang]  with --tesseract: copy the translation instead\n"
+		"  --translate[=<target-lang>]  with --tesseract: copy the translation\n"
 		"\n"
 		"Modifiers:\n"
 		"  -e, --edit          annotate before the action\n"
@@ -79,10 +79,11 @@ int gapp_print_help(void) {
 		"  --delay <secs>      wait before capturing (menus, tooltips)\n"
 		"  -f <file>           use an existing file instead of capturing\n"
 		"  --format <fmt>      png|jpeg|webp\n"
-		"  --filename <tpl>    per-run filename template\n"
+		"  --filename <tpl>    per-run filename template (e.g. %Y-%m-%d_%H-%M-%S)\n"
 		"  --cursor            include the pointer this run\n"
 		"  --chunked           chunked zipline upload\n"
-		"  --show              with --tesseract: show the result on screen\n"
+		"  --show              with --tesseract: also show the result on screen\n"
+		"  --no-copy           with --tesseract --show: show only, do not copy\n"
 		"  --no-upload         with --record: skip the auto-upload\n"
 		"  --no-tray           with --record: no tray icon\n"
 		"  --silent, -q        no sound, no info logs, only failure notifications\n"
@@ -94,10 +95,10 @@ int gapp_print_help(void) {
 		"Subcommands:\n"
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
-		"  plugin              plugins\n"
+		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
-		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples>\n"
+		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
 		"Full documentation: man grabit\n",
 		stdout);
 	return 0;
@@ -112,6 +113,7 @@ int gapp_print_help_topics(void) {
 		"  plugin            plugin management\n"
 		"  filename          filename template tokens\n"
 		"  env               environment variables\n"
+		"  ocr               ocr and translation\n"
 		"  examples          common invocations\n"
 		"\n"
 		"grabit --help lists every flag; man grabit is the full reference.\n",
@@ -132,6 +134,30 @@ int gapp_print_help_filename(void) {
 		"  %%                  a literal percent sign\n"
 		"\n"
 		"`filename_preset` (date|random|uuid|timestamp) sets a ready-made template.\n",
+		stdout);
+	return 0;
+}
+
+int gapp_print_help_ocr(void) {
+	fputs(
+		"Usage: grabit --tesseract [--translate[=<lang>]] [--show] [--no-copy]\n"
+		"\n"
+		"  --tesseract         select a region, OCR it, copy the text\n"
+		"  --translate[=<to>]  translate the text first (default en)\n"
+		"  --show              also show the text on screen as a transient card\n"
+		"  --no-copy           with --show, do not copy (show only)\n"
+		"\n"
+		"Config:\n"
+		"\n"
+		"  ocr.tesseract       path to the tesseract binary (default: found on $PATH)\n"
+		"  ocr.lang            language passed to tesseract (default eng)\n"
+		"  translate.backend   trans|libretranslate|deepl (default trans)\n"
+		"  translate.target    default target language\n"
+		"  translate.url       server url for libretranslate/deepl\n"
+		"  translate.api_key   api key; GRABIT_TRANSLATE_KEY overrides it\n"
+		"\n"
+		"Needs tesseract on $PATH plus the training data for the language you OCR.\n"
+		"If translation fails the raw OCR text is copied instead.\n",
 		stdout);
 	return 0;
 }

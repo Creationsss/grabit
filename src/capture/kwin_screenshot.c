@@ -114,13 +114,9 @@ static int kwin_exchange(DBusConnection *bus, DBusPendingCall *pending, int read
 				if (!ok) {
 					const char *ename = dbus_message_get_error_name(reply);
 					log_error("kwin-screenshot: %s", ename ? ename : "unknown error");
-					if (ename && strstr(ename, "NoAuthorized")) {
-						log_error("  KWin only lets allow-listed apps capture; grabit needs a "
-								  "system desktop file (share/applications/grabit.desktop)");
-						log_error("  declaring X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2");
-						log_error("  install grabit system-wide (make install) and re-login so "
-								  "KWin picks it up");
-					}
+					if (ename && strstr(ename, "NoAuthorized"))
+						log_error("kwin-screenshot: not allow-listed; run `make install` "
+								  "and re-login so KWin picks up grabit.desktop");
 				} else {
 					ok = gkwin_parse_meta(reply, meta);
 				}

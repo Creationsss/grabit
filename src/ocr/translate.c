@@ -68,7 +68,7 @@ char *grabit_translate(const char *text, const char *target,
 char *grabit_translate_trans(const char *text, const char *target) {
 	if (!text || !target || !target[0]) return NULL;
 	if (!grabit_in_path(TRANS_BIN)) {
-		log_error("translate: `%s` not found in $PATH (install translate-shell)", TRANS_BIN);
+		log_error("translate: `%s` not found in $PATH", TRANS_BIN);
 		return NULL;
 	}
 

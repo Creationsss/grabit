@@ -219,3 +219,42 @@ bool grabit_desktop_is(const char *needle) {
 	}
 	return false;
 }
+
+bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
+						 const char *fmt, ...) {
+	if (!out || cap == 0 || *off >= cap - 1) return false;
+	size_t start = *off;
+	size_t at = start;
+
+	int w = snprintf(out + at, cap - at, "%s", at ? sep : "");
+	if (w < 0 || (size_t)w >= cap - at) {
+		out[start] = '\0';
+		return false;
+	}
+	at += (size_t)w;
+
+	va_list ap;
+	va_start(ap, fmt);
+	w = vsnprintf(out + at, cap - at, fmt, ap);
+	va_end(ap);
+	if (w < 0 || (size_t)w >= cap - at) {
+		out[start] = '\0';
+		return false;
+	}
+	*off = at + (size_t)w;
+	return true;
+}
+
+void grabit_redact_url(const char *url, char *out, size_t cap) {
+	if (!out || cap == 0) return;
+	if (!url) {
+		out[0] = '\0';
+		return;
+	}
+	const char *q = strchr(url, '?');
+	size_t n = q ? (size_t)(q - url) : strlen(url);
+	if (n >= cap) n = cap - 1;
+	memcpy(out, url, n);
+	out[n] = '\0';
+	if (q && n + 4 < cap) memcpy(out + n, "?...", 5);
+}

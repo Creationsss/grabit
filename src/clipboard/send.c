@@ -130,10 +130,10 @@ __attribute__((noreturn)) static void clip_child(const struct clip_payload *pay,
 	const char *name = NULL;
 	clip_serve_fn serve = clip_pick(&s, &name);
 	if (!s.seat) {
-		log_error("clipboard: no wl_seat available");
+		log_debug("clipboard: no wl_seat available");
 		rc = -1;
 	} else if (!serve) {
-		log_error("clipboard: compositor lacks a usable data-control protocol");
+		log_debug("clipboard: compositor lacks a usable data-control protocol");
 		rc = -1;
 	} else {
 		log_debug("clipboard: using %s backend", name);

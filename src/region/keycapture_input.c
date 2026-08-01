@@ -37,9 +37,7 @@ void gkc_join(struct kc_state *s, char *out, size_t n) {
 	for (size_t i = 0; i < s->n_caps; i++) {
 		char one[80];
 		region_keybind_format(&s->caps[i], one, sizeof one);
-		int w = snprintf(out + used, n - used, "%s%s", i ? ", " : "", one);
-		if (w < 0 || (size_t)w >= n - used) break;
-		used += (size_t)w;
+		if (!grabit_join_appendf(out, n, &used, ", ", "%s", one)) break;
 	}
 }
 
@@ -52,7 +50,7 @@ void gkc_add(struct kc_state *s, const struct keybind *b) {
 			return;
 	}
 	if (s->n_caps >= KC_MAX_CAPS) {
-		log_warn("watch: already holding %d bindings; press Enter to save", KC_MAX_CAPS);
+		log_debug("watch: already holding %d bindings", KC_MAX_CAPS);
 		return;
 	}
 	s->caps[s->n_caps++] = *b;
@@ -209,7 +207,7 @@ static void ptr_button(void *data, struct wl_pointer *p, uint32_t serial,
 	struct kc_state *s = data;
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
 	if (button == BTN_LEFT) {
-		log_warn("watch: left mouse is reserved for draw/select; not bindable");
+		log_debug("watch: left mouse is reserved for draw/select");
 		return;
 	}
 	struct keybind b = {.is_button = true, .button = button};

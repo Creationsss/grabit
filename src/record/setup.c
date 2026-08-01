@@ -72,6 +72,8 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
 						   NULL, NULL, mon, n_mon);
 	free(mon);
+	if (rc != 0 && rc != REGION_SELECT_CANCELLED)
+		rec_fail_notify("could not open the region selector");
 
 	for (size_t i = 0; i < s->n_outputs; i++)
 		image_free(&frozen[i]);

@@ -82,7 +82,7 @@ static int config_write_to(struct config *c, const char *path);
 
 int config_save(struct config *c) {
 	if (c->overlaid) {
-		log_error("refusing to write state-overlaid config to %s",
+		log_debug("refusing to write state-overlaid config to %s",
 				  paths_config_file());
 		return -1;
 	}

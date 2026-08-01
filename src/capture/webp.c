@@ -97,7 +97,7 @@ int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 	(void)path;
 	(void)quality;
 	(void)lossless;
-	log_error("webp: not compiled in (rebuild with libwebp-dev installed)");
+	log_error("webp: not compiled in (rebuild with libwebp headers)");
 	return -1;
 }
 

@@ -295,7 +295,6 @@ bool pw_available(void) {
 struct pw_capture *pw_capture_open(uint32_t node_id, int fps) {
 	(void)node_id;
 	(void)fps;
-	log_error("recording: grabit was built without pipewire support");
 	return NULL;
 }
 

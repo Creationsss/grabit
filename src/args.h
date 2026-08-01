@@ -28,6 +28,7 @@ struct args {
 	bool no_upload;
 	bool translate;
 	bool show;
+	bool no_copy;
 	bool cursor;
 	bool chunked;
 	bool fullscreen;

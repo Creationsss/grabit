@@ -42,5 +42,6 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 							  const char **def_out);
 bool cfg_help_print_example(const char *example, const char *def);
 const char *cfg_help_suggest_key(const char *input);
+void cfg_help_report_unknown_key(const char *key);
 
 #endif

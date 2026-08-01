@@ -93,7 +93,7 @@ static void log_http_error(long code, const char *body) {
 		log_error("translate: deepl returned http %ld", code);
 		break;
 	}
-	if (body && body[0]) log_error("  server said: %.200s", body);
+	if (body && body[0]) log_debug("translate: deepl body: %.200s", body);
 }
 
 char *grabit_translate_deepl(const char *text, const char *target,
@@ -170,7 +170,9 @@ char *grabit_translate_deepl(const char *text, const char *target,
 	upload_curl_common(c);
 	curl_easy_setopt(c, CURLOPT_TIMEOUT, DEEPL_TIMEOUT_S);
 
-	log_debug("translate: POST %s", endpoint);
+	char safe_ep[512];
+	grabit_redact_url(endpoint, safe_ep, sizeof safe_ep);
+	log_debug("translate: POST %s", safe_ep);
 	CURLcode rc = curl_easy_perform(c);
 	if (rc != CURLE_OK) {
 		log_error("translate: deepl request failed: %s", curl_easy_strerror(rc));

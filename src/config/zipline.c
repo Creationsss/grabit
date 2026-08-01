@@ -51,8 +51,10 @@ int gcfg_validate_zl_header(const char *hdr, const char *value) {
 	case ZL_ENUM:
 		if (cfg_in_list(value, spec->allowed)) return 0;
 		if (spec->allowed[0] && !spec->allowed[1]) {
-			log_error("%s must be \"%s\" (omit the header to disable)",
-					  hdr, spec->allowed[0]);
+			log_error("%s: zipline treats the header's presence as the flag, so "
+					  "\"%s\" is the only value it takes. disable it with "
+					  "`grabit unset services.zipline.headers.%s`",
+					  hdr, spec->allowed[0], hdr);
 		} else {
 			struct grabit_buf b = {0};
 			for (size_t i = 0; spec->allowed[i]; i++) {

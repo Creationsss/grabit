@@ -110,7 +110,6 @@ static int log_file_fd(void) {
 static void log_file_cap(int fd) {
 	if (g_file_written <= LOG_FILE_MAX_BYTES) return;
 	if (ftruncate(fd, 0) != 0) return;
-	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) return;
 	g_file_written = 0;
 }
 
@@ -132,12 +131,16 @@ static void emit_file(const char *prefix, const char *msg) {
 	if (grabit_write_all(fd, line, len) == 0) g_file_written += len;
 }
 
-static void emit(const char *prefix, const char *color, const char *fmt, va_list ap) {
+static void emit(const char *prefix, const char *color, bool bare, const char *fmt,
+				 va_list ap) {
 	char msg[LOG_LINE_MAX];
 	int n = vsnprintf(msg, sizeof msg, fmt, ap);
 	if (n < 0) return;
 
-	fprintf(stderr, "%s%s%s %s\n", color, prefix, C_RESET, msg);
+	if (bare)
+		fprintf(stderr, "%s\n", msg);
+	else
+		fprintf(stderr, "%s%s%s %s\n", color, prefix, C_RESET, msg);
 	emit_file(prefix, msg);
 }
 
@@ -145,7 +148,7 @@ void log_debug(const char *fmt, ...) {
 	if (!g_debug) return;
 	va_list ap;
 	va_start(ap, fmt);
-	emit("[debug]", C_CYAN, fmt, ap);
+	emit("[debug]", C_CYAN, false, fmt, ap);
 	va_end(ap);
 }
 
@@ -153,28 +156,28 @@ void log_info(const char *fmt, ...) {
 	if (g_silent) return;
 	va_list ap;
 	va_start(ap, fmt);
-	emit("[info]", "", fmt, ap);
+	emit("[info]", "", true, fmt, ap);
 	va_end(ap);
 }
 
 void log_warn(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	emit("[warn]", C_YELLOW, fmt, ap);
+	emit("[warn]", C_YELLOW, false, fmt, ap);
 	va_end(ap);
 }
 
 void log_error(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	emit("[error]", C_RED, fmt, ap);
+	emit("[error]", C_RED, false, fmt, ap);
 	va_end(ap);
 }
 
 void die(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	emit("[error]", C_RED, fmt, ap);
+	emit("[error]", C_RED, false, fmt, ap);
 	va_end(ap);
 	exit(1);
 }

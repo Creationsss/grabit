@@ -37,6 +37,10 @@ jobs:
         run: ./build/grabit --version
       - name: make test
         run: make test
+      - name: clangd-check
+        run: |
+          apt-get install -qq -y --no-install-recommends clangd bear
+          make clangd-check
       - uses: actions/upload-artifact@v7
         with:
           name: grabit

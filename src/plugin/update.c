@@ -36,7 +36,7 @@ static bool stale(const char *path, int hours) {
 static int update_prebuilt(const char *plugin_dir, const char *name,
 						   const char *url, const char *sha) {
 	if (!url || !*url) {
-		log_error("plugin: %s missing prebuilt url in .source", name);
+		log_error("plugin: %s has no prebuilt url; reinstall it", name);
 		return -1;
 	}
 	char *binary_path = NULL;
@@ -47,7 +47,7 @@ static int update_prebuilt(const char *plugin_dir, const char *name,
 
 	struct stat st;
 	time_t since = (stat(binary_path, &st) == 0) ? st.st_mtime : 0;
-	log_info("plugin: checking %s for updates ...", name);
+	log_debug("plugin: checking %s for updates", name);
 	enum plugin_fetch_result res = plugin_fetch_url(url, tmp_path, since);
 	if (res == PLUGIN_FETCH_NOT_MODIFIED) {
 		log_info("plugin: %s is up to date", name);
@@ -113,7 +113,7 @@ int plugin_update(const char *name) {
 	}
 
 	if (strcmp(source_kind, "git") == 0) {
-		log_info("plugin: updating %s (branch %s) ...", name, m.branch);
+		log_debug("plugin: updating %s (branch %s)", name, m.branch);
 		char *const fetch[] = {"git", "-C", plugin_dir, "fetch", "--quiet",
 							   "--depth", "1", "origin", m.branch, NULL};
 		if (plugin_run_in(NULL, fetch) != 0) goto out;
@@ -123,13 +123,14 @@ int plugin_update(const char *name) {
 			char *const sh[] = {"/bin/sh", "-c", m.build_cmd, NULL};
 			if (plugin_run_in(plugin_dir, sh) != 0) goto out;
 		}
+		log_info("plugin: %s updated", name);
 		rc = 0;
 	} else if (strcmp(source_kind, "prebuilt") == 0) {
 		const char *url = source_url[0] ? source_url : m.prebuilt_url;
 		const char *sha = source_sha[0] ? source_sha : m.prebuilt_sha256;
 		rc = update_prebuilt(plugin_dir, name, url, sha);
 	} else {
-		log_error("plugin: unknown source kind `%s`", source_kind);
+		log_error("plugin: %s has an unknown source kind `%s`; reinstall it", name, source_kind);
 	}
 
 	plugin_touch_check(plugin_dir);
@@ -150,7 +151,7 @@ static int update_one_cb(const char *name, void *ud) {
 int plugin_update_all(void) {
 	int n = 0;
 	if (plugin_foreach_installed(update_one_cb, &n) != 0) return -1;
-	log_info("plugin: updated %d plugin(s)", n);
+	log_info("plugin: checked %d plugins", n);
 	return 0;
 }
 
@@ -184,8 +185,8 @@ void plugin_maybe_auto_update(const char *name) {
 					strcmp(source_kind, "prebuilt") == 0;
 	plugin_touch_check(plugin_dir);
 	if (!prebuilt) {
-		log_info("plugin: %s may have updates; run `grabit plugin update %s`",
-				 name, name);
+		log_info("plugin: %s may have updates; run `grabit plugin update %s`", name,
+				 name);
 		goto out;
 	}
 	should_spawn = true;

@@ -98,15 +98,21 @@ int plugin_install_git(const char *url) {
 
 	char *tmp_name = plugin_name_from_url(url);
 	if (!tmp_name) {
-		log_error("plugin: cannot derive temp dir name from %s", url);
+		log_error("plugin: cannot derive a plugin name from %s", url);
 		plugin_lock_release(lock_fd);
 		return -1;
 	}
 
 	const char *root = plugin_dir_path();
 	const char *bin = plugin_bin_dir_path();
-	if (!root[0] || paths_mkdir_p(root) != 0 || paths_mkdir_p(bin) != 0) {
-		log_error("plugin: cannot create %s", root);
+	if (!root[0] || paths_mkdir_p(root) != 0) {
+		log_error("plugin: cannot create %s: %s", root, strerror(errno));
+		free(tmp_name);
+		plugin_lock_release(lock_fd);
+		return -1;
+	}
+	if (paths_mkdir_p(bin) != 0) {
+		log_error("plugin: cannot create %s: %s", bin, strerror(errno));
 		free(tmp_name);
 		plugin_lock_release(lock_fd);
 		return -1;
@@ -125,7 +131,7 @@ int plugin_install_git(const char *url) {
 	struct stat st;
 	if (stat(plugin_dir, &st) == 0) (void)plugin_rm_rf(plugin_dir);
 
-	log_info("plugin: cloning %s ...", url);
+	log_debug("plugin: cloning %s", url);
 	if (git_clone(url, plugin_dir) != 0) {
 		log_error("plugin: git clone failed");
 		goto fail_clone;
@@ -135,7 +141,6 @@ int plugin_install_git(const char *url) {
 	if (grabit_xasprintf(&manifest_path, "%s/manifest.toml", plugin_dir) != 0) goto fail_clone;
 	struct plugin_manifest m;
 	if (plugin_manifest_parse_file(manifest_path, &m) != 0) {
-		log_error("plugin: clone has no valid manifest.toml");
 		free(manifest_path);
 		goto fail_clone;
 	}
@@ -153,7 +158,7 @@ int plugin_install_git(const char *url) {
 		plugin_state_read(final_dir, src_kind, sizeof src_kind,
 						  src_url, sizeof src_url, src_sha, sizeof src_sha);
 		if (src_url[0] && strcmp(src_url, url) == 0) {
-			log_info("plugin: %s already installed from %s", m.name, url);
+			log_info("plugin: %s already installed", m.name);
 			ret = 0;
 		} else {
 			log_error("plugin: %s already installed (from %s); `grabit plugin remove %s` first",
@@ -171,7 +176,7 @@ int plugin_install_git(const char *url) {
 	plugin_dir = final_dir;
 
 	if (m.kind == PLUGIN_KIND_BUILD) {
-		log_info("plugin: building (%s) ...", m.build_cmd);
+		log_debug("plugin: building (%s)", m.build_cmd);
 		if (run_shell(plugin_dir, m.build_cmd) != 0) {
 			log_error("plugin: build failed");
 			goto fail_manifest;
@@ -182,7 +187,7 @@ int plugin_install_git(const char *url) {
 	if (m.kind == PLUGIN_KIND_BUILD) {
 		if (!m.build_binary || !m.build_binary[0] || m.build_binary[0] == '/' ||
 			strstr(m.build_binary, "..")) {
-			log_error("plugin: manifest build.binary must be a plain relative name");
+			log_error("plugin: manifest build.binary must be a relative path without ..");
 			goto fail_manifest;
 		}
 		if (grabit_xasprintf(&binary_path, "%s/%s", plugin_dir, m.build_binary) != 0)
@@ -203,7 +208,7 @@ int plugin_install_git(const char *url) {
 	}
 
 	if (access(binary_path, X_OK) != 0) {
-		log_error("plugin: binary not executable: %s", binary_path);
+		log_error("plugin: build.binary %s is missing or not executable", binary_path);
 		free(binary_path);
 		goto fail_manifest;
 	}
@@ -229,7 +234,7 @@ int plugin_install_git(const char *url) {
 	}
 	plugin_touch_check(plugin_dir);
 
-	log_info("plugin: installed %s -> grabit %s", m.name, m.name);
+	log_info("plugin: installed %s; run `grabit %s`", m.name, m.name);
 	plugin_manifest_free(&m);
 	free(plugin_dir);
 	plugin_lock_release(lock_fd);
@@ -264,7 +269,7 @@ int plugin_remove(const char *name) {
 	if (grabit_xasprintf(&plugin_dir, "%s/%s", root, name) != 0) goto out;
 	struct stat st;
 	if (stat(plugin_dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
-		log_info("plugin: %s not installed", name);
+		log_info("plugin: %s is not installed", name);
 		ret = 0;
 		goto out;
 	}
@@ -272,7 +277,7 @@ int plugin_remove(const char *name) {
 	unlink(link_path);
 
 	if (plugin_rm_rf(plugin_dir) != 0) {
-		log_error("plugin: rm -rf failed");
+		log_error("plugin: cannot remove %s", plugin_dir);
 		goto out;
 	}
 	log_info("plugin: removed %s", name);

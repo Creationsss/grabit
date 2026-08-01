@@ -192,7 +192,8 @@ static const struct wl_pointer_listener pointer_listener_g = {
 
 void pin_input_attach(struct pin_state *st) {
 	if (!st->wls->seat || !(st->wls->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
-		log_warn("pin: no pointer on seat; click-to-close disabled (use kill <pid> to dismiss)");
+		log_warn("pin: no pointer on seat; click-to-close disabled (dismiss with "
+				 "`grabit --close-all`)");
 		return;
 	}
 	st->pointer = wl_seat_get_pointer(st->wls->seat);

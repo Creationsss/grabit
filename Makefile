@@ -22,8 +22,7 @@ HARDEN := \
 
 CFLAGS  ?= -O2 -g
 CFLAGS  += -std=c17 $(WARN) $(HARDEN) \
-           -DGRABIT_VERSION=\"$(VERSION)\" \
-           -Isrc \
+           -Isrc -I$(BUILDDIR) \
            -MMD -MP
 LDFLAGS ?=
 LDLIBS  ?=
@@ -74,6 +73,7 @@ WL_PROTO_SRCS    := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -protocol.c,$(WL_PR
 WL_PROTO_OBJS    := $(WL_PROTO_SRCS:%.c=%.o)
 
 CFLAGS += -I$(WL_PROTO_DIR)
+CFLAGS := $(CFLAGS)
 
 $(WL_PROTO_DIR)/%-client-protocol.h: protocols/%.xml | $(WL_PROTO_DIR)
 	$(WAYLAND_SCANNER) client-header $< $@
@@ -83,6 +83,17 @@ $(WL_PROTO_DIR)/%-protocol.c: protocols/%.xml | $(WL_PROTO_DIR)
 
 $(WL_PROTO_DIR):
 	@mkdir -p $@
+
+GIT_COMMIT ?= $(shell git describe --always --dirty=+ --abbrev=8 --exclude='*' 2>/dev/null)
+
+.PHONY: force-version
+force-version:
+
+$(BUILDDIR)/version.h: force-version
+	@mkdir -p $(@D); printf '#define GRABIT_VERSION "%s"\n#define GRABIT_COMMIT "%s"\n' \
+		'$(VERSION)' '$(GIT_COMMIT)' > $@.tmp
+	@cmp -s $@.tmp $@ || mv -f $@.tmp $@; rm -f $@.tmp
+
 
 GRABIT_SRCS := \
 	src/main.c \
@@ -261,7 +272,7 @@ $(BUILDDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(GRABIT_OBJS): | $(WL_PROTO_HEADERS)
+$(GRABIT_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 
 $(WL_PROTO_DIR)/%.o: $(WL_PROTO_DIR)/%.c
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes,$(CFLAGS)) -c -o $@ $<
@@ -291,7 +302,11 @@ fmt-check:
 CLANGD          ?= clangd
 CLANGD_SRCS      = $(if $(FILE),$(FILE),$(GRABIT_SRCS))
 
-compile_commands.json:
+$(BUILDDIR)/ccdb.stamp: force-version
+	@mkdir -p $(@D); printf '%s\n%s\n' '$(CFLAGS)' '$(GRABIT_SRCS)' > $@.tmp
+	@cmp -s $@.tmp $@ || mv -f $@.tmp $@; rm -f $@.tmp
+
+compile_commands.json: $(BUILDDIR)/ccdb.stamp
 	@command -v bear >/dev/null 2>&1 || { \
 		echo "bear not found; needed to generate compile_commands.json" >&2; exit 1; }
 	bear -- $(MAKE) -B all
@@ -331,7 +346,7 @@ $(SAN_BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(SAN_CFLAGS)) $(SAN_FLAGS) -c -o $@ $<
 
-$(SAN_OBJS): | $(WL_PROTO_HEADERS)
+$(SAN_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 
 .PHONY: sanitize
 sanitize: $(SAN_BIN)

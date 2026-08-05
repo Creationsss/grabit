@@ -35,9 +35,6 @@
 #include "util/util.h"
 #include "wl/wl.h"
 
-#ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.0.0"
-#endif
 #include "app/app.h"
 
 enum action gapp_default_action(const char *name) {

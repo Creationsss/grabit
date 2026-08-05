@@ -37,9 +37,6 @@
 #include "wl/wl.h"
 #include "wm/wm.h"
 
-#ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.0.0"
-#endif
 #include "app/app.h"
 
 static char g_tmpfile_path[4096] = {0};

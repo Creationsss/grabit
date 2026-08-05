@@ -22,6 +22,13 @@
       in
         builtins.head (builtins.head hits);
 
+      gitCommit =
+        if self ? rev
+        then builtins.substring 0 8 self.rev
+        else if self ? dirtyRev
+        then "${builtins.substring 0 8 self.dirtyRev}+"
+        else "";
+
       runtimeDeps = with pkgs; [
         ffmpeg-headless
         tesseract
@@ -37,6 +44,11 @@
           inherit version;
 
           src = ./.;
+
+          makeFlags = [
+            "PREFIX=$(out)"
+            "GIT_COMMIT=${gitCommit}"
+          ];
 
           nativeBuildInputs = with pkgs;
             [
@@ -56,13 +68,6 @@
             libjpeg
             libwebp
           ];
-
-          installPhase = ''
-            runHook preInstall
-            mkdir -p $out/bin
-            make install PREFIX=$out
-            runHook postInstall
-          '';
 
           postFixup = pkgs.lib.optionalString wrapped ''
             wrapProgram $out/bin/grabit \

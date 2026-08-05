@@ -35,13 +35,12 @@
 #include "util/util.h"
 #include "wl/wl.h"
 
-#ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.0.0"
-#endif
 #include "app/app.h"
+#include "version.h"
 
 int gapp_print_version(void) {
-	puts("grabit " GRABIT_VERSION);
+	printf("grabit %s%s\n", GRABIT_VERSION,
+		   GRABIT_COMMIT[0] ? " (" GRABIT_COMMIT ")" : "");
 	puts("capture backends: wlr-screencopy, ext-image-copy, kwin-screenshot (KDE)");
 #ifdef HAVE_PIPEWIRE
 	puts("recording sources: wlr/ext screencopy, kwin screencast, mutter screencast (pipewire)");

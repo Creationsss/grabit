@@ -23,9 +23,7 @@
 #include <curl/curl.h>
 #include <json-c/json.h>
 
-#ifndef GRABIT_VERSION
-#define GRABIT_VERSION "0.0.0"
-#endif
+#include "version.h"
 
 size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user) {
 	struct grabit_buf *b = user;

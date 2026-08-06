@@ -22,15 +22,14 @@ void pin_input_apply_region(struct pin_output *o) {
 	struct wl_region *reg = wl_compositor_create_region(st->wls->compositor);
 	if (!reg) return;
 	if (st->input_grabbed || st->clickable)
-		wl_region_add(reg, 0, 0, o->width, o->height);
+		wl_region_add(reg, st->px - o->go->x, st->py - o->go->y, st->width,
+					  st->height);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
-	wl_surface_commit(o->surface);
 }
 
 void pin_input_apply_regions(struct pin_state *st) {
-	for (size_t i = 0; i < st->n; i++)
-		pin_input_apply_region(st->outs[i]);
+	pin_render_redraw_all(st);
 }
 
 static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
@@ -59,8 +58,8 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	struct pin_output *o = output_for_surface(st, surface);
 	if (!o) return;
 	st->ptr_on = o;
-	st->cx = st->px + wl_fixed_to_int(sx);
-	st->cy = st->py + wl_fixed_to_int(sy);
+	st->cx = o->go->x + wl_fixed_to_int(sx);
+	st->cy = o->go->y + wl_fixed_to_int(sy);
 	st->last_pointer_serial = serial;
 	if (st->hover_caption && !st->hover_active) {
 		st->hover_active = true;
@@ -93,8 +92,8 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	(void)time;
 	struct pin_state *st = data;
 	if (!st->ptr_on) return;
-	st->cx = st->px + wl_fixed_to_int(sx);
-	st->cy = st->py + wl_fixed_to_int(sy);
+	st->cx = st->ptr_on->go->x + wl_fixed_to_int(sx);
+	st->cy = st->ptr_on->go->y + wl_fixed_to_int(sy);
 	if (st->dragging)
 		pin_move_to(st, st->cx - st->grab_dx, st->cy - st->grab_dy);
 	pin_cursor_update(st);

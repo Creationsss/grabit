@@ -132,25 +132,37 @@ void pin_render_output_redraw(struct pin_output *o) {
 	if (!dst) return;
 
 	cairo_t *cr = cairo_create(dst);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgba(cr, 0, 0, 0, 0);
+	cairo_paint(cr);
 
 	if (st->image) {
-		cairo_save(cr);
+		double ox = st->px - o->go->x;
+		double oy = st->py - o->go->y;
 		double sx = st->img_w > 0 ? (double)st->width / (double)st->img_w : 1.0;
 		double sy = st->img_h > 0 ? (double)st->height / (double)st->img_h : 1.0;
-		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+
+		cairo_save(cr);
 		cairo_scale(cr, scale, scale);
+		cairo_translate(cr, ox, oy);
+		cairo_rectangle(cr, 0, 0, st->width, st->height);
+		cairo_clip(cr);
 		cairo_scale(cr, sx, sy);
+		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 		cairo_set_source_surface(cr, st->image, 0, 0);
 		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
 		cairo_paint(cr);
 		cairo_restore(cr);
 
+		cairo_save(cr);
 		cairo_scale(cr, scale, scale);
+		cairo_translate(cr, ox, oy);
 		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 		if (st->input_grabbed && st->width > 0)
 			draw_close_button(cr, st->width);
 		if (st->transient && st->hover_caption && st->hover_active && st->width > 0)
 			draw_caption(cr, st);
+		cairo_restore(cr);
 	}
 
 	cairo_destroy(cr);
@@ -165,6 +177,7 @@ void pin_render_output_redraw(struct pin_output *o) {
 	} else {
 		wl_surface_set_buffer_scale(o->surface, o->scale);
 	}
+	pin_input_apply_region(o);
 	grabit_shm_slot_attach(o->surface, slot);
 	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
 	wl_surface_commit(o->surface);
@@ -208,9 +221,7 @@ void pin_render_move_all(struct pin_state *st) {
 	for (size_t i = 0; i < st->n; i++) {
 		struct pin_output *o = st->outs[i];
 		if (!o->layer || !o->configured) continue;
-		zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
-										 st->px - o->go->x);
-		wl_surface_commit(o->surface);
+		output_request_redraw(o);
 	}
 }
 
@@ -252,11 +263,10 @@ int pin_render_create_layer(struct pin_output *o) {
 	if (!o->layer) return -1;
 	zwlr_layer_surface_v1_add_listener(o->layer, &layer_surface_listener_g, o);
 	zwlr_layer_surface_v1_set_anchor(o->layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-												   ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
-	zwlr_layer_surface_v1_set_size(o->layer, (uint32_t)st->width,
-								   (uint32_t)st->height);
-	zwlr_layer_surface_v1_set_margin(o->layer, st->py - o->go->y, 0, 0,
-									 st->px - o->go->x);
+												   ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+												   ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+												   ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+	zwlr_layer_surface_v1_set_size(o->layer, 0, 0);
 	zwlr_layer_surface_v1_set_exclusive_zone(o->layer, -1);
 	zwlr_layer_surface_v1_set_keyboard_interactivity(
 		o->layer, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);

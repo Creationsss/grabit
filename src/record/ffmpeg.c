@@ -66,7 +66,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 		argv[i++] = (char *)"1";
 		argv[i++] = (char *)"-i";
 		argv[i++] = (char *)"-";
-		argv[i++] = (char *)"-vsync";
+		argv[i++] = (char *)"-fps_mode";
 		argv[i++] = (char *)"vfr";
 		bool gif = strcmp(format, "gif") == 0;
 		bool webm = strcmp(format, "webm") == 0;

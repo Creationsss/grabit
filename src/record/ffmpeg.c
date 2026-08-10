@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,11 +17,32 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+static bool ffmpeg_has_fps_mode(const char *bin) {
+	static char probed_bin[512];
+	static bool supported;
+	if (probed_bin[0] && strcmp(probed_bin, bin) == 0) return supported;
+
+	char *const argv[] = {(char *)bin, (char *)"-hide_banner", (char *)"-nostdin", (char *)"-fps_mode",
+						  (char *)"vfr", NULL};
+	struct grabit_buf out = {0};
+	bool ok = false;
+	if (grabit_spawn_capture(argv, true, 1 << 16, &out, NULL, NULL) == 0)
+		ok = !out.data || strstr(out.data, "Unrecognized option") == NULL;
+	grabit_buf_free(&out);
+
+	snprintf(probed_bin, sizeof probed_bin, "%s", bin);
+	supported = ok;
+	log_debug("recording: %s uses %s", bin, ok ? "-fps_mode" : "-vsync");
+	return supported;
+}
+
 int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 				 const char *tune, const char *pix_fmt,
 				 int width, int height, int fps, int crf,
 				 const char *output_path,
 				 pid_t *child_pid, int *write_fd) {
+	const char *sync_flag = ffmpeg_has_fps_mode(ffmpeg_bin) ? "-fps_mode" : "-vsync";
+
 	int p[2];
 	if (pipe(p) != 0) {
 		log_error("pipe: %s", strerror(errno));
@@ -66,7 +88,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 		argv[i++] = (char *)"1";
 		argv[i++] = (char *)"-i";
 		argv[i++] = (char *)"-";
-		argv[i++] = (char *)"-vsync";
+		argv[i++] = (char *)sync_flag;
 		argv[i++] = (char *)"vfr";
 		bool gif = strcmp(format, "gif") == 0;
 		bool webm = strcmp(format, "webm") == 0;

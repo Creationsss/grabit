@@ -81,7 +81,7 @@ void pin_sync_outputs(struct pin_state *st) {
 		st->px = r.x;
 		st->py = r.y;
 	}
-	pin_render_move_all(st);
+	pin_render_redraw_all(st);
 }
 
 void pin_outputs_finish(struct pin_state *st) {

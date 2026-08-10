@@ -121,32 +121,57 @@ void pin_render_output_redraw(struct pin_output *o) {
 	int32_t pixel_h = (int32_t)((o->height * scale_120 + 60) / 120);
 	if (pixel_w <= 0 || pixel_h <= 0) return;
 
+	struct rect cur = {0, 0, 0, 0};
+	if (st->image) {
+		struct rect pr = pin_rect(st);
+		int32_t ix, iy, iw, ih;
+		if (grabit_output_rect_intersect(o->go, &pr, &ix, &iy, &iw, &ih))
+			cur = (struct rect){(int32_t)((ix - o->go->x) * scale),
+								(int32_t)((iy - o->go->y) * scale),
+								(int32_t)(iw * scale + 1),
+								(int32_t)(ih * scale + 1)};
+	}
+	if (cur.w == 0 && o->shown.w == 0) {
+		if (!o->mapped) {
+			pin_input_apply_region(o);
+			wl_surface_attach(o->surface, NULL, 0, 0);
+			wl_surface_commit(o->surface);
+			o->mapped = true;
+		}
+		return;
+	}
+
 	struct grabit_shm_slot *slot = grabit_shm_pool_next(
 		st->wls->shm, "grabit-pin", &o->pool, pixel_w, pixel_h);
 	if (!slot) {
 		o->dirty = true;
 		return;
 	}
+	struct rect *sshown = &o->slot_shown[slot - o->pool.slots];
+
 	cairo_surface_t *dst = grabit_cairo_image_argb(slot->buf.map, pixel_w,
 												   pixel_h, pixel_w * 4);
 	if (!dst) return;
 
 	cairo_t *cr = cairo_create(dst);
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr, 0, 0, 0, 0);
-	cairo_paint(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+	if (sshown->w > 0) {
+		cairo_rectangle(cr, sshown->x, sshown->y, sshown->w, sshown->h);
+		cairo_fill(cr);
+	}
+	if (cur.w > 0) {
+		cairo_rectangle(cr, cur.x, cur.y, cur.w, cur.h);
+		cairo_fill(cr);
 
-	if (st->image) {
-		double ox = st->px - o->go->x;
-		double oy = st->py - o->go->y;
 		double sx = st->img_w > 0 ? (double)st->width / (double)st->img_w : 1.0;
 		double sy = st->img_h > 0 ? (double)st->height / (double)st->img_h : 1.0;
-
 		cairo_save(cr);
 		cairo_scale(cr, scale, scale);
-		cairo_translate(cr, ox, oy);
+		cairo_translate(cr, st->px - o->go->x, st->py - o->go->y);
 		cairo_rectangle(cr, 0, 0, st->width, st->height);
 		cairo_clip(cr);
+
+		cairo_save(cr);
 		cairo_scale(cr, sx, sy);
 		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 		cairo_set_source_surface(cr, st->image, 0, 0);
@@ -154,9 +179,6 @@ void pin_render_output_redraw(struct pin_output *o) {
 		cairo_paint(cr);
 		cairo_restore(cr);
 
-		cairo_save(cr);
-		cairo_scale(cr, scale, scale);
-		cairo_translate(cr, ox, oy);
 		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 		if (st->input_grabbed && st->width > 0)
 			draw_close_button(cr, st->width);
@@ -164,7 +186,6 @@ void pin_render_output_redraw(struct pin_output *o) {
 			draw_caption(cr, st);
 		cairo_restore(cr);
 	}
-
 	cairo_destroy(cr);
 	cairo_surface_flush(dst);
 	cairo_surface_destroy(dst);
@@ -179,8 +200,15 @@ void pin_render_output_redraw(struct pin_output *o) {
 	}
 	pin_input_apply_region(o);
 	grabit_shm_slot_attach(o->surface, slot);
-	wl_surface_damage_buffer(o->surface, 0, 0, pixel_w, pixel_h);
+	if (o->shown.w > 0)
+		wl_surface_damage_buffer(o->surface, o->shown.x, o->shown.y, o->shown.w,
+								 o->shown.h);
+	if (cur.w > 0)
+		wl_surface_damage_buffer(o->surface, cur.x, cur.y, cur.w, cur.h);
 	wl_surface_commit(o->surface);
+	*sshown = cur;
+	o->shown = cur;
+	o->mapped = true;
 }
 
 static void output_request_redraw(struct pin_output *o) {
@@ -217,14 +245,6 @@ void pin_render_redraw_all(struct pin_state *st) {
 		output_request_redraw(st->outs[i]);
 }
 
-void pin_render_move_all(struct pin_state *st) {
-	for (size_t i = 0; i < st->n; i++) {
-		struct pin_output *o = st->outs[i];
-		if (!o->layer || !o->configured) continue;
-		output_request_redraw(o);
-	}
-}
-
 static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls,
 									uint32_t serial, uint32_t w, uint32_t h) {
 	struct pin_output *o = data;
@@ -233,7 +253,6 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	if (h > 0) o->height = (int32_t)h;
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
 	o->configured = true;
-	pin_input_apply_region(o);
 	pin_render_output_redraw(o);
 }
 
@@ -257,18 +276,10 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener_g = {
 
 int pin_render_create_layer(struct pin_output *o) {
 	struct pin_state *st = o->st;
-	o->layer = zwlr_layer_shell_v1_get_layer_surface(
-		st->wls->layer_shell, o->surface, o->go->wl_output,
-		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "grabit-pin");
+	o->layer = grabit_wl_layer_fullscreen(
+		st->wls, o->surface, o->go->wl_output, "grabit-pin",
+		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE,
+		&layer_surface_listener_g, o);
 	if (!o->layer) return -1;
-	zwlr_layer_surface_v1_add_listener(o->layer, &layer_surface_listener_g, o);
-	zwlr_layer_surface_v1_set_anchor(o->layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-												   ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-												   ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-												   ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-	zwlr_layer_surface_v1_set_size(o->layer, 0, 0);
-	zwlr_layer_surface_v1_set_exclusive_zone(o->layer, -1);
-	zwlr_layer_surface_v1_set_keyboard_interactivity(
-		o->layer, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
 	return 0;
 }

@@ -122,7 +122,6 @@ void pin_ipc_handle(struct pin_state *st) {
 		if (strcmp(buf, "grab") == 0) {
 			if (!st->input_grabbed) {
 				st->input_grabbed = true;
-				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
 				pin_cursor_refresh(st);
 			}
@@ -130,7 +129,6 @@ void pin_ipc_handle(struct pin_state *st) {
 			if (st->input_grabbed) {
 				st->input_grabbed = false;
 				st->dragging = false;
-				pin_input_apply_regions(st);
 				pin_render_redraw_all(st);
 				pin_cursor_refresh(st);
 			}

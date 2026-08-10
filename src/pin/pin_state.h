@@ -32,11 +32,15 @@ struct pin_output {
 	struct wp_viewport *viewport;
 	struct wp_fractional_scale_v1 *fractional;
 	struct grabit_shm_pool pool;
+	struct rect slot_shown[GRABIT_SHM_SLOTS];
+	struct rect shown;
+	struct rect region;
 	int32_t width;
 	int32_t height;
 	int32_t scale;
 	uint32_t frac_scale;
 	bool configured;
+	bool mapped;
 	bool dirty;
 	struct wl_callback *frame_cb;
 };
@@ -122,7 +126,6 @@ static inline bool pin_in_close_button(const struct pin_state *st) {
 void pin_render_output_free(struct pin_output *o);
 void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);
-void pin_render_move_all(struct pin_state *st);
 int pin_render_create_layer(struct pin_output *o);
 void pin_render_create_fractional(struct pin_output *o);
 
@@ -131,7 +134,6 @@ void pin_outputs_finish(struct pin_state *st);
 
 void pin_input_attach(struct pin_state *st);
 void pin_input_apply_region(struct pin_output *o);
-void pin_input_apply_regions(struct pin_state *st);
 void pin_cursor_load(struct pin_state *st);
 void pin_cursor_destroy(struct pin_state *st);
 void pin_cursor_update(struct pin_state *st);

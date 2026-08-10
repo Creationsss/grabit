@@ -21,15 +21,22 @@ void pin_input_apply_region(struct pin_output *o) {
 	if (!st->wls->compositor || !o->surface) return;
 	struct wl_region *reg = wl_compositor_create_region(st->wls->compositor);
 	if (!reg) return;
-	if (st->input_grabbed || st->clickable)
-		wl_region_add(reg, st->px - o->go->x, st->py - o->go->y, st->width,
-					  st->height);
+	struct rect want = {0, 0, 0, 0};
+	if (st->input_grabbed || st->clickable) {
+		struct rect pr = pin_rect(st);
+		int32_t ix, iy, iw, ih;
+		if (grabit_output_rect_intersect(o->go, &pr, &ix, &iy, &iw, &ih))
+			want = (struct rect){ix - o->go->x, iy - o->go->y, iw, ih};
+	}
+	if (want.x == o->region.x && want.y == o->region.y &&
+		want.w == o->region.w && want.h == o->region.h) {
+		wl_region_destroy(reg);
+		return;
+	}
+	if (want.w > 0) wl_region_add(reg, want.x, want.y, want.w, want.h);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
-}
-
-void pin_input_apply_regions(struct pin_state *st) {
-	pin_render_redraw_all(st);
+	o->region = want;
 }
 
 static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
@@ -40,7 +47,7 @@ static void pin_move_to(struct pin_state *st, int32_t x, int32_t y) {
 	if (x == st->px && y == st->py) return;
 	st->px = x;
 	st->py = y;
-	pin_render_move_all(st);
+	pin_render_redraw_all(st);
 }
 
 static struct pin_output *output_for_surface(struct pin_state *st,

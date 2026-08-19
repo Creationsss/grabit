@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/region.h"
 
+#include "capture/region_plan.h"
 #include "config/config.h"
 #include "log.h"
 #include "region/edit_persist.h"
@@ -30,6 +31,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 	if (cfg) {
 		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
+		if (snap_enabled && n_snap_rects == 0)
+			st->snap_radius = region_window_radius(cfg, NULL);
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st->confirm_mode = true;
 		v = config_get(cfg, "edit.multi_select");

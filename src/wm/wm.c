@@ -59,6 +59,17 @@ int grabit_wm_active_window_rect(struct rect *out) {
 	return -1;
 }
 
+int grabit_wm_window_radius(const struct rect *win) {
+	switch (grabit_wm_detect()) {
+	case WM_HYPRLAND:
+		return grabit_hyprland_window_radius(win);
+	case WM_NIRI:
+	case WM_NONE:
+		break;
+	}
+	return 0;
+}
+
 int grabit_wm_windows(struct rect **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:

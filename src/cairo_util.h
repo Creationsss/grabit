@@ -46,4 +46,15 @@ static inline void grabit_cairo_rounded_rect(cairo_t *cr, double x, double y,
 	cairo_close_path(cr);
 }
 
+static inline void grabit_cairo_punch_corners(cairo_t *cr, double w, double h, double r) {
+	if (r <= 0 || w <= 0 || h <= 0) return;
+	double max = (w < h ? w : h) / 2.0;
+	if (r > max) r = max;
+	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+	cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+	cairo_rectangle(cr, 0, 0, w, h);
+	grabit_cairo_rounded_rect(cr, 0, 0, w, h, r);
+	cairo_fill(cr);
+}
+
 #endif

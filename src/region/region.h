@@ -36,6 +36,10 @@ static inline int32_t i32max(int32_t a, int32_t b) {
 	return a > b ? a : b;
 }
 
+static inline bool rect_equal(struct rect a, struct rect b) {
+	return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h;
+}
+
 static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 	r.x = i32max(b.x, i32min(r.x, b.x + b.w - r.w));
 	r.y = i32max(b.y, i32min(r.y, b.y + b.h - r.h));
@@ -157,7 +161,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
-				  bool *out_choices_dirty, const struct rect *preset,
+				  bool *out_choices_dirty, bool *out_snapped,
+				  const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects);
 
 #endif

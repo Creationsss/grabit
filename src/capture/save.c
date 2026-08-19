@@ -109,9 +109,31 @@ int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 	return 0;
 }
 
+static void punch_rounded_corners(cairo_surface_t *dst,
+								  const struct grabit_save_opts *opts) {
+	int radius = opts->corner_radius;
+	if (radius <= 0) return;
+	if (opts->format == GRABIT_FMT_JPEG) {
+		static bool warned;
+		if (!warned) {
+			warned = true;
+			log_warn("jpeg cannot store transparency; saving %s with square corners",
+					 grabit_format_extension(opts->format));
+		}
+		return;
+	}
+	cairo_t *cr = cairo_create(dst);
+	grabit_cairo_punch_corners(cr, cairo_image_surface_get_width(dst),
+							   cairo_image_surface_get_height(dst), radius);
+	cairo_destroy(cr);
+	cairo_surface_flush(dst);
+}
+
 int grabit_save_surface(cairo_surface_t *dst,
 						const struct grabit_save_opts *opts, const char *path) {
 	if (!dst || !opts || !path) return -1;
+
+	punch_rounded_corners(dst, opts);
 
 	int rc;
 	switch (opts->format) {
@@ -149,13 +171,17 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 	cairo_surface_t *dst = build_composite_surface(dst_w, dst_h, slices, n);
 	if (!dst) return -1;
 
+	punch_rounded_corners(dst, opts);
+
 	if (annos && region && scale > 0) {
 		cairo_t *cr = cairo_create(dst);
 		annotation_list_paint(cr, annos, region->x, region->y, scale);
 		cairo_destroy(cr);
 	}
 
-	int rc = grabit_save_surface(dst, opts, path);
+	struct grabit_save_opts flat = *opts;
+	flat.corner_radius = 0;
+	int rc = grabit_save_surface(dst, &flat, path);
 	cairo_surface_destroy(dst);
 	return rc;
 }

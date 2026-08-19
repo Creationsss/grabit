@@ -34,6 +34,7 @@ void rec_fail_notify(const char *body) {
 }
 
 int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
+					int *out_radius,
 					const struct args *a, struct rect *out) {
 	struct region_plan_req req = {
 		.fullscreen = a->fullscreen,
@@ -69,8 +70,13 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 	struct rect *mon = NULL;
 	size_t n_mon = 0;
 	if (plan == REGION_PLAN_MONITOR_PICK) grabit_wl_monitor_rects(s, &mon, &n_mon);
+	bool snapped = false;
 	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-						   NULL, NULL, mon, n_mon);
+						   NULL, &snapped, NULL, mon, n_mon);
+	if (out_radius)
+		*out_radius = (snapped && plan != REGION_PLAN_MONITOR_PICK)
+						  ? region_window_radius(cfg, out)
+						  : 0;
 	free(mon);
 	if (rc != 0 && rc != REGION_SELECT_CANCELLED)
 		rec_fail_notify("could not open the region selector");

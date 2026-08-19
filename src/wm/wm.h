@@ -17,6 +17,7 @@ const char *grabit_wm_current_name(void);
 int grabit_wm_active_window(char **class_out, char **title_out);
 int grabit_wm_active_window_rect(struct rect *out);
 int grabit_wm_windows(struct rect **out, size_t *n_out);
+int grabit_wm_window_radius(const struct rect *win);
 
 struct grabit_output *grabit_wm_active_output(struct grabit_wl_state *s);
 

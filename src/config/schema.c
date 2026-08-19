@@ -198,6 +198,9 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "capture.delay") == 0 &&
 		validate_int_in_range(key, value, 0, 3600) != 0)
 		return -1;
+	if (strcmp(key, "region.window_radius") == 0 && strcmp(value, "auto") != 0 &&
+		validate_int_in_range(key, value, 0, 100) != 0)
+		return -1;
 	if (strcmp(key, "region.last") == 0) {
 		struct rect tmp;
 		if (!last_region_parse(value, &tmp)) {

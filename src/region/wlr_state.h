@@ -155,6 +155,7 @@ struct ro_state {
 	struct rect *snap_windows;
 	size_t n_snap_windows;
 	int snap_hover;
+	int snap_radius;
 
 	bool finished;
 	bool cancelled;

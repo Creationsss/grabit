@@ -58,25 +58,13 @@ void gapp_clear_tmpfile(void) {
 	g_tmpfile_path[0] = 0;
 }
 
-int gapp_read_int_cfg_clamp(struct config *cfg, const char *key,
-							int def, int lo, int hi) {
-	const char *v = config_get(cfg, key);
-	if (!v || !v[0]) return def;
-	char *end = NULL;
-	long n = strtol(v, &end, 10);
-	if (!end || *end != '\0') return def;
-	if (n < lo) return lo;
-	if (n > hi) return hi;
-	return (int)n;
-}
-
 static bool preview_enabled(struct config *cfg) {
 	const char *en = config_get(cfg, "preview.enabled");
 	return en && strcmp(en, "true") == 0;
 }
 
 static int preview_width(struct config *cfg) {
-	return gapp_read_int_cfg_clamp(cfg, "preview.size", 300, 100, 800);
+	return config_get_int_clamp(cfg, "preview.size", 300, 100, 800);
 }
 
 void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
@@ -96,7 +84,7 @@ void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 
 	if (prerendered || pin_preview_render_png(image_path, width, png_path) == 0) {
 		struct pin_show_opts opts = {
-			.dismiss_secs = gapp_read_int_cfg_clamp(cfg, "preview.dismiss_secs", 5, 0, 600),
+			.dismiss_secs = config_get_int_clamp(cfg, "preview.dismiss_secs", 5, 0, 600),
 			.position = pos,
 			.output_name = config_get(cfg, "preview.output"),
 			.hover_caption = caption,
@@ -123,7 +111,7 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 		log_error("unknown format `%s` (expected png|jpeg|webp)", fmt_name);
 		return -1;
 	}
-	out->png_level = gapp_read_int_cfg_clamp(cfg, "png.level", 1, 0, 9);
+	out->png_level = config_get_int_clamp(cfg, "png.level", 1, 0, 9);
 	if (preview_enabled(cfg)) {
 		free(g_preview_png);
 		char name[64];
@@ -133,8 +121,8 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 		out->preview_path = g_preview_png;
 		out->preview_width = preview_width(cfg);
 	}
-	out->jpeg_quality = gapp_read_int_cfg_clamp(cfg, "jpeg.quality", 90, 1, 100);
-	out->webp_quality = gapp_read_int_cfg_clamp(cfg, "webp.quality", 85, 0, 100);
+	out->jpeg_quality = config_get_int_clamp(cfg, "jpeg.quality", 90, 1, 100);
+	out->webp_quality = config_get_int_clamp(cfg, "webp.quality", 85, 0, 100);
 	const char *wl = config_get(cfg, "webp.lossless");
 	out->webp_lossless = wl && strcmp(wl, "true") == 0;
 	return 0;
@@ -142,7 +130,8 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 
 static int capture_wm_window(struct config *cfg, bool cursor,
 							 const struct grabit_save_opts *opts, const char *path) {
-	if (opts->format == GRABIT_FMT_PNG && !opts->preview_path)
+	if (opts->format == GRABIT_FMT_PNG && !opts->preview_path &&
+		opts->corner_radius <= 0)
 		return grabit_wm_capture_active_window(cursor, path);
 
 	char *tmp = paths_build_output(cfg, "grabit-window-%s-%r", ".png",
@@ -224,6 +213,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		.use_last = a->last_region,
 	};
 	enum region_plan plan = region_plan_resolve(&s, cfg, &plan_req, &forced_rect);
+	if (a->window) opts.corner_radius = region_window_radius(cfg, &forced_rect);
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
@@ -282,7 +272,8 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
 								   a->edit ? &edit_tool : NULL,
-								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
+								   a->edit ? &edit_dirty : NULL,
+								   forced, mon_rects, n_mon);
 	grabit_wl_finish(&s);
 	free(mon_rects);
 	if (rc == 0 && out_rect) *out_rect = got;

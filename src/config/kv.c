@@ -98,6 +98,17 @@ void config_free(struct config *c) {
 	memset(c, 0, sizeof *c);
 }
 
+int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int hi) {
+	const char *v = config_get(c, key);
+	if (!v || !v[0]) return def;
+	char *end = NULL;
+	long n = strtol(v, &end, 10);
+	if (!end || *end != '\0') return def;
+	if (n < lo) return lo;
+	if (n > hi) return hi;
+	return (int)n;
+}
+
 const char *config_get(struct config *c, const char *key) {
 	struct kv *e = kv_find(c, key);
 	return e ? e->val : NULL;

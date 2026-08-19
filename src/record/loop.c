@@ -212,6 +212,9 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 		} else {
 			rc = rec_layout_capture_compose(s, layout, cursor, frame_buf);
 		}
+		if (rc == 0)
+			rec_round_corners_buf(frame_buf, layout->dst_w, layout->dst_h,
+								  layout->dst_stride, layout->corner_radius);
 		if (rc != 0) {
 			pool_release(pool, frame_buf);
 			if (++consec_fail == 1) log_warn("recording: frame capture failed");

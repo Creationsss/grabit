@@ -76,6 +76,55 @@ int grabit_hyprland_active_window_rect(struct rect *out) {
 	return rc;
 }
 
+static bool client_is_fullscreen(struct json_object *c) {
+	struct json_object *fs = NULL;
+	if (json_object_object_get_ex(c, "fullscreen", &fs) &&
+		json_object_get_int(fs) != 0)
+		return true;
+	if (json_object_object_get_ex(c, "fullscreenClient", &fs) &&
+		json_object_get_int(fs) != 0)
+		return true;
+	return false;
+}
+
+static bool target_is_fullscreen(const struct rect *win) {
+	struct json_object *root = NULL;
+	if (query("j/clients", &root) != 0) return false;
+	bool full = false;
+	if (json_object_get_type(root) == json_type_array) {
+		size_t n = json_object_array_length(root);
+		for (size_t i = 0; i < n; i++) {
+			struct json_object *c = json_object_array_get_idx(root, i);
+			struct rect r;
+			if (!client_rect(c, &r)) continue;
+			if (r.x != win->x || r.y != win->y || r.w != win->w || r.h != win->h)
+				continue;
+			full = client_is_fullscreen(c);
+			break;
+		}
+	}
+	json_object_put(root);
+	return full;
+}
+
+int grabit_hyprland_window_radius(const struct rect *win) {
+	static int cached = -1;
+	if (cached < 0) {
+		struct json_object *root = NULL;
+		if (query_object("j/getoption decoration:rounding", &root) != 0) return 0;
+		struct json_object *val = NULL;
+		cached = 0;
+		if (json_object_object_get_ex(root, "int", &val))
+			cached = json_object_get_int(val);
+		if (cached < 0) cached = 0;
+		json_object_put(root);
+	}
+	int radius = cached;
+	if (radius <= 0) return 0;
+
+	return (win && target_is_fullscreen(win)) ? 0 : radius;
+}
+
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {
 	struct json_object *root = NULL;
 	if (query_object("j/cursorpos", &root) != 0) return -1;

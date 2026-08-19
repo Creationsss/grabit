@@ -201,6 +201,18 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 	return 0;
 }
 
+void rec_round_corners_buf(void *buf, int32_t w, int32_t h, int32_t stride,
+						   int radius) {
+	if (!buf || radius <= 0 || w <= 0 || h <= 0) return;
+	cairo_surface_t *s = grabit_cairo_image_argb(buf, w, h, stride);
+	if (!s) return;
+	cairo_t *cr = cairo_create(s);
+	grabit_cairo_punch_corners(cr, w, h, radius);
+	cairo_destroy(cr);
+	cairo_surface_flush(s);
+	cairo_surface_destroy(s);
+}
+
 void rec_layout_free(struct rec_layout *layout) {
 	if (!layout) return;
 	if (layout->slice_caches) {

@@ -27,6 +27,7 @@ struct rec_layout {
 	int32_t dst_w;
 	int32_t dst_h;
 	int32_t dst_stride;
+	int32_t corner_radius;
 
 	void *slice_scratch;
 	size_t slice_scratch_size;
@@ -39,6 +40,8 @@ struct rec_layout {
 int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout *out);
 
 bool rec_layout_is_direct(const struct rec_layout *layout);
+void rec_round_corners_buf(void *buf, int32_t w, int32_t h, int32_t stride,
+						   int radius);
 
 int rec_layout_capture_direct_into(struct grabit_wl_state *s, const struct rec_layout *layout,
 								   bool cursor, void *dst, int32_t dst_stride, int32_t dst_h);

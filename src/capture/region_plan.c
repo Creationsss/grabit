@@ -5,10 +5,18 @@
 #include "capture/region_plan.h"
 
 #include "config/config.h"
+
 #include "region/edit_persist.h"
 #include "region/region.h"
 #include "wl/wl.h"
 #include "wm/wm.h"
+#include <string.h>
+
+int region_window_radius(struct config *cfg, const struct rect *win) {
+	const char *v = config_get(cfg, "region.window_radius");
+	if (!v || !v[0] || strcmp(v, "auto") == 0) return grabit_wm_window_radius(win);
+	return config_get_int_clamp(cfg, "region.window_radius", 0, 0, 100);
+}
 
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,
 									 const struct region_plan_req *req,

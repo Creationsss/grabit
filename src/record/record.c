@@ -131,7 +131,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				  screencast_backend_name(&s));
 
 	struct rect r = {0};
-	int rc = rec_pick_region(&s, cfg, a, &r);
+	int corner_radius = 0;
+	int rc = rec_pick_region(&s, cfg, &corner_radius, a, &r);
 	if (rc != 0 && rc != REGION_SELECT_CANCELLED) {
 		grabit_wl_finish(&s);
 		return 1;
@@ -174,6 +175,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			rec_fail_notify("selected region did not intersect any output");
 			goto err_wl;
 		}
+		layout.corner_radius = corner_radius;
 		frame_w = layout.dst_w;
 		frame_h = layout.dst_h;
 		frame_stride = layout.dst_stride;

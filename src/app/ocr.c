@@ -161,7 +161,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			return 1;
 		}
 		struct pin_show_opts opts = {
-			.dismiss_secs = gapp_read_int_cfg_clamp(cfg, "text_card.dismiss_secs", 8, 0, 600),
+			.dismiss_secs = config_get_int_clamp(cfg, "text_card.dismiss_secs", 8, 0, 600),
 			.position = config_get(cfg, "text_card.position"),
 			.output_name = config_get(cfg, "text_card.output"),
 		};

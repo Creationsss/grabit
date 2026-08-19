@@ -33,6 +33,7 @@ int config_state_clear(struct config *cfg, const char *key);
 
 const char *config_get(struct config *c, const char *key);
 int config_set(struct config *c, const char *key, const char *value);
+int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int hi);
 bool config_also_save(struct config *c);
 
 int cmd_set(int argc, char **argv);

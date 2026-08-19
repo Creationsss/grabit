@@ -59,6 +59,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"capture.cursor",
 	"capture.delay",
 	"region.window_snap",
+	"region.window_radius",
 	"region.confirm",
 	"region.show_coords",
 	"region.repeat_last",
@@ -257,9 +258,9 @@ static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quali
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
 										"capture.delay", NULL};
-static const char *const G_REGION[] = {"region.window_snap", "region.confirm",
-									   "region.show_coords", "region.repeat_last",
-									   "region.last", NULL};
+static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
+									   "region.confirm", "region.show_coords",
+									   "region.repeat_last", "region.last", NULL};
 static const char *const G_TRANSLATE[] = {
 	"translate.target",
 	"translate.backend",

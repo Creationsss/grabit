@@ -32,6 +32,7 @@ struct grabit_save_opts {
 	bool webp_lossless;
 	const char *preview_path;
 	int preview_width;
+	int corner_radius;
 };
 
 const char *grabit_format_extension(enum grabit_image_format f);

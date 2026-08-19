@@ -21,7 +21,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  struct rect *out_rect, bool annotate, bool cursor,
 						  uint32_t *inout_color, int32_t *inout_width,
 						  int32_t *inout_tool,
-						  bool *out_choices_dirty, const struct rect *forced_region,
+						  bool *out_choices_dirty,
+						  const struct rect *forced_region,
 						  const struct rect *snap_rects, size_t n_snap_rects);
 
 #endif

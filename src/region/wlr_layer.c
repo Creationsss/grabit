@@ -33,7 +33,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
-				  bool *out_choices_dirty, const struct rect *preset,
+				  bool *out_choices_dirty, bool *out_snapped,
+				  const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
 		log_error("region: compositor lacks zwlr_layer_shell_v1; pick the area up "
@@ -275,6 +276,16 @@ loop_done:;
 	if (inout_width) *inout_width = st.current_width;
 	if (inout_tool) *inout_tool = (int32_t)st.current_tool;
 	if (out_choices_dirty) *out_choices_dirty = st.edit_choices_dirty;
+	if (out_snapped) {
+		*out_snapped = false;
+		struct rect sel = {st.sel_x, st.sel_y, st.sel_w, st.sel_h};
+		for (size_t i = 0; i < st.n_snap_windows; i++) {
+			if (rect_equal(st.snap_windows[i], sel)) {
+				*out_snapped = true;
+				break;
+			}
+		}
+	}
 
 	if (annotate_mode && cfg && st.tb_moved) {
 		int32_t tx, ty, tw, th;

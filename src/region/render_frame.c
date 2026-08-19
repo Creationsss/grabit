@@ -86,8 +86,15 @@ void gren_output_redraw(struct ro_output *o) {
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
 	if (sel_visible) {
+		double snap_r = (draw_is_snap && o->st->snap_radius > 0)
+							? (double)o->st->snap_radius * S
+							: 0.0;
 		cairo_rectangle(cr, 0, 0, pw, ph);
-		cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		if (snap_r > 0)
+			grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l,
+									  sel_b - sel_t, snap_r);
+		else
+			cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
 		cairo_fill(cr);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);

@@ -4,6 +4,7 @@
 #include "capture/freeze.h"
 
 #include "capture/capture.h"
+#include "capture/region_plan.h"
 #include "capture/save.h"
 #include "log.h"
 #include "region/region.h"
@@ -18,7 +19,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  struct rect *out_rect, bool annotate, bool cursor,
 						  uint32_t *inout_color, int32_t *inout_width,
 						  int32_t *inout_tool,
-						  bool *out_choices_dirty, const struct rect *forced_region,
+						  bool *out_choices_dirty,
+						  const struct rect *forced_region,
 						  const struct rect *snap_rects, size_t n_snap_rects) {
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
 	if (!frozen) return -1;
@@ -76,10 +78,11 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	}
 	free(want_idx);
 
+	bool snapped = false;
 	if (!forced_only) {
 		int sel = region_select(s, cfg, frozen, annotate, &r,
 								annotate ? &annos : NULL, inout_color, inout_width,
-								inout_tool, out_choices_dirty, forced_region,
+								inout_tool, out_choices_dirty, &snapped, forced_region,
 								snap_rects, n_snap_rects);
 		if (sel != 0) {
 			if (sel == REGION_SELECT_CANCELLED) {
@@ -154,9 +157,14 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		goto cleanup;
 	}
 
+	struct grabit_save_opts eff_opts = *save_opts;
+	if (forced_region && !forced_only && !rect_equal(r, *forced_region))
+		eff_opts.corner_radius = 0;
+	if (snapped && n_snap_rects == 0)
+		eff_opts.corner_radius = region_window_radius(cfg, &r);
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices,
 										 &r, max_ratio,
-										 annos.n > 0 ? &annos : NULL, save_opts, path);
+										 annos.n > 0 ? &annos : NULL, &eff_opts, path);
 
 	if (rc == 0 && out_rect) *out_rect = r;
 

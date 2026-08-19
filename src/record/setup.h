@@ -15,6 +15,7 @@ char *rec_record_path(struct config *cfg, const struct args *a,
 					  const char *format, bool keep_locally);
 void rec_fail_notify(const char *body);
 int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
+					int *out_radius,
 					const struct args *a, struct rect *out);
 
 #endif

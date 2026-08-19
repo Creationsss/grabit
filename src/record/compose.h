@@ -27,6 +27,9 @@ struct rec_layout {
 	int32_t dst_w;
 	int32_t dst_h;
 	int32_t dst_stride;
+	int32_t corner_radius;
+	int32_t border_size;
+	double pixel_ratio;
 
 	void *slice_scratch;
 	size_t slice_scratch_size;
@@ -36,7 +39,8 @@ struct rec_layout {
 	struct pixels_pool *slice_caches;
 };
 
-int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout *out);
+int rec_layout_build(struct grabit_wl_state *s, struct rect r, int32_t corner_radius,
+					 int32_t border_size, struct rec_layout *out);
 
 bool rec_layout_is_direct(const struct rec_layout *layout);
 

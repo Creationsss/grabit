@@ -18,7 +18,8 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
-int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout *out) {
+int rec_layout_build(struct grabit_wl_state *s, struct rect r, int32_t corner_radius,
+					 int32_t border_size, struct rec_layout *out) {
 	memset(out, 0, sizeof *out);
 	if (!s || s->n_outputs == 0) return -1;
 
@@ -87,11 +88,14 @@ int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout
 	out->dst_w = dst_w;
 	out->dst_h = dst_h;
 	out->dst_stride = stride;
+	out->corner_radius = corner_radius;
+	out->border_size = border_size;
+	out->pixel_ratio = max_ratio;
 	return 0;
 }
 
 bool rec_layout_is_direct(const struct rec_layout *layout) {
-	if (!layout || layout->n != 1) return false;
+	if (!layout || layout->n != 1 || layout->corner_radius > 0) return false;
 	const struct rec_slice *sl = &layout->slices[0];
 	if (sl->out->transform != WL_OUTPUT_TRANSFORM_NORMAL) return false;
 	return sl->dst_x == 0 && sl->dst_y == 0 && sl->dst_w == layout->dst_w && sl->dst_h == layout->dst_h;
@@ -182,6 +186,13 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 	if (!dst) return -1;
 	cairo_t *cr = cairo_create(dst);
 
+	/* Pre-fill with opaque black so any uncaptured regions (including areas
+	 * where the recording overlay draws red pixels) are composited over
+	 * a known solid background, not transparent or garbage. */
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgba(cr, 0, 0, 0, 1);
+	cairo_paint(cr);
+
 	size_t alive = 0, captured = 0;
 	for (size_t i = 0; i < layout->n; i++) {
 		const struct rec_slice *sl = &layout->slices[i];
@@ -191,6 +202,32 @@ int rec_layout_capture_compose(struct grabit_wl_state *s, struct rec_layout *lay
 			captured++;
 		else
 			clear_slice(cr, sl);
+	}
+
+	if (layout->corner_radius > 0) {
+		double pr = layout->pixel_ratio > 0.0 ? layout->pixel_ratio : 1.0;
+		double r = (double)layout->corner_radius * pr;
+		if (r > (double)layout->dst_w * 0.5) r = (double)layout->dst_w * 0.5;
+		if (r > (double)layout->dst_h * 0.5) r = (double)layout->dst_h * 0.5;
+		double inset = (double)layout->border_size * pr;
+		if (r > inset) r -= inset;
+		double mw = (double)layout->dst_w - 2.0 * inset;
+		double mh = (double)layout->dst_h - 2.0 * inset;
+		if (mw > 0 && mh > 0) {
+			/* Punch a rounded-rect alpha mask into the frame so corner pixels
+			 * outside the curve become fully transparent. */
+			cairo_set_operator(cr, CAIRO_OPERATOR_DEST_IN);
+			grabit_cairo_rounded_rect(cr, inset, inset, mw, mh, r);
+			cairo_fill(cr);
+
+			/* Flood the now-transparent corner pixels with opaque black so
+			 * that the frame delivered to FFmpeg is fully opaque everywhere.
+			 * DEST_OVER only paints where dst alpha is 0, leaving all captured
+			 * content pixels completely untouched. */
+			cairo_set_operator(cr, CAIRO_OPERATOR_DEST_OVER);
+			cairo_set_source_rgba(cr, 0, 0, 0, 1);
+			cairo_paint(cr);
+		}
 	}
 
 	cairo_destroy(cr);

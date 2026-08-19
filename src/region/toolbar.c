@@ -49,7 +49,8 @@ static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
 		aa = 0.96;
 	}
 	cairo_set_source_rgba(cr, rr, gg, bb, aa);
-	cairo_rectangle(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2);
+	double r_btn = st->rounded_ui ? 4.0 * (bhi / TB_BTN_H) : 0.0;
+	grabit_cairo_rounded_rect(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2, r_btn);
 	cairo_fill(cr);
 }
 
@@ -60,7 +61,7 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	double tk_x1 = bxi + bwi - pad_in;
 	cairo_set_source_rgba(cr, 0.55, 0.55, 0.55, 1);
 	cairo_set_line_width(cr, 2.0 * S);
-	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_set_line_cap(cr, st->rounded_ui ? CAIRO_LINE_CAP_ROUND : CAIRO_LINE_CAP_BUTT);
 	cairo_move_to(cr, tk_x0, cyi);
 	cairo_line_to(cr, tk_x1, cyi);
 	cairo_stroke(cr);
@@ -81,10 +82,11 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_stroke(cr);
 }
 
-static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double cyi, double s_icon) {
+static void paint_tool_icon(cairo_t *cr, const struct ro_state *st,
+							enum tb_action act, double cxi, double cyi, double s_icon) {
 	switch (act) {
 	case TB_REGION:
-		toolbar_icon_region(cr, cxi, cyi, s_icon);
+		toolbar_icon_region(cr, cxi, cyi, s_icon, st->rounded_ui);
 		break;
 	case TB_EDIT:
 		toolbar_icon_select(cr, cxi, cyi, s_icon);
@@ -105,16 +107,16 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 		toolbar_icon_eraser(cr, cxi, cyi, s_icon);
 		break;
 	case TB_REDO:
-		toolbar_icon_redo(cr, cxi, cyi, s_icon);
+		toolbar_icon_redo(cr, cxi, cyi, s_icon, st->rounded_ui);
 		break;
 	case TB_UNDO:
-		toolbar_icon_undo(cr, cxi, cyi, s_icon);
+		toolbar_icon_undo(cr, cxi, cyi, s_icon, st->rounded_ui);
 		break;
 	case TB_SAVE:
-		toolbar_icon_save(cr, cxi, cyi, s_icon);
+		toolbar_icon_save(cr, cxi, cyi, s_icon, st->rounded_ui);
 		break;
 	case TB_CANCEL:
-		toolbar_icon_cancel(cr, cxi, cyi, s_icon);
+		toolbar_icon_cancel(cr, cxi, cyi, s_icon, st->rounded_ui);
 		break;
 	default:
 		break;
@@ -135,13 +137,15 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
+	double r_frame = o->st->rounded_ui ? 8.0 * S : 0.0;
+	double r_stroke = o->st->rounded_ui ? 8.0 * S - 0.5 * S : 0.0;
 	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	cairo_rectangle(cr, bx0, by0, bw, bh);
+	grabit_cairo_rounded_rect(cr, bx0, by0, bw, bh, r_frame);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, bx0 + 0.5 * S, by0 + 0.5 * S,
-					bw - (double)S, bh - (double)S);
+	grabit_cairo_rounded_rect(cr, bx0 + 0.5 * S, by0 + 0.5 * S,
+							  bw - (double)S, bh - (double)S, r_stroke);
 	cairo_stroke(cr);
 
 	for (int i = 0; i < TB_BTN_COUNT; i++) {
@@ -174,7 +178,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		if (is_current) {
 			toolbar_color_current(cr, cxi, cyi, s_icon,
 								  region_active_color(o->st),
-								  o->st->color_picker_open);
+								  o->st->color_picker_open,
+								  o->st->rounded_ui);
 			continue;
 		}
 		if (is_slider) {
@@ -189,10 +194,10 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		const struct tool_group *g = toolbar_tool_group(act);
 		if (g) {
 			enum tool_kind gt = o->st->group_tool[toolbar_group_index(g)];
-			toolbar_icon_for_tool(cr, gt, cxi, cyi, s_icon);
+			toolbar_icon_for_tool(cr, gt, cxi, cyi, s_icon, o->st->rounded_ui);
 			continue;
 		}
-		paint_tool_icon(cr, act, cxi, cyi, s_icon);
+		paint_tool_icon(cr, o->st, act, cxi, cyi, s_icon);
 	}
 
 	cairo_restore(cr);

@@ -22,12 +22,14 @@ void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
 }
 
 static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
+	double r_bar = c->rounded_ui ? 8.0 : 0.0;
+	double r_bar_stroke = c->rounded_ui ? 7.5 : 0.0;
 	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	cairo_rectangle(cr, 0, 0, c->bw, c->bh);
+	grabit_cairo_rounded_rect(cr, 0, 0, c->bw, c->bh, r_bar);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
 	cairo_set_line_width(cr, 1.0);
-	cairo_rectangle(cr, 0.5, 0.5, c->bw - 1.0, c->bh - 1.0);
+	grabit_cairo_rounded_rect(cr, 0.5, 0.5, c->bw - 1.0, c->bh - 1.0, r_bar_stroke);
 	cairo_stroke(cr);
 
 	double cy = CB_H / 2.0;
@@ -69,7 +71,8 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 		} else {
 			cairo_set_source_rgba(cr, 0.62, 0.22, 0.22, aa);
 		}
-		cairo_rectangle(cr, bx + pad, by + pad, bw - pad * 2, bh - pad * 2);
+		double r_btn = c->rounded_ui ? 4.0 : 0.0;
+		grabit_cairo_rounded_rect(cr, bx + pad, by + pad, bw - pad * 2, bh - pad * 2, r_btn);
 		cairo_fill(cr);
 
 		double ia = enabled ? 0.92 : 0.45;
@@ -78,26 +81,55 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 		double bcy = by + bh / 2.0;
 		double s = bh * 0.6 * 0.36;
 		if (btn == CB_BTN_START) {
-			cairo_move_to(cr, bcx - s * 0.7, bcy - s);
-			cairo_line_to(cr, bcx - s * 0.7, bcy + s);
-			cairo_line_to(cr, bcx + s, bcy);
-			cairo_close_path(cr);
-			cairo_fill(cr);
+			if (c->rounded_ui) {
+				double x_left = bcx - s * 0.65;
+				double x_apex = bcx + s * 0.85;
+				double y_top = bcy - s * 0.85;
+				double y_bot = bcy + s * 0.85;
+
+				cairo_new_path(cr);
+				cairo_move_to(cr, x_left, y_top);
+				cairo_line_to(cr, x_apex, bcy);
+				cairo_line_to(cr, x_left, y_bot);
+				cairo_close_path(cr);
+				cairo_path_t *p = cairo_copy_path(cr);
+				grabit_cairo_path_fillet_corners(cr, p, s * 0.28);
+				cairo_fill(cr);
+				cairo_path_destroy(p);
+			} else {
+				cairo_move_to(cr, bcx - s * 0.65, bcy - s * 0.85);
+				cairo_line_to(cr, bcx - s * 0.65, bcy + s * 0.85);
+				cairo_line_to(cr, bcx + s * 0.85, bcy);
+				cairo_close_path(cr);
+				cairo_fill(cr);
+			}
 		} else if (btn == CB_BTN_PAUSE) {
-			cairo_rectangle(cr, bcx - s, bcy - s, s * 0.72, s * 2.0);
-			cairo_rectangle(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0);
-			cairo_fill(cr);
+			if (c->rounded_ui) {
+				grabit_cairo_rounded_rect(cr, bcx - s, bcy - s, s * 0.72, s * 2.0, s * 0.36);
+				grabit_cairo_rounded_rect(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0, s * 0.36);
+				cairo_fill(cr);
+			} else {
+				cairo_rectangle(cr, bcx - s, bcy - s, s * 0.72, s * 2.0);
+				cairo_rectangle(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0);
+				cairo_fill(cr);
+			}
 		} else if (btn == CB_BTN_ABORT) {
 			double arm = s * 0.75;
 			cairo_set_line_width(cr, 2.0);
+			cairo_set_line_cap(cr, c->rounded_ui ? CAIRO_LINE_CAP_ROUND : CAIRO_LINE_CAP_BUTT);
 			cairo_move_to(cr, bcx - arm, bcy - arm);
 			cairo_line_to(cr, bcx + arm, bcy + arm);
 			cairo_move_to(cr, bcx + arm, bcy - arm);
 			cairo_line_to(cr, bcx - arm, bcy + arm);
 			cairo_stroke(cr);
 		} else {
-			cairo_rectangle(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8);
-			cairo_fill(cr);
+			if (c->rounded_ui) {
+				grabit_cairo_rounded_rect(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8, s * 0.45);
+				cairo_fill(cr);
+			} else {
+				cairo_rectangle(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8);
+				cairo_fill(cr);
+			}
 		}
 	}
 }

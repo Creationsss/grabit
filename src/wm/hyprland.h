@@ -9,11 +9,16 @@
 #include <stdint.h>
 
 struct rect;
+struct snap_window;
 
 bool grabit_hyprland_present(void);
+int grabit_hyprland_global_rounding(void);
+int grabit_hyprland_global_border_size(void);
 int grabit_hyprland_active_window(char **class_out, char **title_out);
 int grabit_hyprland_active_window_rect(struct rect *out);
+int grabit_hyprland_active_window_radius(void);
+int grabit_hyprland_active_window_border_size(void);
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out);
-int grabit_hyprland_clients(struct rect **out, size_t *n_out);
+int grabit_hyprland_clients(struct snap_window **out, size_t *n_out);
 
 #endif

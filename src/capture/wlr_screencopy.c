@@ -225,12 +225,19 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 
 	int rc = -1;
 	if (pixels_wl_wait(s->display, &c.status) == 0 && c.buf.map) {
-		if (c.height != dst_h || c.width * 4 != dst_stride) {
-			log_error("capture: size mismatch (got %dx%d, dst stride=%d h=%d)",
-					  c.width, c.height, dst_stride, dst_h);
+		int32_t dst_w = dst_stride / 4;
+		int32_t copy_w = c.width < dst_w ? c.width : dst_w;
+		int32_t copy_h = c.height < dst_h ? c.height : dst_h;
+		if (copy_w <= 0 || copy_h <= 0) {
+			log_error("capture: empty region (got %dx%d, dst %dx%d)",
+					  c.width, c.height, dst_w, dst_h);
 		} else {
 			pixels_copy(dst, dst_stride, c.buf.map, c.stride,
-						c.width, c.height, c.fmt.conv, c.y_invert);
+						copy_w, copy_h, c.fmt.conv, c.y_invert);
+			if (copy_h < dst_h) {
+				memset((uint8_t *)dst + (size_t)copy_h * (size_t)dst_stride, 0,
+					   (size_t)(dst_h - copy_h) * (size_t)dst_stride);
+			}
 			if (out_format)
 				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.conv);
 			rc = 0;

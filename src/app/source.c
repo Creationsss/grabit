@@ -267,10 +267,37 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		return path;
 	}
 
-	struct rect *mon_rects = NULL;
-	size_t n_mon = 0;
-	if (plan == REGION_PLAN_MONITOR_PICK)
+	struct snap_window *mon_snaps = NULL;
+	size_t n_snaps = 0;
+	if (plan == REGION_PLAN_MONITOR_PICK) {
+		struct rect *mon_rects = NULL;
+		size_t n_mon = 0;
 		grabit_wl_monitor_rects(&s, &mon_rects, &n_mon);
+		if (mon_rects && n_mon > 0) {
+			mon_snaps = calloc(n_mon, sizeof *mon_snaps);
+			if (mon_snaps) {
+				for (size_t i = 0; i < n_mon; i++) {
+					mon_snaps[i].rect = mon_rects[i];
+					mon_snaps[i].radius = 0;
+				}
+				n_snaps = n_mon;
+			}
+		}
+		free(mon_rects);
+	}
+
+	int32_t forced_radius = -1;
+	int32_t forced_border = 0;
+	if (a->window) {
+		const char *v = config_get(cfg, "region.window_radius");
+		if (v && strcmp(v, "auto") != 0) {
+			long r = strtol(v, NULL, 10);
+			if (r >= 0) forced_radius = (int32_t)r;
+		} else {
+			forced_radius = grabit_wm_active_window_radius();
+		}
+		forced_border = grabit_wm_active_window_border_size();
+	}
 
 	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
 	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
@@ -282,9 +309,10 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
 								   a->edit ? &edit_tool : NULL,
-								   a->edit ? &edit_dirty : NULL, forced, mon_rects, n_mon);
+								   a->edit ? &edit_dirty : NULL, forced, mon_snaps, n_snaps,
+								   forced_radius, forced_border);
 	grabit_wl_finish(&s);
-	free(mon_rects);
+	free(mon_snaps);
 	if (rc == 0 && out_rect) *out_rect = got;
 
 	struct edit_choices ec = {edit_color, edit_width, edit_tool};

@@ -99,6 +99,21 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "region.window_radius") == 0) {
+		*example_out = "auto|0..100 (corner radius for window snaps/captures)";
+		*def_out = "auto";
+		return 0;
+	}
+	if (strcmp(key, "region.snap_animation") == 0) {
+		*example_out = "true|false (smooth transition animation on window hover)";
+		*def_out = "false";
+		return 0;
+	}
+	if (strcmp(key, "region.anim_speed") == 0) {
+		*example_out = "1..50 (animation speed / spring rate)";
+		*def_out = "18";
+		return 0;
+	}
 	if (strcmp(key, "region.confirm") == 0) {
 		*example_out = "true|false";
 		*def_out = "false";

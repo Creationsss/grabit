@@ -38,6 +38,8 @@ struct overlay_state {
 	struct grabit_wl_state *wls;
 	struct rect r;
 	bool show_dimensions;
+	int32_t corner_radius;
+	bool rounded_ui;
 	struct overlay_output *outs;
 	size_t n;
 };
@@ -72,13 +74,22 @@ static void draw_border(struct overlay_output *o) {
 	double ry = (o->st->r.y - o->go->y) * S;
 	double rw = o->st->r.w * S;
 	double rh = o->st->r.h * S;
-	double bw = BORDER_LOGICAL * S;
+	double bw = (double)S;
+	double half = 0.5 * S;
 
 	cairo_set_source_rgba(cr, 1.0, 0.2, 0.2, 0.95);
-	cairo_set_line_width(cr, bw);
+	cairo_set_line_width(cr, (double)S);
 	double dashes[2] = {4.0 * S, 4.0 * S};
 	cairo_set_dash(cr, dashes, 2, 0);
-	cairo_rectangle(cr, rx - bw / 2.0, ry - bw / 2.0, rw + bw, rh + bw);
+	if (o->st->corner_radius > 0) {
+		double cr_r = (double)o->st->corner_radius * S;
+		if (cr_r > rw * 0.5) cr_r = rw * 0.5;
+		if (cr_r > rh * 0.5) cr_r = rh * 0.5;
+		cr_r += half;
+		grabit_cairo_rounded_rect(cr, rx - half, ry - half, rw + (double)S, rh + (double)S, cr_r);
+	} else {
+		cairo_rectangle(cr, rx - half, ry - half, rw + (double)S, rh + (double)S);
+	}
 	cairo_stroke(cr);
 	cairo_set_dash(cr, NULL, 0, 0);
 
@@ -97,8 +108,9 @@ static void draw_border(struct overlay_output *o) {
 		double pillx = rx + rw - pillw;
 		double pilly = ry - bw - pillh - 2.0 * S;
 
+		double r_pill = o->st->rounded_ui ? 4.0 * S : 0.0;
 		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
-		cairo_rectangle(cr, pillx, pilly, pillw, pillh);
+		grabit_cairo_rounded_rect(cr, pillx, pilly, pillw, pillh, r_pill);
 		cairo_fill(cr);
 
 		cairo_set_source_rgba(cr, 1, 1, 1, 1);
@@ -141,7 +153,8 @@ static const struct zwlr_layer_surface_v1_listener layer_listener_g = {
 };
 
 struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
-									bool show_dimensions) {
+									bool show_dimensions, int32_t corner_radius,
+									bool rounded_ui) {
 	if (!s || !s->layer_shell || !s->compositor) return NULL;
 
 	size_t n_overlap = 0;
@@ -155,6 +168,8 @@ struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
 	st->wls = s;
 	st->r = r;
 	st->show_dimensions = show_dimensions;
+	st->corner_radius = corner_radius;
+	st->rounded_ui = rounded_ui;
 	st->outs = calloc(n_overlap, sizeof *st->outs);
 	if (!st->outs) {
 		free(st);

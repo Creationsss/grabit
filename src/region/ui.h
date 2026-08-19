@@ -44,7 +44,7 @@ enum tb_action {
 	TB_BTN_COUNT,
 };
 
-#define TB_TOOL_GROUP_COUNT 3
+#define TB_TOOL_GROUP_COUNT 5
 
 #define TB_BTN_W 38
 #define TB_BTN_H 38
@@ -107,11 +107,12 @@ void region_input_attach(struct ro_state *st);
 
 struct config;
 struct rect;
+struct snap_window;
 struct grabit_output;
 
 void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate_mode,
-						  struct grabit_wl_state *s, const struct rect *snap_rects,
-						  size_t n_snap_rects);
+						  struct grabit_wl_state *s, const struct snap_window *snap_windows,
+						  size_t n_snap_windows);
 void gregion_create_surfaces(struct ro_state *st, struct grabit_wl_state *s);
 void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s);
 

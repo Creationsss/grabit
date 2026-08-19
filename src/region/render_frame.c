@@ -45,6 +45,8 @@ void gren_output_redraw(struct ro_output *o) {
 	int32_t sel_l = 0, sel_t = 0, sel_r = 0, sel_b = 0;
 	bool sel_visible = false;
 	int32_t draw_x = 0, draw_y = 0, draw_w = 0, draw_h = 0;
+	int32_t draw_radius = 0;
+	double snap_opacity = 0.45;
 	bool draw_any = false;
 	bool draw_is_snap = false;
 	if (o->st->has_selection) {
@@ -52,17 +54,30 @@ void gren_output_redraw(struct ro_output *o) {
 		draw_y = o->st->sel_y;
 		draw_w = o->st->sel_w;
 		draw_h = o->st->sel_h;
+		draw_radius = o->st->sel_radius;
 		draw_any = true;
-	} else if (!o->st->region_locked && !o->st->dragging &&
-			   o->st->snap_hover >= 0 &&
-			   (size_t)o->st->snap_hover < o->st->n_snap_windows) {
-		const struct rect *w = &o->st->snap_windows[o->st->snap_hover];
-		draw_x = w->x;
-		draw_y = w->y;
-		draw_w = w->w;
-		draw_h = w->h;
-		draw_any = true;
-		draw_is_snap = true;
+	} else if (!o->st->region_locked && !o->st->dragging) {
+		if (o->st->anim_enabled && o->st->anim_alpha > 0.001) {
+			draw_x = (int32_t)lround(o->st->anim_x);
+			draw_y = (int32_t)lround(o->st->anim_y);
+			draw_w = (int32_t)lround(o->st->anim_w);
+			draw_h = (int32_t)lround(o->st->anim_h);
+			draw_radius = (int32_t)lround(o->st->anim_r);
+			snap_opacity = 0.45 * o->st->anim_alpha;
+			draw_any = (draw_w > 0 && draw_h > 0);
+			draw_is_snap = true;
+		} else if (!o->st->anim_enabled && o->st->snap_hover >= 0 &&
+				   (size_t)o->st->snap_hover < o->st->n_snap_windows) {
+			const struct snap_window *w = &o->st->snap_windows[o->st->snap_hover];
+			draw_x = w->rect.x;
+			draw_y = w->rect.y;
+			draw_w = w->rect.w;
+			draw_h = w->rect.h;
+			draw_radius = w->radius;
+			snap_opacity = 0.45;
+			draw_any = true;
+			draw_is_snap = true;
+		}
 	}
 	if (draw_any) {
 		int32_t sx = (draw_x - o->go->x) * S;
@@ -84,14 +99,44 @@ void gren_output_redraw(struct ro_output *o) {
 	cairo_paint(cr);
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
-	if (sel_visible) {
+	if (sel_visible && draw_is_snap && o->st->anim_enabled) {
+		double alpha = o->st->anim_alpha;
+		if (alpha > 1.0) alpha = 1.0;
+		if (alpha < 0.0) alpha = 0.0;
 		cairo_rectangle(cr, 0, 0, pw, ph);
-		cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		if (draw_radius > 0) {
+			int32_t sx = (draw_x - o->go->x) * S;
+			int32_t sy = (draw_y - o->go->y) * S;
+			int32_t sw = draw_w * S;
+			int32_t sh = draw_h * S;
+			grabit_cairo_rounded_rect(cr, sx, sy, sw, sh, (double)draw_radius * S);
+		} else {
+			cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		}
+		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45 * alpha);
+		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+		cairo_fill(cr);
+		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+
+		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45 * (1.0 - alpha));
+		cairo_paint(cr);
+	} else if (sel_visible) {
+		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
+		cairo_rectangle(cr, 0, 0, pw, ph);
+		if (draw_radius > 0) {
+			int32_t sx = (draw_x - o->go->x) * S;
+			int32_t sy = (draw_y - o->go->y) * S;
+			int32_t sw = draw_w * S;
+			int32_t sh = draw_h * S;
+			grabit_cairo_rounded_rect(cr, sx, sy, sw, sh, (double)draw_radius * S);
+		} else {
+			cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		}
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
 		cairo_fill(cr);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
 	} else {
+		cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
 		cairo_paint(cr);
 	}
 
@@ -161,8 +206,9 @@ void gren_output_redraw(struct ro_output *o) {
 			double pill_w = tw + 2 * pad;
 			double pill_top = (double)o->st->text_y - fe.ascent - pad;
 			double pill_h = fe.ascent + fe.descent + 2 * pad;
+			double r_type = o->st->rounded_ui ? 4.0 : 0.0;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
-			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
+			grabit_cairo_rounded_rect(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h, r_type);
 			cairo_fill(cr);
 			if (o->st->text_len > 0) {
 				struct annotation typing = {
@@ -189,14 +235,25 @@ void gren_output_redraw(struct ro_output *o) {
 	}
 
 	if (sel_visible) {
-		cairo_set_source_rgba(cr, 1, 1, 1, draw_is_snap ? 0.45 : 0.9);
+		cairo_set_source_rgba(cr, 1, 1, 1, draw_is_snap ? snap_opacity : 0.9);
 		cairo_set_line_width(cr, (double)S);
 		double dashes[2] = {4.0 * S, 4.0 * S};
 		cairo_set_dash(cr, dashes, 2, 0);
 		double half = (double)S * 0.5;
-		cairo_rectangle(cr, (double)sel_l + half, (double)sel_t + half,
-						(double)(sel_r - sel_l) - (double)S,
-						(double)(sel_b - sel_t) - (double)S);
+		if (draw_radius > 0) {
+			int32_t sx = (draw_x - o->go->x) * S;
+			int32_t sy = (draw_y - o->go->y) * S;
+			int32_t sw = draw_w * S;
+			int32_t sh = draw_h * S;
+			grabit_cairo_rounded_rect(cr, (double)sx + half, (double)sy + half,
+									  (double)sw - (double)S,
+									  (double)sh - (double)S,
+									  (double)draw_radius * S);
+		} else {
+			cairo_rectangle(cr, (double)sel_l + half, (double)sel_t + half,
+							(double)(sel_r - sel_l) - (double)S,
+							(double)(sel_b - sel_t) - (double)S);
+		}
 		cairo_stroke(cr);
 		cairo_set_dash(cr, NULL, 0, 0);
 
@@ -210,9 +267,10 @@ void gren_output_redraw(struct ro_output *o) {
 			cairo_text_extents(cr, dims, &ext);
 			double tx = (double)sel_r - ext.width - 14.0 * S;
 			double ty = (double)sel_b - 14.0 * S;
+			double r_dim = o->st->rounded_ui ? 4.0 * S : 0.0;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
-			cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
-							ext.width + 8.0 * S, ext.height + 6.0 * S);
+			grabit_cairo_rounded_rect(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
+									  ext.width + 8.0 * S, ext.height + 6.0 * S, r_dim);
 			cairo_fill(cr);
 			cairo_set_source_rgba(cr, 1, 1, 1, 1);
 			cairo_move_to(cr, tx, ty);

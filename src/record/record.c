@@ -131,7 +131,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				  screencast_backend_name(&s));
 
 	struct rect r = {0};
-	int rc = rec_pick_region(&s, cfg, a, &r);
+	int32_t corner_radius = 0;
+	int32_t border_size = 0;
+	int rc = rec_pick_region(&s, cfg, a, &r, &corner_radius, &border_size);
 	if (rc != 0 && rc != REGION_SELECT_CANCELLED) {
 		grabit_wl_finish(&s);
 		return 1;
@@ -169,7 +171,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		}
 		pw_capture_size(cap, &frame_w, &frame_h, &frame_stride);
 	} else {
-		if (rec_layout_build(&s, r, &layout) != 0) {
+		if (rec_layout_build(&s, r, corner_radius, border_size, &layout) != 0) {
 			log_error("region does not overlap any output");
 			rec_fail_notify("selected region did not intersect any output");
 			goto err_wl;
@@ -251,9 +253,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	log_info("recording %dx%d @ %d fps -> %s", frame_w, frame_h, fps, output_path);
 
 	bool show_dims = rec_cfg_show_dimensions(cfg);
-	struct overlay_state *overlay = overlay_start(&s, r, show_dims);
+	bool rounded_ui = rec_cfg_rounded_gui(cfg);
+	struct overlay_state *overlay = overlay_start(&s, r, show_dims, corner_radius, rounded_ui);
 	struct rec_controls *controls =
-		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort);
+		controls_start(&s, r, &grabit_rec_stop, &grabit_rec_pause, &grabit_rec_abort, rounded_ui);
 
 	double secs;
 	if (use_screencast) {

@@ -134,8 +134,8 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			return 0;
 		}
 		if (strcmp(leaf, "tool") == 0) {
-			*example_out = "pen|marker|line|rect|rounded_rect|ellipse|arrow|"
-						   "blur|pixelate|spotlight|text|counter|callout|eraser";
+			*example_out = "pen|marker|line|rect|rounded_rect|ellipse|arrow|rounded_arrow|"
+						   "blur|pixelate|spotlight|text|rounded_text|counter|callout|eraser";
 			*def_out = "pen";
 			return 0;
 		}
@@ -181,6 +181,14 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 		}
 		if (strcmp(leaf, "file") == 0) {
 			*example_out = "<path to .oga/.wav file>";
+			return 0;
+		}
+	}
+	if (strncmp(key, "gui.", 4) == 0) {
+		const char *leaf = key + 4;
+		if (strcmp(leaf, "rounded") == 0) {
+			*example_out = "true|false";
+			*def_out = "false";
 			return 0;
 		}
 	}

@@ -21,10 +21,12 @@ const char *const grabit_tool_names[] = {
 	"rounded_rect",
 	"ellipse",
 	"arrow",
+	"rounded_arrow",
 	"blur",
 	"pixelate",
 	"spotlight",
 	"text",
+	"rounded_text",
 	"counter",
 	"callout",
 	"eraser",
@@ -140,7 +142,7 @@ void annotation_list_free(struct annotation_list *list) {
 struct rect annotation_text_box(const struct annotation *a) {
 	int32_t fs = annotation_font_size(a);
 	int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
-	int32_t pad = a->tool == TOOL_CALLOUT ? fs / 2 : 0;
+	int32_t pad = (a->tool == TOOL_CALLOUT) ? fs / 2 : 0;
 	return (struct rect){a->x0 - pad, a->y0 - fs - pad,
 						 len * fs * 3 / 5 + pad * 2, fs + fs / 4 + pad * 2};
 }
@@ -195,7 +197,7 @@ static double seg_dist2(double px, double py, double x0, double y0,
 
 int annotation_corner_mask(const struct annotation *a) {
 	if (a->tool == TOOL_LINE || a->tool == TOOL_ARROW ||
-		a->tool == TOOL_CALLOUT)
+		a->tool == TOOL_RARROW || a->tool == TOOL_CALLOUT)
 		return 0x9;
 	if (tool_is_rect_region(a->tool))
 		return 0xF;
@@ -211,6 +213,7 @@ bool annotation_hit(const struct annotation *a, int32_t x, int32_t y) {
 	switch (a->tool) {
 	case TOOL_LINE:
 	case TOOL_ARROW:
+	case TOOL_RARROW:
 		return seg_dist2(x, y, a->x0, a->y0, a->x1, a->y1) <= tol2;
 	case TOOL_PEN:
 	case TOOL_MARKER:

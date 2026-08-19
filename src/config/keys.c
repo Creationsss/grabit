@@ -23,6 +23,7 @@ static const char *BOOL_KEYS[] = {
 	"sound.enabled",
 	"capture.cursor",
 	"region.window_snap",
+	"region.snap_animation",
 	"region.confirm",
 	"region.show_coords",
 	"region.repeat_last",
@@ -32,6 +33,7 @@ static const char *BOOL_KEYS[] = {
 	"edit.smooth",
 	"edit.start_with_tool",
 	"preview.enabled",
+	"gui.rounded",
 	NULL,
 };
 
@@ -192,12 +194,18 @@ static bool valid_region_key(const char *key) {
 	const char *leaf = key + 7;
 	return strcmp(leaf, "window_snap") == 0 || strcmp(leaf, "confirm") == 0 ||
 		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "repeat_last") == 0 ||
-		   strcmp(leaf, "last") == 0;
+		   strcmp(leaf, "last") == 0 || strcmp(leaf, "window_radius") == 0 ||
+		   strcmp(leaf, "snap_animation") == 0 || strcmp(leaf, "anim_speed") == 0;
 }
 
 static bool valid_tray_key(const char *key) {
 	if (strncmp(key, "tray.", 5) != 0) return false;
 	return strcmp(key + 5, "icon") == 0;
+}
+
+static bool valid_gui_key(const char *key) {
+	if (strncmp(key, "gui.", 4) != 0) return false;
+	return strcmp(key + 4, "rounded") == 0;
 }
 
 static bool valid_keys_key(const char *key) {
@@ -223,5 +231,5 @@ bool cfg_key_is_known(const char *key) {
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
 		   valid_preview_key(key) || valid_tray_key(key) ||
-		   valid_keys_key(key);
+		   valid_gui_key(key) || valid_keys_key(key);
 }

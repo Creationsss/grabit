@@ -186,20 +186,30 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 		int32_t px, py, pw, ph;
 		grabit_output_region_pixels(o, x, y, &px, &py);
 		grabit_output_region_pixels(o, w, h, &pw, &ph);
-		if (px < 0 || py < 0 || pw > c.sess->width - px || ph > c.sess->height - py) {
-			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",
-					  px, py, pw, ph, c.sess->width, c.sess->height);
-		} else if (ph != dst_h || pw * 4 != dst_stride) {
-			log_error("ext-image-copy: size mismatch (got %dx%d, dst stride=%d h=%d)",
-					  pw, ph, dst_stride, dst_h);
+		if (px < 0 || py < 0 || px >= c.sess->width || py >= c.sess->height) {
+			log_error("ext-image-copy: region origin %d,%d out of frame %dx%d",
+					  px, py, c.sess->width, c.sess->height);
 		} else {
-			const uint8_t *src = (const uint8_t *)c.buf.map +
-								 (size_t)py * (size_t)c.sess->stride + (size_t)px * 4;
-			pixels_copy(dst, dst_stride, src, c.sess->stride, pw, ph,
-						c.sess->fmt.conv, false);
-			if (out_format)
-				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.conv);
-			rc = 0;
+			if (pw > c.sess->width - px) pw = c.sess->width - px;
+			if (ph > c.sess->height - py) ph = c.sess->height - py;
+			int32_t dst_w = dst_stride / 4;
+			int32_t copy_w = pw < dst_w ? pw : dst_w;
+			int32_t copy_h = ph < dst_h ? ph : dst_h;
+			if (copy_w <= 0 || copy_h <= 0) {
+				log_error("ext-image-copy: empty region");
+			} else {
+				const uint8_t *src = (const uint8_t *)c.buf.map +
+									 (size_t)py * (size_t)c.sess->stride + (size_t)px * 4;
+				pixels_copy(dst, dst_stride, src, c.sess->stride, copy_w, copy_h,
+							c.sess->fmt.conv, false);
+				if (copy_h < dst_h) {
+					memset((uint8_t *)dst + (size_t)copy_h * (size_t)dst_stride, 0,
+						   (size_t)(dst_h - copy_h) * (size_t)dst_stride);
+				}
+				if (out_format)
+					*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.conv);
+				rc = 0;
+			}
 		}
 	}
 

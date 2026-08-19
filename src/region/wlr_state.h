@@ -150,11 +150,33 @@ struct ro_state {
 	int32_t sel_y;
 	int32_t sel_w;
 	int32_t sel_h;
+	int32_t sel_radius;
+	int32_t sel_border_size;
 	struct rect bounds;
 
-	struct rect *snap_windows;
+	struct snap_window *snap_windows;
 	size_t n_snap_windows;
 	int snap_hover;
+
+	bool radius_is_auto;
+	int32_t fixed_radius;
+
+	bool anim_enabled;
+	bool anim_active;
+	double anim_x;
+	double anim_y;
+	double anim_w;
+	double anim_h;
+	double anim_r;
+	double target_x;
+	double target_y;
+	double target_w;
+	double target_h;
+	double target_r;
+	double anim_alpha;
+	double target_alpha;
+	uint64_t anim_last_time_ms;
+	double anim_speed;
 
 	bool finished;
 	bool cancelled;
@@ -164,6 +186,7 @@ struct ro_state {
 
 	bool annotate_mode;
 	bool confirm_mode;
+	bool rounded_ui;
 	bool resizing_anno;
 	uint8_t multi_select_mods;
 	bool edit_instant;

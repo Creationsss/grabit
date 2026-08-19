@@ -34,7 +34,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
 				  bool *out_choices_dirty, const struct rect *preset,
-				  const struct rect *snap_rects, size_t n_snap_rects) {
+				  const struct snap_window *snap_windows, size_t n_snap_windows,
+				  int32_t *out_radius, int32_t *out_border_size) {
 	if (!s->layer_shell) {
 		log_error("region: compositor lacks zwlr_layer_shell_v1; pick the area up "
 				  "front with -F/--fullscreen[=<monitor>] or -L/--last");
@@ -76,7 +77,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 
 	st.snap_hover = -1;
 	region_keymap_init(&st.keys, cfg);
-	gregion_apply_config(&st, cfg, annotate_mode, s, snap_rects, n_snap_rects);
+	gregion_apply_config(&st, cfg, annotate_mode, s, snap_windows, n_snap_windows);
 
 	st.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!st.xkb_ctx) {
@@ -169,6 +170,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		st.sel_y = preset->y;
 		st.sel_w = preset->w;
 		st.sel_h = preset->h;
+		st.sel_radius = (out_radius && *out_radius >= 0) ? *out_radius : (st.radius_is_auto ? 0 : st.fixed_radius);
 		st.has_selection = true;
 		st.snap_hover = -1;
 		if (annotate_mode) st.region_locked = true;
@@ -269,6 +271,8 @@ loop_done:;
 		out->y = st.sel_y;
 		out->w = st.sel_w;
 		out->h = st.sel_h;
+		if (out_radius) *out_radius = st.sel_radius;
+		if (out_border_size) *out_border_size = st.sel_border_size;
 		rc = 0;
 	}
 	if (inout_color) *inout_color = st.current_color;

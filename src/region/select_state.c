@@ -24,12 +24,36 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate_mode,
-						  struct grabit_wl_state *s, const struct rect *snap_rects,
-						  size_t n_snap_rects) {
+						  struct grabit_wl_state *s, const struct snap_window *snap_windows,
+						  size_t n_snap_windows) {
 	bool snap_enabled = true;
+	st->radius_is_auto = true;
+	st->fixed_radius = 0;
+	st->anim_enabled = false;
+	st->anim_speed = 18.0;
+
 	if (cfg) {
 		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
+		v = config_get(cfg, "region.snap_animation");
+		if (v && strcmp(v, "true") == 0) st->anim_enabled = true;
+		v = config_get(cfg, "region.anim_speed");
+		if (v && v[0]) {
+			long sp = strtol(v, NULL, 10);
+			if (sp > 0) st->anim_speed = (double)sp;
+		}
+		v = config_get(cfg, "region.window_radius");
+		if (v && v[0]) {
+			if (strcmp(v, "auto") == 0) {
+				st->radius_is_auto = true;
+			} else {
+				long r = strtol(v, NULL, 10);
+				if (r >= 0) {
+					st->radius_is_auto = false;
+					st->fixed_radius = (int32_t)r;
+				}
+			}
+		}
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st->confirm_mode = true;
 		v = config_get(cfg, "edit.multi_select");
@@ -41,6 +65,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 			(enum stroke_style)edit_line_style_from_str(config_get(cfg, "edit.line_style"));
 		v = config_get(cfg, "edit.smooth");
 		st->current_smooth = v && strcmp(v, "true") == 0;
+		v = config_get(cfg, "gui.rounded");
+		st->rounded_ui = v && strcmp(v, "true") == 0;
 		v = config_get(cfg, "edit.instant_capture");
 		if (v && strcmp(v, "true") == 0) st->edit_instant = true;
 		v = config_get(cfg, "edit.start_with_tool");
@@ -67,15 +93,21 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 			}
 		}
 	}
-	if (snap_rects && n_snap_rects > 0) {
-		st->snap_windows = malloc(n_snap_rects * sizeof *st->snap_windows);
+	if (snap_windows && n_snap_windows > 0) {
+		st->snap_windows = malloc(n_snap_windows * sizeof *st->snap_windows);
 		if (st->snap_windows) {
-			memcpy(st->snap_windows, snap_rects, n_snap_rects * sizeof *st->snap_windows);
-			st->n_snap_windows = n_snap_rects;
+			memcpy(st->snap_windows, snap_windows, n_snap_windows * sizeof *st->snap_windows);
+			st->n_snap_windows = n_snap_windows;
 		}
 	} else if (snap_enabled) {
 		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
 			log_debug("region: window snap disabled (no compositor window geometry)");
+		}
+	}
+
+	if (!st->radius_is_auto && st->snap_windows) {
+		for (size_t i = 0; i < st->n_snap_windows; i++) {
+			st->snap_windows[i].radius = st->fixed_radius;
 		}
 	}
 }

@@ -80,7 +80,9 @@ static cairo_surface_t *build_composite_surface(int32_t dst_w, int32_t dst_h,
 		cairo_scale(cr, sx, sy);
 		cairo_translate(cr, -s->src_x, -s->src_y);
 		cairo_set_source_surface(cr, src, 0, 0);
-		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
+		bool needs_filter = (sx != 1.0 || sy != 1.0);
+		cairo_pattern_set_filter(cairo_get_source(cr),
+								 needs_filter ? CAIRO_FILTER_GOOD : CAIRO_FILTER_NEAREST);
 		cairo_paint(cr);
 		cairo_restore(cr);
 
@@ -93,17 +95,19 @@ static cairo_surface_t *build_composite_surface(int32_t dst_w, int32_t dst_h,
 
 int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 						  int *w, int *h, int *stride, const unsigned char **data) {
-	if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-		log_error("%s: bad input surface", tag);
+	if (!surface || !w || !h || !stride || !data) return -1;
+	cairo_surface_flush(surface);
+	if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+		log_error("%s: cairo surface error: %s", tag,
+				  cairo_status_to_string(cairo_surface_status(surface)));
 		return -1;
 	}
-	cairo_surface_flush(surface);
 	*w = cairo_image_surface_get_width(surface);
 	*h = cairo_image_surface_get_height(surface);
 	*stride = cairo_image_surface_get_stride(surface);
 	*data = cairo_image_surface_get_data(surface);
-	if (*w <= 0 || *h <= 0 || *stride <= 0 || !*data) {
-		log_error("%s: empty surface", tag);
+	if (!*data || *w <= 0 || *h <= 0 || *stride <= 0) {
+		log_error("%s: bad surface geometry %dx%d stride=%d", tag, *w, *h, *stride);
 		return -1;
 	}
 	return 0;
@@ -138,8 +142,12 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct rect *region, double scale,
 									const struct annotation_list *annos,
 									const struct grabit_save_opts *opts,
-									const char *path) {
-	if (!path || !opts || dst_w <= 0 || dst_h <= 0 || n == 0 || !slices) return -1;
+									const char *path, int32_t corner_radius,
+									int32_t border_size) {
+	if (dst_w <= 0 || dst_h <= 0 || !slices || n == 0 || !path) {
+		log_error("png: invalid parameters for composite");
+		return -1;
+	}
 	if (dst_w > GRABIT_MAX_PIXEL_SIDE || dst_h > GRABIT_MAX_PIXEL_SIDE) {
 		log_error("save: %dx%d exceeds %d-px side cap",
 				  dst_w, dst_h, GRABIT_MAX_PIXEL_SIDE);
@@ -153,6 +161,23 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 		cairo_t *cr = cairo_create(dst);
 		annotation_list_paint(cr, annos, region->x, region->y, scale);
 		cairo_destroy(cr);
+	}
+
+	if (corner_radius > 0 && scale > 0) {
+		double r = (double)corner_radius * scale;
+		if (r > (double)dst_w * 0.5) r = (double)dst_w * 0.5;
+		if (r > (double)dst_h * 0.5) r = (double)dst_h * 0.5;
+		double inset = (double)border_size * scale;
+		if (r > inset) r -= inset;
+		double mw = (double)dst_w - 2.0 * inset;
+		double mh = (double)dst_h - 2.0 * inset;
+		if (mw > 0 && mh > 0) {
+			cairo_t *cr = cairo_create(dst);
+			cairo_set_operator(cr, CAIRO_OPERATOR_DEST_IN);
+			grabit_cairo_rounded_rect(cr, inset, inset, mw, mh, r);
+			cairo_fill(cr);
+			cairo_destroy(cr);
+		}
 	}
 
 	int rc = grabit_save_surface(dst, opts, path);

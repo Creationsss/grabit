@@ -205,6 +205,14 @@ int config_set(struct config *c, const char *key, const char *value) {
 			return -1;
 		}
 	}
+	if (strcmp(key, "region.window_radius") == 0 && strcmp(value, "auto") != 0 &&
+		validate_int_in_range(key, value, 0, 100) != 0) {
+		log_error("region.window_radius must be auto or an integer between 0 and 100");
+		return -1;
+	}
+	if (strcmp(key, "region.anim_speed") == 0 &&
+		validate_int_in_range(key, value, 1, 50) != 0)
+		return -1;
 	if (strcmp(key, "edit.line_style") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_line_style_names)) {
 		log_error("edit.line_style must be one of solid|dashed|dotted");
@@ -213,8 +221,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
 		log_error("edit.tool must be one of "
-				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|blur|"
-				  "pixelate|spotlight|text|counter|callout|eraser");
+				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|rounded_arrow|blur|"
+				  "pixelate|spotlight|text|rounded_text|counter|callout|eraser");
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&

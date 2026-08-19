@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "cairo_util.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_state.h"
 
@@ -22,20 +23,28 @@
 
 static const enum tool_kind LINES_TOOLS[] = {TOOL_PEN, TOOL_MARKER, TOOL_LINE};
 static const enum tool_kind SHAPES_TOOLS[] = {TOOL_RECT, TOOL_RRECT, TOOL_ELLIPSE};
+static const enum tool_kind ARROWS_TOOLS[] = {TOOL_ARROW, TOOL_RARROW};
 static const enum tool_kind REDACT_TOOLS[] = {TOOL_BLUR, TOOL_PIXELATE,
 											  TOOL_SPOTLIGHT};
+static const enum tool_kind TEXT_TOOLS[] = {TOOL_TEXT, TOOL_RTEXT};
 
 static const char *const LINES_LABELS[] = {"Pen", "Marker", "Line"};
 static const char *const SHAPES_LABELS[] = {"Rectangle", "Rounded", "Ellipse"};
+static const char *const ARROWS_LABELS[] = {"Arrow", "Rounded Arrow"};
 static const char *const REDACT_LABELS[] = {"Blur", "Pixelate", "Spotlight"};
+static const char *const TEXT_LABELS[] = {"Text", "Rounded Text"};
 
 static const struct tool_group GROUPS[TB_TOOL_GROUP_COUNT] = {
 	{TB_TOOL_LINES, LINES_TOOLS, 3, true, LINES_LABELS,
 	 "Line tools  (p cycles)"},
 	{TB_TOOL_SHAPES, SHAPES_TOOLS, 3, true, SHAPES_LABELS,
 	 "Shapes  (r cycles)"},
+	{TB_TOOL_ARROW, ARROWS_TOOLS, 2, true, ARROWS_LABELS,
+	 "Arrow tools  (a cycles)"},
 	{TB_TOOL_REDACT, REDACT_TOOLS, 3, false, REDACT_LABELS,
 	 "Redact & focus  (b cycles)"},
+	{TB_TOOL_TEXT, TEXT_TOOLS, 2, false, TEXT_LABELS,
+	 "Text tools  (t cycles)"},
 };
 
 const struct tool_group *toolbar_tool_group(enum tb_action btn) {
@@ -62,10 +71,6 @@ enum tool_kind toolbar_group_default(int idx) {
 
 int32_t toolbar_standalone_tool(enum tb_action btn) {
 	switch (btn) {
-	case TB_TOOL_ARROW:
-		return TOOL_ARROW;
-	case TB_TOOL_TEXT:
-		return TOOL_TEXT;
 	case TB_TOOL_COUNTER:
 		return TOOL_COUNTER;
 	case TB_TOOL_CALLOUT:
@@ -124,10 +129,11 @@ enum tool_picker_kind region_tool_picker_hit(const struct ro_state *st,
 }
 
 static void picker_row(cairo_t *cr, double x0, double w, double ry,
-					   int32_t S, bool sel, const char *label) {
+					   int32_t S, bool sel, const char *label, bool rounded) {
 	double rh = TP_ROW_H * S;
 	if (sel) {
-		cairo_rectangle(cr, x0 + 3.0 * S, ry + 1.0 * S, w - 6.0 * S, rh - 2.0 * S);
+		double r_row = rounded ? 4.0 * S : 0.0;
+		grabit_cairo_rounded_rect(cr, x0 + 3.0 * S, ry + 1.0 * S, w - 6.0 * S, rh - 2.0 * S, r_row);
 		cairo_set_source_rgba(cr, 1.0, 0.55, 0.32, 0.22);
 		cairo_fill(cr);
 	}
@@ -159,12 +165,15 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
-	cairo_rectangle(cr, x0, y0, w, h);
+	double r_pop = st->rounded_ui ? 8.0 * S : 0.0;
+	double r_stroke = st->rounded_ui ? 8.0 * S - 0.5 * S : 0.0;
+	grabit_cairo_rounded_rect(cr, x0, y0, w, h, r_pop);
 	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, x0 + 0.5 * S, y0 + 0.5 * S, w - (double)S, h - (double)S);
+	grabit_cairo_rounded_rect(cr, x0 + 0.5 * S, y0 + 0.5 * S,
+							  w - (double)S, h - (double)S, r_stroke);
 	cairo_stroke(cr);
 
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
@@ -179,10 +188,10 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 	for (int i = 0; i < g->n; i++) {
 		double ry = top + i * TP_ROW_H * S;
 		bool sel = tool_active && st->current_tool == g->tools[i];
-		picker_row(cr, x0, w, ry, S, sel, g->labels[i]);
+		picker_row(cr, x0, w, ry, S, sel, g->labels[i], st->rounded_ui);
 		cairo_set_source_rgba(cr, 0.92, 0.92, 0.92, 1.0);
 		toolbar_icon_for_tool(cr, g->tools[i], icon_x,
-							  ry + TP_ROW_H * S / 2.0, icon_s);
+							  ry + TP_ROW_H * S / 2.0, icon_s, st->rounded_ui);
 	}
 
 	if (!g->has_style) {
@@ -204,10 +213,10 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 		char label[16];
 		snprintf(label, sizeof label, "%s", grabit_line_style_names[i]);
 		if (label[0] >= 'a' && label[0] <= 'z') label[0] -= 'a' - 'A';
-		picker_row(cr, x0, w, ry, S, sel, label);
+		picker_row(cr, x0, w, ry, S, sel, label, st->rounded_ui);
 		cairo_set_source_rgba(cr, 0.92, 0.92, 0.92, 1.0);
 		toolbar_icon_line_style(cr, icon_x, ry + TP_ROW_H * S / 2.0, icon_s,
-								(enum stroke_style)i);
+								(enum stroke_style)i, st->rounded_ui);
 	}
 
 	cairo_restore(cr);

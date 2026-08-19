@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <cairo/cairo.h>
 #include <wayland-client.h>
@@ -118,14 +119,15 @@ static void hint_text_extents(cairo_t *cr, double S, const char *hint,
 
 static void render_hint_pill(cairo_t *cr, double S, const char *hint,
 							 const cairo_text_extents_t *ext, double cx, double ty,
-							 double pw) {
+							 double pw, bool rounded) {
 	double pad = 8.0 * S;
 	double tx = cx - ext->width / 2.0;
 	if (tx < pad) tx = pad;
 	if (tx + ext->width + pad > pw) tx = pw - ext->width - pad;
+	double r = rounded ? 6.0 * S : 0.0;
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-	cairo_rectangle(cr, tx - pad, ty - ext->height - pad,
-					ext->width + pad * 2, ext->height + pad * 2);
+	grabit_cairo_rounded_rect(cr, tx - pad, ty - ext->height - pad,
+							  ext->width + pad * 2, ext->height + pad * 2, r);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, tx, ty);
@@ -136,21 +138,18 @@ void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char 
 	int32_t S = o->scale;
 	cairo_text_extents_t hext;
 	hint_text_extents(cr, S, hint, &hext);
-	double pad = 8.0 * S;
 	double ty = (double)o->pixel_height - 24.0 * S;
 	if (region_editing(o->st)) {
 		int32_t tbx, tby, tbw, tbh;
 		region_toolbar_rect(o->st, NULL, &tbx, &tby, &tbw, &tbh);
 		if (grabit_output_overlaps(o->go, (struct rect){tbx, tby, tbw, tbh})) {
-			double tb_top = (double)(tby - o->go->y) * S;
-			double tb_bot = (double)(tby + tbh - o->go->y) * S;
-			double pill_top = ty - hext.height - pad;
-			if (pill_top < tb_bot + 6.0 * S && ty + pad > tb_top - 6.0 * S)
-				ty = tb_top - 6.0 * S - pad;
+			double tby_px = (double)(tby - o->go->y) * S;
+			double tbh_px = (double)tbh * S;
+			if (tby_px + tbh_px > (double)o->pixel_height - 60.0 * S)
+				ty = tby_px - 8.0 * S;
 		}
 	}
-	render_hint_pill(cr, S, hint, &hext, (double)o->pixel_width / 2.0, ty,
-					 (double)o->pixel_width);
+	render_hint_pill(cr, S, hint, &hext, (double)o->pixel_width / 2.0, ty, (double)o->pixel_width, o->st->rounded_ui);
 }
 
 void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
@@ -184,12 +183,66 @@ void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 	}
 }
 
+static uint64_t current_time_ms(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000L);
+}
+
+static void region_step_animation(struct ro_state *st) {
+	if (!st->anim_enabled || !st->anim_active) return;
+
+	uint64_t now = current_time_ms();
+	if (st->anim_last_time_ms == 0) {
+		st->anim_last_time_ms = now;
+		return;
+	}
+
+	double dt = (double)(now - st->anim_last_time_ms) / 1000.0;
+	st->anim_last_time_ms = now;
+	if (dt > 0.1) dt = 0.1;
+	if (dt <= 0.0) dt = 0.001;
+
+	double speed = st->anim_speed > 0.0 ? st->anim_speed : 18.0;
+	double factor = 1.0 - exp(-speed * dt);
+	if (factor > 1.0) factor = 1.0;
+
+	st->anim_x += (st->target_x - st->anim_x) * factor;
+	st->anim_y += (st->target_y - st->anim_y) * factor;
+	st->anim_w += (st->target_w - st->anim_w) * factor;
+	st->anim_h += (st->target_h - st->anim_h) * factor;
+	st->anim_r += (st->target_r - st->anim_r) * factor;
+	st->anim_alpha += (st->target_alpha - st->anim_alpha) * factor;
+
+	double dx = fabs(st->anim_x - st->target_x);
+	double dy = fabs(st->anim_y - st->target_y);
+	double dw = fabs(st->anim_w - st->target_w);
+	double dh = fabs(st->anim_h - st->target_h);
+	double dr = fabs(st->anim_r - st->target_r);
+	double da = fabs(st->anim_alpha - st->target_alpha);
+
+	if (dx < 0.5 && dy < 0.5 && dw < 0.5 && dh < 0.5 && dr < 0.5 && da < 0.01) {
+		st->anim_x = st->target_x;
+		st->anim_y = st->target_y;
+		st->anim_w = st->target_w;
+		st->anim_h = st->target_h;
+		st->anim_r = st->target_r;
+		st->anim_alpha = st->target_alpha;
+		st->anim_active = false;
+		st->anim_last_time_ms = 0;
+	}
+}
+
 static void frame_done(void *data, struct wl_callback *cb, uint32_t time) {
 	(void)time;
 	struct ro_output *o = data;
 	wl_callback_destroy(cb);
 	o->frame_cb = NULL;
 	if (o->st->cleanup) return;
+	if (o->st->anim_enabled && o->st->anim_active) {
+		region_step_animation(o->st);
+		o->dirty = true;
+	}
 	if (o->dirty) gren_output_redraw(o);
 }
 
@@ -204,6 +257,9 @@ static void output_request_redraw(struct ro_output *o) {
 }
 
 void region_render_request_redraw_all(struct ro_state *st) {
+	if (st->anim_enabled && st->anim_active && st->anim_last_time_ms == 0) {
+		st->anim_last_time_ms = current_time_ms();
+	}
 	for (size_t i = 0; i < st->n_outs; i++)
 		output_request_redraw(&st->outs[i]);
 }

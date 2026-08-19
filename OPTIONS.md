@@ -188,9 +188,18 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | key | default | notes |
 |---|---|---|
 | `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
+| `region.window_radius` | `auto` | corner radius for window snaps and `--window` captures. `auto` detects the compositor's window rounding dynamically (Hyprland decoration/rules, Niri), while keeping manual drag selections squared; integer `0`..`100` forces a specific radius for all captures |
+| `region.snap_animation` | `false` | smoothly animate the selection highlight box and rounded corners towards hovered windows at the display refresh rate |
+| `region.anim_speed` | `18` | animation speed multiplier for window hover transitions (`1`..`50`) |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
+
+### user interface
+
+| key | default | notes |
+|---|---|---|
+| `gui.rounded` | `false` | render all UI overlay elements (toolbar, popups, pills, control bar, buttons) and inner control glyphs with rounded styling; set `false` for crisp squared edges |
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 

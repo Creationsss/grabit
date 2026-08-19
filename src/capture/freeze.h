@@ -11,6 +11,7 @@
 struct config;
 struct grabit_wl_state;
 struct rect;
+struct snap_window;
 struct grabit_save_opts;
 
 #define GRABIT_CAPTURE_CANCELLED (-2)
@@ -22,6 +23,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  uint32_t *inout_color, int32_t *inout_width,
 						  int32_t *inout_tool,
 						  bool *out_choices_dirty, const struct rect *forced_region,
-						  const struct rect *snap_rects, size_t n_snap_rects);
+						  const struct snap_window *snap_windows, size_t n_snap_windows,
+						  int32_t forced_radius, int32_t forced_border_size);
 
 #endif

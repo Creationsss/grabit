@@ -140,7 +140,7 @@ static bool place_bar(struct grabit_wl_state *s, struct rect r,
 
 struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 									atomic_int *stop_flag, atomic_int *pause_flag,
-									atomic_int *abort_flag) {
+									atomic_int *abort_flag, bool rounded_ui) {
 	if (!s || !s->layer_shell || !s->compositor || !s->shm || s->n_outputs == 0)
 		return NULL;
 
@@ -162,6 +162,7 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 	c->stop_flag = stop_flag;
 	c->pause_flag = pause_flag;
 	c->abort_flag = abort_flag;
+	c->rounded_ui = rounded_ui;
 
 	c->outs = calloc(s->n_outputs, sizeof *c->outs);
 	if (!c->outs) {

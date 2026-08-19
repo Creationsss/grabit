@@ -249,7 +249,11 @@ int grabit_niri_active_window_rect(struct rect *out) {
 	return rc;
 }
 
-int grabit_niri_windows(struct rect **out, size_t *n_out) {
+int grabit_niri_active_window_radius(void) {
+	return 0;
+}
+
+int grabit_niri_windows(struct snap_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -263,8 +267,8 @@ int grabit_niri_windows(struct rect **out, size_t *n_out) {
 	}
 
 	size_t n = json_object_array_length(arr);
-	struct rect *rects = calloc(n + 1, sizeof *rects);
-	if (!rects) {
+	struct snap_window *windows = calloc(n + 1, sizeof *windows);
+	if (!windows) {
 		json_object_put(root);
 		layout_free(&l);
 		return -1;
@@ -276,9 +280,12 @@ int grabit_niri_windows(struct rect **out, size_t *n_out) {
 		if (!win || json_object_get_type(win) != json_type_object) continue;
 		const struct niri_workspace *ws = ws_of(&l, win);
 		if (!ws || !ws->active) continue;
-		if (window_rect(win, &l, ws, &rects[k])) k++;
+		if (window_rect(win, &l, ws, &windows[k].rect)) {
+			windows[k].radius = 0;
+			k++;
+		}
 	}
-	*out = rects;
+	*out = windows;
 	*n_out = k;
 
 	json_object_put(root);

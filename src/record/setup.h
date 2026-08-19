@@ -5,6 +5,7 @@
 #define GRABIT_RECORD_SETUP_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 struct args;
 struct config;
@@ -15,6 +16,7 @@ char *rec_record_path(struct config *cfg, const struct args *a,
 					  const char *format, bool keep_locally);
 void rec_fail_notify(const char *body);
 int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
-					const struct args *a, struct rect *out);
+					const struct args *a, struct rect *out, int32_t *out_radius,
+					int32_t *out_border_size);
 
 #endif

@@ -69,6 +69,7 @@ struct rec_controls {
 	atomic_int *pause_flag;
 	atomic_int *abort_flag;
 	bool paused;
+	bool rounded_ui;
 	int64_t secs;
 
 	struct wl_pointer *pointer;

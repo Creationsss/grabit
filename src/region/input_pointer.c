@@ -52,6 +52,16 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 		st->drawing)
 		return;
 	st->cursor_on = NULL;
+	if (st->snap_hover >= 0) {
+		st->snap_hover = -1;
+		if (st->anim_enabled) {
+			st->target_alpha = 0.0;
+			if (st->anim_alpha > 0.001) {
+				st->anim_active = true;
+				st->anim_last_time_ms = 0;
+			}
+		}
+	}
 	if (region_set_hover(st, -1)) region_render_request_redraw_all(st);
 }
 
@@ -111,9 +121,51 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 			region_pen_append(st, st->cursor_x, st->cursor_y);
 		}
 	} else {
-		if (st->dragging) region_update_selection(st);
-		int32_t h = st->dragging ? -1 : region_snap_hit(st, st->cursor_x, st->cursor_y);
-		if (h != st->snap_hover) st->snap_hover = h;
+		if (st->dragging) {
+			region_update_selection(st);
+			st->snap_hover = -1;
+			if (st->anim_enabled) {
+				st->target_alpha = 0.0;
+				if (st->anim_alpha > 0.001) {
+					st->anim_active = true;
+					st->anim_last_time_ms = 0;
+				}
+			}
+		} else {
+			int32_t h = region_snap_hit(st, st->cursor_x, st->cursor_y);
+			if (h != st->snap_hover) {
+				st->snap_hover = h;
+				if (st->anim_enabled) {
+					if (h >= 0 && (size_t)h < st->n_snap_windows) {
+						const struct snap_window *w = &st->snap_windows[h];
+						st->target_x = w->rect.x;
+						st->target_y = w->rect.y;
+						st->target_w = w->rect.w;
+						st->target_h = w->rect.h;
+						st->target_r = w->radius;
+						st->target_alpha = 1.0;
+						if (st->anim_alpha <= 0.001) {
+							double shrink = 0.08;
+							double inset_w = shrink * (double)w->rect.w;
+							double inset_h = shrink * (double)w->rect.h;
+							st->anim_x = (double)w->rect.x + inset_w;
+							st->anim_y = (double)w->rect.y + inset_h;
+							st->anim_w = (double)w->rect.w - 2.0 * inset_w;
+							st->anim_h = (double)w->rect.h - 2.0 * inset_h;
+							st->anim_r = (double)w->radius;
+						}
+						st->anim_active = true;
+						st->anim_last_time_ms = 0;
+					} else {
+						st->target_alpha = 0.0;
+						if (st->anim_alpha > 0.001) {
+							st->anim_active = true;
+							st->anim_last_time_ms = 0;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	int hover = -1;

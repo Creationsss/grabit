@@ -59,7 +59,30 @@ int grabit_wm_active_window_rect(struct rect *out) {
 	return -1;
 }
 
-int grabit_wm_windows(struct rect **out, size_t *n_out) {
+int grabit_wm_active_window_radius(void) {
+	switch (grabit_wm_detect()) {
+	case WM_HYPRLAND:
+		return grabit_hyprland_active_window_radius();
+	case WM_NIRI:
+		return grabit_niri_active_window_radius();
+	case WM_NONE:
+		break;
+	}
+	return 0;
+}
+
+int grabit_wm_active_window_border_size(void) {
+	switch (grabit_wm_detect()) {
+	case WM_HYPRLAND:
+		return grabit_hyprland_active_window_border_size();
+	case WM_NIRI:
+	case WM_NONE:
+		break;
+	}
+	return 0;
+}
+
+int grabit_wm_windows(struct snap_window **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:
 		return grabit_hyprland_clients(out, n_out);

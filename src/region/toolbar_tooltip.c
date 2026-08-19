@@ -90,8 +90,12 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	if (tip_x < (double)S * 4.0) tip_x = (double)S * 4.0;
 	if (tip_x + tip_w > pw - (double)S * 4.0) tip_x = pw - tip_w - (double)S * 4.0;
 
-	double r = 4.0 * S;
-	grabit_cairo_rounded_rect(cr, tip_x, tip_y, tip_w, tip_h, r);
+	double r = o->st->rounded_ui ? 4.0 * S : 0.0;
+	if (o->st->rounded_ui) {
+		grabit_cairo_rounded_rect(cr, tip_x, tip_y, tip_w, tip_h, r);
+	} else {
+		cairo_rectangle(cr, tip_x, tip_y, tip_w, tip_h);
+	}
 	cairo_set_source_rgba(cr, 0.04, 0.04, 0.04, 0.94);
 	cairo_fill_preserve(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.18);

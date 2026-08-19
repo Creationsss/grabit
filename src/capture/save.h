@@ -44,7 +44,8 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct rect *region, double scale,
 									const struct annotation_list *annos,
 									const struct grabit_save_opts *opts,
-									const char *path);
+									const char *path, int32_t corner_radius,
+									int32_t border_size);
 
 int grabit_save_surface(cairo_surface_t *dst,
 						const struct grabit_save_opts *opts, const char *path);

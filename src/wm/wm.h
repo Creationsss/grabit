@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 struct rect;
+struct snap_window;
 struct grabit_wl_state;
 struct grabit_output;
 
@@ -16,7 +17,9 @@ const char *grabit_wm_current_name(void);
 
 int grabit_wm_active_window(char **class_out, char **title_out);
 int grabit_wm_active_window_rect(struct rect *out);
-int grabit_wm_windows(struct rect **out, size_t *n_out);
+int grabit_wm_active_window_radius(void);
+int grabit_wm_active_window_border_size(void);
+int grabit_wm_windows(struct snap_window **out, size_t *n_out);
 
 struct grabit_output *grabit_wm_active_output(struct grabit_wl_state *s);
 

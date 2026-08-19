@@ -56,6 +56,68 @@ static bool client_rect(struct json_object *c, struct rect *out) {
 	return true;
 }
 
+int grabit_hyprland_global_rounding(void) {
+	struct json_object *root = NULL;
+	if (query_object("j/getoption decoration:rounding", &root) != 0) return 0;
+	struct json_object *val = NULL;
+	int radius = 0;
+	if (json_object_object_get_ex(root, "int", &val)) {
+		radius = json_object_get_int(val);
+	}
+	json_object_put(root);
+	return radius >= 0 ? radius : 0;
+}
+
+int grabit_hyprland_global_border_size(void) {
+	struct json_object *root = NULL;
+	if (query_object("j/getoption general:border_size", &root) != 0) return 0;
+	struct json_object *val = NULL;
+	int border = 0;
+	if (json_object_object_get_ex(root, "int", &val)) {
+		border = json_object_get_int(val);
+	}
+	json_object_put(root);
+	return border >= 0 ? border : 0;
+}
+
+static int32_t client_radius(struct json_object *c, int32_t def_rounding) {
+	struct json_object *fs = NULL;
+	if (json_object_object_get_ex(c, "fullscreen", &fs)) {
+		if (json_object_get_type(fs) == json_type_boolean && json_object_get_boolean(fs))
+			return 0;
+		if (json_object_get_type(fs) == json_type_int && json_object_get_int(fs) != 0)
+			return 0;
+	}
+	if (json_object_object_get_ex(c, "fullscreenClient", &fs) && json_object_get_int(fs) != 0)
+		return 0;
+
+	struct json_object *ro = NULL;
+	if (json_object_object_get_ex(c, "rounding", &ro)) {
+		int r = json_object_get_int(ro);
+		if (r >= 0) return (int32_t)r;
+	}
+	return def_rounding;
+}
+
+static int32_t client_border_size(struct json_object *c, int32_t def_border) {
+	struct json_object *fs = NULL;
+	if (json_object_object_get_ex(c, "fullscreen", &fs)) {
+		if (json_object_get_type(fs) == json_type_boolean && json_object_get_boolean(fs))
+			return 0;
+		if (json_object_get_type(fs) == json_type_int && json_object_get_int(fs) != 0)
+			return 0;
+	}
+	if (json_object_object_get_ex(c, "fullscreenClient", &fs) && json_object_get_int(fs) != 0)
+		return 0;
+
+	struct json_object *bo = NULL;
+	if (json_object_object_get_ex(c, "borderSize", &bo)) {
+		int b = json_object_get_int(bo);
+		if (b >= 0) return (int32_t)b;
+	}
+	return def_border;
+}
+
 int grabit_hyprland_active_window(char **class_out, char **title_out) {
 	if (class_out) *class_out = NULL;
 	if (title_out) *title_out = NULL;
@@ -74,6 +136,24 @@ int grabit_hyprland_active_window_rect(struct rect *out) {
 	int rc = client_rect(root, out) ? 0 : -1;
 	json_object_put(root);
 	return rc;
+}
+
+int grabit_hyprland_active_window_radius(void) {
+	struct json_object *root = NULL;
+	if (query_object("j/activewindow", &root) != 0) return 0;
+	int def_r = grabit_hyprland_global_rounding();
+	int32_t radius = client_radius(root, def_r);
+	json_object_put(root);
+	return (int)radius;
+}
+
+int grabit_hyprland_active_window_border_size(void) {
+	struct json_object *root = NULL;
+	if (query_object("j/activewindow", &root) != 0) return 0;
+	int def_b = grabit_hyprland_global_border_size();
+	int32_t border = client_border_size(root, def_b);
+	json_object_put(root);
+	return (int)border;
 }
 
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {
@@ -133,7 +213,7 @@ static bool ws_is_active(int64_t ws, const int64_t *active, size_t n) {
 	return false;
 }
 
-int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
+int grabit_hyprland_clients(struct snap_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -152,8 +232,11 @@ int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 		return -1;
 	}
 
+	int32_t def_r = (int32_t)grabit_hyprland_global_rounding();
+	int32_t def_b = (int32_t)grabit_hyprland_global_border_size();
+
 	size_t n = json_object_array_length(root);
-	struct rect *arr = calloc(n + 1, sizeof *arr);
+	struct snap_window *arr = calloc(n + 1, sizeof *arr);
 	if (!arr) {
 		free(active);
 		json_object_put(root);
@@ -177,7 +260,11 @@ int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 		if (!json_object_object_get_ex(ws, "id", &wid)) continue;
 		if (!ws_is_active(json_object_get_int64(wid), active, n_active)) continue;
 
-		if (client_rect(c, &arr[k])) k++;
+		if (client_rect(c, &arr[k].rect)) {
+			arr[k].radius = client_radius(c, def_r);
+			arr[k].border_size = client_border_size(c, def_b);
+			k++;
+		}
 	}
 
 	free(active);

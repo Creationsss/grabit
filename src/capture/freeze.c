@@ -19,7 +19,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  uint32_t *inout_color, int32_t *inout_width,
 						  int32_t *inout_tool,
 						  bool *out_choices_dirty, const struct rect *forced_region,
-						  const struct rect *snap_rects, size_t n_snap_rects) {
+						  const struct snap_window *snap_windows, size_t n_snap_windows,
+						  int32_t forced_radius, int32_t forced_border_size) {
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
 	if (!frozen) return -1;
 
@@ -76,11 +77,13 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	}
 	free(want_idx);
 
+	int32_t corner_radius = forced_radius;
+	int32_t border_size = forced_border_size;
 	if (!forced_only) {
 		int sel = region_select(s, cfg, frozen, annotate, &r,
 								annotate ? &annos : NULL, inout_color, inout_width,
 								inout_tool, out_choices_dirty, forced_region,
-								snap_rects, n_snap_rects);
+								snap_windows, n_snap_windows, &corner_radius, &border_size);
 		if (sel != 0) {
 			if (sel == REGION_SELECT_CANCELLED) {
 				log_debug("region selection cancelled");
@@ -156,7 +159,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices,
 										 &r, max_ratio,
-										 annos.n > 0 ? &annos : NULL, save_opts, path);
+										 annos.n > 0 ? &annos : NULL, save_opts, path,
+										 corner_radius, border_size);
 
 	if (rc == 0 && out_rect) *out_rect = r;
 

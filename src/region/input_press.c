@@ -199,6 +199,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			st->dragging = true;
 			st->drag_x0 = st->cursor_x;
 			st->drag_y0 = st->cursor_y;
+			st->sel_radius = st->radius_is_auto ? 0 : st->fixed_radius;
 			region_update_selection(st);
 		} else {
 			st->dragging = false;
@@ -209,14 +210,19 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			if (!st->has_selection) {
 				int hit = region_snap_hit(st, st->cursor_x, st->cursor_y);
 				if (hit >= 0 && (size_t)hit < st->n_snap_windows) {
-					const struct rect *w = &st->snap_windows[hit];
-					st->sel_x = w->x;
-					st->sel_y = w->y;
-					st->sel_w = w->w;
-					st->sel_h = w->h;
+					const struct snap_window *w = &st->snap_windows[hit];
+					st->sel_x = w->rect.x;
+					st->sel_y = w->rect.y;
+					st->sel_w = w->rect.w;
+					st->sel_h = w->rect.h;
+					st->sel_radius = st->radius_is_auto ? w->radius : st->fixed_radius;
+					st->sel_border_size = w->border_size;
 					st->has_selection = true;
 					st->snap_hover = -1;
 				}
+			} else {
+				st->sel_radius = st->radius_is_auto ? 0 : st->fixed_radius;
+				st->sel_border_size = 0;
 			}
 			region_undo_commit(st);
 			if (st->has_selection) ginp_lock_or_finish(st);

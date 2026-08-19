@@ -69,6 +69,42 @@ static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 	cairo_fill(cr);
 }
 
+static void paint_rounded_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
+								double width) {
+	double dx = x1 - x0, dy = y1 - y0;
+	double len = sqrt(dx * dx + dy * dy);
+	if (len < 1.0) {
+		cairo_new_sub_path(cr);
+		cairo_arc(cr, x0, y0, width / 2.0, 0, 2.0 * M_PI);
+		cairo_fill(cr);
+		return;
+	}
+
+	double ux = dx / len, uy = dy / len;
+	double px = -uy, py = ux;
+
+	double head_len = width * 2.8;
+	if (head_len > len * 0.45) head_len = len * 0.45;
+	if (head_len < width * 1.5) head_len = width * 1.5;
+
+	cairo_save(cr);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+	cairo_set_line_width(cr, width);
+
+	// Shaft
+	cairo_move_to(cr, x0, y0);
+	cairo_line_to(cr, x1, y1);
+
+	// Symmetrical swept chevron wings (45 degrees)
+	cairo_move_to(cr, x1 - (ux - px) * head_len, y1 - (uy - py) * head_len);
+	cairo_line_to(cr, x1, y1);
+	cairo_line_to(cr, x1 - (ux + px) * head_len, y1 - (uy + py) * head_len);
+
+	cairo_stroke(cr);
+	cairo_restore(cr);
+}
+
 static int32_t spot_strength(const struct annotation *a) {
 	if (!a || !tool_is_layer(a->tool)) return 0;
 	struct rect r = annotation_norm_rect(a);
@@ -237,6 +273,10 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		ganno_set_color(cr, a->color);
 		paint_arrow(cr, a->x0, a->y0, a->x1, a->y1, w);
 		break;
+	case TOOL_RARROW:
+		ganno_set_color(cr, a->color);
+		paint_rounded_arrow(cr, a->x0, a->y0, a->x1, a->y1, w);
+		break;
 	case TOOL_LINE:
 		ganno_set_color(cr, a->color);
 		cairo_set_line_width(cr, w);
@@ -293,6 +333,21 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		ganno_set_color(cr, a->color);
 		cairo_move_to(cr, a->x0, a->y0);
 		cairo_show_text(cr, a->text);
+		break;
+	}
+	case TOOL_RTEXT: {
+		if (!a->text || !a->text[0]) break;
+		double fs = annotation_font_size(a) * scale;
+		cairo_select_font_face(cr, "sans-serif",
+							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+		cairo_set_font_size(cr, fs);
+		ganno_set_color(cr, a->color);
+		cairo_move_to(cr, a->x0, a->y0);
+		cairo_text_path(cr, a->text);
+		cairo_path_t *p = cairo_copy_path(cr);
+		grabit_cairo_path_fillet_corners(cr, p, fmin(fs * 0.12, 4.0 * scale));
+		cairo_fill(cr);
+		cairo_path_destroy(p);
 		break;
 	}
 	case TOOL_CALLOUT: {

@@ -69,4 +69,9 @@ static inline const char *rec_cfg_pix_fmt(struct config *cfg) {
 	return (v && v[0]) ? v : "yuv420p";
 }
 
+static inline bool rec_cfg_rounded_gui(struct config *cfg) {
+	const char *v = config_get(cfg, "gui.rounded");
+	return v && strcmp(v, "true") == 0;
+}
+
 #endif

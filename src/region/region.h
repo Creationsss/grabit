@@ -19,6 +19,12 @@ struct rect {
 	int32_t h;
 };
 
+struct snap_window {
+	struct rect rect;
+	int32_t radius;
+	int32_t border_size;
+};
+
 static inline bool rect_contains(struct rect r, int32_t x, int32_t y) {
 	return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 }
@@ -66,10 +72,12 @@ enum tool_kind {
 	TOOL_RRECT,
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
+	TOOL_RARROW,
 	TOOL_BLUR,
 	TOOL_PIXELATE,
 	TOOL_SPOTLIGHT,
 	TOOL_TEXT,
+	TOOL_RTEXT,
 	TOOL_COUNTER,
 	TOOL_CALLOUT,
 	TOOL_ERASER,
@@ -98,16 +106,17 @@ static inline bool tool_is_line_family(enum tool_kind t) {
 }
 
 static inline bool tool_uses_font(enum tool_kind t) {
-	return t == TOOL_TEXT || t == TOOL_COUNTER || t == TOOL_CALLOUT;
+	return t == TOOL_TEXT || t == TOOL_RTEXT || t == TOOL_COUNTER || t == TOOL_CALLOUT;
 }
 
 static inline bool tool_types_text(enum tool_kind t) {
-	return t == TOOL_TEXT || t == TOOL_CALLOUT;
+	return t == TOOL_TEXT || t == TOOL_RTEXT || t == TOOL_CALLOUT;
 }
 
 static inline bool tool_uses_line_style(enum tool_kind t) {
 	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE ||
-		   t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE;
+		   t == TOOL_RECT || t == TOOL_RRECT || t == TOOL_ELLIPSE ||
+		   t == TOOL_ARROW || t == TOOL_RARROW;
 }
 
 extern const char *const grabit_tool_names[];
@@ -158,6 +167,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
 				  bool *out_choices_dirty, const struct rect *preset,
-				  const struct rect *snap_rects, size_t n_snap_rects);
+				  const struct snap_window *snap_windows, size_t n_snap_windows,
+				  int32_t *out_radius, int32_t *out_border_size);
 
 #endif

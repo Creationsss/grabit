@@ -7,6 +7,7 @@
 
 #include "cursor.h"
 #include "log.h"
+#include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 #include "wm/wm.h"
@@ -26,7 +27,8 @@ void ctl_apply_input_region(struct ctl_output *o) {
 	struct rect b = ctl_bar_rect(c);
 	int32_t ix, iy, iw, ih;
 	if (grabit_output_rect_intersect(o->go, &b, &ix, &iy, &iw, &ih))
-		wl_region_add(reg, ix - o->go->x, iy - o->go->y, iw, ih);
+		grabit_wl_region_add_rounded(reg, ix - o->go->x, iy - o->go->y, iw, ih,
+									 (int32_t)grabit_ui_radius(GUI_R_PANEL));
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
 }

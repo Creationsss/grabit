@@ -9,6 +9,7 @@
 #include "util/util.h"
 
 #include "cairo_util.h"
+#include "ui_theme.h"
 
 #include "wl/wl.h"
 
@@ -74,6 +75,11 @@ static void render_grid(cairo_t *cr, struct ro_state *st, int32_t S,
 		picker_patterns_build(st, idw, idh);
 	}
 
+	double gr = grabit_ui_radius(GUI_R_BTN) * S;
+	cairo_save(cr);
+	grabit_cairo_rect_r(cr, dx, dy, dw, dh, gr);
+	cairo_clip(cr);
+
 	cairo_matrix_t m;
 	cairo_matrix_init_translate(&m, -dx, -dy);
 	cairo_pattern_set_matrix(st->picker_rainbow_pat, &m);
@@ -91,9 +97,10 @@ static void render_grid(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_rectangle(cr, dx, dy + dh * 0.5, dw, dh * 0.5);
 	cairo_fill(cr);
 
+	cairo_restore(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, dx + 0.5 * S, dy + 0.5 * S, dw - (double)S, dh - (double)S);
+	grabit_cairo_rect_r_inset(cr, dx, dy, dw, dh, gr, (double)S);
 	cairo_stroke(cr);
 }
 
@@ -105,8 +112,9 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	double diw = (double)iw * S;
 	double dih = (double)ih * S;
 
+	double br = grabit_ui_radius(GUI_R_BTN) * S;
 	cairo_set_source_rgba(cr, 0.12, 0.12, 0.12, 1);
-	cairo_rectangle(cr, dix, diy, diw, dih);
+	grabit_cairo_rect_r(cr, dix, diy, diw, dih, br);
 	cairo_fill(cr);
 	if (o->st->color_input_active) {
 		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
@@ -114,8 +122,7 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 		cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
 	}
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, dix + 0.5 * S, diy + 0.5 * S,
-					diw - (double)S, dih - (double)S);
+	grabit_cairo_rect_r_inset(cr, dix, diy, diw, dih, br, (double)S);
 	cairo_stroke(cr);
 
 	double sw = dih - 2.0 * COLOR_PICKER_SWATCH_PAD_Y * S;
@@ -123,12 +130,12 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	double sy = diy + (double)COLOR_PICKER_SWATCH_PAD_Y * S;
 	uint32_t cur = region_active_color(o->st);
 	grabit_cairo_set_source_argb(cr, cur, 1);
-	cairo_rectangle(cr, sx, sy, sw, sw);
+	double sr = grabit_ui_radius(GUI_R_GLYPH) * S;
+	grabit_cairo_rect_r(cr, sx, sy, sw, sw, sr);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.35);
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, sx + 0.5 * S, sy + 0.5 * S,
-					sw - (double)S, sw - (double)S);
+	grabit_cairo_rect_r_inset(cr, sx, sy, sw, sw, sr, (double)S);
 	cairo_stroke(cr);
 
 	char text[16];
@@ -170,12 +177,12 @@ static void render_eyedropper_btn(cairo_t *cr, const struct ro_output *o, int32_
 	} else {
 		cairo_set_source_rgba(cr, 0.18, 0.18, 0.18, 1);
 	}
-	cairo_rectangle(cr, dex, dey, dew, deh);
+	double er = grabit_ui_radius(GUI_R_BTN) * S;
+	grabit_cairo_rect_r(cr, dex, dey, dew, deh, er);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
 	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, dex + 0.5 * S, dey + 0.5 * S,
-					dew - (double)S, deh - (double)S);
+	grabit_cairo_rect_r_inset(cr, dex, dey, dew, deh, er, (double)S);
 	cairo_stroke(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	toolbar_icon_color_picker(cr, dex + dew / 2.0, dey + deh / 2.0, deh * 0.7);
@@ -204,7 +211,7 @@ void region_color_picker_render(cairo_t *cr, const struct ro_output *o) {
 						2 * COLOR_PICKER_PAD) *
 						   S;
 	cairo_set_source_rgba(cr, 0.06, 0.06, 0.06, 0.96);
-	cairo_rectangle(cr, bg_x, bg_y, bg_w, bg_h);
+	grabit_cairo_rect_r(cr, bg_x, bg_y, bg_w, bg_h, grabit_ui_radius(GUI_R_PANEL) * S);
 	cairo_fill(cr);
 
 	render_grid(cr, o->st, S, dx, dy, dw, dh);

@@ -5,6 +5,8 @@
 #include "region/toolbar_internal.h"
 #include "region/wlr_state.h"
 
+#include "cairo_util.h"
+#include "ui_theme.h"
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -127,7 +129,8 @@ static void picker_row(cairo_t *cr, double x0, double w, double ry,
 					   int32_t S, bool sel, const char *label) {
 	double rh = TP_ROW_H * S;
 	if (sel) {
-		cairo_rectangle(cr, x0 + 3.0 * S, ry + 1.0 * S, w - 6.0 * S, rh - 2.0 * S);
+		grabit_cairo_rect_r(cr, x0 + 3.0 * S, ry + 1.0 * S, w - 6.0 * S, rh - 2.0 * S,
+							grabit_ui_radius(GUI_R_BTN) * S);
 		cairo_set_source_rgba(cr, 1.0, 0.55, 0.32, 0.22);
 		cairo_fill(cr);
 	}
@@ -159,13 +162,7 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
-	cairo_rectangle(cr, x0, y0, w, h);
-	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
-	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, x0 + 0.5 * S, y0 + 0.5 * S, w - (double)S, h - (double)S);
-	cairo_stroke(cr);
+	grabit_ui_panel(cr, x0, y0, w, h, (double)S);
 
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 						   CAIRO_FONT_WEIGHT_NORMAL);

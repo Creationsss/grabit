@@ -188,6 +188,11 @@ static bool valid_capture_key(const char *key) {
 		   strcmp(leaf, "delay") == 0;
 }
 
+static bool valid_gui_key(const char *key) {
+	if (strncmp(key, "gui.", 4) != 0) return false;
+	return strcmp(key + 4, "radius") == 0;
+}
+
 static bool valid_region_key(const char *key) {
 	if (strncmp(key, "region.", 7) != 0) return false;
 	const char *leaf = key + 7;
@@ -224,6 +229,7 @@ bool cfg_key_is_known(const char *key) {
 		   valid_sound_key(key) || valid_edit_key(key) ||
 		   valid_png_key(key) || valid_jpeg_key(key) || valid_webp_key(key) ||
 		   valid_capture_key(key) || valid_region_key(key) ||
+		   valid_gui_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
 		   valid_preview_key(key) || valid_tray_key(key) ||
 		   valid_keys_key(key);

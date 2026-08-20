@@ -7,6 +7,7 @@
 #include "config/internal.h"
 #include "log.h"
 #include "paths.h"
+#include "ui_theme.h"
 #include "util/util.h"
 
 #include <errno.h>
@@ -96,6 +97,8 @@ static void config_apply_runtime(struct config *c) {
 	v = config_get(c, "capture.backend");
 	if (v && v[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
 		setenv("GRABIT_CAPTURE_BACKEND", v, 1);
+
+	grabit_ui_theme_init(c);
 }
 
 bool config_exists(void) {

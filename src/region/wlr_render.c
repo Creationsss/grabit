@@ -9,6 +9,7 @@
 #include "log.h"
 #include "region/annotate.h"
 #include "region/wlr_input_state.h"
+#include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -124,8 +125,9 @@ static void render_hint_pill(cairo_t *cr, double S, const char *hint,
 	if (tx < pad) tx = pad;
 	if (tx + ext->width + pad > pw) tx = pw - ext->width - pad;
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-	cairo_rectangle(cr, tx - pad, ty - ext->height - pad,
-					ext->width + pad * 2, ext->height + pad * 2);
+	grabit_cairo_rect_r(cr, tx - pad, ty - ext->height - pad,
+						ext->width + pad * 2, ext->height + pad * 2,
+						grabit_ui_radius(GUI_R_TIP) * S);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, tx, ty);
@@ -170,16 +172,16 @@ void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 	const struct annotation *a = region_single_selection(st);
 	if (!a) return;
 	int mask = annotation_corner_mask(a);
+	double hr = grabit_ui_radius(GUI_R_GLYPH);
 	for (int c = 0; c < 4; c++) {
 		if (!(mask & (1 << c))) continue;
 		double hx = annotation_corner_x(a, c);
 		double hy = annotation_corner_y(a, c);
+		grabit_cairo_rect_r(cr, hx - 4, hy - 4, 8, 8, hr);
 		cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
-		cairo_rectangle(cr, hx - 4, hy - 4, 8, 8);
-		cairo_fill(cr);
+		cairo_fill_preserve(cr);
 		cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
 		cairo_set_line_width(cr, 1.0);
-		cairo_rectangle(cr, hx - 4, hy - 4, 8, 8);
 		cairo_stroke(cr);
 	}
 }

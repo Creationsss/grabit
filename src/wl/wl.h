@@ -102,6 +102,8 @@ bool grabit_output_overlaps(const struct grabit_output *o, struct rect r);
 struct wl_compositor;
 struct wl_surface;
 void grabit_wl_clear_input_region(struct wl_compositor *c, struct wl_surface *s);
+void grabit_wl_region_add_rounded(struct wl_region *reg, int32_t x, int32_t y,
+								  int32_t w, int32_t h, int32_t r);
 
 struct wl_callback;
 void grabit_wl_callback_drop(struct wl_callback **cb);

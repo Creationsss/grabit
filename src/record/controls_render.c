@@ -5,6 +5,7 @@
 #include "record/controls_internal.h"
 
 #include "cairo_util.h"
+#include "ui_theme.h"
 #include "wl/wl.h"
 
 #include <math.h>
@@ -22,13 +23,7 @@ void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
 }
 
 static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
-	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	cairo_rectangle(cr, 0, 0, c->bw, c->bh);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
-	cairo_set_line_width(cr, 1.0);
-	cairo_rectangle(cr, 0.5, 0.5, c->bw - 1.0, c->bh - 1.0);
-	cairo_stroke(cr);
+	grabit_ui_panel(cr, 0, 0, c->bw, c->bh, 1.0);
 
 	double cy = CB_H / 2.0;
 	double dot_cx = CB_PAD + CB_DOT_W / 2.0;
@@ -69,7 +64,8 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 		} else {
 			cairo_set_source_rgba(cr, 0.62, 0.22, 0.22, aa);
 		}
-		cairo_rectangle(cr, bx + pad, by + pad, bw - pad * 2, bh - pad * 2);
+		grabit_cairo_rect_r(cr, bx + pad, by + pad, bw - pad * 2, bh - pad * 2,
+							grabit_ui_radius(GUI_R_BTN));
 		cairo_fill(cr);
 
 		double ia = enabled ? 0.92 : 0.45;
@@ -84,8 +80,9 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 			cairo_close_path(cr);
 			cairo_fill(cr);
 		} else if (btn == CB_BTN_PAUSE) {
-			cairo_rectangle(cr, bcx - s, bcy - s, s * 0.72, s * 2.0);
-			cairo_rectangle(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0);
+			double gr = grabit_ui_radius(GUI_R_GLYPH);
+			grabit_cairo_rect_r(cr, bcx - s, bcy - s, s * 0.72, s * 2.0, gr);
+			grabit_cairo_rect_r(cr, bcx + s * 0.28, bcy - s, s * 0.72, s * 2.0, gr);
 			cairo_fill(cr);
 		} else if (btn == CB_BTN_ABORT) {
 			double arm = s * 0.75;
@@ -96,7 +93,8 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 			cairo_line_to(cr, bcx - arm, bcy + arm);
 			cairo_stroke(cr);
 		} else {
-			cairo_rectangle(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8);
+			grabit_cairo_rect_r(cr, bcx - s * 0.9, bcy - s * 0.9, s * 1.8, s * 1.8,
+								grabit_ui_radius(GUI_R_GLYPH));
 			cairo_fill(cr);
 		}
 	}

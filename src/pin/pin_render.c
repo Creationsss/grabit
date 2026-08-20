@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "cairo_util.h"
+#include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -88,8 +89,11 @@ static void draw_caption(cairo_t *cr, struct pin_state *st) {
 	double bar_h = font + 2 * pad;
 	double bar_y = (double)st->height - bar_h;
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
+	if (grabit_ui_radius(GUI_R_PANEL) > 0.0)
+		cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
 	cairo_rectangle(cr, 0, bar_y, st->width, bar_h);
 	cairo_fill(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	double tx = ((double)st->width - st->caption_fit_x_advance) / 2.0;
 	if (tx < pad) tx = pad;

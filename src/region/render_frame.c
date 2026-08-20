@@ -9,6 +9,7 @@
 #include "log.h"
 #include "region/annotate.h"
 #include "region/wlr_input_state.h"
+#include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -92,16 +93,15 @@ void gren_output_redraw(struct ro_output *o) {
 							? (double)o->st->snap_radius * S
 							: 0.0;
 		cairo_rectangle(cr, 0, 0, pw, ph);
-		grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t,
-								  snap_r);
+		grabit_cairo_rect_r(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t, snap_r);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
 		cairo_fill(cr);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
 		if (draw_is_snap && o->st->snap_cur_alpha < 0.999) {
 			cairo_set_source_rgba(cr, 0, 0, 0,
 								  REGION_DIM_A * (1.0 - o->st->snap_cur_alpha));
-			grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l,
-									  sel_b - sel_t, snap_r);
+			grabit_cairo_rect_r(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t,
+								snap_r);
 			cairo_fill(cr);
 		}
 	} else {
@@ -175,7 +175,8 @@ void gren_output_redraw(struct ro_output *o) {
 			double pill_top = (double)o->st->text_y - fe.ascent - pad;
 			double pill_h = fe.ascent + fe.descent + 2 * pad;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
-			cairo_rectangle(cr, (double)o->st->text_x - pad, pill_top, pill_w, pill_h);
+			grabit_cairo_rect_r(cr, (double)o->st->text_x - pad, pill_top, pill_w,
+								pill_h, grabit_ui_radius(GUI_R_TIP));
 			cairo_fill(cr);
 			if (o->st->text_len > 0) {
 				struct annotation typing = {
@@ -224,8 +225,9 @@ void gren_output_redraw(struct ro_output *o) {
 			double tx = (double)sel_r - ext.width - 14.0 * S;
 			double ty = (double)sel_b - 14.0 * S;
 			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
-			cairo_rectangle(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
-							ext.width + 8.0 * S, ext.height + 6.0 * S);
+			grabit_cairo_rect_r(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
+								ext.width + 8.0 * S, ext.height + 6.0 * S,
+								grabit_ui_radius(GUI_R_TIP) * S);
 			cairo_fill(cr);
 			cairo_set_source_rgba(cr, 1, 1, 1, 1);
 			cairo_move_to(cr, tx, ty);

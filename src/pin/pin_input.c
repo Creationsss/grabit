@@ -5,6 +5,7 @@
 #include "pin/pin_state.h"
 
 #include "log.h"
+#include "ui_theme.h"
 #include "wl/wl.h"
 
 #include <errno.h>
@@ -33,7 +34,9 @@ void pin_input_apply_region(struct pin_output *o) {
 		wl_region_destroy(reg);
 		return;
 	}
-	if (want.w > 0) wl_region_add(reg, want.x, want.y, want.w, want.h);
+	if (want.w > 0)
+		grabit_wl_region_add_rounded(reg, want.x, want.y, want.w, want.h,
+									 st->transient ? (int32_t)grabit_ui_radius(GUI_R_PANEL) : 0);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
 	o->region = want;

@@ -6,6 +6,7 @@
 
 #include "cairo_util.h"
 #include "region/wlr_input_state.h"
+#include "ui_theme.h"
 #include "wl/wl.h"
 
 #include <math.h>
@@ -29,8 +30,10 @@ static bool button_active(const struct ro_state *st, enum tb_action act) {
 }
 
 static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
-							enum tb_action act, bool active,
-							double bxi, double byi, double bwi, double bhi, double pad) {
+							enum tb_action act, int32_t S,
+							double bxi, double byi, double bwi, double bhi) {
+	bool active = button_active(st, act);
+	double pad = 3.0 * S;
 	double rr = 0.18, gg = 0.18, bb = 0.18, aa = 0.94;
 	if (active) {
 		rr = 1.0;
@@ -49,7 +52,8 @@ static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
 		aa = 0.96;
 	}
 	cairo_set_source_rgba(cr, rr, gg, bb, aa);
-	cairo_rectangle(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2);
+	grabit_cairo_rect_r(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2,
+						grabit_ui_radius(GUI_R_BTN) * S);
 	cairo_fill(cr);
 }
 
@@ -135,14 +139,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
-	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	cairo_rectangle(cr, bx0, by0, bw, bh);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
-	cairo_set_line_width(cr, (double)S);
-	cairo_rectangle(cr, bx0 + 0.5 * S, by0 + 0.5 * S,
-					bw - (double)S, bh - (double)S);
-	cairo_stroke(cr);
+	grabit_ui_panel(cr, bx0, by0, bw, bh, (double)S);
 
 	for (int i = 0; i < TB_BTN_COUNT; i++) {
 		enum tb_action act = (enum tb_action)i;
@@ -152,7 +149,6 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		double byi = by0 + (double)by_local * S;
 		double bwi = (double)bw_local * S;
 		double bhi = (double)bh_local * S;
-		double pad = 3.0 * S;
 
 		bool active = button_active(o->st, act);
 		bool is_color = (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE);
@@ -160,7 +156,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		bool is_current = (act == TB_COLOR_CURRENT);
 
 		if (!is_color && !is_slider && !is_current)
-			paint_button_bg(cr, o->st, act, active, bxi, byi, bwi, bhi, pad);
+			paint_button_bg(cr, o->st, act, S, bxi, byi, bwi, bhi);
 
 		double cxi = bxi + bwi / 2.0;
 		double cyi = byi + bhi / 2.0;

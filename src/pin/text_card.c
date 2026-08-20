@@ -4,7 +4,10 @@
 #define _XOPEN_SOURCE 700
 #include "pin/text_card.h"
 
+#include "cairo_util.h"
+#include "capture/save.h"
 #include "log.h"
+#include "ui_theme.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -185,7 +188,7 @@ int pin_text_card_render_png(const char *text, const char *out_path) {
 	}
 	cairo_t *cr = cairo_create(surf);
 
-	cairo_set_source_rgba(cr, 0.10, 0.11, 0.13, 0.95);
+	grabit_ui_card_bg(cr);
 	cairo_paint(cr);
 
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
@@ -199,13 +202,10 @@ int pin_text_card_render_png(const char *text, const char *out_path) {
 		cairo_show_text(cr, lb.items[i].text);
 	}
 
+	grabit_cairo_punch_corners(cr, (double)w, (double)h, grabit_ui_radius(GUI_R_PANEL));
 	cairo_destroy(cr);
-	cairo_status_t st = cairo_surface_write_to_png(surf, out_path);
+	int rc = grabit_save_png_surface(surf, out_path, 1);
 	cairo_surface_destroy(surf);
 	lb_free(&lb);
-	if (st != CAIRO_STATUS_SUCCESS) {
-		log_error("text_card: write_to_png %s: %s", out_path, cairo_status_to_string(st));
-		return -1;
-	}
-	return 0;
+	return rc;
 }

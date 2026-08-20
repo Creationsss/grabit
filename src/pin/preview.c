@@ -4,8 +4,10 @@
 #define _XOPEN_SOURCE 700
 #include "pin/preview.h"
 
+#include "cairo_util.h"
 #include "capture/save.h"
 #include "log.h"
+#include "ui_theme.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -38,7 +40,7 @@ int pin_preview_render_surface(cairo_surface_t *src, int target_w,
 		return -1;
 	}
 	cairo_t *cr = cairo_create(dst);
-	cairo_set_source_rgba(cr, 0.10, 0.11, 0.13, 0.95);
+	grabit_ui_card_bg(cr);
 	cairo_paint(cr);
 
 	cairo_save(cr);
@@ -48,6 +50,7 @@ int pin_preview_render_surface(cairo_surface_t *src, int target_w,
 	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
 	cairo_paint(cr);
 	cairo_restore(cr);
+	grabit_cairo_punch_corners(cr, dst_w, dst_h, grabit_ui_radius(GUI_R_PANEL));
 	cairo_destroy(cr);
 
 	int rc = grabit_save_png_surface(dst, out_path, 1);

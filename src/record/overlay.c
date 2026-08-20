@@ -6,6 +6,7 @@
 
 #include "cairo_util.h"
 #include "region/region.h"
+#include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -98,7 +99,8 @@ static void draw_border(struct overlay_output *o) {
 		double pilly = ry - bw - pillh - 2.0 * S;
 
 		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
-		cairo_rectangle(cr, pillx, pilly, pillw, pillh);
+		grabit_cairo_rect_r(cr, pillx, pilly, pillw, pillh,
+							grabit_ui_radius(GUI_R_TIP) * S);
 		cairo_fill(cr);
 
 		cairo_set_source_rgba(cr, 1, 1, 1, 1);

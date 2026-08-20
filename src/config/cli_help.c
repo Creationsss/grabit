@@ -65,6 +65,7 @@ static const char *const ALL_KNOWN_KEYS[] = {
 	"region.show_coords",
 	"region.repeat_last",
 	"region.last",
+	"gui.radius",
 	"translate.target",
 	"translate.backend",
 	"translate.url",
@@ -259,6 +260,7 @@ static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quali
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
 										"capture.delay", NULL};
+static const char *const G_GUI[] = {"gui.radius", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
 									   "region.snap_animation", "region.confirm",
 									   "region.show_coords", "region.repeat_last",
@@ -298,6 +300,7 @@ static const char *const *const KEY_GROUPS[] = {
 	G_OCR,
 	G_CAPTURE,
 	G_REGION,
+	G_GUI,
 	G_TRANSLATE,
 	G_TEXT_CARD,
 	G_PREVIEW,

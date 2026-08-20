@@ -196,6 +196,12 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
 
+### gui
+
+| key | default | notes |
+|---|---|---|
+| `gui.radius` | `0` | round the corners of grabit's own ui: the region selector and editor, the recording control bar, and the preview and ocr cards. `0` is square, `auto` matches hyprland's `decoration:rounding`, or set a radius in logical pixels (`8` is a good start). one value scales everything; nothing changes size or position. it never affects the captured image (that is `region.window_radius`) |
+
 ### keybinds
 
 every key and mouse action in the selector/editor is rebindable under the `keys.*` namespace. each value is a comma-separated list of bindings, and an action fires when any of its bindings match. a binding is either a key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` modifiers (key names are xkb keysyms, e.g. `Return`, `Escape`, `KP_Enter`, `Left`, `space`, `a`, `F1`), or a mouse button. letters match case-insensitively; the left mouse button is always the draw/select button and cannot be rebound.

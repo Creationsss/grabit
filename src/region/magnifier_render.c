@@ -8,6 +8,7 @@
 #include "capture/capture.h"
 #include "region/input_internal.h"
 #include "region/ui.h"
+#include "ui_theme.h"
 #include "wl/wl.h"
 
 #include <math.h>
@@ -70,7 +71,7 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	by = fmin(fmax(by, pad), ph - bh - pad);
 
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-	cairo_rectangle(cr, bx, by, bw, bh);
+	grabit_cairo_rect_r(cr, bx, by, bw, bh, grabit_ui_radius(GUI_R_TIP) * S);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, bx + (bw - ext.width) / 2.0 - ext.x_bearing,
@@ -103,8 +104,9 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 	lx = fmin(fmax(lx, pad), pw - L - pad);
 	ly = fmin(fmax(ly, pad), ph - L - pad);
 
+	const double lr = grabit_ui_radius(GUI_R_PANEL) * S;
 	cairo_save(cr);
-	cairo_rectangle(cr, lx, ly, L, L);
+	grabit_cairo_rect_r(cr, lx, ly, L, L, lr);
 	cairo_clip(cr);
 	cairo_save(cr);
 	cairo_translate(cr, lx + L / 2.0, ly + L / 2.0);
@@ -141,7 +143,7 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 
 	cairo_set_line_width(cr, MAGNIFIER_BORDER * S);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
-	cairo_rectangle(cr, lx, ly, L, L);
+	grabit_cairo_rect_r(cr, lx, ly, L, L, lr);
 	cairo_stroke(cr);
 
 	uint32_t c = 0;
@@ -163,10 +165,11 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 	bx = fmin(fmax(bx, pad), pw - bw - pad);
 
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-	cairo_rectangle(cr, bx, by, bw, bh);
+	grabit_cairo_rect_r(cr, bx, by, bw, bh, grabit_ui_radius(GUI_R_TIP) * S);
 	cairo_fill(cr);
 	grabit_cairo_set_source_argb(cr, c, 1.0);
-	cairo_rectangle(cr, bx + MAGNIFIER_SWATCH_INSET * S, by + (bh - sw) / 2.0, sw, sw);
+	grabit_cairo_rect_r(cr, bx + MAGNIFIER_SWATCH_INSET * S, by + (bh - sw) / 2.0, sw, sw,
+						grabit_ui_radius(GUI_R_GLYPH) * S);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 1);
 	cairo_move_to(cr, bx + sw + MAGNIFIER_TEXT_GAP * S,

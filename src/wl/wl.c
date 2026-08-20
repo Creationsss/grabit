@@ -149,6 +149,13 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);
 }
 
+void grabit_wl_region_add_rounded(struct wl_region *reg, int32_t x, int32_t y,
+								  int32_t w, int32_t h, int32_t r) {
+	if (2 * r >= w || 2 * r >= h) r = 0;
+	wl_region_add(reg, x, y + r, w, h - 2 * r);
+	if (r > 0) wl_region_add(reg, x + r, y, w - 2 * r, h);
+}
+
 void grabit_wl_clear_input_region(struct wl_compositor *c, struct wl_surface *s) {
 	if (!c || !s) return;
 	struct wl_region *r = wl_compositor_create_region(c);

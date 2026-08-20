@@ -113,7 +113,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	} else {
 		if (st->dragging) region_update_selection(st);
 		int32_t h = st->dragging ? -1 : region_snap_hit(st, st->cursor_x, st->cursor_y);
-		if (h != st->snap_hover) st->snap_hover = h;
+		region_snap_set_hover(st, h);
 	}
 
 	int hover = -1;

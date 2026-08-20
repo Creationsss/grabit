@@ -203,6 +203,12 @@ static void output_request_redraw(struct ro_output *o) {
 	gren_output_redraw(o);
 }
 
+void region_render_request_redraw_rect(struct ro_state *st, struct rect r) {
+	for (size_t i = 0; i < st->n_outs; i++)
+		if (grabit_output_overlaps(st->outs[i].go, r))
+			output_request_redraw(&st->outs[i]);
+}
+
 void region_render_request_redraw_all(struct ro_state *st) {
 	for (size_t i = 0; i < st->n_outs; i++)
 		output_request_redraw(&st->outs[i]);

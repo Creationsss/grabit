@@ -101,6 +101,7 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o);
 void region_render_attach_layer(struct ro_output *o);
 void region_render_free_buffer(struct ro_output *o);
 void region_render_request_redraw_all(struct ro_state *st);
+void region_render_request_redraw_rect(struct ro_state *st, struct rect r);
 struct ro_output *region_render_find_by_surface(struct ro_state *st, struct wl_surface *s);
 
 void region_input_attach(struct ro_state *st);

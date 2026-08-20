@@ -156,6 +156,13 @@ struct ro_state {
 	size_t n_snap_windows;
 	int snap_hover;
 	int snap_radius;
+	bool snap_anim;
+	struct rect snap_from;
+	double snap_a_from;
+	int64_t snap_t0;
+	struct rect snap_cur;
+	double snap_cur_alpha;
+	bool snap_running;
 
 	bool finished;
 	bool cancelled;
@@ -262,6 +269,11 @@ struct ro_state {
 	int32_t picker_pat_dw;
 	int32_t picker_pat_dh;
 };
+
+static inline const struct rect *region_snap_window(const struct ro_state *st, int idx) {
+	if (idx < 0 || (size_t)idx >= st->n_snap_windows) return NULL;
+	return &st->snap_windows[idx];
+}
 
 static inline bool region_editing(const struct ro_state *st) {
 	return st->annotate_mode && st->out_annos;

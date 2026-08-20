@@ -178,7 +178,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		st->sel_w = mon.w;
 		st->sel_h = mon.h;
 		st->has_selection = true;
-		st->snap_hover = -1;
+		region_snap_set_hover(st, -1);
 		st->dragging = false;
 		region_undo_commit(st);
 		ginp_lock_or_finish(st);

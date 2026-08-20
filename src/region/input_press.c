@@ -207,15 +207,15 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 				st->sel_w = st->sel_h = 0;
 			}
 			if (!st->has_selection) {
-				int hit = region_snap_hit(st, st->cursor_x, st->cursor_y);
-				if (hit >= 0 && (size_t)hit < st->n_snap_windows) {
-					const struct rect *w = &st->snap_windows[hit];
+				const struct rect *w = region_snap_window(
+					st, region_snap_hit(st, st->cursor_x, st->cursor_y));
+				if (w) {
 					st->sel_x = w->x;
 					st->sel_y = w->y;
 					st->sel_w = w->w;
 					st->sel_h = w->h;
 					st->has_selection = true;
-					st->snap_hover = -1;
+					region_snap_set_hover(st, -1);
 				}
 			}
 			region_undo_commit(st);

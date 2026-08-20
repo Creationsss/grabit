@@ -33,6 +33,10 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		if (snap_enabled && n_snap_rects == 0)
 			st->snap_radius = region_window_radius(cfg, NULL);
+		v = config_get(cfg, "region.snap_animation");
+		st->snap_anim = v && strcmp(v, "true") == 0;
+		if (st->snap_anim && !snap_enabled)
+			log_warn("region.snap_animation needs region.window_snap; ignoring it");
 		v = config_get(cfg, "region.confirm");
 		if (v && strcmp(v, "true") == 0) st->confirm_mode = true;
 		v = config_get(cfg, "edit.multi_select");

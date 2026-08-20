@@ -171,7 +171,6 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		st.sel_w = preset->w;
 		st.sel_h = preset->h;
 		st.has_selection = true;
-		st.snap_hover = -1;
 		if (annotate_mode) st.region_locked = true;
 	}
 
@@ -235,6 +234,8 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		} else {
 			wl_display_cancel_read(s->display);
 		}
+		if (region_snap_tick(&st))
+			region_render_request_redraw_rect(&st, st.snap_cur);
 		if (wl_display_dispatch_pending(s->display) < 0) {
 			st.cancelled = true;
 			break;

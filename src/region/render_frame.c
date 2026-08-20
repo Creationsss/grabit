@@ -24,6 +24,8 @@
 
 #include "region/render_internal.h"
 
+#define REGION_DIM_A 0.45
+
 void gren_output_redraw(struct ro_output *o) {
 	if (!o->configured) return;
 	o->dirty = false;
@@ -53,16 +55,16 @@ void gren_output_redraw(struct ro_output *o) {
 		draw_w = o->st->sel_w;
 		draw_h = o->st->sel_h;
 		draw_any = true;
-	} else if (!o->st->region_locked && !o->st->dragging &&
-			   o->st->snap_hover >= 0 &&
-			   (size_t)o->st->snap_hover < o->st->n_snap_windows) {
-		const struct rect *w = &o->st->snap_windows[o->st->snap_hover];
-		draw_x = w->x;
-		draw_y = w->y;
-		draw_w = w->w;
-		draw_h = w->h;
-		draw_any = true;
-		draw_is_snap = true;
+	} else if (!o->st->region_locked && !o->st->dragging) {
+		const struct rect *hl = &o->st->snap_cur;
+		if (o->st->snap_cur_alpha > 0.004) {
+			draw_x = hl->x;
+			draw_y = hl->y;
+			draw_w = hl->w;
+			draw_h = hl->h;
+			draw_any = true;
+			draw_is_snap = true;
+		}
 	}
 	if (draw_any) {
 		int32_t sx = (draw_x - o->go->x) * S;
@@ -84,20 +86,24 @@ void gren_output_redraw(struct ro_output *o) {
 	cairo_paint(cr);
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
+	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, REGION_DIM_A);
 	if (sel_visible) {
 		double snap_r = (draw_is_snap && o->st->snap_radius > 0)
 							? (double)o->st->snap_radius * S
 							: 0.0;
 		cairo_rectangle(cr, 0, 0, pw, ph);
-		if (snap_r > 0)
-			grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l,
-									  sel_b - sel_t, snap_r);
-		else
-			cairo_rectangle(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t);
+		grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t,
+								  snap_r);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
 		cairo_fill(cr);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+		if (draw_is_snap && o->st->snap_cur_alpha < 0.999) {
+			cairo_set_source_rgba(cr, 0, 0, 0,
+								  REGION_DIM_A * (1.0 - o->st->snap_cur_alpha));
+			grabit_cairo_rounded_rect(cr, sel_l, sel_t, sel_r - sel_l,
+									  sel_b - sel_t, snap_r);
+			cairo_fill(cr);
+		}
 	} else {
 		cairo_paint(cr);
 	}

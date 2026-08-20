@@ -170,6 +170,7 @@ GRABIT_SRCS := \
 	src/notify/dbus.c \
 	src/region/wlr_layer.c \
 	src/region/select_state.c \
+	src/region/snap.c \
 	src/region/wlr_render.c \
 	src/region/wlr_input.c \
 	src/region/input_keyboard.c \

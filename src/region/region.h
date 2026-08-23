@@ -47,6 +47,7 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 }
 
 #define ANNO_DEFAULT_FONT 18
+#define ANNO_ARROW_MIN_HEAD 12.0
 #define ANNO_DEFAULT_WIDTH 3
 #define CALLOUT_DX 48
 #define CALLOUT_DY (-56)

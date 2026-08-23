@@ -145,6 +145,18 @@ struct rect annotation_text_box(const struct annotation *a) {
 						 len * fs * 3 / 5 + pad * 2, fs + fs / 4 + pad * 2};
 }
 
+double annotation_line_width(const struct annotation *a) {
+	return annotation_width(a) * (a->tool == TOOL_MARKER ? 2.5 : 1.0);
+}
+
+static int32_t annotation_paint_extent(const struct annotation *a) {
+	if (tool_samples_backdrop(a->tool) || tool_is_layer(a->tool)) return 0;
+	if (a->tool == TOOL_ARROW)
+		return (int32_t)ceil(
+			grabit_cairo_arrow_extent(annotation_width(a), ANNO_ARROW_MIN_HEAD));
+	return (int32_t)(annotation_line_width(a) / 2.0);
+}
+
 void annotation_update_bbox(struct annotation *a) {
 	int32_t minx, miny, maxx, maxy;
 	if (tool_uses_points(a->tool) && a->n_points > 0) {
@@ -175,7 +187,7 @@ void annotation_update_bbox(struct annotation *a) {
 		miny = i32min(a->y0, a->y1);
 		maxy = i32max(a->y0, a->y1);
 	}
-	int32_t pad = a->width / 2 + 2;
+	int32_t pad = annotation_paint_extent(a) + 2;
 	a->bbox.x = minx - pad;
 	a->bbox.y = miny - pad;
 	a->bbox.w = maxx - minx + pad * 2;

@@ -35,40 +35,6 @@ static void apply_stroke_style(cairo_t *cr, enum stroke_style style, double w) {
 	if (n > 0) cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 }
 
-static void paint_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
-						double width) {
-	double dx = x1 - x0, dy = y1 - y0;
-	double len = sqrt(dx * dx + dy * dy);
-	if (len < 1.0) {
-		cairo_new_sub_path(cr);
-		cairo_arc(cr, x0, y0, width, 0, 2.0 * M_PI);
-		cairo_fill(cr);
-		return;
-	}
-
-	double ux = dx / len, uy = dy / len;
-	double px = -uy, py = ux;
-
-	double body = width * 0.5;
-	double head_w = width * 2.2;
-	double head_len = width * 5.5;
-	if (head_len < 14.0) head_len = 14.0;
-	if (head_len > len * 0.5) head_len = len * 0.5;
-
-	double bx = x1 - ux * head_len;
-	double by = y1 - uy * head_len;
-
-	cairo_move_to(cr, x0 + px * body, y0 + py * body);
-	cairo_line_to(cr, bx + px * body, by + py * body);
-	cairo_line_to(cr, bx + px * head_w, by + py * head_w);
-	cairo_line_to(cr, x1, y1);
-	cairo_line_to(cr, bx - px * head_w, by - py * head_w);
-	cairo_line_to(cr, bx - px * body, by - py * body);
-	cairo_line_to(cr, x0 - px * body, y0 - py * body);
-	cairo_close_path(cr);
-	cairo_fill(cr);
-}
-
 static int32_t spot_strength(const struct annotation *a) {
 	if (!a || !tool_is_layer(a->tool)) return 0;
 	struct rect r = annotation_norm_rect(a);
@@ -235,7 +201,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 	}
 	case TOOL_ARROW:
 		ganno_set_color(cr, a->color);
-		paint_arrow(cr, a->x0, a->y0, a->x1, a->y1, w);
+		grabit_cairo_arrow(cr, a->x0, a->y0, a->x1, a->y1, w, ANNO_ARROW_MIN_HEAD);
 		break;
 	case TOOL_LINE:
 		ganno_set_color(cr, a->color);
@@ -250,7 +216,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 	case TOOL_MARKER:
 	case TOOL_ERASER: {
 		if (a->n_points < 1) break;
-		double lw = a->tool == TOOL_MARKER ? w * 2.5 : w;
+		double lw = annotation_line_width(a) * scale;
 		if (a->tool == TOOL_MARKER)
 			grabit_cairo_set_source_argb(cr, a->color, 0.4);
 		else if (a->tool == TOOL_ERASER)

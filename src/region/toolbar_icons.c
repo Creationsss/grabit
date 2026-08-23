@@ -116,26 +116,8 @@ void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s) {
 
 void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s) {
 	double half = s * 0.40;
-	double x0 = cx - half, y0 = cy + half;
-	double x1 = cx + half, y1 = cy - half;
-	double dx = x1 - x0, dy = y1 - y0;
-	double len = sqrt(dx * dx + dy * dy);
-	double ux = dx / len, uy = dy / len;
-	double px = -uy, py = ux;
-	double body = s * 0.075;
-	double head_w = s * 0.18;
-	double head_len = s * 0.30;
-	double bx = x1 - ux * head_len;
-	double by = y1 - uy * head_len;
-	cairo_move_to(cr, x0 + px * body, y0 + py * body);
-	cairo_line_to(cr, bx + px * body, by + py * body);
-	cairo_line_to(cr, bx + px * head_w, by + py * head_w);
-	cairo_line_to(cr, x1, y1);
-	cairo_line_to(cr, bx - px * head_w, by - py * head_w);
-	cairo_line_to(cr, bx - px * body, by - py * body);
-	cairo_line_to(cr, x0 - px * body, y0 - py * body);
-	cairo_close_path(cr);
-	cairo_fill(cr);
+	grabit_cairo_arrow(cr, cx - half, cy + half, cx + half, cy - half,
+					   2.4 * (s / 24.0), 0.0);
 }
 
 void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s) {

@@ -4,6 +4,13 @@
 #define _XOPEN_SOURCE 700
 #include "cairo_util.h"
 
+#define ARROW_HEAD_LEN 4.4
+#define ARROW_HEAD_W 2.5
+
+struct arrow_head {
+	double len, w;
+};
+
 void grabit_cairo_rect_r(cairo_t *cr, double x, double y, double w, double h, double r) {
 	if (r <= 0.0 || w <= 0.0 || h <= 0.0) {
 		cairo_rectangle(cr, x, y, w, h);
@@ -11,13 +18,6 @@ void grabit_cairo_rect_r(cairo_t *cr, double x, double y, double w, double h, do
 	}
 	grabit_cairo_rounded_rect(cr, x, y, w, h, grabit_cairo_clamp_r(w, h, r));
 }
-
-#define ARROW_HEAD_LEN 4.4
-#define ARROW_HEAD_W 2.5
-
-struct arrow_head {
-	double len, w;
-};
 
 static struct arrow_head arrow_head_geom(double width, double min_head) {
 	double hl = width * ARROW_HEAD_LEN;

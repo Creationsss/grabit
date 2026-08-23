@@ -10,6 +10,8 @@
 
 #include <cairo/cairo.h>
 
+#define ICON_HALF 0.36
+
 void toolbar_icon_region(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);
@@ -56,7 +58,7 @@ void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s) {
 	cairo_set_line_width(cr, w);
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-	double half = s * 0.36;
+	double half = s * ICON_HALF;
 	cairo_move_to(cr, cx - half, cy + half * 0.3);
 	cairo_curve_to(cr,
 				   cx - half * 0.3, cy - half * 1.2,
@@ -72,7 +74,7 @@ static void icon_source(cairo_t *cr, double *r, double *g, double *b, double *a)
 }
 
 void toolbar_icon_marker(cairo_t *cr, double cx, double cy, double s) {
-	double half = s * 0.36;
+	double half = s * ICON_HALF;
 	double r, g, b, a;
 	icon_source(cr, &r, &g, &b, &a);
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
@@ -101,7 +103,7 @@ void toolbar_icon_line(cairo_t *cr, double cx, double cy, double s) {
 void toolbar_icon_rect(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);
-	double half = s * 0.36;
+	double half = s * ICON_HALF;
 	cairo_rectangle(cr, cx - half, cy - half, half * 2, half * 2);
 	cairo_stroke(cr);
 }
@@ -110,18 +112,18 @@ void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);
 	cairo_new_sub_path(cr);
-	cairo_arc(cr, cx, cy, s * 0.36, 0, 2.0 * M_PI);
+	cairo_arc(cr, cx, cy, s * ICON_HALF, 0, 2.0 * M_PI);
 	cairo_stroke(cr);
 }
 
 void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s) {
-	double half = s * 0.40;
+	double half = s * ICON_HALF;
 	grabit_cairo_arrow(cr, cx - half, cy + half, cx + half, cy - half,
 					   2.4 * (s / 24.0), 0.0);
 }
 
 void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s) {
-	double half = s * 0.36;
+	double half = s * ICON_HALF;
 	int n = 4;
 	double cell = (half * 2) / n;
 	for (int row = 0; row < n; row++) {
@@ -245,7 +247,7 @@ void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
 void toolbar_icon_rrect(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.4 * (s / 24.0);
 	cairo_set_line_width(cr, w);
-	double half = s * 0.36;
+	double half = s * ICON_HALF;
 	grabit_cairo_rounded_rect(cr, cx - half, cy - half, half * 2, half * 2,
 							  half * 0.55);
 	cairo_stroke(cr);

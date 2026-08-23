@@ -32,7 +32,6 @@ bool annotation_list_remove_at(struct annotation_list *list, size_t idx,
 void annotation_free(struct annotation *a);
 
 void annotation_update_bbox(struct annotation *a);
-double annotation_line_width(const struct annotation *a);
 int32_t annotation_counter_radius(const struct annotation *a);
 int32_t annotation_width(const struct annotation *a);
 int32_t annotation_font_size(const struct annotation *a);

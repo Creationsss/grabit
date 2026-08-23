@@ -66,7 +66,7 @@ static inline void grabit_cairo_punch_corners(cairo_t *cr, double w, double h, d
 	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
 	cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
 	cairo_rectangle(cr, 0, 0, w, h);
-	grabit_cairo_rounded_rect(cr, 0, 0, w, h, grabit_cairo_clamp_r(w, h, r));
+	grabit_cairo_rect_r(cr, 0, 0, w, h, r);
 	cairo_fill(cr);
 }
 

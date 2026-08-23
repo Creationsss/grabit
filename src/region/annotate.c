@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "region/annotate.h"
 
+#include "region/annotate_internal.h"
+
 #include "cairo_util.h"
 #include "region/region.h"
 
@@ -153,7 +155,7 @@ static int32_t annotation_paint_extent(const struct annotation *a) {
 	if (tool_samples_backdrop(a->tool) || tool_is_layer(a->tool)) return 0;
 	if (a->tool == TOOL_ARROW)
 		return (int32_t)ceil(
-			grabit_cairo_arrow_extent(annotation_width(a), ANNO_ARROW_MIN_HEAD));
+			grabit_cairo_arrow_extent(annotation_line_width(a), ANNO_ARROW_MIN_HEAD));
 	return (int32_t)(annotation_line_width(a) / 2.0);
 }
 

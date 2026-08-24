@@ -22,6 +22,29 @@ void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
 	*h = CB_BTN;
 }
 
+#define PLAY_FILLET 0.2
+
+static void glyph_play(cairo_t *cr, double cx, double cy, double s) {
+	const double vx[3] = {cx - s * 0.7, cx - s * 0.7, cx + s};
+	const double vy[3] = {cy - s, cy + s, cy};
+	for (int i = 0; i < 3; i++) {
+		double ax = vx[(i + 2) % 3], ay = vy[(i + 2) % 3];
+		double bx = vx[i], by = vy[i];
+		double cx2 = vx[(i + 1) % 3], cy2 = vy[(i + 1) % 3];
+		double v1x = bx - ax, v1y = by - ay;
+		double v2x = cx2 - bx, v2y = cy2 - by;
+		double l1 = hypot(v1x, v1y), l2 = hypot(v2x, v2y);
+		double r = fmin(s * PLAY_FILLET, fmin(l1, l2) * 0.5);
+		if (i == 0)
+			cairo_move_to(cr, bx - v1x / l1 * r, by - v1y / l1 * r);
+		else
+			cairo_line_to(cr, bx - v1x / l1 * r, by - v1y / l1 * r);
+		cairo_curve_to(cr, bx, by, bx, by,
+					   bx + v2x / l2 * r, by + v2y / l2 * r);
+	}
+	cairo_close_path(cr);
+}
+
 static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	grabit_ui_panel(cr, 0, 0, c->bw, c->bh, 1.0);
 
@@ -74,10 +97,7 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 		double bcy = by + bh / 2.0;
 		double s = bh * 0.6 * 0.36;
 		if (btn == CB_BTN_START) {
-			cairo_move_to(cr, bcx - s * 0.7, bcy - s);
-			cairo_line_to(cr, bcx - s * 0.7, bcy + s);
-			cairo_line_to(cr, bcx + s, bcy);
-			cairo_close_path(cr);
+			glyph_play(cr, bcx, bcy, s);
 			cairo_fill(cr);
 		} else if (btn == CB_BTN_PAUSE) {
 			double gr = grabit_ui_radius(GUI_R_GLYPH);

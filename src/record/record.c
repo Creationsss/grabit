@@ -31,6 +31,7 @@
 #include "wl/wl.h"
 
 #include <errno.h>
+#include <math.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -175,7 +176,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			rec_fail_notify("selected region did not intersect any output");
 			goto err_wl;
 		}
-		layout.corner_radius = corner_radius;
+		layout.corner_radius =
+			r.w > 0 ? (int32_t)lround((double)corner_radius * layout.dst_w / r.w)
+					: corner_radius;
 		frame_w = layout.dst_w;
 		frame_h = layout.dst_h;
 		frame_stride = layout.dst_stride;

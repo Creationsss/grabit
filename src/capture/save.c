@@ -11,6 +11,7 @@
 #include "region/region.h"
 #include "util/util.h"
 
+#include <math.h>
 #include <string.h>
 
 const char *grabit_format_extension(enum grabit_image_format f) {
@@ -171,13 +172,16 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 	cairo_surface_t *dst = build_composite_surface(dst_w, dst_h, slices, n);
 	if (!dst) return -1;
 
-	punch_rounded_corners(dst, opts);
-
 	if (annos && region && scale > 0) {
 		cairo_t *cr = cairo_create(dst);
 		annotation_list_paint(cr, annos, region->x, region->y, scale);
 		cairo_destroy(cr);
 	}
+
+	struct grabit_save_opts punched = *opts;
+	if (scale > 0)
+		punched.corner_radius = (int32_t)lround(opts->corner_radius * scale);
+	punch_rounded_corners(dst, &punched);
 
 	struct grabit_save_opts flat = *opts;
 	flat.corner_radius = 0;

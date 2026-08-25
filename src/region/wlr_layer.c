@@ -234,8 +234,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		} else {
 			wl_display_cancel_read(s->display);
 		}
-		if (region_snap_tick(&st))
+		struct rect snap_prev = st.snap_cur;
+		if (region_snap_tick(&st)) {
+			region_render_request_redraw_rect(&st, snap_prev);
 			region_render_request_redraw_rect(&st, st.snap_cur);
+		}
 		if (wl_display_dispatch_pending(s->display) < 0) {
 			st.cancelled = true;
 			break;

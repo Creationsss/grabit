@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 
 #include <errno.h>
+#include <math.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -142,7 +143,16 @@ static int capture_wm_window(struct config *cfg, bool cursor,
 	if (grabit_wm_capture_active_window(cursor, tmp) == 0) {
 		cairo_surface_t *img = grabit_load_png_surface(tmp, "window capture");
 		if (img) {
-			rc = grabit_save_surface(img, opts, path);
+			struct grabit_save_opts scaled = *opts;
+			struct rect win;
+			if (scaled.corner_radius > 0 &&
+				grabit_wm_active_window_rect(&win) == 0 && win.w > 0) {
+				double ratio =
+					(double)cairo_image_surface_get_width(img) / (double)win.w;
+				if (ratio > 0)
+					scaled.corner_radius = (int)lround(scaled.corner_radius * ratio);
+			}
+			rc = grabit_save_surface(img, &scaled, path);
 			cairo_surface_destroy(img);
 		}
 	}
@@ -204,7 +214,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		return NULL;
 	}
 
-	struct rect forced_rect;
+	struct rect forced_rect = {0, 0, 0, 0};
 	const struct rect *forced = NULL;
 	struct region_plan_req plan_req = {
 		.fullscreen = a->fullscreen,
@@ -213,7 +223,8 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		.use_last = a->last_region,
 	};
 	enum region_plan plan = region_plan_resolve(&s, cfg, &plan_req, &forced_rect);
-	if (a->window) opts.corner_radius = region_window_radius(cfg, &forced_rect);
+	if (a->window && plan == REGION_PLAN_FIXED)
+		opts.corner_radius = region_window_radius(cfg, &forced_rect);
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){

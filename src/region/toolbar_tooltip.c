@@ -91,8 +91,8 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	if (tip_x < (double)S * 4.0) tip_x = (double)S * 4.0;
 	if (tip_x + tip_w > pw - (double)S * 4.0) tip_x = pw - tip_w - (double)S * 4.0;
 
-	double r = grabit_ui_radius(GUI_R_TOOLTIP) * S;
-	grabit_cairo_rounded_rect(cr, tip_x, tip_y, tip_w, tip_h, r);
+	double r = grabit_cairo_clamp_r(tip_w, tip_h, grabit_ui_radius(GUI_R_TOOLTIP) * S);
+	grabit_cairo_rect_r(cr, tip_x, tip_y, tip_w, tip_h, r);
 	cairo_set_source_rgba(cr, 0.04, 0.04, 0.04, 0.94);
 	cairo_fill_preserve(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.18);

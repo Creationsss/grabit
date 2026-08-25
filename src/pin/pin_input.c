@@ -9,6 +9,7 @@
 #include "wl/wl.h"
 
 #include <errno.h>
+#include <math.h>
 #include <string.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
@@ -34,9 +35,12 @@ void pin_input_apply_region(struct pin_output *o) {
 		wl_region_destroy(reg);
 		return;
 	}
+	int32_t corner = 0;
+	if (st->transient && st->img_w > 0)
+		corner = (int32_t)lround(grabit_ui_radius(GUI_R_PANEL) *
+								 (double)st->width / (double)st->img_w);
 	if (want.w > 0)
-		grabit_wl_region_add_rounded(reg, want.x, want.y, want.w, want.h,
-									 st->transient ? (int32_t)grabit_ui_radius(GUI_R_PANEL) : 0);
+		grabit_wl_region_add_rounded(reg, want.x, want.y, want.w, want.h, corner);
 	wl_surface_set_input_region(o->surface, reg);
 	wl_region_destroy(reg);
 	o->region = want;

@@ -18,6 +18,7 @@ void pw_capture_size(const struct pw_capture *c, int32_t *w, int32_t *h,
 					 int32_t *stride);
 void pw_capture_bind(struct pw_capture *c, struct buf_pool *pool, struct ring *ring);
 void pw_capture_set_paused(struct pw_capture *c, bool paused);
+void pw_capture_set_corner_radius(struct pw_capture *c, int radius);
 bool pw_capture_failed(const struct pw_capture *c);
 void pw_capture_close(struct pw_capture *c);
 

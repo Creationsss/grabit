@@ -123,6 +123,14 @@ static void punch_rounded_corners(cairo_surface_t *dst,
 		}
 		return;
 	}
+	if (cairo_image_surface_get_format(dst) != CAIRO_FORMAT_ARGB32) {
+		static bool warned_fmt;
+		if (!warned_fmt) {
+			warned_fmt = true;
+			log_warn("capture has no alpha channel; saving with square corners");
+		}
+		return;
+	}
 	cairo_t *cr = cairo_create(dst);
 	grabit_cairo_punch_corners(cr, cairo_image_surface_get_width(dst),
 							   cairo_image_surface_get_height(dst), radius);

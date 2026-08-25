@@ -7,6 +7,7 @@
 #include "region/ui.h"
 #include "region/wlr_input_state.h"
 #include "util/util.h"
+#include "wl/wl.h"
 
 #include <math.h>
 
@@ -19,6 +20,17 @@ static double snap_progress(const struct ro_state *st) {
 	double t = ms / SNAP_ANIM_MS;
 	double inv = 1.0 - t;
 	return 1.0 - inv * inv * inv;
+}
+
+bool region_snap_is_fullscreen(const struct ro_state *st) {
+	const struct rect *w = region_snap_window(st, st->snap_hover);
+	if (!w) return false;
+	for (size_t i = 0; i < st->n_outs; i++) {
+		struct rect o;
+		grabit_output_rect(st->outs[i].go, &o);
+		if (rect_equal(o, *w)) return true;
+	}
+	return false;
 }
 
 bool region_snap_tick(struct ro_state *st) {

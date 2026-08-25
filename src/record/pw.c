@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "record/pw.h"
 
+#include "record/compose.h"
+
 #include "log.h"
 
 #include <stddef.h>
@@ -36,6 +38,7 @@ struct pw_capture {
 	int32_t width;
 	int32_t height;
 	int32_t stride;
+	int corner_radius;
 	enum pixels_conv conv;
 
 	struct buf_pool *pool;
@@ -148,6 +151,8 @@ static void on_process(void *data) {
 			pixels_copy(frame_buf, c->stride,
 						(const uint8_t *)d->data + d->chunk->offset, src_stride,
 						c->width, c->height, c->conv, false);
+			rec_round_corners_buf(frame_buf, c->width, c->height, c->stride,
+								  c->corner_radius);
 		}
 	}
 
@@ -276,6 +281,10 @@ void pw_capture_bind(struct pw_capture *c, struct buf_pool *pool, struct ring *r
 	pw_thread_loop_unlock(c->loop);
 }
 
+void pw_capture_set_corner_radius(struct pw_capture *c, int radius) {
+	if (c) c->corner_radius = radius;
+}
+
 void pw_capture_set_paused(struct pw_capture *c, bool paused) {
 	atomic_store(&c->paused, paused ? 1 : 0);
 }
@@ -323,6 +332,11 @@ void pw_capture_bind(struct pw_capture *c, struct buf_pool *pool, struct ring *r
 	(void)c;
 	(void)pool;
 	(void)ring;
+}
+
+void pw_capture_set_corner_radius(struct pw_capture *c, int radius) {
+	(void)c;
+	(void)radius;
 }
 
 void pw_capture_set_paused(struct pw_capture *c, bool paused) {

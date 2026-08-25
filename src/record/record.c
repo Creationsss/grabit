@@ -170,6 +170,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			goto err_source;
 		}
 		pw_capture_size(cap, &frame_w, &frame_h, &frame_stride);
+		pw_capture_set_corner_radius(
+			cap, r.w > 0 ? (int)lround((double)corner_radius * frame_w / r.w)
+						 : corner_radius);
 	} else {
 		if (rec_layout_build(&s, r, &layout) != 0) {
 			log_error("region does not overlap any output");

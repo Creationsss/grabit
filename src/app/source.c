@@ -129,6 +129,22 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 	return 0;
 }
 
+static cairo_surface_t *promote_argb32(cairo_surface_t *src) {
+	cairo_surface_t *out = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, cairo_image_surface_get_width(src),
+		cairo_image_surface_get_height(src));
+	if (cairo_surface_status(out) != CAIRO_STATUS_SUCCESS) {
+		cairo_surface_destroy(out);
+		return NULL;
+	}
+	cairo_t *cr = cairo_create(out);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(cr, src, 0, 0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+	return out;
+}
+
 static int capture_wm_window(struct config *cfg, bool cursor,
 							 const struct grabit_save_opts *opts, const char *path) {
 	if (opts->format == GRABIT_FMT_PNG && !opts->preview_path &&
@@ -151,6 +167,14 @@ static int capture_wm_window(struct config *cfg, bool cursor,
 					(double)cairo_image_surface_get_width(img) / (double)win.w;
 				if (ratio > 0)
 					scaled.corner_radius = (int)lround(scaled.corner_radius * ratio);
+			}
+			if (scaled.corner_radius > 0 &&
+				cairo_image_surface_get_format(img) != CAIRO_FORMAT_ARGB32) {
+				cairo_surface_t *up = promote_argb32(img);
+				if (up) {
+					cairo_surface_destroy(img);
+					img = up;
+				}
 			}
 			rc = grabit_save_surface(img, &scaled, path);
 			cairo_surface_destroy(img);

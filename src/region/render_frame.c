@@ -89,7 +89,8 @@ void gren_output_redraw(struct ro_output *o) {
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, REGION_DIM_A);
 	if (sel_visible) {
-		double snap_r = (draw_is_snap && o->st->snap_radius > 0)
+		double snap_r = (draw_is_snap && o->st->snap_radius > 0 &&
+						 !region_snap_is_fullscreen(o->st))
 							? (double)o->st->snap_radius * S
 							: 0.0;
 		cairo_rectangle(cr, 0, 0, pw, ph);

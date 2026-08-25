@@ -153,9 +153,11 @@ double annotation_line_width(const struct annotation *a) {
 
 static int32_t annotation_paint_extent(const struct annotation *a) {
 	if (tool_samples_backdrop(a->tool) || tool_is_layer(a->tool)) return 0;
-	if (a->tool == TOOL_ARROW)
-		return (int32_t)ceil(
-			grabit_cairo_arrow_extent(annotation_line_width(a), ANNO_ARROW_MIN_HEAD));
+	if (a->tool == TOOL_ARROW) {
+		double dx = a->x1 - a->x0, dy = a->y1 - a->y0;
+		return (int32_t)ceil(grabit_cairo_arrow_extent(
+			annotation_line_width(a), ANNO_ARROW_MIN_HEAD, sqrt(dx * dx + dy * dy)));
+	}
 	return (int32_t)(annotation_line_width(a) / 2.0);
 }
 

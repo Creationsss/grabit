@@ -29,8 +29,11 @@ static struct arrow_head arrow_head_geom(double width, double min_head) {
 	return (struct arrow_head){hl, hw};
 }
 
-double grabit_cairo_arrow_extent(double width, double min_head) {
-	return arrow_head_geom(width, min_head).w + width * 0.5;
+double grabit_cairo_arrow_extent(double width, double min_head, double len) {
+	if (width <= 0.0) return 0.0;
+	struct arrow_head h = arrow_head_geom(width, min_head);
+	if (len > 0.0 && h.len > len * 0.5) h.w *= len * 0.5 / h.len;
+	return h.w + width * 0.5;
 }
 
 void grabit_cairo_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,

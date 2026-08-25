@@ -1,0 +1,110 @@
+name: aur
+
+on:
+  push:
+    tags: ['[0-9]*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'version to publish (defaults to the latest tag)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aur
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: install deps
+        run: pacman -Syu --noconfirm --needed git pacman-contrib openssh
+
+      - name: resolve version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION:-$GITHUB_REF_NAME}"
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+            echo "refusing to publish version '$version': expected digits and dots only" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publishing $version"
+
+      - name: configure ssh
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
+            echo "AUR_SSH_PRIVATE_KEY is not set; add it to the repository secrets" >&2
+            exit 1
+          fi
+          useradd -m builder
+          install -d -m 700 -o builder -g builder /home/builder/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > /home/builder/.ssh/aur
+          cat > /home/builder/.ssh/known_hosts <<'EOF'
+          aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN
+          EOF
+          cat > /home/builder/.ssh/config <<'EOF'
+          Host aur.archlinux.org
+            User aur
+            IdentityFile ~/.ssh/aur
+            IdentitiesOnly yes
+          EOF
+          chown -R builder:builder /home/builder/.ssh
+          chmod 600 /home/builder/.ssh/aur /home/builder/.ssh/config /home/builder/.ssh/known_hosts
+          su - builder -c 'git config --global user.name "creations"'
+          su - builder -c 'git config --global user.email "creations@creations.works"'
+          su - builder -c 'ssh aur@aur.archlinux.org list-repos'
+
+      - name: publish grabit
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          su - builder -c '
+            set -euo pipefail
+            rm -rf ~/grabit
+            git clone --quiet ssh://aur@aur.archlinux.org/grabit.git ~/grabit
+            cd ~/grabit
+            sed -i "s/^pkgver=.*/pkgver='"$VERSION"'/" PKGBUILD
+            sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+            makepkg --printsrcinfo > .SRCINFO
+            grep -E "^(pkgver|pkgrel)=" PKGBUILD
+            if git diff --quiet; then
+              echo "no change, skipping"
+            else
+              git add PKGBUILD .SRCINFO
+              git commit -q -m '"$VERSION"'
+              git push origin HEAD:master
+            fi
+          '
+
+      - name: publish grabit-git
+        run: |
+          su - builder -c '
+            set -euo pipefail
+            rm -rf ~/grabit-git
+            git clone --quiet ssh://aur@aur.archlinux.org/grabit-git.git ~/grabit-git
+            cd ~/grabit-git
+            test -w PKGBUILD
+            makepkg -od --noprepare --skipinteg
+            makepkg --printsrcinfo > .SRCINFO
+            grep -E "^pkgver=" PKGBUILD
+            rm -rf grabit src pkg
+            if git diff --quiet; then
+              echo "no change, skipping"
+            else
+              git add PKGBUILD .SRCINFO
+              git commit -q -m "$(grep -E "^pkgver=" PKGBUILD | cut -d= -f2)"
+              git push origin HEAD:master
+            fi
+          '

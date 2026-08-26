@@ -2,15 +2,12 @@ name: aur-bin
 
 on:
   release:
-    types: [published]
+    types: [published, edited]
   workflow_dispatch:
     inputs:
       version:
         description: 'version to publish'
         required: true
-
-permissions:
-  contents: read
 
 concurrency:
   group: aur-bin
@@ -18,7 +15,9 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     container: archlinux:latest
     defaults:
@@ -100,7 +99,6 @@ jobs:
               echo "not up yet (attempt $attempt), waiting 30s"
               sleep 30
             done
-            # updpkgsums hashes whatever it receives; reject a 200 carrying the wrong body
             [ -s /tmp/asset ] || { echo "empty asset: $url" >&2; exit 1; }
             case "$url" in
               *grabit-x86_64-linux)

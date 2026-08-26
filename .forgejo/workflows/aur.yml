@@ -9,9 +9,6 @@ on:
         description: 'version to publish (defaults to the latest tag)'
         required: false
 
-permissions:
-  contents: read
-
 concurrency:
   group: aur
   cancel-in-progress: false
@@ -84,27 +81,6 @@ jobs:
             else
               git add PKGBUILD .SRCINFO
               git commit -q -m '"$VERSION"'
-              git push origin HEAD:master
-            fi
-          '
-
-      - name: publish grabit-git
-        run: |
-          su - builder -c '
-            set -euo pipefail
-            rm -rf ~/grabit-git
-            git clone --quiet ssh://aur@aur.archlinux.org/grabit-git.git ~/grabit-git
-            cd ~/grabit-git
-            test -w PKGBUILD
-            makepkg -od --noprepare --skipinteg
-            makepkg --printsrcinfo > .SRCINFO
-            grep -E "^pkgver=" PKGBUILD
-            rm -rf grabit src pkg
-            if git diff --quiet; then
-              echo "no change, skipping"
-            else
-              git add PKGBUILD .SRCINFO
-              git commit -q -m "$(grep -E "^pkgver=" PKGBUILD | cut -d= -f2)"
               git push origin HEAD:master
             fi
           '

@@ -138,21 +138,24 @@ static void clear_slice(cairo_t *cr, const struct rec_slice *sl) {
 static bool draw_slice(struct grabit_wl_state *s, struct rec_layout *layout,
 					   size_t i, bool cursor, cairo_t *cr) {
 	const struct rec_slice *sl = &layout->slices[i];
-	if (ensure_slice_scratch(layout, sl->cap_w, sl->cap_h) != 0) return false;
-	int32_t scratch_stride = sl->cap_w * 4;
+	bool swaps = grabit_wl_transform_swaps(sl->out->transform);
+	int32_t buf_w = swaps ? sl->cap_h : sl->cap_w;
+	int32_t buf_h = swaps ? sl->cap_w : sl->cap_h;
+	if (ensure_slice_scratch(layout, buf_w, buf_h) != 0) return false;
+	int32_t scratch_stride = buf_w * 4;
 	uint32_t fmt_raw;
 	if (capture_output_region_into(s, sl->out, sl->src_x, sl->src_y, sl->src_w, sl->src_h,
 								   cursor, layout->slice_scratch, scratch_stride,
-								   sl->cap_h, &fmt_raw, &layout->slice_caches[i]) != 0)
+								   buf_h, &fmt_raw, &layout->slice_caches[i]) != 0)
 		return false;
 
 	cairo_format_t fmt = grabit_cairo_format_for_shm(fmt_raw);
 	cairo_surface_t *src = grabit_cairo_image(layout->slice_scratch, fmt,
-											  sl->cap_w, sl->cap_h, scratch_stride);
+											  buf_w, buf_h, scratch_stride);
 	if (!src) return false;
 
-	int32_t visible_w = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_h : sl->cap_w;
-	int32_t visible_h = grabit_wl_transform_swaps(sl->out->transform) ? sl->cap_w : sl->cap_h;
+	int32_t visible_w = sl->cap_w;
+	int32_t visible_h = sl->cap_h;
 	bool needs_scale = visible_w != sl->dst_w || visible_h != sl->dst_h;
 	double sx = visible_w > 0 ? (double)sl->dst_w / (double)visible_w : 1.0;
 	double sy = visible_h > 0 ? (double)sl->dst_h / (double)visible_h : 1.0;
@@ -162,7 +165,7 @@ static bool draw_slice(struct grabit_wl_state *s, struct rec_layout *layout,
 	cairo_clip(cr);
 	cairo_translate(cr, sl->dst_x, sl->dst_y);
 	if (needs_scale) cairo_scale(cr, sx, sy);
-	grabit_wl_transform_apply_inverse(cr, sl->out->transform, sl->cap_w, sl->cap_h);
+	grabit_wl_transform_apply_inverse(cr, sl->out->transform, buf_w, buf_h);
 	cairo_set_source_surface(cr, src, 0, 0);
 	cairo_pattern_set_filter(cairo_get_source(cr),
 							 needs_scale ? CAIRO_FILTER_GOOD : CAIRO_FILTER_NEAREST);

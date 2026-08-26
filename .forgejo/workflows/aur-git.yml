@@ -39,12 +39,17 @@ jobs:
             User aur
             IdentityFile ~/.ssh/aur
             IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 30
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
           EOF
           chown -R builder:builder /home/builder/.ssh
           chmod 600 /home/builder/.ssh/aur /home/builder/.ssh/config /home/builder/.ssh/known_hosts
           su - builder -c 'git config --global user.name "creations"'
           su - builder -c 'git config --global user.email "creations@creations.works"'
-          su - builder -c 'ssh aur@aur.archlinux.org list-repos'
+          timeout 90 su - builder -c 'ssh aur@aur.archlinux.org list-repos' < /dev/null
 
       - name: publish grabit-git
         run: |

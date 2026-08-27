@@ -14,7 +14,7 @@ static const double RADII[GUI_R_COUNT][2] = {
 	[GUI_R_PANEL] = {0.0, 1.0},
 	[GUI_R_BTN] = {0.0, 0.625},
 	[GUI_R_TIP] = {0.0, 0.75},
-	[GUI_R_TOOLTIP] = {4.0, 0.75},
+	[GUI_R_TOOLTIP] = {0.0, 0.75},
 	[GUI_R_GLYPH] = {0.0, 0.1875},
 };
 

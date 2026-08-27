@@ -8,7 +8,6 @@
 
 #include "log.h"
 
-#include "notify/notify.h"
 #include "wl/wl.h"
 #include <math.h>
 
@@ -29,15 +28,15 @@ struct ec_state {
 	struct ext_image_copy_capture_frame_v1 *frame;
 	struct pixels_shm_buf buf;
 	struct pixels_pool *pool;
-	uint32_t transform;
 	int status;
 };
 
 static void frame_transform(void *data,
 							struct ext_image_copy_capture_frame_v1 *f,
 							uint32_t transform) {
+	(void)data;
 	(void)f;
-	((struct ec_state *)data)->transform = transform;
+	(void)transform;
 }
 
 static void frame_damage(void *data,
@@ -84,20 +83,6 @@ static const struct ext_image_copy_capture_frame_v1_listener frame_listener = {
 	.ready = frame_ready,
 	.failed = frame_failed,
 };
-
-static void warn_rotation_once(uint32_t transform) {
-	static bool warned;
-	if (transform == 0 || warned) return;
-	warned = true;
-	log_warn("ext-image-copy: compositor applied transform=%u; "
-			 "rotated outputs may render incorrectly",
-			 transform);
-	notify_send(&(struct notify_opts){
-		.summary = "grabit: rotated output",
-		.body = "the ext-image-copy backend doesn't yet apply output rotation; "
-				"the screenshot may be skewed",
-	});
-}
 
 static int alloc_buffer(struct ec_state *c) {
 	struct ec_session *es = c->sess;
@@ -147,7 +132,6 @@ static int do_capture(struct grabit_wl_state *s, struct grabit_output *o,
 
 	int rc = pixels_wl_wait(s->display, &out_state->status);
 	out_state->sess->frame_status = NULL;
-	if (rc == 0) warn_rotation_once(out_state->transform);
 	return rc;
 }
 
@@ -173,11 +157,14 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,
 							  bool overlay_cursor,
-							  void *dst, int32_t dst_stride, int32_t dst_h,
+							  void *dst, size_t dst_size, int32_t dst_stride,
+							  int32_t *out_w, int32_t *out_h,
 							  uint32_t *out_format,
 							  struct pixels_pool *cache) {
-	if (!s || !s->ext_copy_manager || !s->ext_source_manager || !o || !dst) return -1;
-	if (w <= 0 || h <= 0 || dst_stride <= 0 || dst_h <= 0) return -1;
+	if (!s || !s->ext_copy_manager || !s->ext_source_manager || !o || !dst ||
+		!out_w || !out_h)
+		return -1;
+	if (w <= 0 || h <= 0 || dst_size == 0 || dst_stride < 0) return -1;
 	if (o->dead || !o->wl_output) return -1;
 
 	struct ec_state c;
@@ -186,17 +173,22 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 		int32_t px, py, pw, ph;
 		grabit_output_region_pixels(o, x, y, &px, &py);
 		grabit_output_region_pixels(o, w, h, &pw, &ph);
+		grabit_wl_transform_map_rect(o->transform, c.sess->width, c.sess->height,
+									 &px, &py, &pw, &ph);
+		int32_t stride = dst_stride > 0 ? dst_stride : pw * 4;
 		if (px < 0 || py < 0 || pw > c.sess->width - px || ph > c.sess->height - py) {
 			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",
 					  px, py, pw, ph, c.sess->width, c.sess->height);
-		} else if (ph != dst_h || pw * 4 != dst_stride) {
-			log_error("ext-image-copy: size mismatch (got %dx%d, dst stride=%d h=%d)",
-					  pw, ph, dst_stride, dst_h);
+		} else if (pw * 4 > stride || (size_t)stride * (size_t)ph > dst_size) {
+			log_error("ext-image-copy: frame %dx%d does not fit dst (stride=%d size=%zu)",
+					  pw, ph, stride, dst_size);
 		} else {
 			const uint8_t *src = (const uint8_t *)c.buf.map +
 								 (size_t)py * (size_t)c.sess->stride + (size_t)px * 4;
-			pixels_copy(dst, dst_stride, src, c.sess->stride, pw, ph,
+			pixels_copy(dst, stride, src, c.sess->stride, pw, ph,
 						c.sess->fmt.conv, false);
+			*out_w = pw;
+			*out_h = ph;
 			if (out_format)
 				*out_format = pixels_resolved_format(c.sess->fmt.format, c.sess->fmt.conv);
 			rc = 0;

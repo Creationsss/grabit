@@ -104,25 +104,23 @@ int rec_layout_capture_direct_into(struct grabit_wl_state *s, const struct rec_l
 	const struct rec_slice *sl = &layout->slices[0];
 	if (sl->out->dead) return -1;
 	if (sl->cap_w != layout->dst_w || sl->cap_h != layout->dst_h) return -1;
-	return capture_output_region_into(s, sl->out,
-									  sl->src_x, sl->src_y, sl->src_w, sl->src_h,
-									  cursor, dst, dst_stride, dst_h, NULL,
-									  &layout->slice_caches[0]);
+	int32_t got_w, got_h;
+	if (capture_output_region_into(s, sl->out,
+								   sl->src_x, sl->src_y, sl->src_w, sl->src_h,
+								   cursor, dst, (size_t)dst_stride * (size_t)dst_h,
+								   dst_stride, &got_w, &got_h,
+								   NULL, &layout->slice_caches[0]) != 0 ||
+		got_w != layout->dst_w || got_h != layout->dst_h)
+		return -1;
+	return 0;
 }
 
-static int ensure_slice_scratch(struct rec_layout *layout, int32_t w, int32_t h) {
-	if (layout->slice_scratch_w >= w && layout->slice_scratch_h >= h) return 0;
-	int32_t new_w = layout->slice_scratch_w > w ? layout->slice_scratch_w : w;
-	int32_t new_h = layout->slice_scratch_h > h ? layout->slice_scratch_h : h;
-	size_t new_size = (size_t)new_w * 4 * (size_t)new_h;
-	if (new_size > layout->slice_scratch_size) {
-		void *p = realloc(layout->slice_scratch, new_size);
-		if (!p) return -1;
-		layout->slice_scratch = p;
-		layout->slice_scratch_size = new_size;
-	}
-	layout->slice_scratch_w = new_w;
-	layout->slice_scratch_h = new_h;
+static int ensure_slice_scratch(struct rec_layout *layout, size_t size) {
+	if (size <= layout->slice_scratch_size) return 0;
+	void *p = realloc(layout->slice_scratch, size);
+	if (!p) return -1;
+	layout->slice_scratch = p;
+	layout->slice_scratch_size = size;
 	return 0;
 }
 
@@ -139,33 +137,35 @@ static bool draw_slice(struct grabit_wl_state *s, struct rec_layout *layout,
 					   size_t i, bool cursor, cairo_t *cr) {
 	const struct rec_slice *sl = &layout->slices[i];
 	bool swaps = grabit_wl_transform_swaps(sl->out->transform);
-	int32_t buf_w = swaps ? sl->cap_h : sl->cap_w;
-	int32_t buf_h = swaps ? sl->cap_w : sl->cap_h;
-	if (ensure_slice_scratch(layout, buf_w, buf_h) != 0) return false;
-	int32_t scratch_stride = buf_w * 4;
+	int32_t phys_w = swaps ? sl->cap_h : sl->cap_w;
+	int32_t phys_h = swaps ? sl->cap_w : sl->cap_h;
+	size_t need = (size_t)sl->cap_w * (size_t)sl->cap_h * 4;
+	if (ensure_slice_scratch(layout, need) != 0) return false;
 	uint32_t fmt_raw;
+	int32_t buf_w, buf_h;
 	if (capture_output_region_into(s, sl->out, sl->src_x, sl->src_y, sl->src_w, sl->src_h,
-								   cursor, layout->slice_scratch, scratch_stride,
-								   buf_h, &fmt_raw, &layout->slice_caches[i]) != 0)
+								   cursor, layout->slice_scratch, need, 0,
+								   &buf_w, &buf_h, &fmt_raw,
+								   &layout->slice_caches[i]) != 0)
 		return false;
 
 	cairo_format_t fmt = grabit_cairo_format_for_shm(fmt_raw);
 	cairo_surface_t *src = grabit_cairo_image(layout->slice_scratch, fmt,
-											  buf_w, buf_h, scratch_stride);
+											  buf_w, buf_h, buf_w * 4);
 	if (!src) return false;
 
-	int32_t visible_w = sl->cap_w;
-	int32_t visible_h = sl->cap_h;
-	bool needs_scale = visible_w != sl->dst_w || visible_h != sl->dst_h;
-	double sx = visible_w > 0 ? (double)sl->dst_w / (double)visible_w : 1.0;
-	double sy = visible_h > 0 ? (double)sl->dst_h / (double)visible_h : 1.0;
+	int32_t transform = grabit_wl_residual_transform(sl->out->transform,
+													 phys_w, phys_h, buf_w, buf_h);
+	bool needs_scale = sl->cap_w != sl->dst_w || sl->cap_h != sl->dst_h;
+	double sx = sl->cap_w > 0 ? (double)sl->dst_w / (double)sl->cap_w : 1.0;
+	double sy = sl->cap_h > 0 ? (double)sl->dst_h / (double)sl->cap_h : 1.0;
 
 	cairo_save(cr);
 	cairo_rectangle(cr, sl->dst_x, sl->dst_y, sl->dst_w, sl->dst_h);
 	cairo_clip(cr);
 	cairo_translate(cr, sl->dst_x, sl->dst_y);
 	if (needs_scale) cairo_scale(cr, sx, sy);
-	grabit_wl_transform_apply_inverse(cr, sl->out->transform, buf_w, buf_h);
+	grabit_wl_transform_apply_inverse(cr, transform, buf_w, buf_h);
 	cairo_set_source_surface(cr, src, 0, 0);
 	cairo_pattern_set_filter(cairo_get_source(cr),
 							 needs_scale ? CAIRO_FILTER_GOOD : CAIRO_FILTER_NEAREST);

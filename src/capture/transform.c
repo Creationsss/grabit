@@ -5,6 +5,7 @@
 
 #include "cairo_util.h"
 #include "log.h"
+#include "wl/wl.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -66,8 +67,63 @@ void grabit_wl_transform_apply_inverse(cairo_t *cr, int32_t transform,
 	}
 }
 
-int image_apply_transform(struct image *img, int32_t transform) {
-	if (!img || !img->bytes) return -1;
+int32_t grabit_wl_residual_transform(int32_t transform, int32_t phys_w, int32_t phys_h,
+									 int32_t buf_w, int32_t buf_h) {
+	if (phys_w <= 0 || phys_h <= 0) return WL_OUTPUT_TRANSFORM_NORMAL;
+	return (buf_w == phys_w && buf_h == phys_h) ? transform : WL_OUTPUT_TRANSFORM_NORMAL;
+}
+
+void grabit_wl_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
+								  int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
+	int32_t lx = *x, ly = *y, lw = *w, lh = *h;
+	switch (transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		*x = ly;
+		*y = frame_h - lx - lw;
+		*w = lh;
+		*h = lw;
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		*x = frame_w - lx - lw;
+		*y = frame_h - ly - lh;
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		*x = frame_w - ly - lh;
+		*y = lx;
+		*w = lh;
+		*h = lw;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		*x = frame_w - lx - lw;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		*x = ly;
+		*y = lx;
+		*w = lh;
+		*h = lw;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		*y = frame_h - ly - lh;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		*x = frame_w - ly - lh;
+		*y = frame_h - lx - lw;
+		*w = lh;
+		*h = lw;
+		break;
+	}
+}
+
+int image_apply_output_transform(struct image *img,
+								 const struct grabit_output *output) {
+	if (!img || !img->bytes || !output) return -1;
+
+	int32_t transform = grabit_wl_residual_transform(output->transform,
+													 output->width, output->height,
+													 img->width, img->height);
+
 	if (transform == WL_OUTPUT_TRANSFORM_NORMAL) return 0;
 
 	int32_t new_w = grabit_wl_transform_swaps(transform) ? img->height : img->width;

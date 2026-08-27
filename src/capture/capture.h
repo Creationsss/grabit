@@ -22,12 +22,17 @@ struct image {
 
 void image_free(struct image *img);
 
-int image_apply_transform(struct image *img, int32_t transform);
+int image_apply_output_transform(struct image *img,
+								 const struct grabit_output *output);
 
 struct _cairo;
 bool grabit_wl_transform_swaps(int32_t transform);
 void grabit_wl_transform_apply_inverse(struct _cairo *cr, int32_t transform,
 									   int32_t src_w, int32_t src_h);
+int32_t grabit_wl_residual_transform(int32_t transform, int32_t phys_w, int32_t phys_h,
+									 int32_t buf_w, int32_t buf_h);
+void grabit_wl_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
+								  int32_t *x, int32_t *y, int32_t *w, int32_t *h);
 
 int grabit_cairo_format_for_shm(uint32_t shm_fmt);
 
@@ -47,7 +52,8 @@ struct pixels_pool;
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,
 							   int32_t x, int32_t y, int32_t w, int32_t h,
 							   bool overlay_cursor,
-							   void *dst, int32_t dst_stride, int32_t dst_h,
+							   void *dst, size_t dst_size, int32_t dst_stride,
+							   int32_t *out_w, int32_t *out_h,
 							   uint32_t *out_format,
 							   struct pixels_pool *cache);
 

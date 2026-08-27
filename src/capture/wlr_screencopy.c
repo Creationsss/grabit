@@ -207,11 +207,12 @@ int grabit_wlr_capture_many(struct grabit_wl_state *s, struct grabit_output *con
 int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,
 							  bool overlay_cursor,
-							  void *dst, int32_t dst_stride, int32_t dst_h,
+							  void *dst, size_t dst_size, int32_t dst_stride,
+							  int32_t *out_w, int32_t *out_h,
 							  uint32_t *out_format,
 							  struct pixels_pool *cache) {
-	if (!s || !s->screencopy_manager || !o || !dst) return -1;
-	if (w <= 0 || h <= 0 || dst_stride <= 0 || dst_h <= 0) return -1;
+	if (!s || !s->screencopy_manager || !o || !dst || !out_w || !out_h) return -1;
+	if (w <= 0 || h <= 0 || dst_size == 0 || dst_stride < 0) return -1;
 	if (o->dead || !o->wl_output) return -1;
 
 	struct sc_state c = {.wls = s, .pool = cache};
@@ -225,12 +226,15 @@ int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 
 	int rc = -1;
 	if (pixels_wl_wait(s->display, &c.status) == 0 && c.buf.map) {
-		if (c.height != dst_h || c.width * 4 != dst_stride) {
-			log_error("capture: size mismatch (got %dx%d, dst stride=%d h=%d)",
-					  c.width, c.height, dst_stride, dst_h);
+		int32_t stride = dst_stride > 0 ? dst_stride : c.width * 4;
+		if (c.width * 4 > stride || (size_t)stride * (size_t)c.height > dst_size) {
+			log_error("capture: frame %dx%d does not fit dst (stride=%d size=%zu)",
+					  c.width, c.height, stride, dst_size);
 		} else {
-			pixels_copy(dst, dst_stride, c.buf.map, c.stride,
+			pixels_copy(dst, stride, c.buf.map, c.stride,
 						c.width, c.height, c.fmt.conv, c.y_invert);
+			*out_w = c.width;
+			*out_h = c.height;
 			if (out_format)
 				*out_format = pixels_resolved_format(c.fmt.format, c.fmt.conv);
 			rc = 0;

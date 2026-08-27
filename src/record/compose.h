@@ -31,8 +31,6 @@ struct rec_layout {
 
 	void *slice_scratch;
 	size_t slice_scratch_size;
-	int32_t slice_scratch_w;
-	int32_t slice_scratch_h;
 
 	struct pixels_pool *slice_caches;
 };

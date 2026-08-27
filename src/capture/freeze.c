@@ -69,7 +69,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 
 	for (size_t k = 0; k < n_want; k++) {
 		size_t i = want_idx[k];
-		if (image_apply_transform(&frozen[i], s->outputs[i]->transform) != 0) {
+		if (image_apply_output_transform(&frozen[i], s->outputs[i]) != 0) {
 			log_error("freeze: transform of %s failed; aborting capture",
 					  s->outputs[i]->name ? s->outputs[i]->name : "?");
 			free(want_idx);

@@ -21,7 +21,8 @@ int grabit_wlr_capture_many(struct grabit_wl_state *s, struct grabit_output *con
 int grabit_wlr_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,
 							  bool overlay_cursor,
-							  void *dst, int32_t dst_stride, int32_t dst_h,
+							  void *dst, size_t dst_size, int32_t dst_stride,
+							  int32_t *out_w, int32_t *out_h,
 							  uint32_t *out_format,
 							  struct pixels_pool *cache);
 
@@ -31,7 +32,8 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o,
 							  int32_t x, int32_t y, int32_t w, int32_t h,
 							  bool overlay_cursor,
-							  void *dst, int32_t dst_stride, int32_t dst_h,
+							  void *dst, size_t dst_size, int32_t dst_stride,
+							  int32_t *out_w, int32_t *out_h,
 							  uint32_t *out_format,
 							  struct pixels_pool *cache);
 

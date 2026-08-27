@@ -61,7 +61,7 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 			memset(&frozen[i], 0, sizeof frozen[i]);
 			continue;
 		}
-		if (image_apply_transform(&frozen[i], s->outputs[i]->transform) != 0) {
+		if (image_apply_output_transform(&frozen[i], s->outputs[i]) != 0) {
 			log_warn("freeze transform of %s failed; output may look skewed",
 					 s->outputs[i]->name ? s->outputs[i]->name : "?");
 		}

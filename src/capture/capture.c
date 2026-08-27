@@ -119,17 +119,20 @@ int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const 
 int capture_output_region_into(struct grabit_wl_state *s, struct grabit_output *o,
 							   int32_t x, int32_t y, int32_t w, int32_t h,
 							   bool overlay_cursor,
-							   void *dst, int32_t dst_stride, int32_t dst_h,
+							   void *dst, size_t dst_size, int32_t dst_stride,
+							   int32_t *out_w, int32_t *out_h,
 							   uint32_t *out_format,
 							   struct pixels_pool *cache) {
 	if (!s) return -1;
 	switch (resolve_backend(s)) {
 	case CAP_WLR:
 		return grabit_wlr_capture_region(s, o, x, y, w, h, overlay_cursor,
-										 dst, dst_stride, dst_h, out_format, cache);
+										 dst, dst_size, dst_stride, out_w, out_h,
+										 out_format, cache);
 	case CAP_EXT:
 		return grabit_ext_capture_region(s, o, x, y, w, h, overlay_cursor,
-										 dst, dst_stride, dst_h, out_format, cache);
+										 dst, dst_size, dst_stride, out_w, out_h,
+										 out_format, cache);
 	default:
 		return -1;
 	}

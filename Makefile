@@ -102,6 +102,7 @@ GRABIT_SRCS := \
 	src/app/actions.c \
 	src/app/ocr.c \
 	src/app/dispatch.c \
+	src/capture/edit_file.c \
 	src/args.c \
 	src/log.c \
 	src/paths.c \

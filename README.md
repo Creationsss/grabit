@@ -53,6 +53,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
 - **`-L`/`--last`** reuses the last region instead of selecting one, screenshots and `--record` alike
 - **`--delay <secs>`** waits before capturing, so menus and tooltips stay open
 - annotator (`-e`): pen, marker, line, rect, rounded rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser
+- **`-e -f <file>`** annotates an existing png, jpeg, or webp instead of capturing
 - color picker with hex input and an eyedropper that samples the freeze
 - **`--record`** region recording with overlay and tray icon; mp4, webm, or gif ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
 - **`--pin`** pins captures to the desktop: click-through, stackable, draggable

@@ -95,6 +95,7 @@ int grabit_buf_puts(struct grabit_buf *b, const char *s);
 int grabit_buf_putc(struct grabit_buf *b, char c);
 void grabit_buf_free(struct grabit_buf *b);
 
+bool grabit_same_file(const char *a, const char *b);
 int grabit_read_file(const char *path, size_t max_bytes, char **out, size_t *out_len);
 
 int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes,

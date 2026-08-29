@@ -39,6 +39,8 @@
 #include "wm/wm.h"
 
 #include "app/app.h"
+#include "cairo_util.h"
+#include "capture/edit_file.h"
 
 static char g_tmpfile_path[4096] = {0};
 static char *g_preview_png;
@@ -129,22 +131,6 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 	return 0;
 }
 
-static cairo_surface_t *promote_argb32(cairo_surface_t *src) {
-	cairo_surface_t *out = cairo_image_surface_create(
-		CAIRO_FORMAT_ARGB32, cairo_image_surface_get_width(src),
-		cairo_image_surface_get_height(src));
-	if (cairo_surface_status(out) != CAIRO_STATUS_SUCCESS) {
-		cairo_surface_destroy(out);
-		return NULL;
-	}
-	cairo_t *cr = cairo_create(out);
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_surface(cr, src, 0, 0);
-	cairo_paint(cr);
-	cairo_destroy(cr);
-	return out;
-}
-
 static int capture_wm_window(struct config *cfg, bool cursor,
 							 const struct grabit_save_opts *opts, const char *path) {
 	if (opts->format == GRABIT_FMT_PNG && !opts->preview_path &&
@@ -170,7 +156,7 @@ static int capture_wm_window(struct config *cfg, bool cursor,
 			}
 			if (scaled.corner_radius > 0 &&
 				cairo_image_surface_get_format(img) != CAIRO_FORMAT_ARGB32) {
-				cairo_surface_t *up = promote_argb32(img);
+				cairo_surface_t *up = grabit_cairo_promote_argb32(img);
 				if (up) {
 					cairo_surface_destroy(img);
 					img = up;
@@ -193,6 +179,13 @@ static char *discard_capture(char *path, const char *summary) {
 	if (summary)
 		notify_send(&(struct notify_opts){.summary = summary, .force = true});
 	return NULL;
+}
+
+static void load_edit_choices(struct config *cfg, uint32_t *color, int32_t *width,
+							  int32_t *tool) {
+	*color = edit_color_from_str(config_get(cfg, "edit.color"));
+	*width = edit_width_from_str(config_get(cfg, "edit.width"));
+	*tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
 }
 
 static char *build_capture_path(const struct args *a, struct config *cfg,
@@ -297,9 +290,9 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	if (plan == REGION_PLAN_MONITOR_PICK)
 		grabit_wl_monitor_rects(&s, &mon_rects, &n_mon);
 
-	uint32_t edit_color = edit_color_from_str(config_get(cfg, "edit.color"));
-	int32_t edit_width = edit_width_from_str(config_get(cfg, "edit.width"));
-	int32_t edit_tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
+	uint32_t edit_color;
+	int32_t edit_width, edit_tool;
+	load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
 	bool edit_dirty = false;
 
 	struct rect got = {0};
@@ -329,9 +322,37 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 char *gapp_acquire_source(const struct args *a, struct config *cfg,
 						  enum action eff, bool *is_temp,
 						  struct rect *out_rect) {
+	*is_temp = false;
 	if (a->file) {
-		char *path = strdup(a->file);
-		if (!path) log_error("out of memory");
+		if (!a->edit) {
+			char *path = strdup(a->file);
+			if (!path) log_error("out of memory");
+			return path;
+		}
+		struct grabit_save_opts opts;
+		if (gapp_resolve_save_opts(a, cfg, &opts) != 0) return NULL;
+		char *path = build_capture_path(a, cfg, eff, is_temp, &opts);
+		if (!path) return NULL;
+		if (*is_temp) register_tmpfile(path);
+
+		uint32_t edit_color;
+		int32_t edit_width, edit_tool;
+		load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
+		bool edit_dirty = false;
+		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, &edit_color,
+									  &edit_width, &edit_tool, &edit_dirty, out_rect);
+		struct edit_choices ec = {edit_color, edit_width, edit_tool};
+		persist_capture_state(cfg, edit_dirty ? &ec : NULL, NULL);
+		if (rc != 0) {
+			if (grabit_same_file(path, a->file)) {
+				gapp_clear_tmpfile();
+				free(path);
+				return NULL;
+			}
+			return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
+											 ? NULL
+											 : "grabit: edit failed");
+		}
 		return path;
 	}
 	return gapp_capture_to_file(a, cfg, eff, is_temp, out_rect);

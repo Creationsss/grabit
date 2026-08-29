@@ -134,12 +134,12 @@ int gapp_run_copy(struct config *cfg, const struct args *a) {
 }
 
 int gapp_run_output(struct config *cfg, const struct args *a) {
-	if (a->file) {
+	if (a->file && !a->edit) {
 		puts(a->file);
 		return 0;
 	}
 	bool is_temp = false;
-	char *path = gapp_capture_to_file(a, cfg, ACTION_OUTPUT, &is_temp, NULL);
+	char *path = gapp_acquire_source(a, cfg, ACTION_OUTPUT, &is_temp, NULL);
 	if (!path) return 1;
 
 	puts(path);

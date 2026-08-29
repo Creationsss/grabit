@@ -11,7 +11,9 @@
 #include "region/region.h"
 #include "util/util.h"
 
+#include <errno.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 const char *grabit_format_extension(enum grabit_image_format f) {
@@ -24,6 +26,28 @@ const char *grabit_format_extension(enum grabit_image_format f) {
 	default:
 		return ".png";
 	}
+}
+
+cairo_surface_t *grabit_load_image_surface(const char *path, const char *tag) {
+	if (!path || !tag) return NULL;
+	unsigned char sig[12] = {0};
+	FILE *f = fopen(path, "rb");
+	if (!f) {
+		log_error("%s: open %s: %s", tag, path, strerror(errno));
+		return NULL;
+	}
+	size_t n = fread(sig, 1, sizeof sig, f);
+	fclose(f);
+
+	if (n >= 8 && memcmp(sig, "\x89PNG\r\n\x1a\n", 8) == 0)
+		return grabit_load_png_surface(path, tag);
+	if (n >= 3 && sig[0] == 0xff && sig[1] == 0xd8 && sig[2] == 0xff)
+		return grabit_load_jpeg_surface(path, tag);
+	if (n >= 12 && memcmp(sig, "RIFF", 4) == 0 && memcmp(sig + 8, "WEBP", 4) == 0)
+		return grabit_load_webp_surface(path, tag);
+
+	log_error("%s: %s is not a png, jpeg, or webp", tag, path);
+	return NULL;
 }
 
 int grabit_format_from_name(const char *name, enum grabit_image_format *out) {

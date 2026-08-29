@@ -54,6 +54,9 @@ int grabit_surface_pixels(cairo_surface_t *surface, const char *tag,
 						  int *w, int *h, int *stride, const unsigned char **data);
 int grabit_save_png_surface(cairo_surface_t *surface, const char *path, int level);
 cairo_surface_t *grabit_load_png_surface(const char *path, const char *tag);
+cairo_surface_t *grabit_load_jpeg_surface(const char *path, const char *tag);
+cairo_surface_t *grabit_load_webp_surface(const char *path, const char *tag);
+cairo_surface_t *grabit_load_image_surface(const char *path, const char *tag);
 int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int quality);
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 							 int quality, bool lossless);

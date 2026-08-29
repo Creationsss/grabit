@@ -189,6 +189,7 @@ int gapp_print_help_examples(void) {
 		"  grabit -u                     upload using the `service` config key\n"
 		"  grabit -o > shot.txt          save and print the path\n"
 		"  grabit -e -u                  annotate, then upload\n"
+		"  grabit -o -e -f shot.png      annotate an existing image\n"
 		"  grabit -F -o                  capture a whole monitor\n"
 		"  grabit --record               start recording (run again to stop)\n"
 		"  grabit -f shot.png --zipline  upload an existing file\n",

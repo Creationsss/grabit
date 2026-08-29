@@ -3,6 +3,7 @@
 
 #include "capture/save.h"
 #include "log.h"
+#include "util/util.h"
 
 #ifdef HAVE_WEBP
 
@@ -12,7 +13,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <webp/decode.h>
 #include <webp/encode.h>
+
+#define WEBP_MAX_FILE_BYTES (256 * 1024 * 1024)
 
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 							 int quality, bool lossless) {
@@ -89,7 +93,60 @@ int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 	return 0;
 }
 
+cairo_surface_t *grabit_load_webp_surface(const char *path, const char *tag) {
+	char *data = NULL;
+	size_t len = 0;
+	if (grabit_read_file(path, WEBP_MAX_FILE_BYTES, &data, &len) != 0 || len == 0) {
+		log_error("%s: read %s: %s", tag, path, strerror(errno));
+		free(data);
+		return NULL;
+	}
+
+	int w = 0, h = 0;
+	uint8_t *rgba = WebPDecodeRGBA((const uint8_t *)data, len, &w, &h);
+	free(data);
+	if (!rgba) {
+		log_error("%s: %s is not a webp", tag, path);
+		return NULL;
+	}
+
+	cairo_surface_t *surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+	if (cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS) {
+		log_error("%s: surface %dx%d: %s", tag, w, h,
+				  cairo_status_to_string(cairo_surface_status(surf)));
+		cairo_surface_destroy(surf);
+		WebPFree(rgba);
+		return NULL;
+	}
+
+	unsigned char *base = cairo_image_surface_get_data(surf);
+	int stride = cairo_image_surface_get_stride(surf);
+	for (int y = 0; y < h; y++) {
+		uint32_t *out = (uint32_t *)(base + (size_t)y * (size_t)stride);
+		const uint8_t *in = rgba + (size_t)y * (size_t)w * 4;
+		for (int x = 0; x < w; x++) {
+			unsigned r = in[x * 4 + 0], g = in[x * 4 + 1];
+			unsigned b = in[x * 4 + 2], a = in[x * 4 + 3];
+			r = (r * a + 127) / 255;
+			g = (g * a + 127) / 255;
+			b = (b * a + 127) / 255;
+			out[x] = ((uint32_t)a << 24) | ((uint32_t)r << 16) |
+					 ((uint32_t)g << 8) | (uint32_t)b;
+		}
+	}
+	WebPFree(rgba);
+	cairo_surface_mark_dirty(surf);
+	return surf;
+}
+
 #else
+
+cairo_surface_t *grabit_load_webp_surface(const char *path, const char *tag) {
+	(void)path;
+	(void)tag;
+	log_error("webp: not compiled in (rebuild with libwebp headers)");
+	return NULL;
+}
 
 int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 							 int quality, bool lossless) {

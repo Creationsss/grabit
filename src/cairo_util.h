@@ -51,6 +51,8 @@ static inline double grabit_cairo_clamp_r(double w, double h, double r) {
 	return r > max ? max : r;
 }
 
+cairo_surface_t *grabit_cairo_promote_argb32(cairo_surface_t *src);
+
 void grabit_cairo_rect_r(cairo_t *cr, double x, double y, double w, double h, double r);
 void grabit_cairo_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 						double width, double min_head);

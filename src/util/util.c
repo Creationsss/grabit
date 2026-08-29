@@ -45,6 +45,13 @@ const char *grabit_basename(const char *path) {
 	return slash ? slash + 1 : path;
 }
 
+bool grabit_same_file(const char *a, const char *b) {
+	if (!a || !b) return false;
+	struct stat sa, sb;
+	if (stat(a, &sa) != 0 || stat(b, &sb) != 0) return false;
+	return sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
+}
+
 int grabit_read_file(const char *path, size_t max_bytes, char **out, size_t *out_len) {
 	if (!path || !out || !out_len) return -1;
 	*out = NULL;

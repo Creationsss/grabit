@@ -11,6 +11,22 @@ struct arrow_head {
 	double len, w;
 };
 
+cairo_surface_t *grabit_cairo_promote_argb32(cairo_surface_t *src) {
+	cairo_surface_t *out = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, cairo_image_surface_get_width(src),
+		cairo_image_surface_get_height(src));
+	if (cairo_surface_status(out) != CAIRO_STATUS_SUCCESS) {
+		cairo_surface_destroy(out);
+		return NULL;
+	}
+	cairo_t *cr = cairo_create(out);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(cr, src, 0, 0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+	return out;
+}
+
 void grabit_cairo_rect_r(cairo_t *cr, double x, double y, double w, double h, double r) {
 	if (r <= 0.0 || w <= 0.0 || h <= 0.0) {
 		cairo_rectangle(cr, x, y, w, h);

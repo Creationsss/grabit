@@ -17,10 +17,28 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: check for new commits
+        id: check
+        run: |
+          pacman -Sy --noconfirm --needed git curl >/dev/null
+          head=$(git ls-remote https://heliopolis.live/creations/grabit.git refs/heads/main | cut -f1)
+          aur=$(curl -fsS "https://aur.archlinux.org/rpc/v5/info?arg[]=grabit-git" |
+                grep -o '"Version":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "main $head"
+          echo "aur  $aur"
+          short=${aur##*.g}
+          short=${short%%-*}
+          if [ -n "$short" ] && [ "$short" != "$aur" ] && [ "${head#$short}" != "$head" ]; then
+            echo "aur is already at $short, nothing to publish"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: install deps
+        if: steps.check.outputs.skip != '1'
         run: pacman -Syu --noconfirm --needed git pacman-contrib openssh
 
       - name: configure ssh
+        if: steps.check.outputs.skip != '1'
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
@@ -39,6 +57,7 @@ jobs:
             User aur
             IdentityFile ~/.ssh/aur
             IdentitiesOnly yes
+            AddressFamily inet
             BatchMode yes
             StrictHostKeyChecking yes
             ConnectTimeout 30
@@ -49,14 +68,31 @@ jobs:
           chmod 600 /home/builder/.ssh/aur /home/builder/.ssh/config /home/builder/.ssh/known_hosts
           su - builder -c 'git config --global user.name "creations"'
           su - builder -c 'git config --global user.email "creations@creations.works"'
-          timeout 90 su - builder -c 'ssh aur@aur.archlinux.org list-repos' < /dev/null
+          ok=
+          for i in 1 2 3 4 5; do
+            if timeout 60 su - builder -c 'ssh aur@aur.archlinux.org list-repos' < /dev/null; then
+              ok=1
+              break
+            fi
+            echo "aur ssh attempt $i failed" >&2
+            if [ "$i" -lt 5 ]; then sleep $((i * 20)); fi
+          done
+          if [ -z "$ok" ]; then
+            echo "cannot reach aur.archlinux.org:22 after 5 attempts" >&2
+            exit 1
+          fi
 
       - name: publish grabit-git
+        if: steps.check.outputs.skip != '1'
         run: |
           su - builder -c '
             set -euo pipefail
             rm -rf ~/grabit-git
-            git clone --quiet ssh://aur@aur.archlinux.org/grabit-git.git ~/grabit-git
+            for i in 1 2 3; do
+              git clone --quiet ssh://aur@aur.archlinux.org/grabit-git.git ~/grabit-git && break
+              if [ "$i" = 3 ]; then exit 1; fi
+              sleep $((i * 20))
+            done
             cd ~/grabit-git
             test -w PKGBUILD
             makepkg -od --noprepare --skipinteg
@@ -68,6 +104,10 @@ jobs:
             else
               git add PKGBUILD .SRCINFO
               git commit -q -m "$(grep -E "^pkgver=" PKGBUILD | cut -d= -f2)"
-              git push origin HEAD:master
+              for i in 1 2 3; do
+                git push origin HEAD:master && break
+                if [ "$i" = 3 ]; then exit 1; fi
+                sleep $((i * 20))
+              done
             fi
           '

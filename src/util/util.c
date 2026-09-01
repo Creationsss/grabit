@@ -45,6 +45,27 @@ const char *grabit_basename(const char *path) {
 	return slash ? slash + 1 : path;
 }
 
+int grabit_read_random(unsigned char *out, size_t n) {
+	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+	if (fd < 0) return -1;
+	size_t off = 0;
+	while (off < n) {
+		ssize_t r = read(fd, out + off, n - off);
+		if (r < 0) {
+			if (errno == EINTR) continue;
+			close(fd);
+			return -1;
+		}
+		if (r == 0) {
+			close(fd);
+			return -1;
+		}
+		off += (size_t)r;
+	}
+	close(fd);
+	return 0;
+}
+
 bool grabit_same_file(const char *a, const char *b) {
 	if (!a || !b) return false;
 	struct stat sa, sb;

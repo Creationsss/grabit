@@ -17,27 +17,6 @@
 #include <time.h>
 #include <unistd.h>
 
-static int read_random(unsigned char *out, size_t n) {
-	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-	if (fd < 0) return -1;
-	size_t off = 0;
-	while (off < n) {
-		ssize_t r = read(fd, out + off, n - off);
-		if (r < 0) {
-			if (errno == EINTR) continue;
-			close(fd);
-			return -1;
-		}
-		if (r == 0) {
-			close(fd);
-			return -1;
-		}
-		off += (size_t)r;
-	}
-	close(fd);
-	return 0;
-}
-
 static const char ALNUM[] =
 	"abcdefghijklmnopqrstuvwxyz"
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -47,7 +26,7 @@ static int put_random_alnum(struct grabit_buf *b, unsigned len) {
 	if (len == 0) return 0;
 	unsigned char raw[256];
 	if (len > sizeof raw) len = sizeof raw;
-	if (read_random(raw, len) != 0) {
+	if (grabit_read_random(raw, len) != 0) {
 		log_error("read /dev/urandom for %%r token failed");
 		return -1;
 	}
@@ -59,7 +38,7 @@ static int put_random_alnum(struct grabit_buf *b, unsigned len) {
 
 static int put_uuid_v4(struct grabit_buf *b) {
 	unsigned char r[16];
-	if (read_random(r, sizeof r) != 0) {
+	if (grabit_read_random(r, sizeof r) != 0) {
 		log_error("read /dev/urandom for %%u token failed");
 		return -1;
 	}

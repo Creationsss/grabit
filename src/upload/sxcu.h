@@ -42,6 +42,7 @@ struct sxcu_uploader {
 	char *data;
 	char *url_expr;
 	char *del_expr;
+	char *thumb_expr;
 	char *err_expr;
 	struct sxcu_kv *params;
 	size_t n_params;
@@ -78,6 +79,8 @@ char *sxcu_expand_response(const char *tmpl, const char *body,
 
 char *gsxcu_base64_encode(const char *src);
 char *gsxcu_first_pipe_part(const char *arg);
+char *gsxcu_random_pipe_part(const char *arg);
+void gsxcu_warn_pcre_only(const char *expr);
 bool gsxcu_all_digits(const char *s);
 const char *gsxcu_find_close(const char *s, char close, char open);
 

@@ -72,6 +72,10 @@ static char *do_regex(const char *arg, struct ctx *c) {
 	if (!arg || !c->body) return NULL;
 	const char *bar = strrchr(arg, '|');
 	if (bar && !gsxcu_all_digits(bar + 1)) bar = NULL;
+	if (!bar) {
+		const char *comma = strrchr(arg, ',');
+		if (comma && gsxcu_all_digits(comma + 1)) bar = comma;
+	}
 	int group = 0;
 	const char *pattern = arg;
 	char *pattern_alloc = NULL;
@@ -119,8 +123,8 @@ static char *expand_token(const char *name, const char *arg, struct ctx *c) {
 		return strdup(c->file_path ? grabit_basename(c->file_path) : "");
 	if (strcmp(name, "input") == 0) return strdup("");
 	if (strcmp(name, "base64") == 0) return gsxcu_base64_encode(arg ? arg : "");
-	if ((strcmp(name, "random") == 0 || strcmp(name, "select") == 0) && arg)
-		return gsxcu_first_pipe_part(arg);
+	if (strcmp(name, "random") == 0 && arg) return gsxcu_random_pipe_part(arg);
+	if (strcmp(name, "select") == 0 && arg) return gsxcu_first_pipe_part(arg);
 	if (strcmp(name, "prompt") == 0 || strcmp(name, "inputbox") == 0) {
 		const char *bar = arg ? strchr(arg, '|') : NULL;
 		return strdup(bar ? bar + 1 : "");

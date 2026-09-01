@@ -39,6 +39,7 @@ void sxcu_free(struct sxcu_uploader *u) {
 	free(u->data);
 	free(u->url_expr);
 	free(u->del_expr);
+	free(u->thumb_expr);
 	free(u->err_expr);
 	sxcu_kv_free(u->params, u->n_params);
 	sxcu_kv_free(u->headers, u->n_headers);
@@ -197,7 +198,11 @@ static int parse_with_source(const char *json, const char *src,
 	out->data = grabit_json_get_string(root, "Data");
 	out->url_expr = grabit_json_get_string(root, "URL");
 	out->del_expr = grabit_json_get_string(root, "DeletionURL");
+	out->thumb_expr = grabit_json_get_string(root, "ThumbnailURL");
 	out->err_expr = grabit_json_get_string(root, "ErrorMessage");
+	gsxcu_warn_pcre_only(out->url_expr);
+	gsxcu_warn_pcre_only(out->del_expr);
+	gsxcu_warn_pcre_only(out->thumb_expr);
 
 	if (populate_kv(root, "Parameters", &out->params, &out->n_params) != 0) goto fail;
 	if (populate_kv(root, "Headers", &out->headers, &out->n_headers) != 0) goto fail;

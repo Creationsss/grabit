@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "upload/sxcu_request.h"
 
+#include "mime.h"
 #include "upload/sxcu.h"
 #include "upload/upload.h"
 #include "util/util.h"
@@ -91,6 +92,11 @@ curl_mime *sxcu_build_multipart(CURL *c, const struct sxcu_uploader *u, const ch
 		curl_mimepart *part = curl_mime_addpart(mime);
 		curl_mime_name(part, u->file_form_name);
 		curl_mime_filedata(part, file_path);
+		char *ct = mime_for_file(file_path);
+		if (ct) {
+			curl_mime_type(part, ct);
+			free(ct);
+		}
 	}
 	return mime;
 }

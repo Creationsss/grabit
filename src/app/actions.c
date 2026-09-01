@@ -81,6 +81,8 @@ int gapp_run_upload(struct config *cfg, const struct args *a) {
 			gapp_maybe_show_preview(cfg, path, "Uploaded", r.url);
 		}
 		free(m);
+		if (r.thumb_url && *r.thumb_url) log_info("thumbnail: %s", r.thumb_url);
+		if (r.del_url && *r.del_url) log_info("deletion: %s", r.del_url);
 		puts(r.url);
 		fflush(stdout);
 	} else {

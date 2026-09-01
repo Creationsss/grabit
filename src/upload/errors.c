@@ -107,8 +107,10 @@ void upload_friendly_error(const struct upload_result *r, char *out, size_t cap)
 void upload_result_free(struct upload_result *r) {
 	if (!r) return;
 	free(r->url);
+	free(r->del_url);
+	free(r->thumb_url);
 	free(r->body);
-	r->url = r->body = NULL;
+	r->url = r->del_url = r->thumb_url = r->body = NULL;
 	r->http_code = 0;
 	r->curl_code = 0;
 }

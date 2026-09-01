@@ -21,6 +21,8 @@ struct upload_result {
 	long http_code;
 	int curl_code; // CURLcode; 0 if curl succeeded
 	char *url;
+	char *del_url;
+	char *thumb_url;
 	char *body;
 };
 

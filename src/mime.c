@@ -33,6 +33,10 @@ char *mime_for_file(const char *path) {
 	}
 
 	const char *raw = magic_file(m, path);
+	if (raw && !strchr(raw, '/')) {
+		log_debug("magic_file(%s): not a mime type: %s", path, raw);
+		raw = NULL;
+	}
 	char *out;
 	if (!raw) {
 		log_debug("magic_file(%s): %s", path, magic_error(m));

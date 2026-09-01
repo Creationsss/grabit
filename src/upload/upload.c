@@ -36,7 +36,8 @@ void upload_curl_common(CURL *curl) {
 	curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 8L);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 120L);
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, "grabit/" GRABIT_VERSION);
 #if LIBCURL_VERSION_NUM >= 0x075500
 	curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");

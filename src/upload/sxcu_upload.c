@@ -241,6 +241,14 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 			log_error("sxcu: server returned no usable url");
 		} else {
 			result->url = out_url;
+			if (u->del_expr)
+				result->del_url = trim_right(sxcu_expand_response(
+					u->del_expr, body_data, w.headers, w.n_headers, eff_url,
+					u->regex_list, u->n_regex_list));
+			if (u->thumb_expr)
+				result->thumb_url = trim_right(sxcu_expand_response(
+					u->thumb_expr, body_data, w.headers, w.n_headers, eff_url,
+					u->regex_list, u->n_regex_list));
 			ret = 0;
 		}
 	} else {

@@ -2,7 +2,9 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "log.h"
 #include "upload/sxcu.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -37,6 +39,36 @@ char *gsxcu_base64_encode(const char *src) {
 	}
 	out[o] = '\0';
 	return out;
+}
+
+void gsxcu_warn_pcre_only(const char *expr) {
+	static const char *const PCRE[] = {"(?<", "(?=", "(?!", "\\d", "\\w",
+									   "\\s", "\\b", "+?", "*?"};
+	if (!expr) return;
+	for (size_t i = 0; i < sizeof PCRE / sizeof PCRE[0]; i++) {
+		if (!strstr(expr, PCRE[i])) continue;
+		log_warn("sxcu: `%s` is PCRE-only; grabit matches with POSIX ERE, so "
+				 "this will not behave as it does in ShareX: %s",
+				 PCRE[i], expr);
+		return;
+	}
+}
+
+char *gsxcu_random_pipe_part(const char *arg) {
+	size_t n = 1;
+	for (const char *p = arg; *p; p++) {
+		if (*p == '|') n++;
+	}
+	unsigned char r = 0;
+	if (n < 2 || grabit_read_random(&r, 1) != 0) return gsxcu_first_pipe_part(arg);
+
+	size_t pick = r % n;
+	const char *start = arg;
+	for (size_t i = 0; i < pick; i++) {
+		start = strchr(start, '|') + 1;
+	}
+	const char *end = strchr(start, '|');
+	return end ? strndup(start, (size_t)(end - start)) : strdup(start);
 }
 
 char *gsxcu_first_pipe_part(const char *arg) {

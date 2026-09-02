@@ -271,6 +271,9 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 	}
 
+	if (region_editing(o->st) && !sel_visible && !region_toolbar_visible(o->st))
+		gren_render_bottom_hint(cr, o, "drag to select a region, esc to cancel");
+
 	if (region_editing(o->st)) {
 		region_toolbar_render(cr, o);
 		region_color_picker_render(cr, o);

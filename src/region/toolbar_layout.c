@@ -104,6 +104,11 @@ static bool tb_attaching(const struct ro_state *st) {
 		   !st->dragging && !st->moving_region && st->handle_dragging == HANDLE_NONE;
 }
 
+bool region_toolbar_visible(const struct ro_state *st) {
+	if (st->tb_place != TB_PLACE_ATTACH) return true;
+	return st->tb_out || st->tb_moved || st->region_locked || tb_attaching(st);
+}
+
 static const struct grabit_output *toolbar_output(const struct ro_state *st) {
 	if (st->tb_out) return st->tb_out;
 	if (tb_attaching(st)) {
@@ -118,7 +123,7 @@ static const struct grabit_output *toolbar_output(const struct ro_state *st) {
 void region_toolbar_rect(const struct ro_state *st,
 						 const struct grabit_output **out_o,
 						 int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
-	const struct grabit_output *o = toolbar_output(st);
+	const struct grabit_output *o = region_toolbar_visible(st) ? toolbar_output(st) : NULL;
 	if (out_o) *out_o = o;
 	if (!o) {
 		*x = *y = *w = *h = 0;

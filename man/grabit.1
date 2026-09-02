@@ -171,8 +171,9 @@ as long as that output is still connected. Setting
 .B edit.toolbar_placement
 to
 .B attach
-moves the toolbar to the region you select instead, and ignores the parked
-spot. The editor starts in
+leaves the toolbar hidden until a region exists, then places it against the
+selection instead of at the top, and ignores the parked spot. Keys still work
+while it is hidden. The editor starts in
 region-select mode, but picking any tool switches to drawing immediately, so
 the frozen screen can be annotated before a region exists; the select-region
 button (or key

@@ -172,8 +172,9 @@ as long as that output is still connected. Setting
 to
 .B attach
 leaves the toolbar hidden until a region exists, then places it against the
-selection instead of at the top, and ignores the parked spot. Keys still work
-while it is hidden. The editor starts in
+selection instead of at the top, and ignores the parked spot. It hides again
+while you drag, move, or resize the region, and settles at the new spot on
+release. Keys still work while it is hidden. The editor starts in
 region-select mode, but picking any tool switches to drawing immediately, so
 the frozen screen can be annotated before a region exists; the select-region
 button (or key

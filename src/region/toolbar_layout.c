@@ -106,7 +106,9 @@ static bool tb_attaching(const struct ro_state *st) {
 
 bool region_toolbar_visible(const struct ro_state *st) {
 	if (st->tb_place != TB_PLACE_ATTACH) return true;
-	return st->tb_out || st->tb_moved || st->region_locked || tb_attaching(st);
+	if (st->tb_out || st->tb_moved) return true;
+	if (st->has_selection) return tb_attaching(st);
+	return st->region_locked;
 }
 
 static const struct grabit_output *toolbar_output(const struct ro_state *st) {

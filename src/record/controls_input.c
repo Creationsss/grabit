@@ -30,19 +30,26 @@ static struct ctl_output *find_by_surface(struct rec_controls *c,
 	return NULL;
 }
 
-static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
-						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
-	struct rec_controls *c = data;
+static bool enter_output(struct rec_controls *c, struct wl_surface *surface,
+						 wl_fixed_t sx, wl_fixed_t sy) {
 	struct ctl_output *o = find_by_surface(c, surface);
-	if (!o) return;
+	if (!o) return false;
 	c->ptr_on = o;
 	c->cx = o->go->x + wl_fixed_to_int(sx);
 	c->cy = o->go->y + wl_fixed_to_int(sy);
+	return true;
+}
+
+static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
+						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+	struct rec_controls *c = data;
+	if (!enter_output(c, surface, sx, sy)) return;
 	if (c->cursor_shape)
 		wp_cursor_shape_device_v1_set_shape(c->cursor_shape, serial,
 											WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
 	else
-		grabit_cursor_apply(p, serial, c->cursor_surface, c->cursor_hand, o->scale);
+		grabit_cursor_apply(p, serial, c->cursor_surface, c->cursor_hand,
+							c->ptr_on->scale);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
@@ -63,14 +70,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
 }
 
-static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
-						   uint32_t time, uint32_t button, uint32_t state) {
-	(void)p;
-	(void)serial;
-	(void)time;
-	struct rec_controls *c = data;
-	if (button != BTN_LEFT) return;
-	if (state == WL_POINTER_BUTTON_STATE_RELEASED) return;
+static void press_event(struct rec_controls *c) {
 	if (!c->ptr_on || !rect_contains(ctl_bar_rect(c), c->cx, c->cy)) return;
 	switch (btn_at(c->cx - c->bx, c->cy - c->by)) {
 	case CB_BTN_START:
@@ -91,6 +91,69 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	}
 }
 
+static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
+						   uint32_t time, uint32_t button, uint32_t state) {
+	(void)p;
+	(void)serial;
+	(void)time;
+	if (button != BTN_LEFT) return;
+	if (state == WL_POINTER_BUTTON_STATE_RELEASED) return;
+	press_event(data);
+}
+
+static void touch_down(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					   struct wl_surface *surface, int32_t id, wl_fixed_t sx,
+					   wl_fixed_t sy) {
+	(void)t;
+	(void)serial;
+	(void)time;
+	struct rec_controls *c = data;
+	if (!gtouch_claim(&c->touch_slot, id)) return;
+	if (!enter_output(c, surface, sx, sy)) {
+		gtouch_clear(&c->touch_slot);
+		return;
+	}
+	press_event(c);
+}
+
+static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					 int32_t id) {
+	(void)t;
+	(void)serial;
+	(void)time;
+	struct rec_controls *c = data;
+	if (gtouch_owns(&c->touch_slot, id)) gtouch_clear(&c->touch_slot);
+}
+
+static void touch_motion(void *data, struct wl_touch *t, uint32_t time, int32_t id,
+						 wl_fixed_t sx, wl_fixed_t sy) {
+	(void)data;
+	(void)t;
+	(void)time;
+	(void)id;
+	(void)sx;
+	(void)sy;
+}
+
+static void touch_frame(void *data, struct wl_touch *t) {
+	(void)data;
+	(void)t;
+}
+
+static void touch_cancel(void *data, struct wl_touch *t) {
+	(void)t;
+	struct rec_controls *c = data;
+	gtouch_clear(&c->touch_slot);
+}
+
+static const struct wl_touch_listener touch_listener_g = {
+	.down = touch_down,
+	.up = touch_up,
+	.motion = touch_motion,
+	.frame = touch_frame,
+	.cancel = touch_cancel,
+};
+
 static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 						 uint32_t axis, wl_fixed_t value) {
 	(void)data;
@@ -109,5 +172,6 @@ static const struct wl_pointer_listener pointer_listener_g = {
 };
 
 void ctl_input_attach(struct rec_controls *c) {
-	wl_pointer_add_listener(c->pointer, &pointer_listener_g, c);
+	if (c->pointer) wl_pointer_add_listener(c->pointer, &pointer_listener_g, c);
+	if (c->touch) wl_touch_add_listener(c->touch, &touch_listener_g, c);
 }

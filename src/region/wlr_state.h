@@ -11,6 +11,7 @@
 #include <cairo/cairo.h>
 
 #include "region/ui.h"
+#include "wl/touch.h"
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -121,7 +122,7 @@ struct ro_state {
 	struct wl_pointer *pointer;
 	struct wl_keyboard *keyboard;
 	struct wl_touch *touch;
-	int32_t touch_id;
+	struct gtouch_slot touch_slot;
 
 	struct wp_cursor_shape_device_v1 *cursor_shape;
 	struct wl_cursor_theme *cursor_theme;

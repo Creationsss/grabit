@@ -4,6 +4,8 @@
 #ifndef GRABIT_RECORD_CONTROLS_INTERNAL_H
 #define GRABIT_RECORD_CONTROLS_INTERNAL_H
 
+#include "wl/touch.h"
+
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -16,6 +18,7 @@ struct grabit_output;
 struct wl_surface;
 struct wl_callback;
 struct wl_pointer;
+struct wl_touch;
 struct wl_cursor_theme;
 struct wp_cursor_shape_device_v1;
 struct wl_cursor;
@@ -72,6 +75,8 @@ struct rec_controls {
 	int64_t secs;
 
 	struct wl_pointer *pointer;
+	struct wl_touch *touch;
+	struct gtouch_slot touch_slot;
 	struct ctl_output *ptr_on;
 	int32_t cx;
 	int32_t cy;

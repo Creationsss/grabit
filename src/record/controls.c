@@ -186,17 +186,19 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 		wl_surface_commit(o->surface);
 	}
 
-	if (s->seat && !(s->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
-		log_warn("record: no pointer on seat; control bar taps disabled "
+	bool has_pointer = s->seat_caps & WL_SEAT_CAPABILITY_POINTER;
+	bool has_touch = s->seat_caps & WL_SEAT_CAPABILITY_TOUCH;
+	if (s->seat && !has_pointer && !has_touch) {
+		log_warn("record: no pointer or touch on seat; control bar taps disabled "
 				 "(stop with `grabit --record`)");
 	}
-	if (s->seat && (s->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
+	if (has_touch) c->touch = wl_seat_get_touch(s->seat);
+	if (has_pointer) {
 		c->pointer = wl_seat_get_pointer(s->seat);
-		if (c->pointer) ctl_input_attach(c);
 		if (c->pointer && s->cursor_shape_manager) {
 			c->cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
 				s->cursor_shape_manager, c->pointer);
-		} else {
+		} else if (c->pointer) {
 			int32_t max_scale = 1;
 			for (size_t i = 0; i < s->n_outputs; i++) {
 				if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
@@ -209,6 +211,7 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 			}
 		}
 	}
+	ctl_input_attach(c);
 
 	wl_display_roundtrip(s->display);
 	return c;
@@ -229,6 +232,7 @@ void controls_tick(struct rec_controls *c, int64_t secs) {
 void controls_stop(struct rec_controls *c) {
 	if (!c) return;
 	if (c->pointer) wl_pointer_release(c->pointer);
+	if (c->touch) wl_touch_release(c->touch);
 	if (c->cursor_shape) wp_cursor_shape_device_v1_destroy(c->cursor_shape);
 	if (c->cursor_surface) wl_surface_destroy(c->cursor_surface);
 	if (c->cursor_theme) wl_cursor_theme_destroy(c->cursor_theme);

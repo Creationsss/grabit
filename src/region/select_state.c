@@ -112,7 +112,6 @@ void gregion_create_surfaces(struct ro_state *st, struct grabit_wl_state *s) {
 }
 
 void gregion_seat_acquire(struct ro_state *st, struct grabit_wl_state *s) {
-	st->touch_id = -1;
 	if (s->seat_caps & WL_SEAT_CAPABILITY_POINTER)
 		st->pointer = wl_seat_get_pointer(s->seat);
 	if (s->seat_caps & WL_SEAT_CAPABILITY_TOUCH)

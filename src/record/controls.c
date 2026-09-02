@@ -186,6 +186,10 @@ struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,
 		wl_surface_commit(o->surface);
 	}
 
+	if (s->seat && !(s->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
+		log_warn("record: no pointer on seat; control bar taps disabled "
+				 "(stop with `grabit --record`)");
+	}
 	if (s->seat && (s->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
 		c->pointer = wl_seat_get_pointer(s->seat);
 		if (c->pointer) ctl_input_attach(c);

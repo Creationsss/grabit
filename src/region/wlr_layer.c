@@ -45,9 +45,9 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		log_error("region: compositor lacks wl_compositor (impossible?)");
 		return -1;
 	}
-	if (!(s->seat_caps & WL_SEAT_CAPABILITY_POINTER) ||
+	if (!(s->seat_caps & (WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_TOUCH)) ||
 		!(s->seat_caps & WL_SEAT_CAPABILITY_KEYBOARD)) {
-		log_error("region: seat needs both pointer and keyboard");
+		log_error("region: seat needs a keyboard and either a pointer or touch");
 		return -1;
 	}
 
@@ -97,21 +97,19 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 							? timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)
 							: -1;
 
-	st.pointer = wl_seat_get_pointer(s->seat);
-	st.keyboard = wl_seat_get_keyboard(s->seat);
-	region_input_attach(&st);
+	gregion_seat_acquire(&st, s);
 
 	if (s->cursor_shape_manager && st.pointer) {
 		st.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(
 			s->cursor_shape_manager, st.pointer);
-	} else {
+	} else if (st.pointer) {
 		int32_t max_scale = 1;
 		for (size_t i = 0; i < s->n_outputs; i++) {
 			if (s->outputs[i]->scale > max_scale) max_scale = s->outputs[i]->scale;
 		}
 		st.cursor_theme = grabit_cursor_theme_load(s->shm, max_scale);
 	}
-	if (!st.cursor_shape && !st.cursor_theme) {
+	if (st.pointer && !st.cursor_shape && !st.cursor_theme) {
 		log_warn("region: no cursor theme found; cursor may be invisible");
 	} else if (st.cursor_theme) {
 		static const char *const cross_names[] = {

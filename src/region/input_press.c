@@ -25,17 +25,15 @@
 
 #include "region/input_internal.h"
 
-void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
-						 uint32_t time, uint32_t button, uint32_t state) {
-	(void)serial;
-	struct ro_state *st = data;
+void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
+					   uint32_t state) {
 	if (st->cleanup) return;
 	st->resizing_anno = false;
 
 	if (button != BTN_LEFT) {
 		if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
 		if (region_button_action(&st->keys, KA_CANCEL, button)) {
-			if (!ginp_region_abort_active(st, p)) {
+			if (!ginp_region_abort_active(st)) {
 				st->cancelled = true;
 				st->finished = true;
 			}
@@ -48,7 +46,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED && st->tb_dragging) {
 		st->tb_dragging = false;
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 		return;
 	}
 
@@ -71,11 +69,11 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			st->moving_region = false;
 			region_undo_commit(st);
 			if (!region_editing(st) && !st->region_moved) st->last_inside_press = time;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			st->handle_dragging = HANDLE_NONE;
 			region_undo_commit(st);
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		} else if (region_anno_dragging(st)) {
 			bool was_move = st->anno_drag == ANNO_DRAG_MOVE;
 			st->anno_drag = ANNO_DRAG_NONE;
@@ -93,7 +91,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 											 st->anno_geom_snap);
 			}
 			if (st->out_annos) st->out_annos->gen++;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		} else if (st->drawing) {
 			region_commit_drawing(st);
 		}
@@ -115,7 +113,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (inside_eyedropper) {
 			st->eyedropper_mode = !st->eyedropper_mode;
 			st->color_input_active = false;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -147,7 +145,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			/* fall through to eyedropper sample below; keep panel open */
 		} else if (!region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
 			st->color_picker_open = false;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -160,7 +158,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (k == TP_TOOL) {
 			ginp_mode_select_tool(st, (enum tool_kind)val);
 			st->picker_group = TB_NONE;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -180,7 +178,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		}
 	}
 
-	if (ginp_toolbar_button_event(st, p, state)) return;
+	if (ginp_toolbar_button_event(st, state)) return;
 
 	if (region_editing(st) && st->eyedropper_mode &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -188,7 +186,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 		if (ginp_eyedropper_sample(st, &picked))
 			region_apply_color(st, picked, true);
 		st->eyedropper_mode = false;
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 		region_render_request_redraw_all(st);
 		return;
 	}
@@ -270,7 +268,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 					region_clear_selection(st);
 				}
 			}
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -282,7 +280,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			st->drag_x0 = st->cursor_x;
 			st->drag_y0 = st->cursor_y;
 			region_update_selection(st);
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -301,7 +299,7 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 			st->move_grab_dx = st->cursor_x - st->sel_x;
 			st->move_grab_dy = st->cursor_y - st->sel_y;
 			region_drag_start(st);
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
 			return;
 		}
@@ -335,10 +333,10 @@ void ginp_pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	} else {
 		if (st->moving_region) {
 			st->moving_region = false;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		} else if (st->handle_dragging != HANDLE_NONE) {
 			st->handle_dragging = HANDLE_NONE;
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		} else if (st->drawing) {
 			region_commit_drawing(st);
 		}

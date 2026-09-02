@@ -158,7 +158,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	uint8_t mods = region_xkb_mods(st->xkb_state);
 
 	if (region_key_action(&st->keys, KA_CANCEL, sym, mods)) {
-		if (!ginp_region_abort_active(st, st->pointer)) {
+		if (!ginp_region_abort_active(st)) {
 			st->cancelled = true;
 			st->finished = true;
 		}
@@ -225,14 +225,14 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 
 	if (region_key_action(&st->keys, KA_EDIT_MODE, sym, mods)) {
 		ginp_mode_enter_anno_edit(st);
-		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
+		ginp_refresh_cursor(st);
 		region_render_request_redraw_all(st);
 		return;
 	}
 
 	if (region_key_action(&st->keys, KA_REGION_MODE, sym, mods)) {
 		ginp_mode_enter_region(st);
-		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
+		ginp_refresh_cursor(st);
 		region_render_request_redraw_all(st);
 		return;
 	}
@@ -249,7 +249,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 			pick = g->tools[(idx + 1) % g->n];
 		}
 		ginp_mode_select_tool(st, (enum tool_kind)pick);
-		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
+		ginp_refresh_cursor(st);
 		region_render_request_redraw_all(st);
 	}
 }
@@ -268,7 +268,7 @@ static void keyboard_modifiers(void *data, struct wl_keyboard *kb, uint32_t seri
 							 st->xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0;
 		st->ctrl_held = xkb_state_mod_name_is_active(
 							st->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0;
-		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
+		ginp_refresh_cursor(st);
 	}
 }
 
@@ -290,6 +290,7 @@ static const struct wl_keyboard_listener keyboard_listener_g = {
 };
 
 void region_input_attach(struct ro_state *st) {
-	wl_pointer_add_listener(st->pointer, &ginp_pointer_listener_g, st);
+	if (st->pointer) wl_pointer_add_listener(st->pointer, &ginp_pointer_listener_g, st);
+	if (st->touch) wl_touch_add_listener(st->touch, &ginp_touch_listener_g, st);
 	wl_keyboard_add_listener(st->keyboard, &keyboard_listener_g, st);
 }

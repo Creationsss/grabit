@@ -111,12 +111,28 @@ void gregion_create_surfaces(struct ro_state *st, struct grabit_wl_state *s) {
 	}
 }
 
-void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
-	st->cleanup = true;
+void gregion_seat_acquire(struct ro_state *st, struct grabit_wl_state *s) {
+	st->touch_id = -1;
+	if (s->seat_caps & WL_SEAT_CAPABILITY_POINTER)
+		st->pointer = wl_seat_get_pointer(s->seat);
+	if (s->seat_caps & WL_SEAT_CAPABILITY_TOUCH)
+		st->touch = wl_seat_get_touch(s->seat);
+	st->keyboard = wl_seat_get_keyboard(s->seat);
+	region_input_attach(st);
+}
+
+void gregion_seat_release(struct ro_state *st) {
 	if (st->pointer) wl_pointer_release(st->pointer);
+	if (st->touch) wl_touch_release(st->touch);
 	if (st->keyboard) wl_keyboard_release(st->keyboard);
 	st->pointer = NULL;
+	st->touch = NULL;
 	st->keyboard = NULL;
+}
+
+void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
+	st->cleanup = true;
+	gregion_seat_release(st);
 	wl_display_roundtrip(s->display);
 
 	for (size_t i = 0; i < st->n_outs; i++) {

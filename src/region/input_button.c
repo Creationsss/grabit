@@ -25,7 +25,7 @@
 
 #include "region/input_internal.h"
 
-bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
+bool ginp_toolbar_button_event(struct ro_state *st,
 							   uint32_t state) {
 	if (!region_editing(st) || st->dragging) return false;
 	int32_t tx, ty, tw, th;
@@ -42,7 +42,7 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 			st->tb_grab_dx = st->cursor_x - tx;
 			st->tb_grab_dy = st->cursor_y - ty;
 			region_drag_start(st);
-			ginp_refresh_cursor(st, p);
+			ginp_refresh_cursor(st);
 		}
 		return true;
 	}
@@ -61,20 +61,20 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	if (st->text_input_active) region_commit_text(st);
 	if (act == TB_REGION) {
 		ginp_mode_enter_region(st);
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 	} else if (act == TB_EDIT) {
 		ginp_mode_enter_anno_edit(st);
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 	} else if (grp) {
 		bool was_open = st->picker_group == act;
 		ginp_mode_select_tool(st, st->group_tool[toolbar_group_index(grp)]);
 		st->picker_group = was_open ? TB_NONE : act;
 		st->color_picker_open = false;
 		st->eyedropper_mode = false;
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 	} else if (stool >= 0) {
 		ginp_mode_select_tool(st, (enum tool_kind)stool);
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 	} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
 		region_apply_color(st, TOOLBAR_COLORS[act - TB_COLOR_RED], true);
 		st->eyedropper_mode = false;
@@ -82,7 +82,7 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	} else if (act == TB_COLOR_CURRENT) {
 		st->color_picker_open = !st->color_picker_open;
 		st->eyedropper_mode = false;
-		ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 	} else if (act == TB_WIDTH_SLIDER) {
 		ginp_slider_set_width_from_cursor(st, true);
 		st->slider_dragging = true;
@@ -102,10 +102,10 @@ bool ginp_toolbar_button_event(struct ro_state *st, struct wl_pointer *p,
 	return true;
 }
 
-bool ginp_region_abort_active(struct ro_state *st, struct wl_pointer *p) {
+bool ginp_region_abort_active(struct ro_state *st) {
 	if (region_drag_active(st) || st->text_input_active) {
 		region_drag_abort(st);
-		if (p) ginp_refresh_cursor(st, p);
+		ginp_refresh_cursor(st);
 		region_render_request_redraw_all(st);
 		return true;
 	}

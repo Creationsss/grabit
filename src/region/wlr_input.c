@@ -156,13 +156,13 @@ static struct wl_cursor *kind_cursor(const struct ro_state *st, int kind) {
 	return c ? c : st->cursor;
 }
 
-void ginp_refresh_cursor(struct ro_state *st, struct wl_pointer *p) {
-	if (!st->cursor_on) return;
+void ginp_refresh_cursor(struct ro_state *st) {
+	if (!st->pointer || !st->cursor_on) return;
 	int want = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
 	if (want == st->current_cursor_kind) return;
 	st->current_cursor_kind = want;
 	if (st->last_cursor_serial == 0) return;
-	ginp_apply_cursor(st, p, st->last_cursor_serial, st->cursor_on, want);
+	ginp_apply_cursor(st, st->last_cursor_serial, want);
 }
 
 void ginp_lock_or_finish(struct ro_state *st) {
@@ -170,14 +170,14 @@ void ginp_lock_or_finish(struct ro_state *st) {
 				(region_editing(st) && !st->edit_instant);
 	if (keep) {
 		st->region_locked = true;
-		if (st->pointer) ginp_refresh_cursor(st, st->pointer);
+		ginp_refresh_cursor(st);
 	} else {
 		st->finished = true;
 	}
 }
 
-void ginp_apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t serial,
-					   struct ro_output *o, int kind) {
+void ginp_apply_cursor(struct ro_state *st, uint32_t serial, int kind) {
+	if (!st->pointer) return;
 	if (st->cursor_shape) {
 		static const uint32_t shapes[] = {
 			[RCUR_CROSS] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR,
@@ -197,8 +197,8 @@ void ginp_apply_cursor(struct ro_state *st, struct wl_pointer *p, uint32_t seria
 		wp_cursor_shape_device_v1_set_shape(st->cursor_shape, serial, shapes[kind]);
 		return;
 	}
-	grabit_cursor_apply(p, serial, st->cursor_surface, kind_cursor(st, kind),
-						o->scale);
+	grabit_cursor_apply(st->pointer, serial, st->cursor_surface, kind_cursor(st, kind),
+						st->cursor_on->scale);
 }
 
 void ginp_slider_set_width_from_cursor(struct ro_state *st, bool record) {

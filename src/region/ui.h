@@ -114,6 +114,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 						  struct grabit_wl_state *s, const struct rect *snap_rects,
 						  size_t n_snap_rects);
 void gregion_create_surfaces(struct ro_state *st, struct grabit_wl_state *s);
+void gregion_seat_acquire(struct ro_state *st, struct grabit_wl_state *s);
+void gregion_seat_release(struct ro_state *st);
 void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s);
 
 #endif

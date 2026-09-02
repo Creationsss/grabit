@@ -25,18 +25,25 @@
 
 #include "region/input_internal.h"
 
-static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
-						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
-	struct ro_state *st = data;
-	if (st->cleanup) return;
+static bool enter_output(struct ro_state *st, struct wl_surface *surface,
+						 wl_fixed_t sx, wl_fixed_t sy) {
 	struct ro_output *o = region_render_find_by_surface(st, surface);
-	if (!o) return;
+	if (!o) return false;
 	st->cursor_on = o;
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
+	return true;
+}
+
+static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
+						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+	(void)p;
+	struct ro_state *st = data;
+	if (st->cleanup) return;
+	if (!enter_output(st, surface, sx, sy)) return;
 	st->last_cursor_serial = serial;
 	st->current_cursor_kind = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
-	ginp_apply_cursor(st, p, serial, o, st->current_cursor_kind);
+	ginp_apply_cursor(st, serial, st->current_cursor_kind);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
@@ -55,11 +62,7 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	if (region_set_hover(st, -1)) region_render_request_redraw_all(st);
 }
 
-static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
-						   wl_fixed_t sx, wl_fixed_t sy) {
-	(void)p;
-	(void)time;
-	struct ro_state *st = data;
+static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	if (st->cleanup) return;
 	if (!st->cursor_on) return;
 	st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
@@ -123,7 +126,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	}
 	region_set_hover(st, hover);
 
-	ginp_refresh_cursor(st, p);
+	ginp_refresh_cursor(st);
 	region_render_request_redraw_all(st);
 }
 
@@ -173,10 +176,76 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 	region_render_request_redraw_all(st);
 }
 
+static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
+						   wl_fixed_t sx, wl_fixed_t sy) {
+	(void)p;
+	(void)time;
+	motion_event(data, sx, sy);
+}
+
+static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
+						   uint32_t time, uint32_t button, uint32_t state) {
+	(void)p;
+	(void)serial;
+	ginp_button_event(data, time, button, state);
+}
+
+static void touch_down(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					   struct wl_surface *surface, int32_t id, wl_fixed_t sx,
+					   wl_fixed_t sy) {
+	(void)t;
+	(void)serial;
+	struct ro_state *st = data;
+	if (st->cleanup || st->touch_id != -1) return;
+	if (!enter_output(st, surface, sx, sy)) return;
+	st->touch_id = id;
+	ginp_button_event(st, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED);
+}
+
+static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					 int32_t id) {
+	(void)t;
+	(void)serial;
+	struct ro_state *st = data;
+	if (st->cleanup || st->touch_id != id) return;
+	st->touch_id = -1;
+	ginp_button_event(st, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
+}
+
+static void touch_motion(void *data, struct wl_touch *t, uint32_t time, int32_t id,
+						 wl_fixed_t sx, wl_fixed_t sy) {
+	(void)t;
+	(void)time;
+	struct ro_state *st = data;
+	if (st->touch_id != id) return;
+	motion_event(st, sx, sy);
+}
+
+static void touch_frame(void *data, struct wl_touch *t) {
+	(void)data;
+	(void)t;
+}
+
+static void touch_cancel(void *data, struct wl_touch *t) {
+	(void)t;
+	struct ro_state *st = data;
+	if (st->cleanup || st->touch_id == -1) return;
+	st->touch_id = -1;
+	ginp_region_abort_active(st);
+}
+
+const struct wl_touch_listener ginp_touch_listener_g = {
+	.down = touch_down,
+	.up = touch_up,
+	.motion = touch_motion,
+	.frame = touch_frame,
+	.cancel = touch_cancel,
+};
+
 const struct wl_pointer_listener ginp_pointer_listener_g = {
 	.enter = pointer_enter,
 	.leave = pointer_leave,
 	.motion = pointer_motion,
-	.button = ginp_pointer_button,
+	.button = pointer_button,
 	.axis = pointer_axis,
 };

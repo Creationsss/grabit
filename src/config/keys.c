@@ -129,6 +129,7 @@ static bool valid_edit_key(const char *key) {
 		   strcmp(leaf, "toolbar_output") == 0 ||
 		   strcmp(leaf, "toolbar_pos") == 0 ||
 		   strcmp(leaf, "instant_capture") == 0 ||
+		   strcmp(leaf, "toolbar_placement") == 0 ||
 		   strcmp(leaf, "smooth") == 0 ||
 		   strcmp(leaf, "start_with_tool") == 0 ||
 		   strcmp(leaf, "multi_select") == 0 ||

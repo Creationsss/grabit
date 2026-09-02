@@ -47,7 +47,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
 </p>
 
 - region selector with live freeze; drag, or click a window to snap
-- confirm mode, flameshot-style: adjust the selection before capturing
+- confirm mode: adjust the selection before capturing
 - **`-F`/`--fullscreen`** grabs one monitor, or every monitor stitched together
 - **`-w`/`--window`** grabs the active window (hyprland, and niri via its own window screenshot)
 - **`-L`/`--last`** reuses the last region instead of selecting one, screenshots and `--record` alike

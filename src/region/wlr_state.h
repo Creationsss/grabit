@@ -218,6 +218,7 @@ struct ro_state {
 	bool slider_dragging;
 	bool tb_dragging;
 	bool tb_moved;
+	enum tb_placement tb_place;
 	int32_t tb_x;
 	int32_t tb_y;
 	int32_t tb_grab_dx;

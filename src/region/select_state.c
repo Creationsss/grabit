@@ -52,15 +52,21 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "true") == 0) st->edit_instant = true;
 		v = config_get(cfg, "edit.start_with_tool");
 		if (annotate_mode && v && strcmp(v, "true") == 0) st->region_locked = true;
+		v = config_get(cfg, "edit.toolbar_placement");
+		if (annotate_mode && v && strcmp(v, "attach") == 0)
+			st->tb_place = TB_PLACE_ATTACH;
 		v = config_get(cfg, "edit.toolbar_output");
 		if (annotate_mode && v && v[0]) {
 			st->tb_out = grabit_wl_output_by_name(s, v);
 			st->tb_lock = st->tb_out;
 			if (!st->tb_out)
 				log_warn("edit.toolbar_output: output `%s` not found; using primary", v);
+			else if (st->tb_place == TB_PLACE_ATTACH)
+				log_warn("edit.toolbar_placement attach conflicts with "
+						 "edit.toolbar_output; ignoring it");
 		}
 		v = config_get(cfg, "edit.toolbar_pos");
-		if (annotate_mode && v && v[0]) {
+		if (annotate_mode && st->tb_place == TB_PLACE_TOP && v && v[0]) {
 			char oname[64];
 			int32_t rx, ry;
 			if (edit_toolbar_pos_parse(v, oname, sizeof oname, &rx, &ry)) {

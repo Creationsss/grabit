@@ -190,7 +190,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.window_radius` | `auto` | round the corners of window captures to match the compositor. `auto` reads hyprland's `decoration:rounding` (and stays square for fullscreen windows); `0`..`100` forces a radius. applies to `-w`/`--window` and to click-to-snap selections, never to a manual drag. png and webp keep the corners transparent; jpeg cannot store alpha so it is left square with a warning; recordings get black corners |
 | `region.snap_animation` | `false` | animate the window-snap highlight: it slides and resizes between windows and fades out when the cursor leaves them, instead of jumping. needs `region.window_snap` |
-| `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
+| `region.confirm` | `false` | keep the selection adjustable after releasing the drag: resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
 
@@ -436,7 +436,7 @@ grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0
 
 | key | default | notes |
 |---|---|---|
-| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a sharex-style preview card |
+| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a preview card |
 | `preview.size` | `300` | thumbnail width in pixels (100-800); the height keeps the screenshot's aspect ratio (no padding, no boxy frame) |
 | `preview.position` | `bottom-right` | same value set as `text_card.position` |
 | `preview.output` | (primary) | same semantics as `text_card.output` |
@@ -503,7 +503,7 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
+`-e`/`--edit` pairs with any action. an annotation toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens, or follows the region you select with `edit.toolbar_placement = attach`; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
 
 - **select region** (`q`) - drag out or replace the capture area
 - **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
@@ -537,6 +537,7 @@ last-picked color, width, and tool persist via:
 | `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
 | `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
+| `edit.toolbar_placement` | `top` | where the toolbar opens. `top` centers it at the top of the monitor; `attach` moves it to the region you select instead, which saves crossing screens on a multi-monitor setup. under `attach` it settles below the selection when you finish dragging it out, or above when there is no room below; dragging the toolbar still parks it for the rest of that run, but the spot is not remembered and `edit.toolbar_pos` is ignored |
 | `edit.toolbar_output` | (empty) | pin the toolbar to one output, e.g. `DP-1`; it opens there and dragging cannot leave it. empty opens on the primary monitor and lets you drag the toolbar across any monitor |
 | `edit.toolbar_pos` | (empty) | last parked toolbar spot as `<output>:<x>,<y>`, written automatically when you drag the toolbar; ignored if that output is gone |
 

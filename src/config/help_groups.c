@@ -159,6 +159,11 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = "solid";
 			return 0;
 		}
+		if (strcmp(leaf, "toolbar_placement") == 0) {
+			*example_out = "top|attach";
+			*def_out = "top";
+			return 0;
+		}
 		if (strcmp(leaf, "toolbar_output") == 0) {
 			*example_out = "<output name, e.g. DP-1; empty = primary>";
 			return 0;

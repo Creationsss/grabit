@@ -46,6 +46,11 @@ enum tb_action {
 
 #define TB_TOOL_GROUP_COUNT 3
 
+enum tb_placement {
+	TB_PLACE_TOP,
+	TB_PLACE_ATTACH,
+};
+
 #define TB_BTN_W 38
 #define TB_BTN_H 38
 #define TB_PAD 6

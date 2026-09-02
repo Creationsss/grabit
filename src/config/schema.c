@@ -87,6 +87,8 @@ static int validate_edit_color(const char *value) {
 
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", "kwin", NULL};
 
+static const char *VALS_toolbar_placement[] = {"top", "attach", NULL};
+
 static const char *VALS_show_position[] = {
 	"top-left",
 	"top-center",
@@ -120,6 +122,11 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
 		log_error("capture.backend must be one of auto|wlr|ext|kwin");
+		return -1;
+	}
+	if (strcmp(key, "edit.toolbar_placement") == 0 &&
+		!cfg_in_list(value, VALS_toolbar_placement)) {
+		log_error("edit.toolbar_placement must be one of top|attach");
 		return -1;
 	}
 	if (strcmp(key, "png.level") == 0 &&

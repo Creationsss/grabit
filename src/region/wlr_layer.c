@@ -291,7 +291,7 @@ loop_done:;
 		}
 	}
 
-	if (annotate_mode && cfg && st.tb_moved) {
+	if (annotate_mode && cfg && st.tb_moved && st.tb_place == TB_PLACE_TOP) {
 		int32_t tx, ty, tw, th;
 		const struct grabit_output *to;
 		region_toolbar_rect(&st, &to, &tx, &ty, &tw, &th);

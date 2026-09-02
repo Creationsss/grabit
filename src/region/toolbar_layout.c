@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 
+#include "region/wlr_input_state.h"
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -98,8 +99,19 @@ void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 	*out_h = toolbar_btn_h(act);
 }
 
+static bool tb_attaching(const struct ro_state *st) {
+	return st->tb_place == TB_PLACE_ATTACH && st->has_selection && !st->tb_out &&
+		   !st->dragging && !st->moving_region && st->handle_dragging == HANDLE_NONE;
+}
+
 static const struct grabit_output *toolbar_output(const struct ro_state *st) {
 	if (st->tb_out) return st->tb_out;
+	if (tb_attaching(st)) {
+		const struct grabit_output *o =
+			grabit_wl_output_at(st->wls, st->sel_x + st->sel_w / 2,
+								st->sel_y + st->sel_h / 2);
+		if (o) return o;
+	}
 	return grabit_wl_primary_output(st->wls);
 }
 
@@ -126,6 +138,19 @@ void region_toolbar_rect(const struct ro_state *st,
 		return;
 	}
 
+	if (tb_attaching(st)) {
+		struct rect b;
+		grabit_output_rect(o, &b);
+		int32_t ty = st->sel_y + st->sel_h + TB_GAP;
+		int32_t above = st->sel_y - th - TB_GAP;
+		if (ty + th > b.y + b.h && above >= b.y) ty = above;
+		struct rect r = rect_clamp_into(
+			(struct rect){st->sel_x + (st->sel_w - tw) / 2, ty, tw, th}, b);
+		*x = r.x;
+		*y = r.y;
+		return;
+	}
+
 	*x = o->x + (o->logical_width - tw) / 2;
 	*y = o->y + TB_GAP;
 }
@@ -142,7 +167,10 @@ bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
 	int32_t btn_cx = tx + bx + bw / 2;
 	int32_t want_x = btn_cx - pw / 2;
 	struct rect b = st->bounds;
-	if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
+	if (st->tb_lock)
+		grabit_output_rect(st->tb_lock, &b);
+	else if (tb_attaching(st))
+		grabit_output_rect(o, &b);
 	int32_t out_left = b.x + 8;
 	int32_t out_right = b.x + b.w - 8;
 	if (want_x < out_left) want_x = out_left;

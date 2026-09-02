@@ -44,7 +44,7 @@ enum tb_action {
 	TB_BTN_COUNT,
 };
 
-#define TB_TOOL_GROUP_COUNT 3
+#define TB_TOOL_GROUP_COUNT 4
 
 enum tb_placement {
 	TB_PLACE_TOP,

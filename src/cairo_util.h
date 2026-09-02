@@ -56,6 +56,9 @@ cairo_surface_t *grabit_cairo_promote_argb32(cairo_surface_t *src);
 void grabit_cairo_rect_r(cairo_t *cr, double x, double y, double w, double h, double r);
 void grabit_cairo_arrow(cairo_t *cr, double x0, double y0, double x1, double y1,
 						double width, double min_head);
+void grabit_cairo_arrow_head(cairo_t *cr, double from_x, double from_y, double tip_x,
+							 double tip_y, double width, double min_head);
+double grabit_cairo_arrow_head_len(double width, double min_head);
 double grabit_cairo_arrow_extent(double width, double min_head, double len);
 
 static inline void grabit_cairo_rect_r_inset(cairo_t *cr, double x, double y,

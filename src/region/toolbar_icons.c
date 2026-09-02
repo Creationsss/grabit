@@ -122,6 +122,19 @@ void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s) {
 					   2.4 * (s / 24.0), 0.0);
 }
 
+void toolbar_icon_arrow_pen(cairo_t *cr, double cx, double cy, double s) {
+	double half = s * ICON_HALF;
+	double w = 2.4 * (s / 24.0);
+	double x1 = cx + half, y1 = cy - half;
+	double c2x = cx + half * 0.15, c2y = cy + half * 0.55;
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_move_to(cr, cx - half, cy + half);
+	cairo_curve_to(cr, cx - half, cy - half * 0.45, c2x, c2y, x1, y1);
+	cairo_stroke(cr);
+	grabit_cairo_arrow_head(cr, c2x, c2y, x1, y1, w, 0.0);
+}
+
 void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s) {
 	double half = s * ICON_HALF;
 	int n = 4;
@@ -276,6 +289,9 @@ void toolbar_icon_for_tool(cairo_t *cr, enum tool_kind t,
 		break;
 	case TOOL_ARROW:
 		toolbar_icon_arrow(cr, cx, cy, s);
+		break;
+	case TOOL_ARROW_PEN:
+		toolbar_icon_arrow_pen(cr, cx, cy, s);
 		break;
 	case TOOL_BLUR:
 		toolbar_icon_blur(cr, cx, cy, s);

@@ -225,9 +225,14 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
-		log_error("edit.tool must be one of "
-				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|blur|"
-				  "pixelate|spotlight|text|counter|callout|eraser");
+		char list[256];
+		size_t off = 0;
+		list[0] = '\0';
+		for (size_t i = 0; grabit_tool_names[i]; i++)
+			if (!grabit_join_appendf(list, sizeof list, &off, "|", "%s",
+									 grabit_tool_names[i]))
+				break;
+		log_error("edit.tool must be one of %s", list);
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&

@@ -71,6 +71,7 @@ enum tool_kind {
 	TOOL_RRECT,
 	TOOL_ELLIPSE,
 	TOOL_ARROW,
+	TOOL_ARROW_PEN,
 	TOOL_BLUR,
 	TOOL_PIXELATE,
 	TOOL_SPOTLIGHT,
@@ -82,7 +83,8 @@ enum tool_kind {
 };
 
 static inline bool tool_uses_points(enum tool_kind t) {
-	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER;
+	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_ERASER ||
+		   t == TOOL_ARROW_PEN;
 }
 
 static inline bool tool_is_rect_region(enum tool_kind t) {
@@ -96,10 +98,6 @@ static inline bool tool_is_layer(enum tool_kind t) {
 
 static inline bool tool_samples_backdrop(enum tool_kind t) {
 	return t == TOOL_BLUR || t == TOOL_PIXELATE;
-}
-
-static inline bool tool_is_line_family(enum tool_kind t) {
-	return t == TOOL_PEN || t == TOOL_MARKER || t == TOOL_LINE;
 }
 
 static inline bool tool_uses_font(enum tool_kind t) {

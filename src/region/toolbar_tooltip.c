@@ -20,8 +20,6 @@ static const char *tooltip_text(enum tb_action act) {
 		return "Select region  (q)";
 	case TB_EDIT:
 		return "Move/resize annotations  (s)";
-	case TB_TOOL_ARROW:
-		return "Arrow  (6 / a)";
 	case TB_TOOL_TEXT:
 		return "Text  (8 / t)";
 	case TB_TOOL_COUNTER:

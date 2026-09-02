@@ -93,9 +93,6 @@ static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double 
 	case TB_EDIT:
 		toolbar_icon_select(cr, cxi, cyi, s_icon);
 		break;
-	case TB_TOOL_ARROW:
-		toolbar_icon_arrow(cr, cxi, cyi, s_icon);
-		break;
 	case TB_TOOL_TEXT:
 		toolbar_icon_text(cr, cxi, cyi, s_icon);
 		break;

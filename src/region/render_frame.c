@@ -271,8 +271,21 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (region_editing(o->st) && !sel_visible && !region_toolbar_visible(o->st))
-		gren_render_bottom_hint(cr, o, "drag to select a region, esc to cancel");
+	if (region_editing(o->st) &&
+		grabit_wl_output_at(o->st->wls, o->st->cursor_x, o->st->cursor_y) == o->go) {
+		const char *hint = NULL;
+		if (o->st->eyedropper_mode)
+			hint = "click anywhere to sample a color, esc to cancel";
+		else if (!region_toolbar_visible(o->st)) {
+			if (o->st->has_selection)
+				hint = "enter or ctrl+c to capture, esc to cancel";
+			else if (o->st->n_snap_windows > 0)
+				hint = "drag or click a window, esc to cancel";
+			else
+				hint = "drag to select a region, esc to cancel";
+		}
+		if (hint) gren_render_bottom_hint(cr, o, hint);
+	}
 
 	if (region_editing(o->st)) {
 		region_toolbar_render(cr, o);

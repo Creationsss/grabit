@@ -68,7 +68,35 @@ static void curve_push(cairo_t *cr, double *wx, double *wy, size_t *nw, double x
 					   wx[2], wy[2]);
 }
 
-static void stroke_path(cairo_t *cr, const int32_t *p, size_t n, bool smooth, double lw) {
+static void pen_arrow_head(cairo_t *cr, const struct annotation *a, double w,
+						   double tip_x, double tip_y) {
+	size_t n = a->n_points;
+	if (n < 2) return;
+	size_t last = n - 1;
+	if (a->smooth && n >= 4) {
+		if (last < (size_t)SMOOTH_WINDOW) return;
+		last -= (size_t)SMOOTH_WINDOW;
+	}
+	double want = grabit_cairo_arrow_head_len(w, ANNO_ARROW_MIN_HEAD);
+	double bx = 0.0, by = 0.0, blen = 0.0;
+	for (size_t i = last + 1; i-- > 0;) {
+		double dx = tip_x - a->points[i * 2], dy = tip_y - a->points[i * 2 + 1];
+		double len = sqrt(dx * dx + dy * dy);
+		if (len > blen) {
+			bx = a->points[i * 2];
+			by = a->points[i * 2 + 1];
+			blen = len;
+		}
+		if (len >= want) break;
+	}
+	if (blen < 0.001) return;
+	grabit_cairo_arrow_head(cr, bx, by, tip_x, tip_y, w, ANNO_ARROW_MIN_HEAD);
+}
+
+static void stroke_path(cairo_t *cr, const int32_t *p, size_t n, bool smooth, double lw,
+						double *end_x, double *end_y) {
+	*end_x = p[(n - 1) * 2];
+	*end_y = p[(n - 1) * 2 + 1];
 	if (!smooth || n < 4) {
 		polyline_path(cr, p, n);
 		return;
@@ -120,6 +148,8 @@ static void stroke_path(cairo_t *cr, const int32_t *p, size_t n, bool smooth, do
 		}
 	}
 	curve_push(cr, wx, wy, &nw, lastx, lasty);
+	*end_x = lastx;
+	*end_y = lasty;
 }
 
 static void spot_hole(cairo_t *cr, const struct annotation *a) {
@@ -214,6 +244,7 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		break;
 	case TOOL_PEN:
 	case TOOL_MARKER:
+	case TOOL_ARROW_PEN:
 	case TOOL_ERASER: {
 		if (a->n_points < 1) break;
 		if (a->tool == TOOL_MARKER)
@@ -226,13 +257,15 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
 		if (tool_uses_line_style(a->tool)) apply_stroke_style(cr, a->style, w);
-		stroke_path(cr, a->points, a->n_points, a->smooth, w);
+		double ex, ey;
+		stroke_path(cr, a->points, a->n_points, a->smooth, w, &ex, &ey);
 		if (a->n_points == 1) {
 			cairo_arc(cr, a->points[0], a->points[1], w / 2.0, 0, 2.0 * M_PI);
 			cairo_fill(cr);
 		} else {
 			cairo_stroke(cr);
 		}
+		if (a->tool == TOOL_ARROW_PEN) pen_arrow_head(cr, a, w, ex, ey);
 		break;
 	}
 	case TOOL_BLUR:
@@ -261,13 +294,20 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		break;
 	}
 	case TOOL_CALLOUT: {
-		if (!a->text || !a->text[0]) break;
+		if (!a->text) break;
 		double fs = annotation_font_size(a) * scale;
 		cairo_select_font_face(cr, "sans-serif",
 							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, fs);
 		cairo_text_extents_t ext;
 		cairo_text_extents(cr, a->text, &ext);
+		if (!a->text[0]) {
+			cairo_font_extents_t fe;
+			cairo_font_extents(cr, &fe);
+			ext.width = fs * 0.5;
+			ext.height = fe.ascent;
+			ext.y_bearing = -fe.ascent;
+		}
 
 		double pad = fs * 0.45;
 		double bx = a->x0 - pad;

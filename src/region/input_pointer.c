@@ -32,6 +32,7 @@ static bool enter_output(struct ro_state *st, struct wl_surface *surface,
 	st->cursor_on = o;
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
+	st->cursor_seen = true;
 	return true;
 }
 
@@ -67,6 +68,7 @@ static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	if (!st->cursor_on) return;
 	st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
+	st->cursor_seen = true;
 
 	if (st->tb_dragging) {
 		if (!st->tb_lock) st->tb_out = st->cursor_on->go;

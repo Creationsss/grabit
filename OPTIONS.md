@@ -190,7 +190,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.window_radius` | `auto` | round the corners of window captures to match the compositor. `auto` reads hyprland's `decoration:rounding` (and stays square for fullscreen windows); `0`..`100` forces a radius. applies to `-w`/`--window` and to click-to-snap selections, never to a manual drag. png and webp keep the corners transparent; jpeg cannot store alpha so it is left square with a warning; recordings get black corners |
 | `region.snap_animation` | `false` | animate the window-snap highlight: it slides and resizes between windows and fades out when the cursor leaves them, instead of jumping. needs `region.window_snap` |
-| `region.confirm` | `false` | keep the selection adjustable after releasing the drag (flameshot-style): resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
+| `region.confirm` | `false` | keep the selection adjustable after releasing the drag: resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
 
@@ -217,7 +217,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
 | `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` has no binding of its own; press `r` again to cycle the shapes group and reach it) |
+| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `r` or `a` again to cycle their group and reach them) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
@@ -436,7 +436,7 @@ grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0
 
 | key | default | notes |
 |---|---|---|
-| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a sharex-style preview card |
+| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a preview card |
 | `preview.size` | `300` | thumbnail width in pixels (100-800); the height keeps the screenshot's aspect ratio (no padding, no boxy frame) |
 | `preview.position` | `bottom-right` | same value set as `text_card.position` |
 | `preview.output` | (primary) | same semantics as `text_card.output` |
@@ -503,11 +503,11 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. a flameshot-style toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
+`-e`/`--edit` pairs with any action. an annotation toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens, or stays hidden until you select a region with `edit.toolbar_placement = attach`; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
 
 - **select region** (`q`) - drag out or replace the capture area
 - **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
-- **pen, marker, line, rect, rounded rect, ellipse, arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`-`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser
+- **pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`-`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser. the freehand arrow draws like the pen but always ends in an arrow head, so it can curve around whatever it points at; press `a` again to reach it
 - **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. each spotlight dims everything outside *itself*, so a second one will also dim the first one's bright area
 - **callout** (`k`) draws a speech bubble: click the thing it should point at, type the text, press Enter. the bubble appears offset from that point with a tail leading back to it; in the move/resize tool (`s`) both the bubble and the tail tip are draggable handles, so you can re-aim it
 - **6 preset color swatches** + a current-color square (click to open the picker)
@@ -532,11 +532,12 @@ last-picked color, width, and tool persist via:
 |---|---|---|
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
 | `edit.width` | `4` | integer 1-20 |
-| `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `ellipse`, `arrow`, `blur`, `text`, `eraser` - the editor reopens with your last-used tool |
+| `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` - the editor reopens with your last-used tool |
 | `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
 | `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
 | `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
+| `edit.toolbar_placement` | `top` | where the toolbar opens. `top` centers it at the top of the monitor; `attach` hides it until you select a region, then puts it below the selection (above when there is no room), which saves crossing screens on a multi-monitor setup. it hides again while you move or resize the region and settles at the new spot on release. keys still work while it is hidden, and dragging the toolbar parks it for the rest of that run without remembering the spot (`edit.toolbar_pos` is ignored) |
 | `edit.toolbar_output` | (empty) | pin the toolbar to one output, e.g. `DP-1`; it opens there and dragging cannot leave it. empty opens on the primary monitor and lets you drag the toolbar across any monitor |
 | `edit.toolbar_pos` | (empty) | last parked toolbar spot as `<output>:<x>,<y>`, written automatically when you drag the toolbar; ignored if that output is gone |
 

@@ -87,6 +87,8 @@ static int validate_edit_color(const char *value) {
 
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", "kwin", NULL};
 
+static const char *VALS_toolbar_placement[] = {"top", "attach", NULL};
+
 static const char *VALS_show_position[] = {
 	"top-left",
 	"top-center",
@@ -120,6 +122,11 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
 		log_error("capture.backend must be one of auto|wlr|ext|kwin");
+		return -1;
+	}
+	if (strcmp(key, "edit.toolbar_placement") == 0 &&
+		!cfg_in_list(value, VALS_toolbar_placement)) {
+		log_error("edit.toolbar_placement must be one of top|attach");
 		return -1;
 	}
 	if (strcmp(key, "png.level") == 0 &&
@@ -218,9 +225,14 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (strcmp(key, "edit.tool") == 0 &&
 		!cfg_in_list(value, (const char **)grabit_tool_names)) {
-		log_error("edit.tool must be one of "
-				  "pen|marker|line|rect|rounded_rect|ellipse|arrow|blur|"
-				  "pixelate|spotlight|text|counter|callout|eraser");
+		char list[256];
+		size_t off = 0;
+		list[0] = '\0';
+		for (size_t i = 0; grabit_tool_names[i]; i++)
+			if (!grabit_join_appendf(list, sizeof list, &off, "|", "%s",
+									 grabit_tool_names[i]))
+				break;
+		log_error("edit.tool must be one of %s", list);
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&

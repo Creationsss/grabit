@@ -44,7 +44,12 @@ enum tb_action {
 	TB_BTN_COUNT,
 };
 
-#define TB_TOOL_GROUP_COUNT 3
+#define TB_TOOL_GROUP_COUNT 4
+
+enum tb_placement {
+	TB_PLACE_TOP,
+	TB_PLACE_ATTACH,
+};
 
 #define TB_BTN_W 38
 #define TB_BTN_H 38
@@ -57,6 +62,7 @@ void region_toolbar_rect(const struct ro_state *st,
 enum tb_action region_toolbar_hit(const struct ro_state *st,
 								  int32_t abs_x, int32_t abs_y);
 bool region_toolbar_contains(const struct ro_state *st, int32_t abs_x, int32_t abs_y);
+bool region_toolbar_visible(const struct ro_state *st);
 void region_toolbar_slider_rect(const struct ro_state *st,
 								int32_t *out_x, int32_t *out_y,
 								int32_t *out_w, int32_t *out_h);

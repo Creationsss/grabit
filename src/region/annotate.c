@@ -23,6 +23,7 @@ const char *const grabit_tool_names[] = {
 	"rounded_rect",
 	"ellipse",
 	"arrow",
+	"arrow_pen",
 	"blur",
 	"pixelate",
 	"spotlight",
@@ -158,6 +159,9 @@ static int32_t annotation_paint_extent(const struct annotation *a) {
 		return (int32_t)ceil(grabit_cairo_arrow_extent(
 			annotation_line_width(a), ANNO_ARROW_MIN_HEAD, sqrt(dx * dx + dy * dy)));
 	}
+	if (a->tool == TOOL_ARROW_PEN)
+		return (int32_t)ceil(grabit_cairo_arrow_extent(annotation_line_width(a),
+													   ANNO_ARROW_MIN_HEAD, 0.0));
 	return (int32_t)(annotation_line_width(a) / 2.0);
 }
 
@@ -230,6 +234,7 @@ bool annotation_hit(const struct annotation *a, int32_t x, int32_t y) {
 		return seg_dist2(x, y, a->x0, a->y0, a->x1, a->y1) <= tol2;
 	case TOOL_PEN:
 	case TOOL_MARKER:
+	case TOOL_ARROW_PEN:
 	case TOOL_ERASER:
 		if (a->n_points == 0) return false;
 		if (a->n_points == 1)

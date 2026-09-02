@@ -24,21 +24,28 @@
 
 static const enum tool_kind LINES_TOOLS[] = {TOOL_PEN, TOOL_MARKER, TOOL_LINE};
 static const enum tool_kind SHAPES_TOOLS[] = {TOOL_RECT, TOOL_RRECT, TOOL_ELLIPSE};
+static const enum tool_kind ARROW_TOOLS[] = {TOOL_ARROW, TOOL_ARROW_PEN};
 static const enum tool_kind REDACT_TOOLS[] = {TOOL_BLUR, TOOL_PIXELATE,
 											  TOOL_SPOTLIGHT};
 
 static const char *const LINES_LABELS[] = {"Pen", "Marker", "Line"};
 static const char *const SHAPES_LABELS[] = {"Rectangle", "Rounded", "Ellipse"};
+static const char *const ARROW_LABELS[] = {"Straight", "Freehand"};
 static const char *const REDACT_LABELS[] = {"Blur", "Pixelate", "Spotlight"};
 
-static const struct tool_group GROUPS[TB_TOOL_GROUP_COUNT] = {
+static const struct tool_group GROUPS[] = {
 	{TB_TOOL_LINES, LINES_TOOLS, 3, true, LINES_LABELS,
 	 "Line tools  (p cycles)"},
 	{TB_TOOL_SHAPES, SHAPES_TOOLS, 3, true, SHAPES_LABELS,
 	 "Shapes  (r cycles)"},
+	{TB_TOOL_ARROW, ARROW_TOOLS, 2, false, ARROW_LABELS,
+	 "Arrows  (a cycles)"},
 	{TB_TOOL_REDACT, REDACT_TOOLS, 3, false, REDACT_LABELS,
 	 "Redact & focus  (b cycles)"},
 };
+
+_Static_assert(sizeof GROUPS / sizeof GROUPS[0] == TB_TOOL_GROUP_COUNT,
+			   "GROUPS and TB_TOOL_GROUP_COUNT out of sync");
 
 const struct tool_group *toolbar_tool_group(enum tb_action btn) {
 	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
@@ -64,8 +71,6 @@ enum tool_kind toolbar_group_default(int idx) {
 
 int32_t toolbar_standalone_tool(enum tb_action btn) {
 	switch (btn) {
-	case TB_TOOL_ARROW:
-		return TOOL_ARROW;
 	case TB_TOOL_TEXT:
 		return TOOL_TEXT;
 	case TB_TOOL_COUNTER:

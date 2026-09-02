@@ -27,6 +27,11 @@
 
 #define REGION_DIM_A 0.45
 
+static const struct grabit_output *hint_output(const struct ro_state *st) {
+	if (!st->cursor_seen) return grabit_wl_primary_output(st->wls);
+	return grabit_wl_output_at(st->wls, st->cursor_x, st->cursor_y);
+}
+
 void gren_output_redraw(struct ro_output *o) {
 	if (!o->configured) return;
 	o->dirty = false;
@@ -161,44 +166,43 @@ void gren_output_redraw(struct ro_output *o) {
 		if (o->st->anno_edit_mode) gren_paint_anno_selection(cr, o->st);
 		if (o->st->text_input_active) {
 			double font = o->st->current_font;
-			cairo_select_font_face(cr, "sans-serif",
-								   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-			cairo_set_font_size(cr, font);
-			cairo_font_extents_t fe;
-			cairo_font_extents(cr, &fe);
-			cairo_text_extents_t typed_ext = {0};
-			if (o->st->text_len > 0) {
-				cairo_text_extents(cr, o->st->text_buf, &typed_ext);
-			}
-			double pad = 4.0;
-			double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
-			double pill_w = tw + 2 * pad;
-			double pill_top = (double)o->st->text_y - fe.ascent - pad;
-			double pill_h = fe.ascent + fe.descent + 2 * pad;
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
-			grabit_cairo_rect_r(cr, (double)o->st->text_x - pad, pill_top, pill_w,
-								pill_h, grabit_ui_radius(GUI_R_TIP));
-			cairo_fill(cr);
-			if (o->st->text_len > 0) {
-				struct annotation typing = {
-					.tool = o->st->text_tool,
-					.x0 = o->st->text_x,
-					.y0 = o->st->text_y,
-					.x1 = o->st->text_ax,
-					.y1 = o->st->text_ay,
-					.color = o->st->current_color,
-					.font_size = (int32_t)font,
-					.text = (char *)o->st->text_buf,
-				};
+			struct annotation typing = {
+				.tool = o->st->text_tool,
+				.x0 = o->st->text_x,
+				.y0 = o->st->text_y,
+				.x1 = o->st->text_ax,
+				.y1 = o->st->text_ay,
+				.color = o->st->current_color,
+				.font_size = (int32_t)font,
+				.text = (char *)o->st->text_buf,
+			};
+			if (o->st->text_tool == TOOL_CALLOUT) {
 				annotation_paint(cr, &typing, 1.0);
+			} else {
+				cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
+									   CAIRO_FONT_WEIGHT_BOLD);
+				cairo_set_font_size(cr, font);
+				cairo_font_extents_t fe;
+				cairo_font_extents(cr, &fe);
+				cairo_text_extents_t typed_ext = {0};
+				if (o->st->text_len > 0)
+					cairo_text_extents(cr, o->st->text_buf, &typed_ext);
+				double pad = 4.0;
+				double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
+				cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
+				grabit_cairo_rect_r(cr, (double)o->st->text_x - pad,
+									(double)o->st->text_y - fe.ascent - pad,
+									tw + 2 * pad, fe.ascent + fe.descent + 2 * pad,
+									grabit_ui_radius(GUI_R_TIP));
+				cairo_fill(cr);
+				if (o->st->text_len > 0) annotation_paint(cr, &typing, 1.0);
+				double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
+				cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
+				cairo_set_line_width(cr, 1.5);
+				cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);
+				cairo_line_to(cr, cursor_x, (double)o->st->text_y + fe.descent);
+				cairo_stroke(cr);
 			}
-
-			double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
-			cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
-			cairo_set_line_width(cr, 1.5);
-			cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);
-			cairo_line_to(cr, cursor_x, (double)o->st->text_y + fe.descent);
-			cairo_stroke(cr);
 		}
 		cairo_restore(cr);
 	}
@@ -269,6 +273,21 @@ void gren_output_redraw(struct ro_output *o) {
 		if (!region_editing(o->st) && sel_visible) {
 			gren_render_bottom_hint(cr, o, "enter or ctrl+c to capture, esc to cancel");
 		}
+	}
+
+	if (region_editing(o->st) && hint_output(o->st) == o->go) {
+		const char *hint = NULL;
+		if (o->st->eyedropper_mode)
+			hint = "click anywhere to sample a color, esc to cancel";
+		else if (!region_toolbar_visible(o->st)) {
+			if (o->st->has_selection)
+				hint = "enter or ctrl+c to capture, esc to cancel";
+			else if (o->st->n_snap_windows > 0)
+				hint = "drag or click a window, esc to cancel";
+			else
+				hint = "drag to select a region, esc to cancel";
+		}
+		if (hint) gren_render_bottom_hint(cr, o, hint);
 	}
 
 	if (region_editing(o->st)) {

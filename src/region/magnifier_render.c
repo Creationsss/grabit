@@ -30,6 +30,7 @@
 #define MAGNIFIER_TEXT_GAP 10
 
 static bool output_has_cursor(const struct ro_output *o) {
+	if (!o->st->cursor_seen) return false;
 	struct rect r;
 	grabit_output_rect(o->go, &r);
 	return rect_contains(r, o->st->cursor_x, o->st->cursor_y);

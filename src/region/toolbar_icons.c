@@ -208,18 +208,25 @@ void toolbar_icon_counter(cairo_t *cr, double cx, double cy, double s) {
 
 void toolbar_icon_callout(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.2 * (s / 24.0);
-	double hw = s * 0.40, hh = s * 0.28;
-	double bx = cx - hw, by = cy - hh - s * 0.08;
+	double hw = s * 0.38, hh = s * 0.25;
+	double x0 = cx - hw, y0 = cy - hh - s * 0.10;
+	double x1 = cx + hw, y1 = y0 + hh * 2;
+	double r = s * 0.12;
+	double tl = x0 + r + s * 0.04, tr = tl + s * 0.28;
+	double tipx = tl + s * 0.07, tipy = y1 + s * 0.22;
+
 	cairo_set_line_width(cr, w);
 	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-	grabit_cairo_rounded_rect(cr, bx, by, hw * 2, hh * 2, s * 0.12);
-	cairo_stroke(cr);
-	double edge = by + hh * 2 - w * 0.5;
-	cairo_move_to(cr, cx - hw * 0.52, edge);
-	cairo_line_to(cr, cx - hw * 0.62, edge + s * 0.26);
-	cairo_line_to(cr, cx - hw * 0.10, edge);
+	cairo_new_path(cr);
+	cairo_arc(cr, x1 - r, y0 + r, r, -M_PI / 2.0, 0.0);
+	cairo_arc(cr, x1 - r, y1 - r, r, 0.0, M_PI / 2.0);
+	cairo_line_to(cr, tr, y1);
+	cairo_line_to(cr, tipx, tipy);
+	cairo_line_to(cr, tl, y1);
+	cairo_arc(cr, x0 + r, y1 - r, r, M_PI / 2.0, M_PI);
+	cairo_arc(cr, x0 + r, y0 + r, r, M_PI, 3.0 * M_PI / 2.0);
 	cairo_close_path(cr);
-	cairo_fill(cr);
+	cairo_stroke(cr);
 }
 
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {

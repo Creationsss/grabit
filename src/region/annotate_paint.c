@@ -294,13 +294,20 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		break;
 	}
 	case TOOL_CALLOUT: {
-		if (!a->text || !a->text[0]) break;
+		if (!a->text) break;
 		double fs = annotation_font_size(a) * scale;
 		cairo_select_font_face(cr, "sans-serif",
 							   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, fs);
 		cairo_text_extents_t ext;
 		cairo_text_extents(cr, a->text, &ext);
+		if (!a->text[0]) {
+			cairo_font_extents_t fe;
+			cairo_font_extents(cr, &fe);
+			ext.width = fs * 0.5;
+			ext.height = fe.ascent;
+			ext.y_bearing = -fe.ascent;
+		}
 
 		double pad = fs * 0.45;
 		double bx = a->x0 - pad;

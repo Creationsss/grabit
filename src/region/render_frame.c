@@ -27,6 +27,11 @@
 
 #define REGION_DIM_A 0.45
 
+static const struct grabit_output *hint_output(const struct ro_state *st) {
+	if (!st->cursor_seen) return grabit_wl_primary_output(st->wls);
+	return grabit_wl_output_at(st->wls, st->cursor_x, st->cursor_y);
+}
+
 void gren_output_redraw(struct ro_output *o) {
 	if (!o->configured) return;
 	o->dirty = false;
@@ -271,8 +276,7 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 	}
 
-	if (region_editing(o->st) &&
-		grabit_wl_output_at(o->st->wls, o->st->cursor_x, o->st->cursor_y) == o->go) {
+	if (region_editing(o->st) && hint_output(o->st) == o->go) {
 		const char *hint = NULL;
 		if (o->st->eyedropper_mode)
 			hint = "click anywhere to sample a color, esc to cancel";

@@ -34,6 +34,7 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	st->cursor_on = o;
 	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
+	st->cursor_seen = true;
 	st->last_cursor_serial = serial;
 	st->current_cursor_kind = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
 	ginp_apply_cursor(st, p, serial, o, st->current_cursor_kind);
@@ -64,6 +65,7 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	if (!st->cursor_on) return;
 	st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
 	st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
+	st->cursor_seen = true;
 
 	if (st->tb_dragging) {
 		if (!st->tb_lock) st->tb_out = st->cursor_on->go;

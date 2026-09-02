@@ -140,6 +140,7 @@ struct ro_state {
 	struct ro_output *cursor_on;
 	int32_t cursor_x;
 	int32_t cursor_y;
+	bool cursor_seen;
 
 	bool dragging;
 	int32_t drag_x0;

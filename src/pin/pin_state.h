@@ -4,6 +4,8 @@
 #ifndef GRABIT_PIN_STATE_H
 #define GRABIT_PIN_STATE_H
 
+#include "wl/touch.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -59,6 +61,8 @@ struct pin_state {
 	int32_t img_h;
 
 	struct wl_pointer *pointer;
+	struct wl_touch *touch;
+	struct gtouch_slot touch_slot;
 
 	int32_t px;
 	int32_t py;

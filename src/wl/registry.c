@@ -60,7 +60,7 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 
 	if (strcmp(interface, wl_seat_interface.name) == 0) {
 		if (s->seat) return;
-		uint32_t v = version > 3 ? 3 : version;
+		uint32_t v = version > GRABIT_WL_SEAT_VERSION ? GRABIT_WL_SEAT_VERSION : version;
 		s->seat = wl_registry_bind(reg, name, &wl_seat_interface, v);
 		wl_seat_add_listener(s->seat, &seat_listener_g, s);
 		return;

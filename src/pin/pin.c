@@ -254,6 +254,7 @@ out:
 	pin_cursor_destroy(&st);
 	pin_outputs_finish(&st);
 	if (st.pointer) wl_pointer_release(st.pointer);
+	if (st.touch) wl_touch_release(st.touch);
 	wl_display_roundtrip(wls.display);
 	grabit_wl_finish(&wls);
 	if (st.image) cairo_surface_destroy(st.image);

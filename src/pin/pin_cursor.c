@@ -61,7 +61,7 @@ void pin_cursor_destroy(struct pin_state *st) {
 }
 
 static void apply_cursor(struct pin_state *st, int kind) {
-	if (st->last_pointer_serial == 0 || kind == PIN_CUR_NONE) return;
+	if (!st->pointer || st->last_pointer_serial == 0 || kind == PIN_CUR_NONE) return;
 	if (st->cursor_shape) {
 		static const uint32_t shapes[] = {
 			WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT,

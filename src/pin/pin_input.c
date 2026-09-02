@@ -65,24 +65,33 @@ static struct pin_output *output_for_surface(struct pin_state *st,
 	return NULL;
 }
 
+static void pin_dismiss_rearm(struct pin_state *st) {
+	if (!st->transient || st->dismiss_timer_fd < 0 || st->dismiss_secs <= 0) return;
+	struct itimerspec it = {.it_value = {.tv_sec = st->dismiss_secs}};
+	timerfd_settime(st->dismiss_timer_fd, 0, &it, NULL);
+}
+
+static bool enter_output(struct pin_state *st, struct wl_surface *surface,
+						 wl_fixed_t sx, wl_fixed_t sy) {
+	struct pin_output *o = output_for_surface(st, surface);
+	if (!o) return false;
+	st->ptr_on = o;
+	st->cx = o->go->x + wl_fixed_to_int(sx);
+	st->cy = o->go->y + wl_fixed_to_int(sy);
+	return true;
+}
+
 static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 						  struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
 	(void)p;
 	struct pin_state *st = data;
-	struct pin_output *o = output_for_surface(st, surface);
-	if (!o) return;
-	st->ptr_on = o;
-	st->cx = o->go->x + wl_fixed_to_int(sx);
-	st->cy = o->go->y + wl_fixed_to_int(sy);
+	if (!enter_output(st, surface, sx, sy)) return;
 	st->last_pointer_serial = serial;
 	if (st->hover_caption && !st->hover_active) {
 		st->hover_active = true;
 		pin_render_redraw_all(st);
 	}
-	if (st->transient && st->dismiss_timer_fd >= 0 && st->dismiss_secs > 0) {
-		struct itimerspec it = {.it_value = {.tv_sec = st->dismiss_secs}};
-		timerfd_settime(st->dismiss_timer_fd, 0, &it, NULL);
-	}
+	pin_dismiss_rearm(st);
 	pin_cursor_refresh(st);
 }
 
@@ -100,11 +109,7 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	st->cursor_kind = PIN_CUR_NONE;
 }
 
-static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
-						   wl_fixed_t sx, wl_fixed_t sy) {
-	(void)p;
-	(void)time;
-	struct pin_state *st = data;
+static void motion_event(struct pin_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	if (!st->ptr_on) return;
 	st->cx = st->ptr_on->go->x + wl_fixed_to_int(sx);
 	st->cy = st->ptr_on->go->y + wl_fixed_to_int(sy);
@@ -113,24 +118,12 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 	pin_cursor_update(st);
 }
 
-static void drag_end(struct pin_state *st) {
+static void release_event(struct pin_state *st) {
 	st->dragging = false;
+	pin_cursor_update(st);
 }
 
-static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
-						   uint32_t time, uint32_t button, uint32_t state) {
-	(void)p;
-	(void)time;
-	struct pin_state *st = data;
-	st->last_pointer_serial = serial;
-	if (button != BTN_LEFT) return;
-
-	if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		drag_end(st);
-		pin_cursor_update(st);
-		return;
-	}
-
+static void press_event(struct pin_state *st) {
 	if (!st->ptr_on || !rect_contains(pin_rect(st), st->cx, st->cy)) return;
 
 	if (st->clickable) {
@@ -158,6 +151,76 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 	st->grab_dy = st->cy - st->py;
 	pin_cursor_update(st);
 }
+
+static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
+						   wl_fixed_t sx, wl_fixed_t sy) {
+	(void)p;
+	(void)time;
+	motion_event(data, sx, sy);
+}
+
+static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
+						   uint32_t time, uint32_t button, uint32_t state) {
+	(void)p;
+	(void)time;
+	struct pin_state *st = data;
+	st->last_pointer_serial = serial;
+	if (button != BTN_LEFT) return;
+	if (state == WL_POINTER_BUTTON_STATE_RELEASED)
+		release_event(st);
+	else
+		press_event(st);
+}
+
+static void touch_down(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					   struct wl_surface *surface, int32_t id, wl_fixed_t sx,
+					   wl_fixed_t sy) {
+	(void)t;
+	(void)serial;
+	(void)time;
+	struct pin_state *st = data;
+	if (!gtouch_claim(&st->touch_slot, id)) return;
+	if (!enter_output(st, surface, sx, sy)) {
+		gtouch_clear(&st->touch_slot);
+		return;
+	}
+	pin_dismiss_rearm(st);
+	press_event(st);
+}
+
+static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
+					 int32_t id) {
+	(void)t;
+	(void)serial;
+	(void)time;
+	struct pin_state *st = data;
+	if (!gtouch_release(&st->touch_slot, id)) return;
+	release_event(st);
+}
+
+static void touch_motion(void *data, struct wl_touch *t, uint32_t time, int32_t id,
+						 wl_fixed_t sx, wl_fixed_t sy) {
+	(void)t;
+	(void)time;
+	struct pin_state *st = data;
+	if (!gtouch_owns(&st->touch_slot, id)) return;
+	motion_event(st, sx, sy);
+}
+
+static void touch_cancel(void *data, struct wl_touch *t) {
+	(void)t;
+	struct pin_state *st = data;
+	if (!gtouch_cancel(&st->touch_slot)) return;
+	release_event(st);
+}
+
+static const struct wl_touch_listener touch_listener_g = {
+	.down = touch_down,
+	.up = touch_up,
+	.motion = touch_motion,
+	.frame = gtouch_frame_noop,
+	.cancel = touch_cancel,
+};
 
 static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 						 uint32_t axis, wl_fixed_t value) {
@@ -204,12 +267,15 @@ static const struct wl_pointer_listener pointer_listener_g = {
 };
 
 void pin_input_attach(struct pin_state *st) {
-	if (!st->wls->seat || !(st->wls->seat_caps & WL_SEAT_CAPABILITY_POINTER)) {
-		log_warn("pin: no pointer on seat; click-to-close disabled (dismiss with "
-				 "`grabit --close-all`)");
+	bool has_pointer = st->wls->seat_caps & WL_SEAT_CAPABILITY_POINTER;
+	bool has_touch = st->wls->seat_caps & WL_SEAT_CAPABILITY_TOUCH;
+	if (!has_pointer && !has_touch) {
+		log_warn("pin: no pointer or touch on seat; click-to-close disabled "
+				 "(dismiss with `grabit --close-all`)");
 		return;
 	}
-	st->pointer = wl_seat_get_pointer(st->wls->seat);
-	if (!st->pointer) return;
-	wl_pointer_add_listener(st->pointer, &pointer_listener_g, st);
+	if (has_pointer) st->pointer = wl_seat_get_pointer(st->wls->seat);
+	if (has_touch) st->touch = wl_seat_get_touch(st->wls->seat);
+	if (st->pointer) wl_pointer_add_listener(st->pointer, &pointer_listener_g, st);
+	if (st->touch) wl_touch_add_listener(st->touch, &touch_listener_g, st);
 }

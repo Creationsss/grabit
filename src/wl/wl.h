@@ -10,6 +10,11 @@
 
 #include <wayland-client.h>
 
+#define GRABIT_WL_SEAT_VERSION 3
+_Static_assert(GRABIT_WL_SEAT_VERSION < 5,
+			   "wl_pointer v5 adds frame/axis_source/axis_stop/axis_discrete");
+_Static_assert(GRABIT_WL_SEAT_VERSION < 6, "wl_touch v6 adds shape/orientation");
+
 struct zwlr_screencopy_manager_v1;
 struct zwlr_data_control_manager_v1;
 struct ext_data_control_manager_v1;

@@ -209,8 +209,7 @@ static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t t
 	(void)t;
 	(void)serial;
 	struct ro_state *st = data;
-	if (st->cleanup || !gtouch_owns(&st->touch_slot, id)) return;
-	gtouch_clear(&st->touch_slot);
+	if (st->cleanup || !gtouch_release(&st->touch_slot, id)) return;
 	ginp_button_event(st, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
 }
 
@@ -223,16 +222,10 @@ static void touch_motion(void *data, struct wl_touch *t, uint32_t time, int32_t 
 	motion_event(st, sx, sy);
 }
 
-static void touch_frame(void *data, struct wl_touch *t) {
-	(void)data;
-	(void)t;
-}
-
 static void touch_cancel(void *data, struct wl_touch *t) {
 	(void)t;
 	struct ro_state *st = data;
-	if (st->cleanup || !st->touch_slot.active) return;
-	gtouch_clear(&st->touch_slot);
+	if (st->cleanup || !gtouch_cancel(&st->touch_slot)) return;
 	ginp_region_abort_active(st);
 }
 
@@ -240,7 +233,7 @@ const struct wl_touch_listener ginp_touch_listener_g = {
 	.down = touch_down,
 	.up = touch_up,
 	.motion = touch_motion,
-	.frame = touch_frame,
+	.frame = gtouch_frame_noop,
 	.cancel = touch_cancel,
 };
 

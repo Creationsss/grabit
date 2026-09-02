@@ -60,14 +60,17 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	if (c->ptr_on && c->ptr_on->surface == surface) c->ptr_on = NULL;
 }
 
+static void motion_event(struct rec_controls *c, wl_fixed_t sx, wl_fixed_t sy) {
+	if (!c->ptr_on) return;
+	c->cx = c->ptr_on->go->x + wl_fixed_to_int(sx);
+	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
+}
+
 static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 						   wl_fixed_t sx, wl_fixed_t sy) {
 	(void)p;
 	(void)time;
-	struct rec_controls *c = data;
-	if (!c->ptr_on) return;
-	c->cx = c->ptr_on->go->x + wl_fixed_to_int(sx);
-	c->cy = c->ptr_on->go->y + wl_fixed_to_int(sy);
+	motion_event(data, sx, sy);
 }
 
 static void press_event(struct rec_controls *c) {
@@ -122,35 +125,29 @@ static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t t
 	(void)serial;
 	(void)time;
 	struct rec_controls *c = data;
-	if (gtouch_owns(&c->touch_slot, id)) gtouch_clear(&c->touch_slot);
+	gtouch_release(&c->touch_slot, id);
 }
 
 static void touch_motion(void *data, struct wl_touch *t, uint32_t time, int32_t id,
 						 wl_fixed_t sx, wl_fixed_t sy) {
-	(void)data;
 	(void)t;
 	(void)time;
-	(void)id;
-	(void)sx;
-	(void)sy;
-}
-
-static void touch_frame(void *data, struct wl_touch *t) {
-	(void)data;
-	(void)t;
+	struct rec_controls *c = data;
+	if (!gtouch_owns(&c->touch_slot, id)) return;
+	motion_event(c, sx, sy);
 }
 
 static void touch_cancel(void *data, struct wl_touch *t) {
 	(void)t;
 	struct rec_controls *c = data;
-	gtouch_clear(&c->touch_slot);
+	gtouch_cancel(&c->touch_slot);
 }
 
 static const struct wl_touch_listener touch_listener_g = {
 	.down = touch_down,
 	.up = touch_up,
 	.motion = touch_motion,
-	.frame = touch_frame,
+	.frame = gtouch_frame_noop,
 	.cancel = touch_cancel,
 };
 

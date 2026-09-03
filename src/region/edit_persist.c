@@ -5,6 +5,7 @@
 #include "region/edit_persist.h"
 
 #include "config/config.h"
+#include "log.h"
 #include "region/region.h"
 #include "util/util.h"
 
@@ -199,15 +200,42 @@ static void persist_state_key(struct config *cfg, const char *key, const char *v
 	persist_state_keys(cfg, &key, &val, 1);
 }
 
-void persist_swatches(struct config *cfg, const uint32_t *sw) {
-	char val[EDIT_SWATCH_COUNT * 8 + 1];
+static void edit_swatches_to_str(const uint32_t *sw, char *buf, size_t cap) {
 	size_t off = 0;
-	val[0] = '\0';
+	buf[0] = '\0';
 	for (size_t i = 0; i < EDIT_SWATCH_COUNT; i++) {
 		char cn[10];
 		edit_color_to_str(sw[i], cn, sizeof cn);
-		grabit_join_appendf(val, sizeof val, &off, ",", "%s", cn);
+		grabit_join_appendf(buf, cap, &off, ",", "%s", cn);
 	}
+}
+
+bool edit_swatches_set_one(const char *cur, const char *nstr, const char *color,
+						   char *buf, size_t cap) {
+	char *end;
+	long n = strtol(nstr, &end, 10);
+	if (*end || n < 1 || n > EDIT_SWATCH_COUNT) {
+		log_error("swatch number must be 1-%d", EDIT_SWATCH_COUNT);
+		return false;
+	}
+	uint32_t rgb;
+	if (strcmp(color, "default") == 0) {
+		rgb = edit_swatch_default((size_t)(n - 1));
+	} else if (!edit_color_try(color, &rgb)) {
+		log_error("edit.swatches: `%s` must be #RRGGBB, default, or one of %s", color,
+				  edit_color_names());
+		return false;
+	}
+	uint32_t sw[EDIT_SWATCH_COUNT];
+	if (!edit_swatches_parse(cur, sw)) edit_swatches_default(sw);
+	sw[n - 1] = rgb;
+	edit_swatches_to_str(sw, buf, cap);
+	return true;
+}
+
+void persist_swatches(struct config *cfg, const uint32_t *sw) {
+	char val[EDIT_SWATCHES_STR_MAX];
+	edit_swatches_to_str(sw, val, sizeof val);
 	persist_state_key(cfg, "edit.swatches", val);
 }
 

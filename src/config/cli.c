@@ -8,6 +8,7 @@
 #include "log.h"
 #include "paths.h"
 
+#include "region/edit_persist.h"
 #include "region/keybinds.h"
 #include "wl/wl.h"
 #include <unistd.h>
@@ -137,6 +138,9 @@ int cmd_set(int argc, char **argv) {
 	if (argc == 1 && is_help_arg(argv[0])) {
 		puts("Usage: grabit set <key> <value>    write a config key (validated)");
 		puts("       grabit set <key>=<value>    same, single argument");
+		puts("       grabit set edit.swatches <n> <color>");
+		puts("                                   set one swatch, n is 1-6,");
+		puts("                                   color may be `default`");
 		puts("       grabit set <key>            show a key's value and default");
 		puts("       grabit set <key> --watch    bind a keys.* action by pressing it");
 		puts("       grabit set <key> --reset    restore a keys.* default");
@@ -210,6 +214,21 @@ int cmd_set(int argc, char **argv) {
 		printf("current: %s\n", current ? current : "(unset)");
 		if (loaded) config_free(&c);
 		return 0;
+	}
+	if (argc > 2 && strcmp(argv[0], "edit.swatches") == 0) {
+		if (argc != 3) {
+			log_error("usage: grabit set edit.swatches <n> <color>");
+			return 2;
+		}
+		struct config c;
+		if (config_load(&c) != 0) return 1;
+		char val[EDIT_SWATCHES_STR_MAX];
+		if (!edit_swatches_set_one(config_get(&c, "edit.swatches"), argv[1], argv[2],
+								   val, sizeof val)) {
+			config_free(&c);
+			return 2;
+		}
+		return cfg_store(&c, "edit.swatches", val);
 	}
 	if (argc != 2) {
 		log_error("usage: grabit set <key> <value>");

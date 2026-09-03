@@ -161,7 +161,7 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 		}
 		if (strcmp(leaf, "swatches") == 0) {
 			*example_out = "#ff3030,#fff030,#40ff40,#4080ff,#000000,#ffffff";
-			*def_out = "the six built-in colors";
+			*def_out = "the six built-in colors; `set edit.swatches <n> <color>` sets one, and <color> may be `default`";
 			return 0;
 		}
 		if (strcmp(leaf, "toolbar_placement") == 0) {

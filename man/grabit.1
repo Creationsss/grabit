@@ -203,7 +203,14 @@ The six color buttons can be repointed at any colors with
 (a comma separated list of six
 .IR #rrggbb ,
 .I #rgb
-or named colors). Clicking a swatch that is already selected opens the color
+or named colors), or one at a time with
+.BR "grabit set edit.swatches " <n> " " <color> ,
+where
+.I <color>
+may be
+.B default
+to restore that one.
+Clicking a swatch that is already selected opens the color
 picker on that swatch and repoints it in place, with a reset button beside the
 eyedropper to restore that one to its built-in color; either way the row is
 remembered across runs.

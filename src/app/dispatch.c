@@ -38,9 +38,8 @@
 #include "app/app.h"
 
 static bool is_value_flag(const char *s) {
-	return strcmp(s, "-o") == 0 || strcmp(s, "--output") == 0 ||
-		   strcmp(s, "--save") == 0 || strcmp(s, "-f") == 0 ||
-		   strcmp(s, "--filename") == 0;
+	return strcmp(s, "-f") == 0 || strcmp(s, "--filename") == 0 ||
+		   strcmp(s, "--format") == 0 || strcmp(s, "--delay") == 0;
 }
 
 static bool plugin_argv_has_input(int argc, char **argv) {

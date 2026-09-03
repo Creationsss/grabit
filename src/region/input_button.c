@@ -21,8 +21,6 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
-#define DOUBLE_CLICK_MS 400
-
 #include "region/input_internal.h"
 
 bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {

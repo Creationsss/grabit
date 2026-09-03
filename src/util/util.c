@@ -255,6 +255,15 @@ bool grabit_desktop_is(const char *needle) {
 	return false;
 }
 
+const char *grabit_join_names(const char *const *names) {
+	static char buf[256];
+	size_t off = 0;
+	buf[0] = '\0';
+	for (size_t i = 0; names[i]; i++)
+		if (!grabit_join_appendf(buf, sizeof buf, &off, "|", "%s", names[i])) break;
+	return buf;
+}
+
 bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
 						 const char *fmt, ...) {
 	if (!out || cap == 0 || *off >= cap - 1) return false;

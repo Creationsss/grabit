@@ -26,7 +26,7 @@ grabit plugin update [<name>]            # update one - or every plugin if omitt
 grabit plugin remove <name>              # alias: rm
 ```
 
-`grabit plugin show <name>` prints: `name`, `description`, `homepage`, `kind` (`build`/`prebuilt`), build cmd + binary or prebuilt url + sha256, `auto-update: <hours>`, `branch`, `auto-capture: yes/no`, plus each declared action.
+`grabit plugin show <name>` prints: `name`, `description`, `homepage`, `kind` (`build`/`prebuilt`), build cmd + binary or prebuilt url + sha256, `auto-update: every <n>h` or `auto-update: off`, `branch`, `capture: yes/no`, plus each declared action.
 
 ## running a plugin
 
@@ -57,7 +57,7 @@ grabit <name> /path/to/file.png          # passing a positional skips auto-captu
 
 `--capture` and `--no-capture` are stripped from the argv forwarded to the plugin.
 
-"positional" means any arg not starting with `-`, except the values of `-o`/`--output`/`--save`/`-f`/`--filename`. the value of any other flag counts as a positional, so `grabit <name> --level 3` suppresses auto-capture.
+"positional" means any arg not starting with `-`, except the values of `-f`/`--filename`/`--format`/`--delay` (the grabit flags that take one). the value of any other flag counts as a positional, so `grabit <name> --level 3` suppresses auto-capture.
 
 ## manifest.toml
 

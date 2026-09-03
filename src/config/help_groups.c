@@ -16,7 +16,6 @@
 #include <string.h>
 
 static const char *zl_header_example(const struct zl_hdr *h) {
-	static char buf[160];
 	switch (h->kind) {
 	case ZL_FREE:
 		if (strcmp(h->name, "x-zipline-deletes-at") == 0) return "1d";
@@ -25,16 +24,8 @@ static const char *zl_header_example(const struct zl_hdr *h) {
 		if (strcmp(h->name, "x-zipline-folder") == 0) return "<folder-id>";
 		if (strcmp(h->name, "x-zipline-filename") == 0) return "<override>";
 		return "<string>";
-	case ZL_ENUM: {
-		size_t off = 0;
-		buf[0] = '\0';
-		for (size_t i = 0; h->allowed[i]; i++) {
-			int n = snprintf(buf + off, sizeof buf - off, "%s%s", i ? "|" : "", h->allowed[i]);
-			if (n < 0 || (size_t)n >= sizeof buf - off) break;
-			off += (size_t)n;
-		}
-		return buf;
-	}
+	case ZL_ENUM:
+		return grabit_join_names(h->allowed);
 	case ZL_INT:
 		return "<integer>";
 	case ZL_INT_PCT:
@@ -101,6 +92,11 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = "true";
 			return 0;
 		}
+		if (strcmp(leaf, "tray") == 0) {
+			*example_out = "true|false";
+			*def_out = "true";
+			return 0;
+		}
 		if (strcmp(leaf, "ffmpeg") == 0) {
 			*example_out = "ffmpeg | /usr/bin/ffmpeg";
 			*def_out = "ffmpeg";
@@ -134,8 +130,7 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			return 0;
 		}
 		if (strcmp(leaf, "tool") == 0) {
-			*example_out = "pen|marker|line|rect|rounded_rect|ellipse|arrow|"
-						   "blur|pixelate|spotlight|text|counter|callout|eraser";
+			*example_out = grabit_join_names(grabit_tool_names);
 			*def_out = "pen";
 			return 0;
 		}
@@ -155,7 +150,7 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			return 0;
 		}
 		if (strcmp(leaf, "line_style") == 0) {
-			*example_out = "solid|dashed|dotted";
+			*example_out = grabit_join_names(grabit_line_style_names);
 			*def_out = "solid";
 			return 0;
 		}

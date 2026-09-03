@@ -299,6 +299,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 							out->action == ACTION_COPY ||
 							out->action == ACTION_OUTPUT ||
 							out->action == ACTION_PIN ||
+							out->action == ACTION_OCR ||
 							out->action == ACTION_NONE;
 		if (!edit_applies) log_debug("--edit is ignored for this action");
 	}

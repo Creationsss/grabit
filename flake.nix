@@ -62,6 +62,8 @@
             curl
             file
             wayland
+            libpng
+            pipewire
             cairo
             libxkbcommon
             dbus

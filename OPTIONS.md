@@ -73,7 +73,7 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor color swatches (`edit.swatches`), the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
 
 ### auth tokens
 
@@ -154,9 +154,9 @@ grabit --<name>                               # screenshot + upload
 grabit -f file.png --<name>                   # upload an existing file
 ```
 
-supported sxcu fields: `RequestURL`, `RequestMethod`, `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `ErrorMessage`, `RegexList`.
+supported sxcu fields: `Name`, `RequestURL`, `RequestMethod` (or `RequestType`), `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `ErrorMessage`, `RegexList`.
 
-placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` and `{select:a|b|c}` (both expand to the first alternative), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}`, `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
+placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` (picks one at random), `{select:a|b|c}` (takes the first), `{input}` (expands to empty), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). a backslash escapes a `{`. response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}` (POSIX ERE, not PCRE), `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
 
 auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.auth` config needed.
 
@@ -169,7 +169,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
+| `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the color swatches, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
@@ -190,6 +190,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland reports for every window and niri only for floating ones |
 | `region.window_radius` | `auto` | round the corners of window captures to match the compositor. `auto` reads hyprland's `decoration:rounding` (and stays square for fullscreen windows); `0`..`100` forces a radius. applies to `-w`/`--window` and to click-to-snap selections, never to a manual drag. png and webp keep the corners transparent; jpeg cannot store alpha so it is left square with a warning; recordings get black corners |
 | `region.snap_animation` | `false` | animate the window-snap highlight: it slides and resizes between windows and fades out when the cursor leaves them, instead of jumping. needs `region.window_snap` |
+| `region.show_coords` | `false` | draw a live readout of the cursor position while selecting |
 | `region.confirm` | `false` | keep the selection adjustable after releasing the drag: resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
 | `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
 | `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
@@ -214,10 +215,13 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.cancel` | `Escape, mouse:right` | cancel; while dragging/typing it aborts that instead |
 | `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
 | `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
+| `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo the last undo (edit mode) |
+| `keys.delete` | `Delete, BackSpace` | delete the selected annotations (move/resize mode) |
+| `keys.magnifier` | `Alt_L, Alt_R` | hold for a pixel loupe with the color under the cursor |
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
-| `keys.nudge_left` / `_right` / `_up` / `_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `r` or `a` again to cycle their group and reach them) |
+| `keys.nudge_left` / `keys.nudge_right` / `keys.nudge_up` / `keys.nudge_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
+| `keys.tool.<name>` | `p, 1, KP_1` ... `e, 9, KP_9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `p`, `r`, `a` or `b` again to cycle that group and reach them) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
@@ -352,7 +356,7 @@ bindrn = SUPER SHIFT, mouse:272, release, exec, grabit --release
 
 while grabbed, click anywhere to drag, click the X in the top-right to close that pin.
 
-requires `zwp_relative_pointer_manager_v1` for drag (universal in modern wlroots compositors).
+dragging uses plain `wl_pointer` motion, so it works anywhere layer-shell does.
 
 ## ocr
 
@@ -493,7 +497,7 @@ how the window is captured depends on what the compositor can tell grabit:
 - **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
 - **other compositors** have no way to report the active window; `-w` fails with a notification.
 
-`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-v1` is available.
+`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-unstable-v1` is available.
 
 ## edit
 
@@ -503,23 +507,29 @@ grabit -e -u                  # annotate, then upload
 grabit -e -o                  # annotate, then save
 ```
 
-`-e`/`--edit` pairs with any action. an annotation toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens, or stays hidden until you select a region with `edit.toolbar_placement = attach`; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `1`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
+`-e`/`--edit` pairs with `-c`, `-u`, `-o`, `--pin` and `--tesseract`; it is ignored for `--record`, `--tray` and the pin-management flags. an annotation toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens, or stays hidden until you select a region with `edit.toolbar_placement = attach`; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `0`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
 
 - **select region** (`q`) - drag out or replace the capture area
-- **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles of shapes/lines/arrows to resize them (strokes and text are move-only)
-- **pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, text, counter, callout, eraser** - keyboard shortcuts `1`-`9`, or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser. the freehand arrow draws like the pen but always ends in an arrow head, so it can curve around whatever it points at; press `a` again to reach it
-- **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. each spotlight dims everything outside *itself*, so a second one will also dim the first one's bright area
+- **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles to resize (four on rect/rounded rect/ellipse/blur/pixelate/spotlight, two on line/arrow/callout; pen, marker, freehand arrow, eraser, text and counter move only). ctrl+click adds another annotation to the selection (`edit.multi_select`), `Delete` removes the selected ones, and the scroll wheel changes a selected annotation's stroke width (font size for text, counter and callout). while something is selected the swatches, hsl picker and width slider retarget it instead of the tool defaults
+- **pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, spotlight, text, counter, callout, eraser** - keyboard shortcuts `0`-`9` (or the keypad), or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser. the freehand arrow draws like the pen but always ends in an arrow head, so it can curve around whatever it points at; press `a` again to reach it
+- **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. a second spotlight adds a second bright area rather than dimming the first
 - **callout** (`k`) draws a speech bubble: click the thing it should point at, type the text, press Enter. the bubble appears offset from that point with a tail leading back to it; in the move/resize tool (`s`) both the bubble and the tail tip are draggable handles, so you can re-aim it
+- **tool groups**: the pen, shapes, arrow and redact toolbar buttons each hold several tools. click one to get a list (Pen/Marker/Line, Rectangle/Rounded/Ellipse, Straight/Freehand, Blur/Pixelate/Spotlight) plus the line style for the pen and shape groups, or press that group's own key again to cycle it (`p`, `r`, `a`, `b`). the popup and cycling are the only routes to rounded rect and freehand arrow, which have no key of their own
+- **eraser** (`e`) rubs out drawn pixels with a freehand stroke; it does not delete whole annotations
+- **counter** (`c`) drops a numbered badge, numbered from the count of existing counters, so deleting one in the middle reuses its number
 - **6 preset color swatches** + a current-color square (click to open the picker)
-- **hsl picker panel**: drag in the gradient, type a hex value (`#rrggbb` or `#rgb`), or click the eyedropper to sample a pixel from the screen
-- **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). with the text tool active, the wheel sizes the text (8-72) instead
-- **undo** (`u` or `ctrl+z`, hold to repeat) - steps back through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
-- **resize handles** on the locked region; **ctrl+drag** inside to move the whole region
-- **shift** while drawing constrains rect/ellipse/blur to squares and arrows/lines to 45° angles
+- **hsl picker panel**: drag in the gradient, type a hex value (hex digits only, `rrggbb` or `rgb`; the `#` is implied), or click the eyedropper to sample a pixel from the screen
+- **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). the wheel sizes the font instead (8-72) while text, counter or callout is active
+- **undo** (`u` or `ctrl+z`) / **redo** (`ctrl+y` or `ctrl+shift+z`), hold to repeat - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
+- **resize handles** on the locked region; **ctrl+drag** inside to move the whole region (with a drawing tool active)
+- **shift** while drawing constrains rect/rounded rect/ellipse/blur/pixelate/spotlight to squares and arrows/lines to 45° angles
 - **arrow keys / shift+arrows** still move and resize the capture region while the editor is open
 - **text tool**: `enter` commits the annotation, clicking anywhere else commits it too, `esc` discards the typed text without leaving the editor
 - **hex field**: the typed value applies on `enter` or when you click elsewhere in the picker; `esc` abandons it
 - **right-click** cancels the selector in every mode, aborting an in-progress drag or text entry first
+- **magnifier**: hold `Alt` for a pixel loupe showing the color under the cursor as `#rrggbb` and its coordinates. works in region-select mode too
+- **tooltips** appear after about a second of hovering a toolbar button
+- **touch**: the selector, the recording control bar and pinned captures take touch as well as pointer input. a tap is a left click and a drag is a drag; one finger at a time, and hover-only things like tooltips need a real pointer
 
 the editor opens in region-select mode; drag out a region, then pick a tool to annotate (or press a tool key). two toggles change this:
 
@@ -537,6 +547,8 @@ last-picked color, width, and tool persist via:
 | `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
 | `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
+| `edit.line_style` | `solid` | stroke style for pen, marker, line and the shape tools: `solid`, `dashed` or `dotted` |
+| `edit.multi_select` | `ctrl` | modifier that adds another annotation to the selection in move/resize mode: `ctrl`, `shift`, `alt` or `super` |
 | `edit.swatches` | (built-in) | the six color buttons in the editor toolbar, as a comma separated list. each one is `#rrggbb`, `#rgb`, or a name (red/yellow/green/blue/black/white), so `grabit set edit.swatches "#f38ba8,#f9e2af,#a6e3a1,#89b4fa,#11111b,#cdd6f4"` gives you a catppuccin row. all six must be given, or set one at a time with `grabit set edit.swatches <n> <color>` where `<n>` is 1-6 and `<color>` may be `default` to put that one back. clicking a swatch that is already selected opens the color picker on it, so you can repoint that swatch in place; the picker grows a reset button next to the eyedropper to put that one back to its built-in color. the row is remembered like the other editor choices |
 | `edit.toolbar_placement` | `top` | where the toolbar opens. `top` centers it at the top of the monitor; `attach` hides it until you select a region, then puts it below the selection (above when there is no room), which saves crossing screens on a multi-monitor setup. it hides again while you move or resize the region and settles at the new spot on release. keys still work while it is hidden, and dragging the toolbar parks it for the rest of that run without remembering the spot (`edit.toolbar_pos` is ignored) |
 | `edit.toolbar_output` | (empty) | pin the toolbar to one output, e.g. `DP-1`; it opens there and dragging cannot leave it. empty opens on the primary monitor and lets you drag the toolbar across any monitor |
@@ -562,7 +574,7 @@ presets via `filename_preset`:
 - `uuid`: `%u`
 - `timestamp`: `%s`
 
-`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
+`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-unstable-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
 
 ## plugins
 
@@ -593,11 +605,12 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
-| `HOME` | required when `XDG_CONFIG_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
+| `HOME` | required when `XDG_CONFIG_HOME` or `XDG_STATE_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
 | `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
 | `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
+| `XDG_STATE_HOME` | where `state.toml` lives, default `~/.local/state` |
 | `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`) |
 | `XDG_PICTURES_DIR` | screenshot save dir (`save_dir` config takes precedence; else this, else `~/Pictures`) |
 | `TESSDATA_PREFIX` | tesseract language-data dir |
@@ -619,13 +632,15 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | path | purpose |
 |---|---|
 | `~/.config/grabit/config.toml` | user config (mode 0600) |
+| `~/.local/state/grabit/state.toml` | what grabit decides on its own (`$XDG_STATE_HOME/grabit/state.toml`); see `save_state` |
 | `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
 | `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |
 | `~/.config/grabit/plugins/.lock` | plugin install/update lock |
 | `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
-| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log_file false` or `GRABIT_LOG_FILE=0` |
-| `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp`) |
-| `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit_recording.pid`) |
+| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log_file false` or `GRABIT_LOG_FILE=0` |
+| `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp/grabit-<uid>/grabit/`; grabit refuses a world-writable directory rather than using `/tmp` itself) |
+| `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit-<uid>/grabit_recording.pid`) |
 | `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |
+| `$XDG_RUNTIME_DIR/grabit-tray.pid` | tray process pid file |
 

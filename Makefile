@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-VERSION    := 0.6.1
+VERSION    := 0.7.0
 NAME       := grabit
 
 BUILDDIR   := build
@@ -255,8 +255,11 @@ GRABIT_OBJS := $(GRABIT_SRCS:%.c=$(BUILDDIR)/%.o) \
 GRABIT_BIN  := $(BUILDDIR)/grabit
 
 CHECK_SRCS  := tools/check_headers.c
+DOCS_SRCS   := tools/check_docs.c
 CHECK_OBJS  := $(CHECK_SRCS:%.c=$(BUILDDIR)/%.o)
 CHECK_BIN   := $(BUILDDIR)/check_headers
+DOCS_OBJS   := $(DOCS_SRCS:%.c=$(BUILDDIR)/%.o)
+DOCS_BIN    := $(BUILDDIR)/check_docs
 
 OBJS := $(GRABIT_OBJS) $(CHECK_OBJS)
 DEPS := $(OBJS:.o=.d)
@@ -269,6 +272,10 @@ $(GRABIT_BIN): $(GRABIT_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(CHECK_BIN): $(CHECK_OBJS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+
+$(DOCS_BIN): $(DOCS_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
@@ -285,15 +292,19 @@ $(BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(CFLAGS)) -c -o $@ $<
 
+.PHONY: check-docs
+check-docs: $(GRABIT_BIN) $(DOCS_BIN)
+	@$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE)
+
 .PHONY: test
-test: $(CHECK_BIN)
+test: $(CHECK_BIN) check-docs
 	$(CHECK_BIN) --check src
 
 .PHONY: apply-headers
 apply-headers: $(CHECK_BIN)
 	$(CHECK_BIN) --apply src
 
-FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c
+FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c tools/check_docs.c
 
 .PHONY: fmt
 fmt:

@@ -40,6 +40,7 @@ size_t grabit_edit_distance(const char *a, const char *b);
 size_t grabit_rstrip(char *s, size_t len);
 void grabit_redact_url(const char *url, char *out, size_t cap);
 size_t grabit_utf8_valid_prefix(const char *s, size_t n);
+const char *grabit_join_names(const char *const *names);
 bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
 						 const char *fmt, ...)
 	__attribute__((format(printf, 5, 6)));

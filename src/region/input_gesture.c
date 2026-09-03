@@ -14,14 +14,7 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 
-#define UNDO_HOLD_DELAY_MS 600
-#define UNDO_HOLD_REPEAT_MS 80
 #define TOOLTIP_DELAY_MS 1000
-#define PEN_POINTS_MAX (1u << 18)
-#define NUDGE_DELAY_MS 300
-#define NUDGE_REPEAT_MS 30
-#define NUDGE_STEP_MAX 10
-#define NUDGE_ACCEL_TICKS 4
 
 #include "region/input_state_internal.h"
 

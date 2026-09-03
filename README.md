@@ -12,7 +12,7 @@ see https://void.creations.works/
 
 ### Arch (AUR)
 
-see https://aur.archlinux.org/packages/grabit
+[`grabit`](https://aur.archlinux.org/packages/grabit) builds from the latest tag, [`grabit-bin`](https://aur.archlinux.org/packages/grabit-bin) is the prebuilt release, and [`grabit-git`](https://aur.archlinux.org/packages/grabit-git) tracks main.
 
 ### Gentoo
 
@@ -33,10 +33,10 @@ sudo make install
 
 build deps:
 
-`json-c` `libcurl` `libmagic` `wayland-client` `wayland-cursor` `cairo` `libxkbcommon` `libdbus-1`
+`json-c` `libcurl` `libmagic` `wayland-client` `wayland-cursor` `cairo` `libpng` `libxkbcommon` `libdbus-1`
 
-optional: `libjpeg` `libwebp` for jpeg/webp output.
-runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
+optional: `libjpeg` `libwebp` for jpeg/webp output, `libpipewire-0.3` for recording on kde/gnome.
+runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`. see [OPTIONS.md](OPTIONS.md) for the rest (`trans`, `git`, `xdg-open`, a sound player).
 
 ## demo
 
@@ -55,6 +55,9 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`.
 - annotator (`-e`): pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, spotlight, text, counter, callout, eraser
 - **`-e -f <file>`** annotates an existing png, jpeg, or webp instead of capturing
 - color picker with hex input and an eyedropper that samples the freeze
+- six color swatches you can repoint to any colors (`edit.swatches`)
+- toolbar that follows the region you select (`edit.toolbar_placement`)
+- works with a touchscreen as well as a mouse
 - **`--record`** region recording with overlay and tray icon; mp4, webm, or gif ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
 - **`--pin`** pins captures to the desktop: click-through, stackable, draggable
 - **`--tray`** persistent tray icon with every action in its menu

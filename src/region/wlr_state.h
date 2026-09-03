@@ -114,6 +114,8 @@ struct undo_item {
 	} u;
 };
 
+#define PEN_POINTS_MAX (1u << 18)
+
 struct ro_state {
 	struct grabit_wl_state *wls;
 	struct ro_output *outs;

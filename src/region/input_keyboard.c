@@ -21,8 +21,6 @@
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
-#define DOUBLE_CLICK_MS 400
-
 #include "region/input_internal.h"
 
 static void keyboard_keymap(void *data, struct wl_keyboard *kb,

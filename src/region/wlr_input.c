@@ -23,8 +23,6 @@
 
 #include "cursor-shape-v1-client-protocol.h"
 
-#define DOUBLE_CLICK_MS 400
-
 #include "region/input_internal.h"
 
 bool ginp_eyedropper_sample(struct ro_state *st, uint32_t *out_color) {

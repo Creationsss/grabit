@@ -1,6 +1,6 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
 .\" Copyright (C) 2026 creations
-.TH GRABIT 1 "2026-08-11" "grabit 0.6.1" "User Commands"
+.TH GRABIT 1 "2026-09-03" "grabit 0.7.0" "User Commands"
 .SH NAME
 grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .SH SYNOPSIS
@@ -10,6 +10,11 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .B grabit
 .BR set | get | unset
 .RI [ key "] [" value ]
+.br
+.B grabit
+.RB [ \-p ]
+.I plugin
+.RI [ args ...]
 .br
 .B grabit
 .B sxcu
@@ -23,14 +28,16 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .br
 .B grabit
 .B help
-.RI [ subcommand ]
+.RI [ topic ]
 .SH DESCRIPTION
 .B grabit
 captures region screenshots, records the screen, performs OCR, and uploads the
 result, with a native freeze + region selector. It uses
-.B zwlr_screencopy_v1
+.B zwlr_screencopy_manager_v1
 when advertised, otherwise
-.BR ext_image_copy_capture_v1 ,
+.B ext_image_copy_capture_manager_v1
+with
+.BR ext_output_image_capture_source_manager_v1 ,
 otherwise the
 .B org.kde.KWin.ScreenShot2
 dbus service on KDE Plasma.
@@ -41,7 +48,14 @@ ScreenShot2, recording via zkde_screencast_unstable_v1 (see
 GNOME: recording only, via org.gnome.Mutter.ScreenCast. X11 is not supported.
 .PP
 With no action flag, grabit performs the configured
-.B default_action
+.BR default_action ,
+except that
+.B \-f
+and
+.BI \-\- service
+imply
+.B \-\-upload
+on their own
 (seeded to
 .B copy
 on first run, which also writes a default config to
@@ -67,7 +81,10 @@ Upload to a specific built-in service
 .BR pixelvault )
 or a registered
 .B .sxcu
-uploader.
+uploader. Only valid with
+.BR \-u ,
+.BR \-\-record ,
+or no action flag; any other action is an error.
 .TP
 .BR \-o ", " \-\-output ", " \-\-save
 Capture, save to disk, and print the path to standard output. The \(dqSaved\(dq
@@ -157,8 +174,18 @@ With
 do not copy the text, only show it.
 .TP
 .BR \-e ", " \-\-edit
-Open the in-tree annotation editor before the action. Pairs with any action;
-make it the default with
+Open the in-tree annotation editor before the action. Pairs with
+.BR \-c ,
+.BR \-u ,
+.BR \-o ,
+.B \-\-pin
+and
+.BR \-\-tesseract ;
+ignored for
+.BR \-\-record ,
+.B \-\-tray
+and the pin-management flags.
+Make it the default with
 .BR "grabit set edit.default true" .
 A toolbar opens at the top of the primary monitor (override with
 .BR edit.toolbar_output );
@@ -182,15 +209,24 @@ button (or key
 drags out (or replaces) the capture area, and Save stays disabled
 until one is set. Tools: pen, marker, line, rect, rounded rect, ellipse, arrow,
 freehand arrow, blur, pixelate, spotlight, text, counter, callout, eraser (keys
-.B 1\-9
-or letters
+.BR 0\-9 ,
+the keypad equivalents, or letters
 .BR p / m / l / r / o / a / b / x / h / t / c / k / e ).
-Pressing a group's key again cycles within that group, so
+Four buttons hold a group of tools, and pressing that group's own key again
+cycles it:
+.B p
+steps pen, marker, line;
 .B r
-steps rect, rounded rect, ellipse, and
+steps rect, rounded rect, ellipse;
 .B a
-steps arrow, freehand arrow. That is the only key route to rounded rect and
-freehand arrow, which have no binding of their own.
+steps arrow, freehand arrow;
+.B b
+steps blur, pixelate, spotlight. Clicking a group button opens a list of its
+tools instead, which together with cycling is the only route to rounded rect
+and freehand arrow, the two tools with no key of their own. That list also
+offers the line style
+.RB ( edit.line_style :
+solid, dashed or dotted) for the pen and shape groups.
 The freehand arrow draws like the pen but always finishes with an arrow head on
 the end of the stroke, so it can curve around whatever it points at.
 The spotlight tool dims everything outside the rectangle you drag, with the
@@ -214,19 +250,47 @@ Clicking a swatch that is already selected opens the color
 picker on that swatch and repoints it in place, with a reset button beside the
 eyedropper to restore that one to its built-in color; either way the row is
 remembered across runs.
-a move/resize tool
+The move/resize tool
 .RB ( s )
-that repositions drawn annotations (corner handles resize shapes, lines, and
-arrows; strokes and text move only), an HSL color picker with eyedropper, and
-a width slider (or scroll wheel; the wheel sizes text instead while the text
-tool is active). Undo
+repositions drawn annotations: shapes and redactions get four corner handles,
+lines, arrows and callouts get two, and everything else moves only. Ctrl+click
+adds another annotation to the selection
+.RB ( edit.multi_select ),
+and
+.B Delete
+removes the selected ones. There is also an HSL color picker with an eyedropper
+and a width slider (or the scroll wheel, which sizes the font instead for text,
+counter and callout).
+The six color buttons can be repointed with
+.B edit.swatches
+(six comma separated
+.IR #rrggbb ,
+.I #rgb
+or named colors), or one at a time with
+.BR "grabit set edit.swatches " <n> " " <color> ,
+where
+.I <color>
+may be
+.B default
+to restore that one. Clicking a swatch that is already selected opens the color
+picker on it, with a reset button beside the eyedropper.
+Undo
 .RB ( u
 or
 .BR Ctrl+Z ,
 hold to repeat) steps back through annotations, annotation moves/resizes,
-and region changes alike. Last-used color, width, and tool persist across
-runs.
+and region changes alike. Redo is
+.B Ctrl+y
+or
+.BR Ctrl+Shift+z .
+Last-used color, width, tool and swatch row persist across runs.
 .SH NOTES
+.SS Touchscreen
+The region selector, the recording control bar and pinned captures all accept
+touch as well as pointer input: a tap acts as a left click and a drag works the
+same as dragging with a mouse. Only one finger is tracked at a time, and there
+is no cursor to hover with, so tooltips and hover highlights only appear under
+a real pointer.
 .SS KDE Plasma recording
 KWin keeps
 .B zkde_screencast_unstable_v1
@@ -325,8 +389,9 @@ Force the region selector for this run even when
 .B region.repeat_last
 is
 .BR true .
-Overrides
-.BR \-L .
+Ignored if
+.B \-L
+is also given.
 .TP
 .B \-\-cursor
 Include the mouse pointer in the screenshot for this run even if
@@ -410,6 +475,29 @@ Write a config key (schema-validated). The
 .BI "set " key = value
 form is accepted too.
 .TP
+.BI "set " "edit.swatches n color"
+Set one of the six editor color swatches
+.RI ( n
+is 1-6);
+.I color
+may be
+.B default
+to restore that one.
+.TP
+.BI "set " "key \-\-watch"
+Bind a
+.BR keys.* \ action
+by pressing the key or button. Aliased
+.BR \-w .
+.TP
+.BI "set " "key \-\-reset"
+Restore a
+.BR keys.* \ default.
+.B "set keys \-\-reset"
+restores every binding, and
+.B "set keys"
+lists them all.
+.TP
 .BI "set " key
 Print the example/default value for that key.
 .TP
@@ -422,16 +510,26 @@ Print one config key, or dump every set key.
 .BI "unset " key
 Remove a config key.
 .TP
-.BI "help " [subcommand]
-Print help for a subcommand
-.RB ( set ,
+.BI "help " [topic]
+Print help for a topic:
+.BR set ,
 .BR get ,
 .BR unset ,
 .BR sxcu ,
-.BR plugin ).
+.BR plugin ,
+.BR filename ,
+.BR env ,
+.BR ocr
+(aliased
+.BR tesseract )
+or
+.BR examples .
+.B grabit \-\-help
+.I topic
+works too.
 .SS Custom uploaders (ShareX .sxcu)
 .TP
-.BI "sxcu add " file
+.BI "sxcu add " "file " [ \-\-force ]
 Parse, sanitize, and register a
 .B .sxcu
 uploader; use it as
@@ -443,8 +541,10 @@ uploader; use it as
 Show registered uploaders (alias:
 .BR ls ).
 .TP
-.BI "sxcu show " name
-Print parsed fields.
+.BI "sxcu show " "name " [ \-\-show\-secrets ]
+Print parsed fields; secrets are redacted unless
+.B \-\-show\-secrets
+is given.
 .TP
 .BI "sxcu remove " name
 Remove an uploader (alias:
@@ -586,6 +686,11 @@ Takes precedence over the
 .B log_file
 config key.
 .TP
+.B GRABIT_RECORD_ENC_DELAY_US
+Test hook: artificially delay every encoder write by this many microseconds to
+reproduce a slow encoder and exercise the frame-drop path. Not a tuning knob;
+setting it makes recording worse.
+.TP
 .B GRABIT_CAPTURE_BACKEND
 Force the capture backend:
 .BR auto ,
@@ -607,7 +712,7 @@ or
 prefers
 .B ext_data_control_v1
 and falls back to the deprecated
-.BR zwlr_data_control_v1 .
+.BR zwlr_data_control_manager_v1 .
 .TP
 .B WAYLAND_DISPLAY
 Wayland socket to connect to. Named in the connection-failure message when
@@ -616,6 +721,8 @@ grabit cannot reach a compositor.
 .B HOME
 Required when
 .B XDG_CONFIG_HOME
+or
+.B XDG_STATE_HOME
 is unset: grabit exits with
 .RB \(dq "HOME is not set" \(dq
 if neither is present. Also backs the
@@ -624,6 +731,12 @@ if neither is present. Also backs the
 and
 .I ~/.cache
 fallbacks.
+.TP
+.B XDG_STATE_HOME
+Base for
+.IR grabit/state.toml ,
+default
+.IR ~/.local/state .
 .TP
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
@@ -689,6 +802,8 @@ environment variables instead if you track it in version control.
 .I $XDG_STATE_HOME/grabit/state.toml
 Machine-local state grabit writes on its own: the last-used
 .BR edit.color ", " edit.width ", " edit.tool ,
+the editor color swatches
+.RB ( edit.swatches ),
 the editor toolbar position
 .RB ( edit.toolbar_pos )
 and the last captured region
@@ -710,7 +825,7 @@ Registered ShareX uploaders.
 .I $XDG_RUNTIME_DIR/grabit.log
 Every message grabit emits, with a timestamp and pid, including info and debug
 lines. Falls back to
-.IR /tmp/grabit- uid .log .
+.IR /tmp/grabit- <uid> /grabit.log .
 Notifications that say
 .B check the log file
 mean this one, since grabit is usually run from a keybind with no terminal
@@ -726,12 +841,18 @@ PID file for the on-screen text/preview card.
 .TP
 .I $XDG_RUNTIME_DIR/grabit_recording.pid
 PID file for the active recording (falls back to
-.IR /tmp/grabit_recording.pid ).
+.IR /tmp/grabit- <uid> /grabit_recording.pid ).
 .TP
 .I $XDG_RUNTIME_DIR/grabit/
 Temporary captures for the clipboard and upload flows, removed after use
 (falls back to
-.IR /tmp ).
+.IR /tmp/grabit- <uid> /grabit/ ;
+grabit refuses a world-writable directory rather than using
+.I /tmp
+itself).
+.TP
+.I $XDG_RUNTIME_DIR/grabit-tray.pid
+Tray process pid file.
 .TP
 .I ~/.config/grabit/plugins/<name>/
 Installed plugins (binaries symlinked from
@@ -790,7 +911,11 @@ Success.
 Runtime failure (capture, upload, clipboard, plugin, or subcommand error).
 Cancelling an interactive selection also exits
 .BR 1 ,
-but without an error notification.
+but without an error notification. Cancelling
+.B \-\-record
+exits
+.B 0
+and notifies instead.
 .TP
 .B 2
 Command-line parse or usage error.

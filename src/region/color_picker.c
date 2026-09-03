@@ -58,8 +58,24 @@ void region_color_input_rect(const struct ro_state *st,
 	}
 	*out_x = gx;
 	*out_y = gy + gh + COLOR_PICKER_INPUT_GAP;
-	*out_w = gw - COLOR_PICKER_INPUT_H - COLOR_PICKER_INPUT_BTN_GAP;
+	int32_t btns = st->swatch_edit >= 0 ? 2 : 1;
+	*out_w = gw - btns * (COLOR_PICKER_INPUT_H + COLOR_PICKER_INPUT_BTN_GAP);
 	*out_h = COLOR_PICKER_INPUT_H;
+}
+
+void region_color_eyedropper_rect(const struct ro_state *st,
+								  int32_t *out_x, int32_t *out_y,
+								  int32_t *out_w, int32_t *out_h);
+
+void region_color_reset_rect(const struct ro_state *st,
+							 int32_t *out_x, int32_t *out_y,
+							 int32_t *out_w, int32_t *out_h) {
+	if (st->swatch_edit < 0) {
+		*out_x = *out_y = *out_w = *out_h = 0;
+		return;
+	}
+	region_color_eyedropper_rect(st, out_x, out_y, out_w, out_h);
+	if (*out_w > 0) *out_x -= COLOR_PICKER_INPUT_H + COLOR_PICKER_INPUT_BTN_GAP;
 }
 
 void region_color_eyedropper_rect(const struct ro_state *st,

@@ -62,10 +62,11 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 		st.group_tool[i] = toolbar_group_default(i);
 	const struct tool_group *cur_g = toolbar_group_of_tool(st.current_tool);
 	if (cur_g) st.group_tool[toolbar_group_index(cur_g)] = st.current_tool;
-	st.current_color = (inout_color && *inout_color) ? *inout_color : 0xff3030u;
+	st.current_color = (inout_color && *inout_color) ? *inout_color : EDIT_DEFAULT_COLOR;
 	st.current_width = (inout_width && *inout_width) ? *inout_width : 4;
 	st.current_font = ANNO_DEFAULT_FONT;
 	st.handle_dragging = -1;
+	st.swatch_edit = -1;
 	st.hovered_button = -1;
 	st.sel_anno = -1;
 	st.anno_drag = ANNO_DRAG_NONE;
@@ -288,6 +289,8 @@ loop_done:;
 			}
 		}
 	}
+
+	if (annotate_mode && cfg && st.swatches_dirty) persist_swatches(cfg, st.swatches);
 
 	if (annotate_mode && cfg && st.tb_moved && st.tb_place == TB_PLACE_TOP) {
 		int32_t tx, ty, tw, th;

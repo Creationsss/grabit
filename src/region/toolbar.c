@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "region/edit_persist.h"
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
@@ -12,6 +13,9 @@
 #include <math.h>
 
 #include <cairo/cairo.h>
+
+_Static_assert(TB_SWATCH_COUNT == EDIT_SWATCH_COUNT,
+			   "toolbar swatch row must match edit.swatches");
 
 static bool button_active(const struct ro_state *st, enum tb_action act) {
 	if (act == TB_REGION) return !st->region_locked;
@@ -24,8 +28,8 @@ static bool button_active(const struct ro_state *st, enum tb_action act) {
 	int32_t stool = toolbar_standalone_tool(act);
 	if (stool >= 0)
 		return tool_active && st->current_tool == (enum tool_kind)stool;
-	if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE)
-		return region_active_color(st) == TOOLBAR_COLORS[act - TB_COLOR_RED];
+	if (act >= TB_SWATCH_0 && act <= TB_SWATCH_5)
+		return region_active_color(st) == st->swatches[act - TB_SWATCH_0];
 	return act == TB_UNDO && st->undo_held;
 }
 
@@ -148,7 +152,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		double bhi = (double)bh_local * S;
 
 		bool active = button_active(o->st, act);
-		bool is_color = (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE);
+		bool is_color = (act >= TB_SWATCH_0 && act <= TB_SWATCH_5);
 		bool is_slider = (act == TB_WIDTH_SLIDER);
 		bool is_current = (act == TB_COLOR_CURRENT);
 
@@ -161,7 +165,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 
 		if (is_color) {
 			toolbar_color_swatch(cr, cxi, cyi, s_icon,
-								 TOOLBAR_COLORS[act - TB_COLOR_RED], active);
+								 o->st->swatches[act - TB_SWATCH_0], active);
 			continue;
 		}
 		if (is_current) {

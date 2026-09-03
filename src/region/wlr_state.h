@@ -200,6 +200,9 @@ struct ro_state {
 
 	struct annotation_list *out_annos;
 
+	uint32_t swatches[TB_SWATCH_COUNT];
+	int32_t swatch_edit;
+	bool swatches_dirty;
 	uint32_t current_color;
 	int32_t current_width;
 	int32_t current_font;

@@ -238,7 +238,10 @@ void region_apply_slider(struct ro_state *st, int32_t value, bool record) {
 }
 
 void region_apply_color(struct ro_state *st, uint32_t color, bool record) {
-	if (first_selected(st)) {
+	if (st->color_picker_open && st->swatch_edit >= 0) {
+		st->swatches[st->swatch_edit] = color;
+		st->swatches_dirty = true;
+	} else if (first_selected(st)) {
 		if (record) region_undo_group_begin(st);
 		for (size_t i = 0; i < st->out_annos->n; i++) {
 			if (!st->out_annos->items[i].selected) continue;

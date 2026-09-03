@@ -3,6 +3,7 @@
 
 #define _XOPEN_SOURCE 700
 #include "region/color_picker_internal.h"
+#include "region/edit_persist.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
@@ -165,27 +166,44 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	}
 }
 
-static void render_eyedropper_btn(cairo_t *cr, const struct ro_output *o, int32_t S) {
-	int32_t ex, ey, ew, eh;
-	region_color_eyedropper_rect(o->st, &ex, &ey, &ew, &eh);
-	double dex = (double)(ex - o->go->x) * S;
-	double dey = (double)(ey - o->go->y) * S;
-	double dew = (double)ew * S;
-	double deh = (double)eh * S;
-	if (o->st->eyedropper_mode) {
-		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 0.92);
-	} else {
+static void render_picker_btn(cairo_t *cr, const struct ro_output *o, int32_t S,
+							  struct rect r, bool accent, double icon_a,
+							  void (*icon)(cairo_t *, double, double, double)) {
+	if (r.w <= 0 || r.h <= 0) return;
+	double bx = (double)(r.x - o->go->x) * S;
+	double by = (double)(r.y - o->go->y) * S;
+	double bw = (double)r.w * S;
+	double bh = (double)r.h * S;
+	double rr = grabit_ui_radius(GUI_R_BTN) * S;
+	if (accent)
+		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B,
+							  0.92);
+	else
 		cairo_set_source_rgba(cr, 0.18, 0.18, 0.18, 1);
-	}
-	double er = grabit_ui_radius(GUI_R_BTN) * S;
-	grabit_cairo_rect_r(cr, dex, dey, dew, deh, er);
+	grabit_cairo_rect_r(cr, bx, by, bw, bh, rr);
 	cairo_fill(cr);
 	cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
 	cairo_set_line_width(cr, (double)S);
-	grabit_cairo_rect_r_inset(cr, dex, dey, dew, deh, er, (double)S);
+	grabit_cairo_rect_r_inset(cr, bx, by, bw, bh, rr, (double)S);
 	cairo_stroke(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
-	toolbar_icon_color_picker(cr, dex + dew / 2.0, dey + deh / 2.0, deh * 0.7);
+	cairo_set_source_rgba(cr, 1, 1, 1, icon_a);
+	icon(cr, bx + bw / 2.0, by + bh / 2.0, bh * 0.7);
+}
+
+static void render_reset_btn(cairo_t *cr, const struct ro_output *o, int32_t S) {
+	struct rect r;
+	region_color_reset_rect(o->st, &r.x, &r.y, &r.w, &r.h);
+	if (r.w <= 0) return;
+	size_t si = (size_t)o->st->swatch_edit;
+	bool at_default = o->st->swatches[si] == edit_swatch_default(si);
+	render_picker_btn(cr, o, S, r, false, at_default ? 0.35 : 1.0, toolbar_icon_undo);
+}
+
+static void render_eyedropper_btn(cairo_t *cr, const struct ro_output *o, int32_t S) {
+	struct rect r;
+	region_color_eyedropper_rect(o->st, &r.x, &r.y, &r.w, &r.h);
+	render_picker_btn(cr, o, S, r, o->st->eyedropper_mode, 1.0,
+					  toolbar_icon_color_picker);
 }
 
 void region_color_picker_render(cairo_t *cr, const struct ro_output *o) {
@@ -217,6 +235,7 @@ void region_color_picker_render(cairo_t *cr, const struct ro_output *o) {
 	render_grid(cr, o->st, S, dx, dy, dw, dh);
 	render_input(cr, o, S);
 	render_eyedropper_btn(cr, o, S);
+	render_reset_btn(cr, o, S);
 
 	cairo_restore(cr);
 }

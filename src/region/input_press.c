@@ -23,6 +23,7 @@
 
 #define DOUBLE_CLICK_MS 400
 
+#include "region/edit_persist.h"
 #include "region/input_internal.h"
 
 void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
@@ -110,6 +111,14 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 							rect_contains(ir, st->cursor_x, st->cursor_y);
 		bool inside_eyedropper = er.w > 0 && er.h > 0 &&
 								 rect_contains(er, st->cursor_x, st->cursor_y);
+		struct rect rr;
+		region_color_reset_rect(st, &rr.x, &rr.y, &rr.w, &rr.h);
+		if (rr.w > 0 && rr.h > 0 && rect_contains(rr, st->cursor_x, st->cursor_y)) {
+			region_apply_color(st, edit_swatch_default((size_t)st->swatch_edit), true);
+			st->color_input_active = false;
+			region_render_request_redraw_all(st);
+			return;
+		}
 		if (inside_eyedropper) {
 			st->eyedropper_mode = !st->eyedropper_mode;
 			st->color_input_active = false;

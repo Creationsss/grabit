@@ -198,6 +198,15 @@ width slider setting how dark the surround goes.
 The callout tool draws a speech bubble: click what it should point at, type the
 text, and the bubble appears offset from that spot with a tail leading back to
 it; in the move/resize tool both the bubble and the tail tip are draggable.
+The six color buttons can be repointed at any colors with
+.B edit.swatches
+(a comma separated list of six
+.IR #rrggbb ,
+.I #rgb
+or named colors). Clicking a swatch that is already selected opens the color
+picker on that swatch and repoints it in place, with a reset button beside the
+eyedropper to restore that one to its built-in color; either way the row is
+remembered across runs.
 a move/resize tool
 .RB ( s )
 that repositions drawn annotations (corner handles resize shapes, lines, and

@@ -18,7 +18,6 @@
 
 static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NULL};
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
-static const char *VALS_edit_color[] = {"red", "yellow", "green", "blue", "black", "white", NULL};
 static const char *VALS_modifier[] = {"ctrl", "shift", "alt", "super", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
 static const char *VALS_translate_backend[] = {"trans", "libretranslate", "deepl", NULL};
@@ -71,15 +70,6 @@ static int validate_int_in_range(const char *key, const char *value, long lo, lo
 	}
 	if (n < lo || n > hi) {
 		log_error("%s must be between %ld and %ld", key, lo, hi);
-		return -1;
-	}
-	return 0;
-}
-
-static int validate_edit_color(const char *value) {
-	uint32_t tmp;
-	if (!grabit_parse_hex_color(value, &tmp) && !cfg_in_list(value, VALS_edit_color)) {
-		log_error("edit.color must be #RRGGBB or one of red|yellow|green|blue|black|white");
 		return -1;
 	}
 	return 0;
@@ -197,7 +187,20 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("translate.backend must be one of trans|libretranslate|deepl");
 		return -1;
 	}
-	if (strcmp(key, "edit.color") == 0 && validate_edit_color(value) != 0) return -1;
+	uint32_t rgb;
+	if (strcmp(key, "edit.color") == 0 && !edit_color_try(value, &rgb)) {
+		log_error("edit.color must be #RRGGBB or one of %s", edit_color_names());
+		return -1;
+	}
+	if (strcmp(key, "edit.swatches") == 0 && value[0]) {
+		uint32_t tmp[EDIT_SWATCH_COUNT];
+		if (!edit_swatches_parse(value, tmp)) {
+			log_error("edit.swatches must be %d colors separated by commas, each "
+					  "#RRGGBB or one of %s",
+					  EDIT_SWATCH_COUNT, edit_color_names());
+			return -1;
+		}
+	}
 	if (strcmp(key, "edit.multi_select") == 0 && !cfg_in_list(value, VALS_modifier)) {
 		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
 		return -1;

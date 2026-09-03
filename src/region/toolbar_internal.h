@@ -19,8 +19,6 @@
 #define GRABIT_ACCENT_G 0.55
 #define GRABIT_ACCENT_B 0.32
 
-extern const uint32_t TOOLBAR_COLORS[6];
-
 void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 							int32_t *out_x, int32_t *out_y,
 							int32_t *out_w, int32_t *out_h);

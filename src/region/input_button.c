@@ -25,8 +25,7 @@
 
 #include "region/input_internal.h"
 
-bool ginp_toolbar_button_event(struct ro_state *st,
-							   uint32_t state) {
+bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 	if (!region_editing(st) || st->dragging) return false;
 	int32_t tx, ty, tw, th;
 	const struct grabit_output *to;
@@ -75,12 +74,18 @@ bool ginp_toolbar_button_event(struct ro_state *st,
 	} else if (stool >= 0) {
 		ginp_mode_select_tool(st, (enum tool_kind)stool);
 		ginp_refresh_cursor(st);
-	} else if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) {
-		region_apply_color(st, TOOLBAR_COLORS[act - TB_COLOR_RED], true);
+	} else if (act >= TB_SWATCH_0 && act <= TB_SWATCH_5) {
+		int32_t idx = act - TB_SWATCH_0;
+		bool editing = st->color_picker_open && st->swatch_edit == idx;
+		bool selected = !region_anno_selected(st) && st->current_color == st->swatches[idx];
 		st->eyedropper_mode = false;
-		st->color_picker_open = false;
+		st->color_picker_open = selected && !editing;
+		st->swatch_edit = st->color_picker_open ? idx : -1;
+		if (!selected) region_apply_color(st, st->swatches[idx], true);
+		ginp_refresh_cursor(st);
 	} else if (act == TB_COLOR_CURRENT) {
 		st->color_picker_open = !st->color_picker_open;
+		st->swatch_edit = -1;
 		st->eyedropper_mode = false;
 		ginp_refresh_cursor(st);
 	} else if (act == TB_WIDTH_SLIDER) {

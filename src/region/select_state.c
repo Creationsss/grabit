@@ -28,6 +28,7 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 						  struct grabit_wl_state *s, const struct rect *snap_rects,
 						  size_t n_snap_rects) {
 	bool snap_enabled = true;
+	edit_swatches_default(st->swatches);
 	if (cfg) {
 		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
@@ -52,6 +53,16 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "true") == 0) st->edit_instant = true;
 		v = config_get(cfg, "edit.start_with_tool");
 		if (annotate_mode && v && strcmp(v, "true") == 0) st->region_locked = true;
+		v = config_get(cfg, "edit.swatches");
+		if (v && v[0]) {
+			uint32_t sw[EDIT_SWATCH_COUNT];
+			if (edit_swatches_parse(v, sw))
+				memcpy(st->swatches, sw, sizeof sw);
+			else
+				log_warn("edit.swatches: need %d colors separated by commas; "
+						 "using the defaults",
+						 EDIT_SWATCH_COUNT);
+		}
 		v = config_get(cfg, "edit.toolbar_placement");
 		if (annotate_mode && v && strcmp(v, "attach") == 0)
 			st->tb_place = TB_PLACE_ATTACH;

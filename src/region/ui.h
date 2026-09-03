@@ -29,12 +29,12 @@ enum tb_action {
 	TB_TOOL_COUNTER,
 	TB_TOOL_CALLOUT,
 	TB_TOOL_ERASER,
-	TB_COLOR_RED,
-	TB_COLOR_YELLOW,
-	TB_COLOR_GREEN,
-	TB_COLOR_BLUE,
-	TB_COLOR_BLACK,
-	TB_COLOR_WHITE,
+	TB_SWATCH_0,
+	TB_SWATCH_1,
+	TB_SWATCH_2,
+	TB_SWATCH_3,
+	TB_SWATCH_4,
+	TB_SWATCH_5,
 	TB_COLOR_CURRENT,
 	TB_WIDTH_SLIDER,
 	TB_UNDO,
@@ -43,6 +43,8 @@ enum tb_action {
 	TB_CANCEL,
 	TB_BTN_COUNT,
 };
+
+#define TB_SWATCH_COUNT (TB_SWATCH_5 - TB_SWATCH_0 + 1)
 
 #define TB_TOOL_GROUP_COUNT 4
 
@@ -70,6 +72,9 @@ void region_color_picker_rect(const struct ro_state *st,
 							  int32_t *out_x, int32_t *out_y,
 							  int32_t *out_w, int32_t *out_h);
 void region_color_input_rect(const struct ro_state *st,
+							 int32_t *out_x, int32_t *out_y,
+							 int32_t *out_w, int32_t *out_h);
+void region_color_reset_rect(const struct ro_state *st,
 							 int32_t *out_x, int32_t *out_y,
 							 int32_t *out_w, int32_t *out_h);
 void region_color_eyedropper_rect(const struct ro_state *st,

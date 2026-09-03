@@ -10,22 +10,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-const uint32_t TOOLBAR_COLORS[6] = {
-	0xff3030u,
-	0xfff030u,
-	0x40ff40u,
-	0x4080ffu,
-	0x000000u,
-	0xffffffu,
-};
-
 static int toolbar_row_of(enum tb_action act) {
-	if (act >= TB_COLOR_RED && act <= TB_CANCEL) return 1;
+	if (act >= TB_SWATCH_0 && act <= TB_CANCEL) return 1;
 	return 0;
 }
 
 static int32_t toolbar_btn_w(enum tb_action act) {
-	if (act >= TB_COLOR_RED && act <= TB_COLOR_WHITE) return 26;
+	if (act >= TB_SWATCH_0 && act <= TB_SWATCH_5) return 26;
 	if (act == TB_COLOR_CURRENT) return 28;
 	if (act == TB_WIDTH_SLIDER) return TB_SLIDER_W;
 	return TB_BTN_W;

@@ -8,12 +8,12 @@
 #include "region/region.h"
 #include "util/util.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define EDIT_DEFAULT_COLOR 0xff3030u
 #define EDIT_DEFAULT_WIDTH 4
 #define EDIT_MIN_WIDTH 1
 #define EDIT_MAX_WIDTH 12
@@ -22,7 +22,7 @@ static const struct {
 	const char *name;
 	uint32_t hex;
 } EDIT_COLORS[] = {
-	{"red", 0xff3030u},
+	{"red", EDIT_DEFAULT_COLOR},
 	{"yellow", 0xfff030u},
 	{"green", 0x40ff40u},
 	{"blue", 0x4080ffu},
@@ -30,14 +30,61 @@ static const struct {
 	{"white", 0xffffffu},
 };
 
-uint32_t edit_color_from_str(const char *s) {
-	if (!s || !*s) return EDIT_DEFAULT_COLOR;
-	uint32_t parsed = 0;
-	if (grabit_parse_hex_color(s, &parsed)) return parsed;
-	for (size_t i = 0; i < sizeof EDIT_COLORS / sizeof EDIT_COLORS[0]; i++) {
-		if (strcmp(EDIT_COLORS[i].name, s) == 0) return EDIT_COLORS[i].hex;
+#define EDIT_COLORS_N (sizeof EDIT_COLORS / sizeof EDIT_COLORS[0])
+_Static_assert(EDIT_COLORS_N >= EDIT_SWATCH_COUNT, "EDIT_COLORS must cover every swatch");
+
+bool edit_color_try(const char *s, uint32_t *out) {
+	if (!s || !*s) return false;
+	if (grabit_parse_hex_color(s, out)) return true;
+	for (size_t i = 0; i < EDIT_COLORS_N; i++) {
+		if (strcmp(EDIT_COLORS[i].name, s) == 0) {
+			*out = EDIT_COLORS[i].hex;
+			return true;
+		}
 	}
-	return EDIT_DEFAULT_COLOR;
+	return false;
+}
+
+uint32_t edit_color_from_str(const char *s) {
+	uint32_t parsed = 0;
+	return edit_color_try(s, &parsed) ? parsed : EDIT_DEFAULT_COLOR;
+}
+
+const char *edit_color_names(void) {
+	static char buf[64];
+	if (!buf[0]) {
+		size_t off = 0;
+		for (size_t i = 0; i < EDIT_COLORS_N; i++)
+			grabit_join_appendf(buf, sizeof buf, &off, "|", "%s", EDIT_COLORS[i].name);
+	}
+	return buf;
+}
+
+uint32_t edit_swatch_default(size_t i) {
+	assert(i < EDIT_SWATCH_COUNT);
+	return EDIT_COLORS[i].hex;
+}
+
+void edit_swatches_default(uint32_t *out) {
+	for (size_t i = 0; i < EDIT_SWATCH_COUNT; i++)
+		out[i] = EDIT_COLORS[i].hex;
+}
+
+bool edit_swatches_parse(const char *s, uint32_t *out) {
+	if (!s) return false;
+	char tok[32];
+	for (size_t n = 0; n < EDIT_SWATCH_COUNT; n++) {
+		if (n > 0 && *s++ != ',') return false;
+		while (*s == ' ' || *s == '\t')
+			s++;
+		size_t span = strcspn(s, ",");
+		if (span >= sizeof tok) return false;
+		memcpy(tok, s, span);
+		if (grabit_rstrip(tok, span) == 0) return false;
+		if (!edit_color_try(tok, &out[n])) return false;
+		s += span;
+	}
+	return *s == '\0';
 }
 
 void edit_color_to_str(uint32_t hex, char *buf, size_t cap) {
@@ -148,11 +195,25 @@ bool last_region_parse(const char *s, struct rect *out) {
 	return true;
 }
 
+static void persist_state_key(struct config *cfg, const char *key, const char *val) {
+	persist_state_keys(cfg, &key, &val, 1);
+}
+
+void persist_swatches(struct config *cfg, const uint32_t *sw) {
+	char val[EDIT_SWATCH_COUNT * 8 + 1];
+	size_t off = 0;
+	val[0] = '\0';
+	for (size_t i = 0; i < EDIT_SWATCH_COUNT; i++) {
+		char cn[10];
+		edit_color_to_str(sw[i], cn, sizeof cn);
+		grabit_join_appendf(val, sizeof val, &off, ",", "%s", cn);
+	}
+	persist_state_key(cfg, "edit.swatches", val);
+}
+
 void persist_toolbar_pos(struct config *cfg, const char *output,
 						 int32_t rx, int32_t ry) {
 	char val[96];
 	snprintf(val, sizeof val, "%s:%d,%d", output, rx, ry);
-	const char *key = "edit.toolbar_pos";
-	const char *valp = val;
-	persist_state_keys(cfg, &key, &valp, 1);
+	persist_state_key(cfg, "edit.toolbar_pos", val);
 }

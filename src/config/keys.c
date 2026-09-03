@@ -41,6 +41,7 @@ static const char *STATE_KEYS[] = {
 	"edit.width",
 	"edit.tool",
 	"edit.toolbar_pos",
+	"edit.swatches",
 	"region.last",
 	NULL,
 };
@@ -133,7 +134,8 @@ static bool valid_edit_key(const char *key) {
 		   strcmp(leaf, "smooth") == 0 ||
 		   strcmp(leaf, "start_with_tool") == 0 ||
 		   strcmp(leaf, "multi_select") == 0 ||
-		   strcmp(leaf, "line_style") == 0;
+		   strcmp(leaf, "line_style") == 0 ||
+		   strcmp(leaf, "swatches") == 0;
 }
 
 static bool valid_png_key(const char *key) {

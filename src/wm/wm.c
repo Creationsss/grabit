@@ -14,6 +14,7 @@
 #include "wm/niri.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 enum wm_kind grabit_wm_detect(void) {
 	static enum wm_kind cached = WM_NONE;
@@ -70,10 +71,33 @@ int grabit_wm_window_radius(const struct rect *win) {
 	return 0;
 }
 
+static int append_rects(struct rect **dst, size_t *n_dst, struct rect *add, size_t n_add) {
+	if (n_add == 0) {
+		free(add);
+		return 0;
+	}
+	struct rect *grown = realloc(*dst, (*n_dst + n_add) * sizeof **dst);
+	if (!grown) {
+		free(add);
+		return -1;
+	}
+	memcpy(grown + *n_dst, add, n_add * sizeof *add);
+	free(add);
+	*dst = grown;
+	*n_dst += n_add;
+	return 0;
+}
+
 int grabit_wm_windows(struct rect **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
-	case WM_HYPRLAND:
-		return grabit_hyprland_clients(out, n_out);
+	case WM_HYPRLAND: {
+		if (grabit_hyprland_clients(out, n_out) != 0) return -1;
+		struct rect *layers = NULL;
+		size_t n_layers = 0;
+		if (grabit_hyprland_layers(&layers, &n_layers) == 0)
+			(void)append_rects(out, n_out, layers, n_layers);
+		return 0;
+	}
 	case WM_NIRI:
 		return grabit_niri_windows(out, n_out);
 	case WM_NONE:

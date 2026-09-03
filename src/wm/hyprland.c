@@ -182,6 +182,69 @@ static bool ws_is_active(int64_t ws, const int64_t *active, size_t n) {
 	return false;
 }
 
+static bool layer_rect(struct json_object *s, struct rect *out) {
+	if (!s || json_object_get_type(s) != json_type_object) return false;
+	struct json_object *o = NULL;
+	if (json_object_object_get_ex(s, "namespace", &o)) {
+		const char *ns = json_object_get_string(o);
+		if (ns && strncmp(ns, "grabit-", 7) == 0) return false;
+	}
+	int32_t v[4];
+	static const char *const keys[4] = {"x", "y", "w", "h"};
+	for (int i = 0; i < 4; i++) {
+		if (!json_object_object_get_ex(s, keys[i], &o)) return false;
+		v[i] = (int32_t)json_object_get_int64(o);
+	}
+	if (v[2] < 1 || v[3] < 1) return false;
+	*out = (struct rect){.x = v[0], .y = v[1], .w = v[2], .h = v[3]};
+	return true;
+}
+
+int grabit_hyprland_layers(struct rect **out, size_t *n_out) {
+	*out = NULL;
+	*n_out = 0;
+	struct json_object *root = NULL;
+	if (query_object("j/layers", &root) != 0) return -1;
+
+	size_t cap = 8, k = 0;
+	struct rect *arr = calloc(cap, sizeof *arr);
+	if (!arr) {
+		json_object_put(root);
+		return -1;
+	}
+
+	json_object_object_foreach(root, oname, oval) {
+		(void)oname;
+		struct json_object *levels = NULL;
+		if (!json_object_object_get_ex(oval, "levels", &levels)) continue;
+		json_object_object_foreach(levels, lvl, surfaces) {
+			if (strcmp(lvl, "0") == 0) continue;
+			if (json_object_get_type(surfaces) != json_type_array) continue;
+			size_t n = json_object_array_length(surfaces);
+			for (size_t i = 0; i < n; i++) {
+				struct rect r;
+				if (!layer_rect(json_object_array_get_idx(surfaces, i), &r)) continue;
+				if (k == cap) {
+					struct rect *grown = realloc(arr, cap * 2 * sizeof *arr);
+					if (!grown) {
+						free(arr);
+						json_object_put(root);
+						return -1;
+					}
+					arr = grown;
+					cap *= 2;
+				}
+				arr[k++] = r;
+			}
+		}
+	}
+
+	json_object_put(root);
+	*out = arr;
+	*n_out = k;
+	return 0;
+}
+
 int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;

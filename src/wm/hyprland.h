@@ -15,6 +15,7 @@ int grabit_hyprland_active_window(char **class_out, char **title_out);
 int grabit_hyprland_active_window_rect(struct rect *out);
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out);
 int grabit_hyprland_clients(struct rect **out, size_t *n_out);
+int grabit_hyprland_layers(struct rect **out, size_t *n_out);
 int grabit_hyprland_window_radius(const struct rect *win);
 
 #endif

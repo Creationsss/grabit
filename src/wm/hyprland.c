@@ -140,7 +140,17 @@ int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {
 	return rc;
 }
 
-static int collect_active_ws_ids(int64_t **out, size_t *n_out) {
+struct active_ws {
+	int64_t id;
+	char name[64];
+	bool is_special;
+};
+
+static bool ws_name_is_special(const char *n) {
+	return n && (strcmp(n, "special") == 0 || strncmp(n, "special:", 8) == 0);
+}
+
+static int collect_active_ws(struct active_ws **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 	struct json_object *root = NULL;
@@ -150,8 +160,8 @@ static int collect_active_ws_ids(int64_t **out, size_t *n_out) {
 		return -1;
 	}
 	size_t n = json_object_array_length(root);
-	int64_t *ids = calloc(n * 2 + 1, sizeof *ids);
-	if (!ids) {
+	struct active_ws *wss = calloc(n * 2 + 1, sizeof *wss);
+	if (!wss) {
 		json_object_put(root);
 		return -1;
 	}
@@ -163,22 +173,45 @@ static int collect_active_ws_ids(int64_t **out, size_t *n_out) {
 		for (size_t f = 0; f < sizeof FIELDS / sizeof FIELDS[0]; f++) {
 			struct json_object *ws = NULL;
 			if (!json_object_object_get_ex(mon, FIELDS[f], &ws)) continue;
-			struct json_object *idobj = NULL;
-			if (!json_object_object_get_ex(ws, "id", &idobj)) continue;
-			int64_t ws_id = json_object_get_int64(idobj);
-			if (ws_id == 0) continue;
-			ids[k++] = ws_id;
+			struct json_object *idobj = NULL, *nameobj = NULL;
+			int64_t ws_id = 0;
+			if (json_object_object_get_ex(ws, "id", &idobj))
+				ws_id = json_object_get_int64(idobj);
+			const char *ws_name = NULL;
+			if (json_object_object_get_ex(ws, "name", &nameobj))
+				ws_name = json_object_get_string(nameobj);
+
+			if (ws_id == 0 && (!ws_name || !ws_name[0])) continue;
+
+			wss[k].id = ws_id;
+			if (ws_name) {
+				size_t len = strlen(ws_name);
+				if (len < sizeof wss[k].name) memcpy(wss[k].name, ws_name, len + 1);
+			}
+			wss[k].is_special =
+				(f == 1) || (ws_id < 0) || ws_name_is_special(ws_name);
+			k++;
 		}
 	}
 	json_object_put(root);
-	*out = ids;
+	*out = wss;
 	*n_out = k;
 	return 0;
 }
 
-static bool ws_is_active(int64_t ws, const int64_t *active, size_t n) {
-	for (size_t i = 0; i < n; i++)
-		if (active[i] == ws) return true;
+static bool ws_is_active(int64_t ws_id, const char *ws_name, const struct active_ws *active, size_t n, bool *out_is_special) {
+	for (size_t i = 0; i < n; i++) {
+		bool match = false;
+		if (ws_id != 0 && active[i].id != 0 && active[i].id == ws_id)
+			match = true;
+		else if (ws_name && ws_name[0] && active[i].name[0] && strcmp(active[i].name, ws_name) == 0)
+			match = true;
+
+		if (match) {
+			if (out_is_special) *out_is_special = active[i].is_special;
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -200,48 +233,99 @@ static bool layer_rect(struct json_object *s, struct rect *out) {
 	return true;
 }
 
-int grabit_hyprland_layers(struct rect **out, size_t *n_out) {
-	*out = NULL;
-	*n_out = 0;
+static int push_rect(struct rect **arr, size_t *n, size_t *cap, struct rect r) {
+	if (*n == *cap) {
+		size_t grown_cap = *cap ? *cap * 2 : 8;
+		struct rect *grown = realloc(*arr, grown_cap * sizeof **arr);
+		if (!grown) return -1;
+		*arr = grown;
+		*cap = grown_cap;
+	}
+	(*arr)[(*n)++] = r;
+	return 0;
+}
+
+int grabit_hyprland_layers(struct rect **below_out, size_t *n_below_out,
+						   struct rect **above_out, size_t *n_above_out) {
+	*below_out = NULL;
+	*n_below_out = 0;
+	*above_out = NULL;
+	*n_above_out = 0;
 	struct json_object *root = NULL;
 	if (query_object("j/layers", &root) != 0) return -1;
 
-	size_t cap = 8, k = 0;
-	struct rect *arr = calloc(cap, sizeof *arr);
-	if (!arr) {
-		json_object_put(root);
-		return -1;
-	}
+	struct rect *below = NULL, *above = NULL;
+	size_t n_below = 0, cap_below = 0, n_above = 0, cap_above = 0;
+	int rc = 0;
 
 	json_object_object_foreach(root, oname, oval) {
 		(void)oname;
 		struct json_object *levels = NULL;
 		if (!json_object_object_get_ex(oval, "levels", &levels)) continue;
 		json_object_object_foreach(levels, lvl, surfaces) {
-			if (strcmp(lvl, "0") == 0) continue;
+			bool over = strcmp(lvl, "2") == 0 || strcmp(lvl, "3") == 0;
+			if (!over && strcmp(lvl, "1") != 0) continue;
 			if (json_object_get_type(surfaces) != json_type_array) continue;
 			size_t n = json_object_array_length(surfaces);
 			for (size_t i = 0; i < n; i++) {
 				struct rect r;
 				if (!layer_rect(json_object_array_get_idx(surfaces, i), &r)) continue;
-				if (k == cap) {
-					struct rect *grown = realloc(arr, cap * 2 * sizeof *arr);
-					if (!grown) {
-						free(arr);
-						json_object_put(root);
-						return -1;
-					}
-					arr = grown;
-					cap *= 2;
-				}
-				arr[k++] = r;
+				rc = over ? push_rect(&above, &n_above, &cap_above, r)
+						  : push_rect(&below, &n_below, &cap_below, r);
+				if (rc != 0) goto done;
 			}
 		}
 	}
 
+done:
 	json_object_put(root);
-	*out = arr;
-	*n_out = k;
+	if (rc != 0) {
+		free(below);
+		free(above);
+		return -1;
+	}
+	*below_out = below;
+	*n_below_out = n_below;
+	*above_out = above;
+	*n_above_out = n_above;
+	return 0;
+}
+
+enum client_tier {
+	TIER_TILED = 0,
+	TIER_FLOATING = 1,
+	TIER_FULLSCREEN = 2,
+	TIER_SPECIAL_TILED = 3,
+	TIER_SPECIAL_FLOATING = 4,
+	TIER_PINNED = 5,
+};
+
+struct hypr_client_item {
+	struct rect r;
+	enum client_tier tier;
+	int64_t focus_id;
+	uint64_t area;
+	size_t orig_idx;
+};
+
+static int client_cmp(const void *pa, const void *pb) {
+	const struct hypr_client_item *a = pa;
+	const struct hypr_client_item *b = pb;
+
+	if (a->tier != b->tier)
+		return (a->tier < b->tier) ? -1 : 1;
+
+	if (a->focus_id >= 0 && b->focus_id >= 0 && a->focus_id != b->focus_id)
+		return (a->focus_id > b->focus_id) ? -1 : 1;
+	if (a->focus_id >= 0 && b->focus_id < 0) return 1;
+	if (a->focus_id < 0 && b->focus_id >= 0) return -1;
+
+	if (a->area != b->area)
+		return (a->area > b->area) ? -1 : 1;
+
+	if (a->orig_idx != b->orig_idx)
+		return (a->orig_idx < b->orig_idx) ? -1 : 1;
+
 	return 0;
 }
 
@@ -249,9 +333,9 @@ int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
-	int64_t *active = NULL;
+	struct active_ws *active = NULL;
 	size_t n_active = 0;
-	if (collect_active_ws_ids(&active, &n_active) != 0) return -1;
+	if (collect_active_ws(&active, &n_active) != 0) return -1;
 
 	struct json_object *root = NULL;
 	if (query("j/clients", &root) != 0) {
@@ -265,8 +349,8 @@ int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 	}
 
 	size_t n = json_object_array_length(root);
-	struct rect *arr = calloc(n + 1, sizeof *arr);
-	if (!arr) {
+	struct hypr_client_item *items = calloc(n + 1, sizeof *items);
+	if (!items) {
 		free(active);
 		json_object_put(root);
 		return -1;
@@ -283,18 +367,93 @@ int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 		if (json_object_object_get_ex(c, "mapped", &o) &&
 			!json_object_get_boolean(o)) continue;
 
-		struct json_object *ws = NULL;
-		if (!json_object_object_get_ex(c, "workspace", &ws)) continue;
-		struct json_object *wid = NULL;
-		if (!json_object_object_get_ex(ws, "id", &wid)) continue;
-		if (!ws_is_active(json_object_get_int64(wid), active, n_active)) continue;
+		bool is_pinned = false;
+		if (json_object_object_get_ex(c, "pinned", &o))
+			is_pinned = json_object_get_boolean(o);
 
-		if (client_rect(c, &arr[k])) k++;
+		struct json_object *ws = NULL;
+		int64_t wid_val = 0;
+		const char *wname_val = NULL;
+		if (json_object_object_get_ex(c, "workspace", &ws) &&
+			json_object_get_type(ws) == json_type_object) {
+			struct json_object *wid = NULL, *wname = NULL;
+			if (json_object_object_get_ex(ws, "id", &wid))
+				wid_val = json_object_get_int64(wid);
+			if (json_object_object_get_ex(ws, "name", &wname))
+				wname_val = json_object_get_string(wname);
+		}
+
+		bool ws_active_special = false;
+		bool active_window = is_pinned || ws_is_active(wid_val, wname_val, active, n_active, &ws_active_special);
+		if (!active_window) continue;
+
+		struct rect r;
+		if (!client_rect(c, &r)) continue;
+
+		bool floating = false;
+		if (json_object_object_get_ex(c, "floating", &o))
+			floating = json_object_get_boolean(o);
+
+		int64_t focus_id = -1;
+		if (json_object_object_get_ex(c, "focusHistoryID", &o))
+			focus_id = json_object_get_int64(o);
+
+		bool is_special =
+			ws_active_special || (wid_val < 0) || ws_name_is_special(wname_val);
+
+		bool fullscreen = false;
+		if (json_object_object_get_ex(c, "fullscreen", &o))
+			fullscreen = json_object_get_type(o) == json_type_boolean
+							 ? json_object_get_boolean(o)
+							 : (json_object_get_int64(o) & 2) != 0;
+
+		enum client_tier tier;
+		if (is_pinned)
+			tier = TIER_PINNED;
+		else if (is_special)
+			tier = floating ? TIER_SPECIAL_FLOATING : TIER_SPECIAL_TILED;
+		else if (fullscreen)
+			tier = TIER_FULLSCREEN;
+		else if (floating)
+			tier = TIER_FLOATING;
+		else
+			tier = TIER_TILED;
+
+		items[k++] = (struct hypr_client_item){
+			.r = r,
+			.tier = tier,
+			.focus_id = focus_id,
+			.area = (uint64_t)r.w * (uint64_t)r.h,
+			.orig_idx = i,
+		};
 	}
 
 	free(active);
 	json_object_put(root);
+
+	if (k > 1)
+		qsort(items, k, sizeof *items, client_cmp);
+
+	struct rect *arr = calloc(k + 1, sizeof *arr);
+	if (!arr) {
+		free(items);
+		return -1;
+	}
+
+	size_t u = 0;
+	for (size_t i = 0; i < k; i++) {
+		bool dup = false;
+		for (size_t j = i + 1; j < k; j++) {
+			if (rect_equal(items[i].r, items[j].r)) {
+				dup = true;
+				break;
+			}
+		}
+		if (!dup) arr[u++] = items[i].r;
+	}
+
+	free(items);
 	*out = arr;
-	*n_out = k;
+	*n_out = u;
 	return 0;
 }

@@ -102,11 +102,22 @@ static int append_rects(struct rect **dst, size_t *n_dst, struct rect *add, size
 int grabit_wm_windows(struct rect **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND: {
-		if (grabit_hyprland_clients(out, n_out) != 0) return -1;
-		struct rect *layers = NULL;
-		size_t n_layers = 0;
-		if (grabit_hyprland_layers(&layers, &n_layers) == 0)
-			(void)append_rects(out, n_out, layers, n_layers);
+		struct rect *clients = NULL, *below = NULL, *above = NULL;
+		size_t n_clients = 0, n_below = 0, n_above = 0;
+		if (grabit_hyprland_clients(&clients, &n_clients) != 0) return -1;
+		(void)grabit_hyprland_layers(&below, &n_below, &above, &n_above);
+
+		*out = NULL;
+		*n_out = 0;
+		int rc = append_rects(out, n_out, below, n_below);
+		rc |= append_rects(out, n_out, clients, n_clients);
+		rc |= append_rects(out, n_out, above, n_above);
+		if (rc != 0) {
+			free(*out);
+			*out = NULL;
+			*n_out = 0;
+			return -1;
+		}
 		return 0;
 	}
 	case WM_NIRI:

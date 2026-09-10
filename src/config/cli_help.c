@@ -110,7 +110,7 @@ static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quali
 										"webp.lossless", NULL};
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
-										"capture.delay", NULL};
+										"capture.delay", "capture.hdr", NULL};
 static const char *const G_GUI[] = {"gui.radius", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
 									   "region.snap_animation", "region.confirm",

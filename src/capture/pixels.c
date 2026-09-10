@@ -216,10 +216,7 @@ bool pixels_is_10bit(uint32_t fmt, bool *swap_rb) {
 void pixels_narrow_10bit(struct image *img) {
 	bool swap_rb = false;
 	if (!img || !img->bytes || !pixels_is_10bit(img->format, &swap_rb)) return;
-	if (grabit_tonemap_10bit(img, swap_rb)) {
-		img->format = WL_SHM_FORMAT_XRGB8888;
-		return;
-	}
+	if (grabit_tonemap_10bit(img, swap_rb)) return;
 	enum pixels_conv conv = swap_rb ? PIX_BGR30 : PIX_RGB30;
 	pixels_copy(img->bytes, img->stride, img->bytes, img->stride, img->width,
 				img->height, conv, false);

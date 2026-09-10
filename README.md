@@ -49,6 +49,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`. see [OPTIONS.md
 - region selector with live freeze; drag, or click a window to snap
 - confirm mode: adjust the selection before capturing
 - **`-F`/`--fullscreen`** grabs one monitor, or every monitor stitched together
+- hdr outputs are tone mapped to srgb so captures look right; `capture.hdr` keeps the full range as a 16-bit png instead
 - **`-w`/`--window`** grabs the active window (hyprland and sway, and niri via its own window screenshot)
 - **`-L`/`--last`** reuses the last region instead of selecting one, screenshots and `--record` alike
 - **`--delay <secs>`** waits before capturing, so menus and tooltips stay open

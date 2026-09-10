@@ -22,6 +22,7 @@ static const char *BOOL_KEYS[] = {
 	"recording.show_dimensions",
 	"sound.enabled",
 	"capture.cursor",
+	"capture.hdr",
 	"region.window_snap",
 	"region.snap_animation",
 	"region.confirm",
@@ -188,7 +189,7 @@ static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
 	const char *leaf = key + 8;
 	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0 ||
-		   strcmp(leaf, "delay") == 0;
+		   strcmp(leaf, "delay") == 0 || strcmp(leaf, "hdr") == 0;
 }
 
 static bool valid_gui_key(const char *key) {

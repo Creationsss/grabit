@@ -39,6 +39,8 @@ struct grabit_colorimetry {
 	uint32_t max_fall;
 };
 
+bool grabit_color_is_hdr(const struct grabit_colorimetry *c);
+
 void grabit_color_probe_outputs(struct grabit_wl_state *s);
 
 #endif

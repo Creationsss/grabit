@@ -180,6 +180,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | key | default | notes |
 |---|---|---|
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
+| `capture.hdr` | `false` | keep the full range of an hdr output instead of tone mapping it. off by default: grabit converts pq or hlg to srgb so a capture looks the way the screen does, and most viewers cannot read a 16-bit png anyway. set `true` and a plain `-F`/`-w`/`-L` png keeps 10 bits, written as a 16-bit file carrying `cICP`, `mDCV` and `cLLI`. it does not apply to an interactive region drag, to `-e`, a preview, a rounded window, jpeg or webp, or a capture spanning two monitors, all of which are tone mapped instead. the files are roughly 2.5x larger. needs the compositor to report its colorimetry over `color-management-v1` |
 | `capture.delay` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 

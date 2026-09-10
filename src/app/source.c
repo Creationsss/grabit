@@ -128,6 +128,8 @@ int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 	out->webp_quality = config_get_int_clamp(cfg, "webp.quality", 85, 0, 100);
 	const char *wl = config_get(cfg, "webp.lossless");
 	out->webp_lossless = wl && strcmp(wl, "true") == 0;
+	const char *hd = config_get(cfg, "capture.hdr");
+	out->hdr = hd && strcmp(hd, "true") == 0;
 	return 0;
 }
 

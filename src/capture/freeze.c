@@ -14,9 +14,11 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 static bool hdr_wanted(const struct grabit_save_opts *o) {
-	return o->format == GRABIT_FMT_PNG && !o->preview_path && o->corner_radius <= 0;
+	return o->hdr && o->format == GRABIT_FMT_PNG && !o->preview_path &&
+		   o->corner_radius <= 0;
 }
 
 static bool hdr_usable(const struct png_slice *sl, size_t n,

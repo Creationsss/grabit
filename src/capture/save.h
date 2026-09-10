@@ -33,6 +33,7 @@ struct grabit_save_opts {
 	const char *preview_path;
 	int preview_width;
 	int corner_radius;
+	bool hdr;
 };
 
 const char *grabit_format_extension(enum grabit_image_format f);

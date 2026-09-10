@@ -291,6 +291,33 @@ touch as well as pointer input: a tap acts as a left click and a drag works the
 same as dragging with a mouse. Only one finger is tracked at a time, and there
 is no cursor to hover with, so tooltips and hover highlights only appear under
 a real pointer.
+.SS HDR
+On an output using the PQ or HLG transfer function, grabit reads the
+colorimetry the compositor publishes over
+.B color\-management\-v1
+and tone maps the capture to sRGB, so a screenshot looks the way the screen
+does. Diffuse white as defined by ITU\-R BT.2408 (203 nits) becomes
+sRGB white, and anything brighter is rolled off and clipped.
+.PP
+Set
+.B capture.hdr
+to
+.B true
+to keep the full range instead. A plain
+.BR \-F ,
+.BR \-w ,
+or
+.BR \-L
+capture to PNG then keeps its 10 bits and is written as a 16\-bit file with the
+.BR cICP ,
+.BR mDCV ,
+and
+.B cLLI
+chunks describing it. Every other path still tone maps, because the editor,
+previews, JPEG and WebP all go through an 8\-bit pipeline. Without
+.B color\-management\-v1
+grabit cannot know the transfer function and falls back to dropping the extra
+bits, which looks flat.
 .SS KDE Plasma recording
 KWin keeps
 .B zkde_screencast_unstable_v1

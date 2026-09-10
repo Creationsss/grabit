@@ -99,6 +99,21 @@ static bool key_exists(const char *key) {
 	return system(cmd) == 0;
 }
 
+static bool key_has_example(const char *key) {
+	char cmd[512];
+	snprintf(cmd, sizeof cmd, "%s set %s 2>/dev/null", g_bin, key);
+	FILE *p = popen(cmd, "r");
+	if (!p) return true;
+	char want[160];
+	snprintf(want, sizeof want, "%s = ", key);
+	char line[512];
+	bool found = false;
+	while (fgets(line, sizeof line, p))
+		if (strncmp(line, want, strlen(want)) == 0) found = true;
+	pclose(p);
+	return found;
+}
+
 static void check_keys(void) {
 	struct strset keys = {0};
 	collect_cli(&keys, "set", 0);
@@ -107,9 +122,13 @@ static void check_keys(void) {
 		note("could not enumerate config keys from %s%s", g_bin, "");
 		return;
 	}
-	for (size_t i = 0; i < keys.n; i++)
+	for (size_t i = 0; i < keys.n; i++) {
 		if (!token_at(g_options, keys.items[i]))
 			note("undocumented key: %s%s", keys.items[i], "");
+		if (!key_has_example(keys.items[i]))
+			note("key has no example or default in help_examples.c: %s%s",
+				 keys.items[i], "");
+	}
 
 	for (const char *p = g_options; (p = strstr(p, "\n| `")); p += 4) {
 		const char *k = p + 4;

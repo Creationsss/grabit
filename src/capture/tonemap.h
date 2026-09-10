@@ -7,9 +7,6 @@
 #include <stdbool.h>
 
 struct image;
-struct grabit_colorimetry;
-
-bool grabit_tonemap_needed(const struct grabit_colorimetry *c);
 
 bool grabit_tonemap_10bit(struct image *img, bool swap_rb);
 

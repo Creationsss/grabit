@@ -47,7 +47,7 @@ static const char *primaries_name(uint32_t p) {
 	}
 }
 
-static bool is_hdr(const struct grabit_colorimetry *c) {
+bool grabit_color_is_hdr(const struct grabit_colorimetry *c) {
 	return c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ ||
 		   c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG;
 }
@@ -206,7 +206,7 @@ static void log_output_color(const struct grabit_output *o) {
 			  c->primaries.w.x, c->primaries.w.y, tf ? tf : "?", c->tf_named,
 			  c->tf_power, c->min_lum, c->max_lum, c->ref_lum, c->target_min_lum,
 			  c->target_max_lum, c->max_cll, c->max_fall,
-			  is_hdr(c) ? " [hdr]" : "");
+			  grabit_color_is_hdr(c) ? " [hdr]" : "");
 }
 
 static void probe_output(struct grabit_wl_state *s, struct grabit_output *o) {

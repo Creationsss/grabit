@@ -4,13 +4,13 @@
 #include "capture/tonemap.h"
 
 #include "capture/capture.h"
-#include "log.h"
 #include "wl/color.h"
 
 #include <math.h>
 #include <stdint.h>
 
 #include "color-management-v1-client-protocol.h"
+#include <wayland-client.h>
 
 #define PQ_M1 0.1593017578125
 #define PQ_M2 78.84375
@@ -25,20 +25,16 @@
 #define HLG_REF_SIGNAL 0.75
 
 #define REF_WHITE_NITS 203.0
+#define LIGHT_LUT_N 1024
 #define SRGB_LUT_N 4096
 #define TONE_KNEE 0.8
+#define MEMO_N 8192
 
 static const double BT2020_TO_SRGB[3][3] = {
 	{1.66049100, -0.58764114, -0.07284986},
 	{-0.12455047, 1.13289990, -0.00834942},
 	{-0.01815076, -0.10057890, 1.11872966},
 };
-
-bool grabit_tonemap_needed(const struct grabit_colorimetry *c) {
-	if (!c) return false;
-	return c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ ||
-		   c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG;
-}
 
 static double pq_eotf(double e) {
 	if (e <= 0.0) return 0.0;
@@ -61,35 +57,46 @@ static double srgb_oetf(double v) {
 	return 1.055 * pow(v, 1.0 / 2.4) - 0.055;
 }
 
-static double roll_off(double v) {
+static double knee(double v) {
 	if (v <= TONE_KNEE) return v;
 	return TONE_KNEE + (1.0 - TONE_KNEE) * tanh((v - TONE_KNEE) / (1.0 - TONE_KNEE));
 }
 
-static void build_light_lut(double *lut, const struct grabit_colorimetry *c) {
-	bool pq = c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ;
+static double roll_off(double v) {
+	return knee(v) / knee(1.0);
+}
+
+static void build_light_lut(double *lut, uint32_t tf) {
+	bool pq = tf == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ;
 	double ref = pq ? REF_WHITE_NITS / PQ_PEAK : hlg_inv_oetf(HLG_REF_SIGNAL);
-	if (ref <= 0.0) ref = 1.0;
-	for (int i = 0; i < 1024; i++) {
-		double e = (double)i / 1023.0;
-		double l = pq ? pq_eotf(e) : hlg_inv_oetf(e);
-		lut[i] = l / ref;
+	for (int i = 0; i < LIGHT_LUT_N; i++) {
+		double e = (double)i / (LIGHT_LUT_N - 1);
+		lut[i] = (pq ? pq_eotf(e) : hlg_inv_oetf(e)) / ref;
 	}
+}
+
+static uint8_t enc8(const uint8_t *lut, double v) {
+	if (v < 0.0) v = 0.0;
+	if (v > 1.0) v = 1.0;
+	return lut[(int)(v * (SRGB_LUT_N - 1) + 0.5)];
 }
 
 bool grabit_tonemap_10bit(struct image *img, bool swap_rb) {
 	if (!img || !img->bytes || !img->have_color) return false;
-	if (!grabit_tonemap_needed(&img->color)) return false;
+	if (!grabit_color_is_hdr(&img->color)) return false;
 
-	double light[1024];
-	build_light_lut(light, &img->color);
-	double unity = roll_off(1.0);
+	double light[LIGHT_LUT_N];
+	build_light_lut(light, img->color.tf_named);
 
 	uint8_t enc[SRGB_LUT_N];
-	for (int i = 0; i < SRGB_LUT_N; i++) {
-		double v = srgb_oetf((double)i / (SRGB_LUT_N - 1));
-		int q = (int)(v * 255.0 + 0.5);
-		enc[i] = (uint8_t)(q < 0 ? 0 : (q > 255 ? 255 : q));
+	for (int i = 0; i < SRGB_LUT_N; i++)
+		enc[i] = (uint8_t)(srgb_oetf((double)i / (SRGB_LUT_N - 1)) * 255.0 + 0.5);
+
+	uint32_t memo_key[MEMO_N];
+	uint32_t memo_val[MEMO_N];
+	for (int i = 0; i < MEMO_N; i++) {
+		memo_key[i] = 0u;
+		memo_val[i] = 0xff000000u;
 	}
 
 	uint8_t *base = img->bytes;
@@ -97,37 +104,43 @@ bool grabit_tonemap_10bit(struct image *img, bool swap_rb) {
 		uint32_t *line = (uint32_t *)(base + (size_t)y * (size_t)img->stride);
 		for (int32_t x = 0; x < img->width; x++) {
 			uint32_t p = line[x];
+			uint32_t h = (p * 2654435761u) >> 19;
+			if (memo_key[h] == p) {
+				line[x] = memo_val[h];
+				continue;
+			}
+
 			uint32_t f0 = (p >> 20) & 0x3ffu;
 			uint32_t f1 = (p >> 10) & 0x3ffu;
 			uint32_t f2 = p & 0x3ffu;
-			double in[3];
-			in[0] = light[swap_rb ? f2 : f0];
-			in[1] = light[f1];
-			in[2] = light[swap_rb ? f0 : f2];
+			double r = light[swap_rb ? f2 : f0];
+			double g = light[f1];
+			double b = light[swap_rb ? f0 : f2];
 
-			double out[3];
-			for (int k = 0; k < 3; k++)
-				out[k] = BT2020_TO_SRGB[k][0] * in[0] +
-						 BT2020_TO_SRGB[k][1] * in[1] +
-						 BT2020_TO_SRGB[k][2] * in[2];
+			double xr = BT2020_TO_SRGB[0][0] * r + BT2020_TO_SRGB[0][1] * g +
+						BT2020_TO_SRGB[0][2] * b;
+			double xg = BT2020_TO_SRGB[1][0] * r + BT2020_TO_SRGB[1][1] * g +
+						BT2020_TO_SRGB[1][2] * b;
+			double xb = BT2020_TO_SRGB[2][0] * r + BT2020_TO_SRGB[2][1] * g +
+						BT2020_TO_SRGB[2][2] * b;
 
-			double luma = 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2];
+			double luma = 0.2126 * xr + 0.7152 * xg + 0.0722 * xb;
 			if (luma > 0.0) {
-				double scale = roll_off(luma) / (luma * unity);
-				for (int k = 0; k < 3; k++)
-					out[k] *= scale;
+				double s = roll_off(luma) / luma;
+				xr *= s;
+				xg *= s;
+				xb *= s;
 			}
 
-			uint32_t px = 0xff000000u;
-			for (int k = 0; k < 3; k++) {
-				double v = out[k];
-				if (v < 0.0) v = 0.0;
-				if (v > 1.0) v = 1.0;
-				int idx = (int)(v * (SRGB_LUT_N - 1) + 0.5);
-				px |= (uint32_t)enc[idx] << (16 - 8 * k);
-			}
+			uint32_t px = 0xff000000u | ((uint32_t)enc8(enc, xr) << 16) |
+						  ((uint32_t)enc8(enc, xg) << 8) | (uint32_t)enc8(enc, xb);
 			line[x] = px;
+			memo_key[h] = p;
+			memo_val[h] = px;
 		}
 	}
+
+	img->format = WL_SHM_FORMAT_XRGB8888;
+	img->have_color = false;
 	return true;
 }

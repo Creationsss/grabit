@@ -148,9 +148,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 	}
 	if (sync_p[1] >= 0) close(sync_p[1]);
 	int status = 0;
-	while (waitpid(pid, &status, 0) < 0) {
-		if (errno != EINTR) break;
-	}
+	bool reaped = grabit_waitpid_intr(pid, &status) == 0;
 	if (sync_p[0] >= 0) {
 		char b;
 		ssize_t _r = read(sync_p[0], &b, 1);
@@ -158,7 +156,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		close(sync_p[0]);
 	}
 	cairo_surface_destroy(img);
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+	if (!reaped || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 		log_error("pin: detach failed");
 		notify_send(&(struct notify_opts){
 			.summary = "grabit: pin failed",

@@ -146,6 +146,9 @@ static struct wl_cursor *kind_cursor(const struct ro_state *st, int kind) {
 	case RCUR_HAND:
 		c = st->cursor_hand;
 		break;
+	case RCUR_DEFAULT:
+		c = st->cursor_default;
+		break;
 	default:
 		c = st->cursor_resize[kind - RCUR_RESIZE0];
 		break;

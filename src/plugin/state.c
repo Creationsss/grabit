@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/state.h"
 
+#include "paths.h"
 #include "plugin/plugin.h"
 #include "util/util.h"
 
@@ -16,33 +17,14 @@
 int plugin_state_write(const char *plugin_dir, const char *kind,
 					   const char *url, const char *sha256) {
 	char *path = NULL;
-	char *tmp_path = NULL;
 	char *content = NULL;
 	int rc = -1;
 	if (grabit_xasprintf(&path, "%s/.source", plugin_dir) != 0) goto out;
-	if (grabit_xasprintf(&tmp_path, "%s.tmp", path) != 0) goto out;
 	if (grabit_xasprintf(&content, "%s\n%s\n%s\n", kind, url ? url : "",
 						 sha256 ? sha256 : "") != 0) goto out;
-	unlink(tmp_path);
-	int fd = open(tmp_path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
-	if (fd < 0) goto out;
-	size_t len = strlen(content);
-	ssize_t w = write(fd, content, len);
-	if ((size_t)w != len) {
-		close(fd);
-		unlink(tmp_path);
-		goto out;
-	}
-	fsync(fd);
-	close(fd);
-	if (rename(tmp_path, path) != 0) {
-		unlink(tmp_path);
-		goto out;
-	}
-	rc = 0;
+	rc = paths_atomic_write(path, content, strlen(content));
 out:
 	free(path);
-	free(tmp_path);
 	free(content);
 	return rc;
 }

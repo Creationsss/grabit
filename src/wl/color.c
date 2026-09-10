@@ -11,45 +11,73 @@
 
 #include "color-management-v1-client-protocol.h"
 
-static const char *tf_name(uint32_t tf) {
+static int cicp_transfer_of(uint32_t tf) {
 	switch (tf) {
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT1886:
-		return "bt1886";
+		return GRABIT_CICP_TF_BT709;
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_GAMMA22:
-		return "gamma2.2";
+		return GRABIT_CICP_TF_GAMMA22;
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_EXT_LINEAR:
-		return "linear";
+		return GRABIT_CICP_TF_LINEAR;
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB:
-		return "srgb";
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_EXT_SRGB:
-		return "ext-srgb";
+		return GRABIT_CICP_TF_SRGB;
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ:
-		return "st2084-pq";
+		return GRABIT_CICP_TF_PQ;
 	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG:
+		return GRABIT_CICP_TF_HLG;
+	default:
+		return GRABIT_CICP_UNKNOWN;
+	}
+}
+
+static int cicp_primaries_of(uint32_t p) {
+	switch (p) {
+	case WP_COLOR_MANAGER_V1_PRIMARIES_SRGB:
+		return GRABIT_CICP_PRI_BT709;
+	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
+		return GRABIT_CICP_PRI_BT2020;
+	case WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
+		return GRABIT_CICP_PRI_P3;
+	default:
+		return GRABIT_CICP_UNKNOWN;
+	}
+}
+
+static const char *tf_name(int tf) {
+	switch (tf) {
+	case GRABIT_CICP_TF_BT709:
+		return "bt709";
+	case GRABIT_CICP_TF_GAMMA22:
+		return "gamma2.2";
+	case GRABIT_CICP_TF_LINEAR:
+		return "linear";
+	case GRABIT_CICP_TF_SRGB:
+		return "srgb";
+	case GRABIT_CICP_TF_PQ:
+		return "st2084-pq";
+	case GRABIT_CICP_TF_HLG:
 		return "hlg";
 	default:
 		return NULL;
 	}
 }
 
-static const char *primaries_name(uint32_t p) {
+static const char *primaries_name(int p) {
 	switch (p) {
-	case WP_COLOR_MANAGER_V1_PRIMARIES_SRGB:
-		return "srgb";
-	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
+	case GRABIT_CICP_PRI_BT709:
+		return "bt709";
+	case GRABIT_CICP_PRI_BT2020:
 		return "bt2020";
-	case WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
+	case GRABIT_CICP_PRI_P3:
 		return "display-p3";
-	case WP_COLOR_MANAGER_V1_PRIMARIES_ADOBE_RGB:
-		return "adobe-rgb";
 	default:
 		return NULL;
 	}
 }
 
 bool grabit_color_is_hdr(const struct grabit_colorimetry *c) {
-	return c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ ||
-		   c->tf_named == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG;
+	return c->cicp_transfer == GRABIT_CICP_TF_PQ ||
+		   c->cicp_transfer == GRABIT_CICP_TF_HLG;
 }
 
 struct probe {
@@ -80,7 +108,7 @@ static void info_primaries_named(void *data, struct wp_image_description_info_v1
 								 uint32_t primaries) {
 	(void)i;
 	struct probe *p = data;
-	p->info.primaries_named = primaries;
+	p->info.cicp_primaries = cicp_primaries_of(primaries);
 }
 
 static void info_tf_power(void *data, struct wp_image_description_info_v1 *i,
@@ -94,7 +122,7 @@ static void info_tf_named(void *data, struct wp_image_description_info_v1 *i,
 						  uint32_t tf) {
 	(void)i;
 	struct probe *p = data;
-	p->info.tf_named = tf;
+	p->info.cicp_transfer = cicp_transfer_of(tf);
 }
 
 static void info_luminances(void *data, struct wp_image_description_info_v1 *i,
@@ -198,12 +226,12 @@ static const struct wp_image_description_v1_listener desc_listener = {
 
 static void log_output_color(const struct grabit_output *o) {
 	const struct grabit_colorimetry *c = &o->color;
-	const char *pri = primaries_name(c->primaries_named);
-	const char *tf = tf_name(c->tf_named);
-	log_debug("color: %s primaries=%s(%u) white=%d,%d transfer=%s(%u) power=%u "
+	const char *pri = primaries_name(c->cicp_primaries);
+	const char *tf = tf_name(c->cicp_transfer);
+	log_debug("color: %s primaries=%s(%d) white=%d,%d transfer=%s(%d) power=%u "
 			  "luminance=%u..%u ref=%u target=%u..%u max_cll=%u max_fall=%u%s",
-			  o->name ? o->name : "?", pri ? pri : "?", c->primaries_named,
-			  c->primaries.w.x, c->primaries.w.y, tf ? tf : "?", c->tf_named,
+			  o->name ? o->name : "?", pri ? pri : "?", c->cicp_primaries,
+			  c->primaries.w.x, c->primaries.w.y, tf ? tf : "?", c->cicp_transfer,
 			  c->tf_power, c->min_lum, c->max_lum, c->ref_lum, c->target_min_lum,
 			  c->target_max_lum, c->max_cll, c->max_fall,
 			  grabit_color_is_hdr(c) ? " [hdr]" : "");

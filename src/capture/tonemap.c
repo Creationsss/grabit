@@ -9,7 +9,6 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "color-management-v1-client-protocol.h"
 #include <wayland-client.h>
 
 #define PQ_M1 0.1593017578125
@@ -66,8 +65,8 @@ static double roll_off(double v, double unity) {
 	return knee(v) / unity;
 }
 
-static void build_light_lut(double *lut, uint32_t tf) {
-	bool pq = tf == WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ;
+static void build_light_lut(double *lut, int tf) {
+	bool pq = tf == GRABIT_CICP_TF_PQ;
 	double ref = pq ? REF_WHITE_NITS / PQ_PEAK : hlg_inv_oetf(HLG_REF_SIGNAL);
 	for (int i = 0; i < LIGHT_LUT_N; i++) {
 		double e = (double)i / (LIGHT_LUT_N - 1);
@@ -86,7 +85,7 @@ bool grabit_tonemap_10bit(struct image *img, bool swap_rb) {
 	if (!grabit_color_is_hdr(&img->color)) return false;
 
 	double light[LIGHT_LUT_N];
-	build_light_lut(light, img->color.tf_named);
+	build_light_lut(light, img->color.cicp_transfer);
 
 	double unity = knee(1.0);
 

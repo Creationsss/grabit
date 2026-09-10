@@ -9,6 +9,17 @@
 
 struct grabit_wl_state;
 
+#define GRABIT_CICP_UNKNOWN 0
+#define GRABIT_CICP_PRI_BT709 1
+#define GRABIT_CICP_PRI_BT2020 9
+#define GRABIT_CICP_PRI_P3 12
+#define GRABIT_CICP_TF_BT709 1
+#define GRABIT_CICP_TF_GAMMA22 4
+#define GRABIT_CICP_TF_LINEAR 8
+#define GRABIT_CICP_TF_SRGB 13
+#define GRABIT_CICP_TF_PQ 16
+#define GRABIT_CICP_TF_HLG 18
+
 struct grabit_color_xy {
 	int32_t x, y;
 };
@@ -19,10 +30,10 @@ struct grabit_color_primaries {
 
 struct grabit_colorimetry {
 	struct grabit_color_primaries primaries;
-	uint32_t primaries_named;
+	int cicp_primaries;
 	bool have_primaries;
 
-	uint32_t tf_named;
+	int cicp_transfer;
 	uint32_t tf_power;
 
 	uint32_t min_lum;

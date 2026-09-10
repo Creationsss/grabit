@@ -9,8 +9,6 @@
 #include "util/util.h"
 #include "wl/color.h"
 
-#include "color-management-v1-client-protocol.h"
-
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -20,46 +18,8 @@
 #include <png.h>
 #include <setjmp.h>
 
-#define CICP_PRIMARIES_BT709 1
-#define CICP_PRIMARIES_BT2020 9
-#define CICP_PRIMARIES_P3 12
-#define CICP_TF_BT709 1
-#define CICP_TF_GAMMA22 4
-#define CICP_TF_SRGB 13
-#define CICP_TF_PQ 16
-#define CICP_TF_HLG 18
 #define CICP_MATRIX_IDENTITY 0
 #define HDR_MAX_PNG_LEVEL 6
-
-static int cicp_primaries(uint32_t named) {
-	switch (named) {
-	case WP_COLOR_MANAGER_V1_PRIMARIES_SRGB:
-		return CICP_PRIMARIES_BT709;
-	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
-		return CICP_PRIMARIES_BT2020;
-	case WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
-		return CICP_PRIMARIES_P3;
-	default:
-		return -1;
-	}
-}
-
-static int cicp_transfer(uint32_t named) {
-	switch (named) {
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ:
-		return CICP_TF_PQ;
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG:
-		return CICP_TF_HLG;
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB:
-		return CICP_TF_SRGB;
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT1886:
-		return CICP_TF_BT709;
-	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_GAMMA22:
-		return CICP_TF_GAMMA22;
-	default:
-		return -1;
-	}
-}
 
 static uint16_t up10(uint32_t v) {
 	return (uint16_t)((v << 6) | (v >> 4));
@@ -86,14 +46,13 @@ static void apply_metadata(png_structp png, png_infop info,
 	if (!img->have_color) return;
 	const struct grabit_colorimetry *c = &img->color;
 
-	int pri = cicp_primaries(c->primaries_named);
-	int tf = cicp_transfer(c->tf_named);
-	if (pri >= 0 && tf >= 0) {
-		png_set_cICP(png, info, (png_byte)pri, (png_byte)tf,
-					 CICP_MATRIX_IDENTITY, 1);
+	if (c->cicp_primaries != GRABIT_CICP_UNKNOWN &&
+		c->cicp_transfer != GRABIT_CICP_UNKNOWN) {
+		png_set_cICP(png, info, (png_byte)c->cicp_primaries,
+					 (png_byte)c->cicp_transfer, CICP_MATRIX_IDENTITY, 1);
 	} else {
-		log_debug("png: no cICP mapping for primaries=%u transfer=%u",
-				  c->primaries_named, c->tf_named);
+		log_debug("png: no cICP for primaries=%d transfer=%d", c->cicp_primaries,
+				  c->cicp_transfer);
 	}
 
 	if (c->have_target) {

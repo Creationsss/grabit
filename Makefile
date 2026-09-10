@@ -148,6 +148,7 @@ GRABIT_SRCS := \
 	src/capture/save.c \
 	src/capture/png.c \
 	src/capture/png_hdr.c \
+	src/capture/tonemap.c \
 	src/capture/jpeg.c \
 	src/capture/webp.c \
 	src/capture/transform.c \

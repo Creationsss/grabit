@@ -29,6 +29,7 @@
 #define CICP_TF_PQ 16
 #define CICP_TF_HLG 18
 #define CICP_MATRIX_IDENTITY 0
+#define HDR_MAX_PNG_LEVEL 6
 
 static int cicp_primaries(uint32_t named) {
 	switch (named) {
@@ -119,7 +120,10 @@ int grabit_save_png_hdr(const struct image *img, int32_t x, int32_t y,
 		return -1;
 	}
 
-	volatile int lvl = level < 0 ? 0 : (level > 9 ? 9 : level);
+	volatile int lvl = level < 0 ? 0 : (level > HDR_MAX_PNG_LEVEL ? HDR_MAX_PNG_LEVEL : level);
+	if (level > HDR_MAX_PNG_LEVEL)
+		log_debug("png: capping level %d to %d for 16-bit output", level,
+				  HDR_MAX_PNG_LEVEL);
 
 	FILE *f = fopen(path, "wb");
 	if (!f) {
@@ -154,7 +158,7 @@ int grabit_save_png_hdr(const struct image *img, int32_t x, int32_t y,
 
 	png_init_io(png, f);
 	png_set_compression_level(png, lvl);
-	png_set_filter(png, 0, lvl >= 6 ? PNG_ALL_FILTERS : PNG_FILTER_UP);
+	png_set_filter(png, 0, PNG_FILTER_NONE);
 	png_set_IHDR(png, info, (png_uint_32)w, (png_uint_32)h, 16,
 				 PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
 				 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);

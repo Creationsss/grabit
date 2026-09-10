@@ -187,8 +187,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 								 slices[0].src_w, slices[0].src_h, path,
 								 eff_opts.png_level);
 	} else {
-		for (size_t i = 0; i < captured; i++)
-			pixels_narrow_10bit(&frozen[i]);
+		for (size_t i = 0; i < n_slices; i++)
+			pixels_narrow_10bit((struct image *)slices[i].src);
 		rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices,
 											 &r, max_ratio,
 											 annos.n > 0 ? &annos : NULL, &eff_opts,

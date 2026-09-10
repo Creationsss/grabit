@@ -5,7 +5,6 @@
 
 #include "capture/capture.h"
 #include "capture/pixels.h"
-#include "capture/png_hdr.h"
 #include "capture/region_plan.h"
 #include "capture/save.h"
 #include "log.h"
@@ -15,20 +14,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-static bool hdr_wanted(const struct grabit_save_opts *o) {
-	return o->hdr && o->format == GRABIT_FMT_PNG && !o->preview_path &&
-		   o->corner_radius <= 0;
-}
-
-static bool hdr_usable(const struct png_slice *sl, size_t n,
-					   const struct grabit_save_opts *o,
-					   const struct annotation_list *annos) {
-	if (n != 1 || !hdr_wanted(o)) return false;
-	if (annos && annos->n > 0) return false;
-	if (!sl->src->have_color || !pixels_is_10bit(sl->src->format, NULL)) return false;
-	return sl->dst_w == sl->src_w && sl->dst_h == sl->src_h;
-}
 
 int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  const char *path,
@@ -95,9 +80,9 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	}
 	free(want_idx);
 
-	if (!forced_only || !hdr_wanted(save_opts)) {
+	if (!forced_only || !grabit_save_hdr_possible(save_opts)) {
 		for (size_t i = 0; i < captured; i++)
-			pixels_narrow_10bit(&frozen[i]);
+			pixels_to_8bit(&frozen[i]);
 	}
 
 	bool snapped = false;
@@ -184,18 +169,9 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		eff_opts.corner_radius = 0;
 	if (snapped && n_snap_rects == 0)
 		eff_opts.corner_radius = region_window_radius(cfg, &r);
-	if (hdr_usable(&slices[0], n_slices, &eff_opts, &annos)) {
-		rc = grabit_save_png_hdr(slices[0].src, slices[0].src_x, slices[0].src_y,
-								 slices[0].src_w, slices[0].src_h, path,
-								 eff_opts.png_level);
-	} else {
-		for (size_t i = 0; i < n_slices; i++)
-			pixels_narrow_10bit((struct image *)slices[i].src);
-		rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices,
-											 &r, max_ratio,
-											 annos.n > 0 ? &annos : NULL, &eff_opts,
-											 path);
-	}
+	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices, &r,
+										 max_ratio, annos.n > 0 ? &annos : NULL,
+										 &eff_opts, path);
 
 	if (rc == 0 && out_rect) *out_rect = r;
 

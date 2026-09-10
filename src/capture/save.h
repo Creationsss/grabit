@@ -41,6 +41,8 @@ int grabit_format_from_name(const char *name, enum grabit_image_format *out);
 
 struct rect;
 struct annotation_list;
+bool grabit_save_hdr_possible(const struct grabit_save_opts *o);
+
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
 									const struct rect *region, double scale,

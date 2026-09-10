@@ -127,7 +127,7 @@ int image_apply_output_transform(struct image *img,
 
 	if (transform == WL_OUTPUT_TRANSFORM_NORMAL) return 0;
 
-	pixels_narrow_10bit(img);
+	pixels_to_8bit(img);
 
 	int32_t new_w = grabit_wl_transform_swaps(transform) ? img->height : img->width;
 	int32_t new_h = grabit_wl_transform_swaps(transform) ? img->width : img->height;

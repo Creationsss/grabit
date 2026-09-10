@@ -3,6 +3,9 @@
 
 #include "capture/save.h"
 
+#include "capture/pixels.h"
+#include "capture/png_hdr.h"
+
 #include "cairo_util.h"
 #include "capture/capture.h"
 #include "log.h"
@@ -188,6 +191,21 @@ int grabit_save_surface(cairo_surface_t *dst,
 	return rc;
 }
 
+static bool hdr_usable(const struct png_slice *slices, size_t n,
+					   const struct grabit_save_opts *o,
+					   const struct annotation_list *annos) {
+	if (n != 1 || !grabit_save_hdr_possible(o)) return false;
+	if (annos && annos->n > 0) return false;
+	const struct png_slice *sl = &slices[0];
+	if (!sl->src->have_color || !pixels_is_10bit(sl->src->format, NULL)) return false;
+	return sl->dst_w == sl->src_w && sl->dst_h == sl->src_h;
+}
+
+bool grabit_save_hdr_possible(const struct grabit_save_opts *o) {
+	return o->hdr && o->format == GRABIT_FMT_PNG && !o->preview_path &&
+		   o->corner_radius <= 0;
+}
+
 int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct png_slice *slices, size_t n,
 									const struct rect *region, double scale,
@@ -200,6 +218,14 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 				  dst_w, dst_h, GRABIT_MAX_PIXEL_SIDE);
 		return -1;
 	}
+
+	if (hdr_usable(slices, n, opts, annos))
+		return grabit_save_png_hdr(slices[0].src, slices[0].src_x, slices[0].src_y,
+								   slices[0].src_w, slices[0].src_h, path,
+								   opts->png_level);
+
+	for (size_t i = 0; i < n; i++)
+		pixels_to_8bit((struct image *)slices[i].src);
 
 	cairo_surface_t *dst = build_composite_surface(dst_w, dst_h, slices, n);
 	if (!dst) return -1;

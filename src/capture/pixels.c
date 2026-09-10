@@ -209,7 +209,7 @@ bool pixels_is_10bit(uint32_t fmt, bool *swap_rb) {
 	return true;
 }
 
-void pixels_narrow_10bit(struct image *img) {
+void pixels_to_8bit(struct image *img) {
 	bool swap_rb = false;
 	if (!img || !img->bytes || !pixels_is_10bit(img->format, &swap_rb)) return;
 	if (grabit_tonemap_10bit(img, swap_rb)) return;

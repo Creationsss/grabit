@@ -45,7 +45,7 @@ struct image;
 
 bool pixels_is_10bit(uint32_t fmt, bool *swap_rb);
 
-void pixels_narrow_10bit(struct image *img);
+void pixels_to_8bit(struct image *img);
 
 int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,

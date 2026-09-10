@@ -17,9 +17,13 @@ enum {
 	QIMAGE_RGB32 = 4,
 	QIMAGE_ARGB32 = 5,
 	QIMAGE_ARGB32_PREMUL = 6,
-	QIMAGE_RGBX8888 = 24,
-	QIMAGE_RGBA8888 = 25,
-	QIMAGE_RGBA8888_PREMUL = 26,
+	QIMAGE_RGBX8888 = 16,
+	QIMAGE_RGBA8888 = 17,
+	QIMAGE_RGBA8888_PREMUL = 18,
+	QIMAGE_BGR30 = 19,
+	QIMAGE_A2BGR30_PREMUL = 20,
+	QIMAGE_RGB30 = 21,
+	QIMAGE_A2RGB30_PREMUL = 22,
 };
 
 bool gkwin_qimage_to_shm(uint32_t qfmt, uint32_t *out_shm) {
@@ -37,6 +41,18 @@ bool gkwin_qimage_to_shm(uint32_t qfmt, uint32_t *out_shm) {
 	case QIMAGE_RGBA8888:
 	case QIMAGE_RGBA8888_PREMUL:
 		*out_shm = WL_SHM_FORMAT_ABGR8888;
+		return true;
+	case QIMAGE_RGB30:
+		*out_shm = WL_SHM_FORMAT_XRGB2101010;
+		return true;
+	case QIMAGE_A2RGB30_PREMUL:
+		*out_shm = WL_SHM_FORMAT_ARGB2101010;
+		return true;
+	case QIMAGE_BGR30:
+		*out_shm = WL_SHM_FORMAT_XBGR2101010;
+		return true;
+	case QIMAGE_A2BGR30_PREMUL:
+		*out_shm = WL_SHM_FORMAT_ABGR2101010;
 		return true;
 	default:
 		return false;

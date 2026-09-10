@@ -21,7 +21,9 @@ const char *pixels_shm_format_name(uint32_t fmt);
 
 int pixels_conv_src_bpp(enum pixels_conv conv);
 
-bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, enum pixels_conv *out_conv);
+bool pixels_accept_format(uint32_t fmt, enum pixels_conv *out_conv);
+
+enum pixels_conv pixels_defer_10bit(enum pixels_conv conv);
 
 uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv);
 

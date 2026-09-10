@@ -222,14 +222,21 @@ static int kwin_capture(const char *output_name, bool cursor, struct image *out)
 		log_error("kwin-screenshot: unsupported QImage format %u", meta.format);
 		goto cleanup;
 	}
-	uint32_t resolved;
 	enum pixels_conv conv;
-	if (!pixels_accept_format(shm_fmt, &resolved, &conv)) {
-		log_error("kwin-screenshot: unsupported pixel format %s",
-				  pixels_shm_format_name(shm_fmt));
+	if (!pixels_accept_format(shm_fmt, &conv)) {
+		const char *fname = pixels_shm_format_name(shm_fmt);
+		log_error("kwin-screenshot: unsupported pixel format %s (0x%08x)",
+				  fname ? fname : "unknown", shm_fmt);
 		goto cleanup;
 	}
+	conv = pixels_defer_10bit(conv);
 
+	uint32_t bpp = (uint32_t)pixels_conv_src_bpp(conv);
+	if (meta.stride < meta.width * bpp || meta.stride >= meta.width * bpp + 4u) {
+		log_error("kwin-screenshot: stride %u does not match %ux%u at %u bytes/px",
+				  meta.stride, meta.width, meta.height, bpp);
+		goto cleanup;
+	}
 	if (conv != PIX_COPY) {
 		pixels_copy(buf.data, (int32_t)meta.stride, buf.data, (int32_t)meta.stride,
 					(int32_t)meta.width, (int32_t)meta.height, conv, false);
@@ -238,7 +245,7 @@ static int kwin_capture(const char *output_name, bool cursor, struct image *out)
 	out->width = (int32_t)meta.width;
 	out->height = (int32_t)meta.height;
 	out->stride = (int32_t)meta.stride;
-	out->format = pixels_resolved_format(resolved, conv);
+	out->format = pixels_resolved_format(shm_fmt, conv);
 	out->bytes = buf.data;
 	out->size = (size_t)meta.stride * meta.height;
 	buf.data = NULL;

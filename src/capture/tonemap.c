@@ -62,8 +62,8 @@ static double knee(double v) {
 	return TONE_KNEE + (1.0 - TONE_KNEE) * tanh((v - TONE_KNEE) / (1.0 - TONE_KNEE));
 }
 
-static double roll_off(double v) {
-	return knee(v) / knee(1.0);
+static double roll_off(double v, double unity) {
+	return knee(v) / unity;
 }
 
 static void build_light_lut(double *lut, uint32_t tf) {
@@ -87,6 +87,8 @@ bool grabit_tonemap_10bit(struct image *img, bool swap_rb) {
 
 	double light[LIGHT_LUT_N];
 	build_light_lut(light, img->color.tf_named);
+
+	double unity = knee(1.0);
 
 	uint8_t enc[SRGB_LUT_N];
 	for (int i = 0; i < SRGB_LUT_N; i++)
@@ -126,7 +128,7 @@ bool grabit_tonemap_10bit(struct image *img, bool swap_rb) {
 
 			double luma = 0.2126 * xr + 0.7152 * xg + 0.0722 * xb;
 			if (luma > 0.0) {
-				double s = roll_off(luma) / luma;
+				double s = roll_off(luma, unity) / luma;
 				xr *= s;
 				xg *= s;
 				xb *= s;

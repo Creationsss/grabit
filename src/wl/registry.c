@@ -13,6 +13,7 @@
 
 #include <wayland-client.h>
 
+#include "color-management-v1-client-protocol.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-image-capture-source-v1-client-protocol.h"
@@ -98,6 +99,12 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 		uint32_t v = version > 1 ? 1 : version;
 		s->ext_copy_manager = wl_registry_bind(
 			reg, name, &ext_image_copy_capture_manager_v1_interface, v);
+		return;
+	}
+
+	if (strcmp(interface, wp_color_manager_v1_interface.name) == 0) {
+		uint32_t v = version > 2 ? 2 : version;
+		s->color_manager = wl_registry_bind(reg, name, &wp_color_manager_v1_interface, v);
 		return;
 	}
 

@@ -5,6 +5,10 @@
 
 #include "wl/wl.h"
 
+#include "wl/color.h"
+
+#include "color-management-v1-client-protocol.h"
+
 #include "capture/capture.h"
 #include "log.h"
 #include "region/region.h"
@@ -87,6 +91,8 @@ int grabit_wl_init(struct grabit_wl_state *s) {
 	for (size_t i = 0; i < s->n_outputs; i++)
 		gwl_output_finalize(s->outputs[i]);
 
+	grabit_color_probe_outputs(s);
+
 	if (s->n_outputs == 0) {
 		log_error("no outputs reported by the compositor");
 		goto fail;
@@ -133,6 +139,7 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 		wp_fractional_scale_manager_v1_destroy(s->fractional_scale_manager);
 	if (s->cursor_shape_manager)
 		wp_cursor_shape_manager_v1_destroy(s->cursor_shape_manager);
+	if (s->color_manager) wp_color_manager_v1_destroy(s->color_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);

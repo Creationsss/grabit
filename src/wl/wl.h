@@ -10,6 +10,8 @@
 
 #include <wayland-client.h>
 
+#include "wl/color.h"
+
 #define GRABIT_WL_SEAT_VERSION 3
 _Static_assert(GRABIT_WL_SEAT_VERSION < 5,
 			   "wl_pointer v5 adds frame/axis_source/axis_stop/axis_discrete");
@@ -41,6 +43,8 @@ struct grabit_output {
 	int32_t logical_height;
 	int32_t scale;
 	int32_t transform; // wl_output.transform; bit 0 set ⇒ 90° rotated
+	struct grabit_colorimetry color;
+	bool have_color;
 };
 
 double grabit_output_pixel_ratio(const struct grabit_output *o);
@@ -65,6 +69,7 @@ struct grabit_wl_state {
 	struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
 	struct ext_image_copy_capture_manager_v1 *ext_copy_manager;
 	struct ext_output_image_capture_source_manager_v1 *ext_source_manager;
+	struct wp_color_manager_v1 *color_manager;
 	uint32_t toplevel_manager_name;
 	uint32_t toplevel_manager_version;
 	uint32_t screencast_name;

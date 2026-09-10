@@ -65,7 +65,8 @@ WL_PROTOCOLS := \
 	ext-foreign-toplevel-list-v1 \
 	ext-image-copy-capture-v1 \
 	wlr-foreign-toplevel-management-unstable-v1 \
-	zkde-screencast-unstable-v1
+	zkde-screencast-unstable-v1 \
+	color-management-v1
 
 WL_PROTO_DIR     := $(BUILDDIR)/protocols
 WL_PROTO_HEADERS := $(addprefix $(WL_PROTO_DIR)/,$(addsuffix -client-protocol.h,$(WL_PROTOCOLS)))
@@ -133,6 +134,7 @@ GRABIT_SRCS := \
 	src/mime.c \
 	src/wl/wl.c \
 	src/wl/toplevel.c \
+	src/wl/color.c \
 	src/wl/output.c \
 	src/wl/monitors.c \
 	src/wl/registry.c \

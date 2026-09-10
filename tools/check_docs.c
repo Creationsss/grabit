@@ -85,8 +85,8 @@ static void collect_cli(struct strset *out, const char *args, int field) {
 		char end = *e;
 		*e = '\0';
 		if (e == k) continue;
+		if (end != ' ' && end != '\n') continue;
 		if (field && end != ' ') continue;
-		if (!field && end != '\n') continue;
 		if (strstr(k, ".tool.")) continue;
 		set_add(out, k);
 	}

@@ -13,6 +13,8 @@ enum pixels_conv {
 	PIX_SWAP_RB,  // 4 bytes/px, swap R and B (X/ABGR8888)
 	PIX_BGR24,	  // 3 bytes/px BGR888, expand to XRGB8888 (swaps R/B)
 	PIX_RGB24,	  // 3 bytes/px RGB888, expand to XRGB8888
+	PIX_RGB30,	  // 4 bytes/px X/ARGB2101010, narrow to XRGB8888
+	PIX_BGR30,	  // 4 bytes/px X/ABGR2101010, narrow to XRGB8888 (swaps R/B)
 };
 
 const char *pixels_shm_format_name(uint32_t fmt);

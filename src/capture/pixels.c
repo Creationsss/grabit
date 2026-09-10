@@ -41,6 +41,14 @@ const char *pixels_shm_format_name(uint32_t f) {
 		return "BGR888";
 	case WL_SHM_FORMAT_RGB888:
 		return "RGB888";
+	case WL_SHM_FORMAT_XRGB2101010:
+		return "XRGB2101010";
+	case WL_SHM_FORMAT_ARGB2101010:
+		return "ARGB2101010";
+	case WL_SHM_FORMAT_XBGR2101010:
+		return "XBGR2101010";
+	case WL_SHM_FORMAT_ABGR2101010:
+		return "ABGR2101010";
 	default:
 		return NULL;
 	}
@@ -70,6 +78,16 @@ bool pixels_accept_format(uint32_t fmt, uint32_t *out_format, enum pixels_conv *
 		*out_format = fmt;
 		*out_conv = PIX_RGB24;
 		return true;
+	case WL_SHM_FORMAT_XRGB2101010:
+	case WL_SHM_FORMAT_ARGB2101010:
+		*out_format = fmt;
+		*out_conv = PIX_RGB30;
+		return true;
+	case WL_SHM_FORMAT_XBGR2101010:
+	case WL_SHM_FORMAT_ABGR2101010:
+		*out_format = fmt;
+		*out_conv = PIX_BGR30;
+		return true;
 	default:
 		return false;
 	}
@@ -82,6 +100,8 @@ uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv) {
 											 : WL_SHM_FORMAT_ARGB8888;
 	case PIX_BGR24:
 	case PIX_RGB24:
+	case PIX_RGB30:
+	case PIX_BGR30:
 		return WL_SHM_FORMAT_XRGB8888;
 	case PIX_COPY:
 	default:
@@ -89,18 +109,33 @@ uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv) {
 	}
 }
 
+static int conv_rank(enum pixels_conv conv) {
+	switch (conv) {
+	case PIX_COPY:
+		return 0;
+	case PIX_SWAP_RB:
+		return 1;
+	case PIX_BGR24:
+	case PIX_RGB24:
+		return 2;
+	case PIX_RGB30:
+	case PIX_BGR30:
+		return 3;
+	}
+	return 4;
+}
+
 void pixels_fmt_offer(struct pixels_fmt_pick *p, uint32_t fmt) {
 	if (p->n < sizeof p->advertised / sizeof p->advertised[0]) {
 		p->advertised[p->n++] = fmt;
 	}
-	if (p->chosen) return;
 	uint32_t use = 0;
 	enum pixels_conv conv = PIX_COPY;
-	if (pixels_accept_format(fmt, &use, &conv)) {
-		p->format = use;
-		p->conv = conv;
-		p->chosen = true;
-	}
+	if (!pixels_accept_format(fmt, &use, &conv)) return;
+	if (p->chosen && conv_rank(conv) >= conv_rank(p->conv)) return;
+	p->format = use;
+	p->conv = conv;
+	p->chosen = true;
 }
 
 void pixels_copy(void *dst, int32_t dst_stride,
@@ -145,6 +180,21 @@ void pixels_copy(void *dst, int32_t dst_stride,
 			}
 			break;
 		}
+		case PIX_RGB30:
+		case PIX_BGR30: {
+			const uint32_t *s32 = (const uint32_t *)sp;
+			uint32_t *d32 = (uint32_t *)dp;
+			bool swap = conv == PIX_BGR30;
+			for (int32_t x = 0; x < w; x++) {
+				uint32_t p = s32[x];
+				uint32_t a = (p >> 22) & 0xffu;
+				uint32_t b = (p >> 12) & 0xffu;
+				uint32_t c = (p >> 2) & 0xffu;
+				d32[x] = 0xff000000u | ((swap ? c : a) << 16) | (b << 8) |
+						 (swap ? a : c);
+			}
+			break;
+		}
 		case PIX_COPY:
 		default:
 			memcpy(dp, sp, (size_t)w * 4);
@@ -182,7 +232,8 @@ void pixels_log_advertised(const char *backend,
 			break;
 	}
 	log_error("%s: compositor advertised no supported shm format (want "
-			  "XRGB8888/ARGB8888/XBGR8888/ABGR8888/BGR888/RGB888, saw %s)",
+			  "XRGB8888/ARGB8888/XBGR8888/ABGR8888/BGR888/RGB888/"
+			  "X-ARGB2101010/X-ABGR2101010, saw %s)",
 			  backend, off ? saw : "none");
 }
 

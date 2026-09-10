@@ -15,10 +15,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define EDIT_DEFAULT_WIDTH 4
-#define EDIT_MIN_WIDTH 1
-#define EDIT_MAX_WIDTH 12
-
 static const struct {
 	const char *name;
 	uint32_t hex;

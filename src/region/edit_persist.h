@@ -17,6 +17,10 @@ struct edit_choices {
 	int32_t tool;
 };
 
+#define EDIT_DEFAULT_WIDTH 4
+#define EDIT_MIN_WIDTH 1
+#define EDIT_MAX_WIDTH 20
+
 #define EDIT_SWATCH_COUNT 6
 #define EDIT_SWATCHES_STR_MAX (EDIT_SWATCH_COUNT * 8 + 1)
 #define EDIT_DEFAULT_COLOR 0xff3030u

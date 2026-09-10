@@ -233,7 +233,8 @@ int config_set(struct config *c, const char *key, const char *value) {
 		return -1;
 	}
 	if (strcmp(key, "edit.width") == 0 &&
-		validate_int_in_range(key, value, 1, 20) != 0) return -1;
+		validate_int_in_range(key, value, EDIT_MIN_WIDTH, EDIT_MAX_WIDTH) != 0)
+		return -1;
 	if (cfg_is_bool_key(key) && strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
 		log_error("%s must be true or false", key);
 		return -1;

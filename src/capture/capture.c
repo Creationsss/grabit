@@ -86,6 +86,12 @@ bool capture_is_streaming_capable(const struct grabit_wl_state *s) {
 	return b == CAP_WLR || b == CAP_EXT;
 }
 
+void image_set_color(struct image *img, const struct grabit_output *o) {
+	if (!img || !o || !o->have_color) return;
+	img->color = o->color;
+	img->have_color = true;
+}
+
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 						bool overlay_cursor, struct image *out) {
 	if (!s) return -1;

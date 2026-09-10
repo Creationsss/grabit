@@ -203,9 +203,28 @@ void pixels_copy(void *dst, int32_t dst_stride,
 	}
 }
 
+bool pixels_is_10bit(uint32_t fmt, bool *swap_rb) {
+	uint32_t use = 0;
+	enum pixels_conv conv = PIX_COPY;
+	if (!pixels_accept_format(fmt, &use, &conv)) return false;
+	if (conv != PIX_RGB30 && conv != PIX_BGR30) return false;
+	if (swap_rb) *swap_rb = conv == PIX_BGR30;
+	return true;
+}
+
+void pixels_narrow_10bit(struct image *img) {
+	bool swap_rb = false;
+	if (!img || !img->bytes || !pixels_is_10bit(img->format, &swap_rb)) return;
+	enum pixels_conv conv = swap_rb ? PIX_BGR30 : PIX_RGB30;
+	pixels_copy(img->bytes, img->stride, img->bytes, img->stride, img->width,
+				img->height, conv, false);
+	img->format = pixels_resolved_format(img->format, conv);
+}
+
 int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 						  int32_t w, int32_t h, int32_t stride, uint32_t fmt,
 						  enum pixels_conv conv, bool y_invert) {
+	if (conv == PIX_RGB30 || conv == PIX_BGR30) conv = PIX_COPY;
 	int32_t dst_stride = pixels_conv_src_bpp(conv) == 3 ? w * 4 : stride;
 	size_t dst_size = pixels_conv_src_bpp(conv) == 3 ? (size_t)dst_stride * (size_t)h
 													 : map_size;

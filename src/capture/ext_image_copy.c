@@ -147,6 +147,7 @@ int grabit_ext_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 		rc = pixels_image_from_buf(out, c.buf.map, c.buf.map_size,
 								   c.sess->width, c.sess->height, c.sess->stride,
 								   c.sess->fmt.format, c.sess->fmt.conv, false);
+		if (rc == 0) image_set_color(out, o);
 	}
 
 	cleanup_state(&c);

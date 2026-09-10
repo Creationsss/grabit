@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "wl/color.h"
+
 struct grabit_wl_state;
 struct grabit_output;
 
@@ -18,9 +20,13 @@ struct image {
 	uint32_t format;
 	void *bytes;
 	size_t size;
+	struct grabit_colorimetry color;
+	bool have_color;
 };
 
 void image_free(struct image *img);
+
+void image_set_color(struct image *img, const struct grabit_output *o);
 
 int image_apply_output_transform(struct image *img,
 								 const struct grabit_output *output);
@@ -41,8 +47,7 @@ bool capture_backend_available(const struct grabit_wl_state *s);
 bool capture_is_streaming_capable(const struct grabit_wl_state *s);
 
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
-						bool overlay_cursor,
-						struct image *out);
+						bool overlay_cursor, struct image *out);
 
 int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,
 						 size_t n, bool overlay_cursor, struct image *out);

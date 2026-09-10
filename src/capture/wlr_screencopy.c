@@ -191,6 +191,8 @@ int grabit_wlr_capture_many(struct grabit_wl_state *s, struct grabit_output *con
 									  cs[i].fmt.format, cs[i].fmt.conv,
 									  cs[i].y_invert) != 0)
 				rc = -1;
+			else
+				image_set_color(&out[i], outs[i]);
 		} else {
 			rc = -1;
 		}

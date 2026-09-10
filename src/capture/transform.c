@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #include "capture/capture.h"
+#include "capture/pixels.h"
 
 #include "cairo_util.h"
 #include "log.h"
@@ -125,6 +126,8 @@ int image_apply_output_transform(struct image *img,
 													 img->width, img->height);
 
 	if (transform == WL_OUTPUT_TRANSFORM_NORMAL) return 0;
+
+	pixels_narrow_10bit(img);
 
 	int32_t new_w = grabit_wl_transform_swaps(transform) ? img->height : img->width;
 	int32_t new_h = grabit_wl_transform_swaps(transform) ? img->width : img->height;

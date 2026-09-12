@@ -151,6 +151,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct rec_layout layout = {0};
 	struct screencast *scast = NULL;
 	struct pw_capture *cap = NULL;
+	int ret = 1;
 	char *output_path = NULL;
 	int32_t frame_w, frame_h, frame_stride;
 
@@ -324,25 +325,18 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		}
 	}
 
-	record_signals_restore(&prev);
-	ring_destroy(&ring);
-	pool_destroy(&pool);
-	seg_ctx_free(&sc);
-	unlink_pid_file();
-	free(output_path);
-	pw_capture_close(cap);
-	screencast_stop(scast);
-	rec_layout_free(&layout);
-	grabit_wl_finish(&s);
-	return ok ? 0 : 1;
+	ret = ok ? 0 : 1;
+	goto out_pipeline;
 
 err_pipeline:
 	tray_stop(tray);
 	seg_finish(&sc, NULL);
 	seg_reap_all(&sc);
+	seg_unlink_all(&sc);
+out_pipeline:
 	record_signals_restore(&prev);
 	ring_destroy(&ring);
-	seg_unlink_all(&sc);
+	pool_destroy(&pool);
 	seg_ctx_free(&sc);
 	unlink_pid_file();
 err_path:
@@ -353,5 +347,5 @@ err_source:
 	rec_layout_free(&layout);
 err_wl:
 	grabit_wl_finish(&s);
-	return 1;
+	return ret;
 }

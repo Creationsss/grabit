@@ -347,14 +347,12 @@ char *grabit_url_with_path(const char *base, const char *path,
 	return out;
 }
 
-int grabit_poll_deadline(int fd, short events, int64_t deadline_ms) {
+int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms) {
 	for (;;) {
 		int64_t remaining = deadline_ms - grabit_now_ns() / 1000000;
 		if (remaining <= 0) return 0;
-		struct pollfd pfd = {.fd = fd, .events = events};
-		int pr = poll(&pfd, 1, (int)remaining);
-		if (pr > 0) return 1;
-		if (pr == 0) return 0;
+		int pr = poll(fds, (nfds_t)n, (int)remaining);
+		if (pr >= 0) return pr;
 		if (errno != EINTR) return -1;
 	}
 }

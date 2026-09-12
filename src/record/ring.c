@@ -39,6 +39,7 @@ int pool_init(struct buf_pool *p, size_t n, size_t buf_size) {
 }
 
 void pool_destroy(struct buf_pool *p) {
+	if (!p->n) return;
 	for (size_t i = 0; i < p->n; i++)
 		free(p->slots[i]);
 	pthread_mutex_destroy(&p->mu);

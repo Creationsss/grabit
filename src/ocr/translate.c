@@ -111,43 +111,49 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 
 	int flags = fcntl(in_p[1], F_GETFL, 0);
 	if (flags >= 0) fcntl(in_p[1], F_SETFL, flags | O_NONBLOCK);
+	int in_fd = in_p[1];
 	size_t tlen = strlen(text);
 	const char *p = text;
-	while (tlen > 0) {
-		int pr = grabit_poll_deadline(in_p[1], POLLOUT, deadline);
-		if (pr == 0) {
-			timed_out = true;
-			break;
-		}
-		if (pr < 0) break;
-		ssize_t w = write(in_p[1], p, tlen);
-		if (w < 0) {
-			if (errno == EINTR || errno == EAGAIN) continue;
-			break;
-		}
-		p += w;
-		tlen -= (size_t)w;
+	if (tlen == 0) {
+		close(in_fd);
+		in_fd = -1;
 	}
-	close(in_p[1]);
 
 	struct grabit_buf buf = {0};
 	char chunk[4096];
 	for (;;) {
-		int pr = grabit_poll_deadline(out_p[0], POLLIN, deadline);
+		struct pollfd pfds[2] = {
+			{.fd = out_p[0], .events = POLLIN},
+			{.fd = in_fd, .events = POLLOUT},
+		};
+		int pr = grabit_poll_deadline(pfds, in_fd >= 0 ? 2 : 1, deadline);
 		if (pr == 0) {
 			timed_out = true;
 			break;
 		}
 		if (pr < 0) break;
+		if (in_fd >= 0 && pfds[1].revents) {
+			ssize_t w = write(in_fd, p, tlen);
+			if (w > 0) {
+				p += w;
+				tlen -= (size_t)w;
+			}
+			if (tlen == 0 || (w < 0 && errno != EINTR && errno != EAGAIN)) {
+				close(in_fd);
+				in_fd = -1;
+			}
+		}
+		if (!pfds[0].revents) continue;
 		ssize_t n = read(out_p[0], chunk, sizeof chunk);
 		if (n < 0) {
-			if (errno == EINTR) continue;
+			if (errno == EINTR || errno == EAGAIN) continue;
 			break;
 		}
 		if (n == 0) break;
 		if (buf.len + (size_t)n > (16u << 20) ||
 			grabit_buf_putn(&buf, chunk, (size_t)n) != 0) {
 			grabit_buf_free(&buf);
+			if (in_fd >= 0) close(in_fd);
 			close(out_p[0]);
 			kill(pid, SIGTERM);
 			(void)reap_with_grace(pid, NULL);
@@ -156,6 +162,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 			return NULL;
 		}
 	}
+	if (in_fd >= 0) close(in_fd);
 	close(out_p[0]);
 	int status = 0;
 	if (timed_out) {

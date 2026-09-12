@@ -18,7 +18,8 @@ bool grabit_in_path(const char *bin);
 int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
-int grabit_poll_deadline(int fd, short events, int64_t deadline_ms);
+struct pollfd;
+int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms);
 void grabit_sleep_secs(int secs);
 
 const char *grabit_basename(const char *path);

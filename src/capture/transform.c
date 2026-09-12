@@ -73,8 +73,8 @@ int32_t grabit_wl_residual_transform(int32_t transform, int32_t phys_w, int32_t 
 	return (buf_w == phys_w && buf_h == phys_h) ? transform : WL_OUTPUT_TRANSFORM_NORMAL;
 }
 
-void grabit_wl_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
-								  int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
+void gcap_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
+							 int32_t *x, int32_t *y, int32_t *w, int32_t *h) {
 	int32_t lx = *x, ly = *y, lw = *w, lh = *h;
 	switch (transform) {
 	case WL_OUTPUT_TRANSFORM_NORMAL:

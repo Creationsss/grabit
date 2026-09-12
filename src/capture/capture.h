@@ -36,8 +36,8 @@ void grabit_wl_transform_apply_inverse(struct _cairo *cr, int32_t transform,
 									   int32_t src_w, int32_t src_h);
 int32_t grabit_wl_residual_transform(int32_t transform, int32_t phys_w, int32_t phys_h,
 									 int32_t buf_w, int32_t buf_h);
-void grabit_wl_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
-								  int32_t *x, int32_t *y, int32_t *w, int32_t *h);
+void gcap_transform_map_rect(int32_t transform, int32_t frame_w, int32_t frame_h,
+							 int32_t *x, int32_t *y, int32_t *w, int32_t *h);
 
 int grabit_cairo_format_for_shm(uint32_t shm_fmt);
 

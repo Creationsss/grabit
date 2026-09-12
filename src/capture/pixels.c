@@ -102,9 +102,9 @@ uint32_t pixels_resolved_format(uint32_t fmt, enum pixels_conv conv) {
 	case PIX_BGR30:
 		return WL_SHM_FORMAT_XRGB8888;
 	case PIX_COPY:
-	default:
-		return fmt;
+		break;
 	}
+	return fmt;
 }
 
 static int conv_rank(enum pixels_conv conv) {
@@ -343,4 +343,37 @@ int pixels_wl_wait(struct wl_display *dpy, const int *status) {
 		}
 	}
 	return *status == 1 ? 0 : -1;
+}
+
+void pixels_pack_rgb_row(unsigned char *dst, const uint32_t *line, int w) {
+	for (int x = 0; x < w; x++) {
+		uint32_t px = line[x];
+		dst[x * 3 + 0] = (unsigned char)((px >> 16) & 0xff);
+		dst[x * 3 + 1] = (unsigned char)((px >> 8) & 0xff);
+		dst[x * 3 + 2] = (unsigned char)(px & 0xff);
+	}
+}
+
+void pixels_unpremul_rgba_row(unsigned char *dst, const uint32_t *line, int w) {
+	for (int x = 0; x < w; x++) {
+		uint32_t px = line[x];
+		unsigned a = (px >> 24) & 0xff;
+		unsigned r = (px >> 16) & 0xff;
+		unsigned g = (px >> 8) & 0xff;
+		unsigned b = px & 0xff;
+		if (a == 0) {
+			r = g = b = 0;
+		} else if (a != 255) {
+			r = (r * 255u + a / 2) / a;
+			g = (g * 255u + a / 2) / a;
+			b = (b * 255u + a / 2) / a;
+			if (r > 255) r = 255;
+			if (g > 255) g = 255;
+			if (b > 255) b = 255;
+		}
+		dst[x * 4 + 0] = (unsigned char)r;
+		dst[x * 4 + 1] = (unsigned char)g;
+		dst[x * 4 + 2] = (unsigned char)b;
+		dst[x * 4 + 3] = (unsigned char)a;
+	}
 }

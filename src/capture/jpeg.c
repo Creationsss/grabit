@@ -52,12 +52,7 @@ int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int qua
 
 	for (int y = 0; y < h; y++) {
 		const uint32_t *line = (const uint32_t *)(src + (size_t)y * (size_t)stride);
-		for (int x = 0; x < w; x++) {
-			uint32_t px = line[x];
-			row[x * 3 + 0] = (unsigned char)((px >> 16) & 0xff);
-			row[x * 3 + 1] = (unsigned char)((px >> 8) & 0xff);
-			row[x * 3 + 2] = (unsigned char)(px & 0xff);
-		}
+		pixels_pack_rgb_row(row, line, w);
 		JSAMPROW rows[1] = {row};
 		jpeg_write_scanlines(&cinfo, rows, 1);
 	}

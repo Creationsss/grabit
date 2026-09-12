@@ -96,10 +96,8 @@ void region_apply_handle_drag(struct ro_state *st) {
 	int32_t t = st->sel_y, b = st->sel_y + st->sel_h;
 	int32_t cx = st->cursor_x, cy = st->cursor_y;
 	if (st->bounds.w > 0 && st->bounds.h > 0) {
-		if (cx < st->bounds.x) cx = st->bounds.x;
-		if (cy < st->bounds.y) cy = st->bounds.y;
-		if (cx > st->bounds.x + st->bounds.w) cx = st->bounds.x + st->bounds.w;
-		if (cy > st->bounds.y + st->bounds.h) cy = st->bounds.y + st->bounds.h;
+		cx = i32min(i32max(cx, st->bounds.x), st->bounds.x + st->bounds.w);
+		cy = i32min(i32max(cy, st->bounds.y), st->bounds.y + st->bounds.h);
 	}
 	switch (st->handle_dragging) {
 	case HANDLE_NW:

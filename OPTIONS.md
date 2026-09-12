@@ -154,9 +154,9 @@ grabit --<name>                               # screenshot + upload
 grabit -f file.png --<name>                   # upload an existing file
 ```
 
-supported sxcu fields: `Name`, `RequestURL`, `RequestMethod` (or `RequestType`), `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `ErrorMessage`, `RegexList`.
+supported sxcu fields: `Name`, `RequestURL`, `RequestMethod` (or `RequestType`), `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `DeletionURL`, `ThumbnailURL`, `ErrorMessage`, `RegexList`.
 
-placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` (picks one at random), `{select:a|b|c}` (takes the first), `{input}` (expands to empty), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). a backslash escapes a `{`. response placeholders for the `URL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}` (POSIX ERE, not PCRE), `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
+placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` (picks one at random), `{select:a|b|c}` (takes the first), `{input}` (expands to empty), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). a backslash escapes a `{`. response placeholders for the `URL`/`DeletionURL`/`ThumbnailURL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}` (POSIX ERE, not PCRE), `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
 
 auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.auth` config needed.
 

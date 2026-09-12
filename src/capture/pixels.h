@@ -41,6 +41,9 @@ void pixels_copy(void *dst, int32_t dst_stride,
 				 const void *src, int32_t src_stride,
 				 int32_t w, int32_t h, enum pixels_conv conv, bool y_invert);
 
+void pixels_pack_rgb_row(unsigned char *dst, const uint32_t *line, int w);
+void pixels_unpremul_rgba_row(unsigned char *dst, const uint32_t *line, int w);
+
 struct image;
 
 bool pixels_is_10bit(uint32_t fmt, bool *swap_rb);

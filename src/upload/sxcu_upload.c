@@ -252,17 +252,19 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 			ret = 0;
 		}
 	} else {
-		char *err = u->err_expr
-						? sxcu_expand_response(u->err_expr, body_data,
-											   w.headers, w.n_headers, eff_url,
-											   u->regex_list, u->n_regex_list)
-						: NULL;
-		result->body = err ? err : strdup(body_data);
+		result->body = strdup(body_data);
 		if (rc != CURLE_OK) {
 			result->curl_code = (int)rc;
 			upload_log_curl_failure((int)rc);
 		} else {
 			upload_log_http_failure(status, body_data);
+			if (u->err_expr) {
+				result->error = trim_right(sxcu_expand_response(
+					u->err_expr, body_data, w.headers, w.n_headers, eff_url,
+					u->regex_list, u->n_regex_list));
+				if (result->error && result->error[0])
+					log_error("upload: %s", result->error);
+			}
 		}
 	}
 

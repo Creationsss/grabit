@@ -26,9 +26,9 @@ const char *grabit_format_extension(enum grabit_image_format f) {
 	case GRABIT_FMT_WEBP:
 		return ".webp";
 	case GRABIT_FMT_PNG:
-	default:
-		return ".png";
+		break;
 	}
+	return ".png";
 }
 
 cairo_surface_t *grabit_load_image_surface(const char *path, const char *tag) {

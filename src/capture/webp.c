@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
+#include "capture/pixels.h"
 #include "capture/save.h"
 #include "log.h"
 #include "util/util.h"
@@ -35,27 +36,7 @@ int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 	for (int y = 0; y < h; y++) {
 		const uint32_t *in = (const uint32_t *)(src + (size_t)y * (size_t)stride);
 		unsigned char *out = rgba + (size_t)y * (size_t)row_bytes;
-		for (int x = 0; x < w; x++) {
-			uint32_t px = in[x];
-			unsigned a = (px >> 24) & 0xff;
-			unsigned r = (px >> 16) & 0xff;
-			unsigned g = (px >> 8) & 0xff;
-			unsigned b = px & 0xff;
-			if (a == 0) {
-				out[x * 4 + 0] = 0;
-				out[x * 4 + 1] = 0;
-				out[x * 4 + 2] = 0;
-			} else if (a == 255) {
-				out[x * 4 + 0] = (unsigned char)r;
-				out[x * 4 + 1] = (unsigned char)g;
-				out[x * 4 + 2] = (unsigned char)b;
-			} else {
-				out[x * 4 + 0] = (unsigned char)((r * 255 + a / 2) / a);
-				out[x * 4 + 1] = (unsigned char)((g * 255 + a / 2) / a);
-				out[x * 4 + 2] = (unsigned char)((b * 255 + a / 2) / a);
-			}
-			out[x * 4 + 3] = (unsigned char)a;
-		}
+		pixels_unpremul_rgba_row(out, in, w);
 	}
 
 	uint8_t *encoded = NULL;

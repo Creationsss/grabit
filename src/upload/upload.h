@@ -24,6 +24,7 @@ struct upload_result {
 	char *del_url;
 	char *thumb_url;
 	char *body;
+	char *error;
 };
 
 void upload_result_free(struct upload_result *r);

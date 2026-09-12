@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
+#include "capture/pixels.h"
 #include "capture/save.h"
 
 #include "log.h"
@@ -21,39 +22,6 @@ static bool gpng_all_opaque(const unsigned char *data, int w, int h, int stride)
 			if ((line[x] >> 24) != 0xffu) return false;
 	}
 	return true;
-}
-
-static void gpng_pack_rgb(unsigned char *dst, const uint32_t *line, int w) {
-	for (int x = 0; x < w; x++) {
-		uint32_t px = line[x];
-		dst[x * 3 + 0] = (unsigned char)((px >> 16) & 0xff);
-		dst[x * 3 + 1] = (unsigned char)((px >> 8) & 0xff);
-		dst[x * 3 + 2] = (unsigned char)(px & 0xff);
-	}
-}
-
-static void gpng_pack_rgba(unsigned char *dst, const uint32_t *line, int w) {
-	for (int x = 0; x < w; x++) {
-		uint32_t px = line[x];
-		unsigned a = (px >> 24) & 0xff;
-		unsigned r = (px >> 16) & 0xff;
-		unsigned g = (px >> 8) & 0xff;
-		unsigned b = px & 0xff;
-		if (a != 0 && a != 255) {
-			r = (r * 255u + a / 2) / a;
-			g = (g * 255u + a / 2) / a;
-			b = (b * 255u + a / 2) / a;
-			if (r > 255) r = 255;
-			if (g > 255) g = 255;
-			if (b > 255) b = 255;
-		} else if (a == 0) {
-			r = g = b = 0;
-		}
-		dst[x * 4 + 0] = (unsigned char)r;
-		dst[x * 4 + 1] = (unsigned char)g;
-		dst[x * 4 + 2] = (unsigned char)b;
-		dst[x * 4 + 3] = (unsigned char)a;
-	}
 }
 
 int grabit_save_png_surface(cairo_surface_t *surface, const char *path, int level) {
@@ -109,9 +77,9 @@ int grabit_save_png_surface(cairo_surface_t *surface, const char *path, int leve
 	for (int y = 0; y < h; y++) {
 		const uint32_t *line = (const uint32_t *)(src + (size_t)y * (size_t)stride);
 		if (opaque)
-			gpng_pack_rgb(row, line, w);
+			pixels_pack_rgb_row(row, line, w);
 		else
-			gpng_pack_rgba(row, line, w);
+			pixels_unpremul_rgba_row(row, line, w);
 		png_write_row(png, row);
 	}
 

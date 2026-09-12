@@ -96,6 +96,10 @@ void upload_friendly_error(const struct upload_result *r, char *out, size_t cap)
 		snprintf(out, cap, "%s", s ? s : curl_easy_strerror((CURLcode)r->curl_code));
 		return;
 	}
+	if (r->error && r->error[0]) {
+		snprintf(out, cap, "%s", r->error);
+		return;
+	}
 	const char *s = http_friendly(r->http_code);
 	if (s)
 		snprintf(out, cap, "%s", s);
@@ -109,7 +113,8 @@ void upload_result_free(struct upload_result *r) {
 	free(r->del_url);
 	free(r->thumb_url);
 	free(r->body);
-	r->url = r->del_url = r->thumb_url = r->body = NULL;
+	free(r->error);
+	r->url = r->del_url = r->thumb_url = r->body = r->error = NULL;
 	r->http_code = 0;
 	r->curl_code = 0;
 }

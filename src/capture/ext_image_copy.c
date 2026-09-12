@@ -171,8 +171,8 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 		int32_t px, py, pw, ph;
 		grabit_output_region_pixels(o, x, y, &px, &py);
 		grabit_output_region_pixels(o, w, h, &pw, &ph);
-		grabit_wl_transform_map_rect(o->transform, c.sess->width, c.sess->height,
-									 &px, &py, &pw, &ph);
+		gcap_transform_map_rect(o->transform, c.sess->width, c.sess->height,
+								&px, &py, &pw, &ph);
 		int32_t stride = dst_stride > 0 ? dst_stride : pw * 4;
 		if (px < 0 || py < 0 || pw > c.sess->width - px || ph > c.sess->height - py) {
 			log_error("ext-image-copy: region %d,%d %dx%d out of frame %dx%d",

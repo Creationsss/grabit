@@ -25,11 +25,8 @@ int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int qua
 	if (quality < 1) quality = 1;
 	if (quality > 100) quality = 100;
 
-	FILE *f = fopen(path, "wb");
-	if (!f) {
-		log_error("jpeg: open %s: %s", path, strerror(errno));
-		return -1;
-	}
+	FILE *f = grabit_open_write("jpeg", path);
+	if (!f) return -1;
 
 	unsigned char *row = malloc((size_t)w * 3);
 	if (!row) {
@@ -60,11 +57,7 @@ int grabit_save_jpeg_surface(cairo_surface_t *surface, const char *path, int qua
 	jpeg_finish_compress(&cinfo);
 	jpeg_destroy_compress(&cinfo);
 	free(row);
-	if (fclose(f) != 0) {
-		log_error("jpeg: close %s: %s", path, strerror(errno));
-		return -1;
-	}
-	return 0;
+	return grabit_close_write(f, "jpeg", path);
 }
 
 cairo_surface_t *grabit_load_jpeg_surface(const char *path, const char *tag) {

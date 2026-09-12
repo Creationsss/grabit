@@ -247,3 +247,15 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 	cairo_surface_destroy(dst);
 	return rc;
 }
+
+FILE *grabit_open_write(const char *tag, const char *path) {
+	FILE *f = fopen(path, "wb");
+	if (!f) log_error("%s: open %s: %s", tag, path, strerror(errno));
+	return f;
+}
+
+int grabit_close_write(FILE *f, const char *tag, const char *path) {
+	if (fclose(f) == 0) return 0;
+	log_error("%s: close %s: %s", tag, path, strerror(errno));
+	return -1;
+}

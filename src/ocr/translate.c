@@ -114,21 +114,12 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	size_t tlen = strlen(text);
 	const char *p = text;
 	while (tlen > 0) {
-		int64_t remaining = deadline - grabit_now_ns() / 1000000;
-		if (remaining <= 0) {
-			timed_out = true;
-			break;
-		}
-		struct pollfd pfd = {.fd = in_p[1], .events = POLLOUT};
-		int pr = poll(&pfd, 1, (int)remaining);
-		if (pr < 0) {
-			if (errno == EINTR) continue;
-			break;
-		}
+		int pr = grabit_poll_deadline(in_p[1], POLLOUT, deadline);
 		if (pr == 0) {
 			timed_out = true;
 			break;
 		}
+		if (pr < 0) break;
 		ssize_t w = write(in_p[1], p, tlen);
 		if (w < 0) {
 			if (errno == EINTR || errno == EAGAIN) continue;
@@ -142,21 +133,12 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	struct grabit_buf buf = {0};
 	char chunk[4096];
 	for (;;) {
-		int64_t remaining = deadline - grabit_now_ns() / 1000000;
-		if (remaining <= 0) {
-			timed_out = true;
-			break;
-		}
-		struct pollfd pfd = {.fd = out_p[0], .events = POLLIN};
-		int pr = poll(&pfd, 1, (int)remaining);
-		if (pr < 0) {
-			if (errno == EINTR) continue;
-			break;
-		}
+		int pr = grabit_poll_deadline(out_p[0], POLLIN, deadline);
 		if (pr == 0) {
 			timed_out = true;
 			break;
 		}
+		if (pr < 0) break;
 		ssize_t n = read(out_p[0], chunk, sizeof chunk);
 		if (n < 0) {
 			if (errno == EINTR) continue;

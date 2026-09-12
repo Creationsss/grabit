@@ -54,9 +54,8 @@ int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 		return -1;
 	}
 
-	FILE *f = fopen(path, "wb");
+	FILE *f = grabit_open_write("webp", path);
 	if (!f) {
-		log_error("webp: open %s: %s", path, strerror(errno));
 		WebPFree(encoded);
 		return -1;
 	}
@@ -67,11 +66,7 @@ int grabit_save_webp_surface(cairo_surface_t *surface, const char *path,
 		fclose(f);
 		return -1;
 	}
-	if (fclose(f) != 0) {
-		log_error("webp: close %s: %s", path, strerror(errno));
-		return -1;
-	}
-	return 0;
+	return grabit_close_write(f, "webp", path);
 }
 
 cairo_surface_t *grabit_load_webp_surface(const char *path, const char *tag) {

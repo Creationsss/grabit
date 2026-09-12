@@ -45,10 +45,7 @@ static int ipc_connect(const char *path) {
 }
 
 static int wait_fd(int fd, short events, int64_t deadline) {
-	int64_t remaining = deadline - grabit_now_ns() / 1000000;
-	if (remaining <= 0) return -1;
-	struct pollfd pfd = {.fd = fd, .events = events};
-	return poll(&pfd, 1, (int)remaining) > 0 ? 0 : -1;
+	return grabit_poll_deadline(fd, events, deadline) == 1 ? 0 : -1;
 }
 
 static int ipc_write(int fd, const void *buf, size_t len, int64_t deadline) {

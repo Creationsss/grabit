@@ -5,15 +5,14 @@
 
 #include "capture/capture.h"
 #include "capture/pixels.h"
+#include "capture/save.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/color.h"
 
-#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include <png.h>
 #include <setjmp.h>
@@ -84,11 +83,8 @@ int grabit_save_png_hdr(const struct image *img, int32_t x, int32_t y,
 		log_debug("png: capping level %d to %d for 16-bit output", level,
 				  HDR_MAX_PNG_LEVEL);
 
-	FILE *f = fopen(path, "wb");
-	if (!f) {
-		log_error("png: open %s: %s", path, strerror(errno));
-		return -1;
-	}
+	FILE *f = grabit_open_write("png", path);
+	if (!f) return -1;
 
 	uint16_t *row = malloc((size_t)w * 3 * sizeof *row);
 	if (!row) {
@@ -137,9 +133,5 @@ int grabit_save_png_hdr(const struct image *img, int32_t x, int32_t y,
 	png_destroy_write_struct(&png, &info);
 	free(row);
 
-	if (fclose(f) != 0) {
-		log_error("png: close %s: %s", path, strerror(errno));
-		return -1;
-	}
-	return 0;
+	return grabit_close_write(f, "png", path);
 }

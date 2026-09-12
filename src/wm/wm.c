@@ -12,7 +12,6 @@
 #include "wm/sway.h"
 
 #include <stdlib.h>
-#include <string.h>
 
 enum wm_kind {
 	WM_NONE = 0,
@@ -86,44 +85,10 @@ int grabit_wm_window_radius(const struct rect *win) {
 	return 0;
 }
 
-static int append_rects(struct rect **dst, size_t *n_dst, struct rect *add, size_t n_add) {
-	if (n_add == 0) {
-		free(add);
-		return 0;
-	}
-	struct rect *grown = realloc(*dst, (*n_dst + n_add) * sizeof **dst);
-	if (!grown) {
-		free(add);
-		return -1;
-	}
-	memcpy(grown + *n_dst, add, n_add * sizeof *add);
-	free(add);
-	*dst = grown;
-	*n_dst += n_add;
-	return 0;
-}
-
 int grabit_wm_windows(struct rect **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
-	case WM_HYPRLAND: {
-		struct rect *clients = NULL, *below = NULL, *above = NULL;
-		size_t n_clients = 0, n_below = 0, n_above = 0;
-		if (grabit_hyprland_clients(&clients, &n_clients) != 0) return -1;
-		(void)grabit_hyprland_layers(&below, &n_below, &above, &n_above);
-
-		*out = NULL;
-		*n_out = 0;
-		int rc = append_rects(out, n_out, below, n_below);
-		rc |= append_rects(out, n_out, clients, n_clients);
-		rc |= append_rects(out, n_out, above, n_above);
-		if (rc != 0) {
-			free(*out);
-			*out = NULL;
-			*n_out = 0;
-			return -1;
-		}
-		return 0;
-	}
+	case WM_HYPRLAND:
+		return grabit_hyprland_windows(out, n_out);
 	case WM_NIRI:
 		return grabit_niri_windows(out, n_out);
 	case WM_SWAY:

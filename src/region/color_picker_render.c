@@ -20,17 +20,6 @@
 
 #include <cairo/cairo.h>
 
-#define COLOR_PICKER_W 220
-#define COLOR_PICKER_GRID_H 130
-#define COLOR_PICKER_INPUT_H 26
-#define COLOR_PICKER_INPUT_GAP 5
-#define COLOR_PICKER_INPUT_BTN_GAP 4
-#define COLOR_PICKER_PAD 6
-#define COLOR_PICKER_GAP 8
-#define COLOR_PICKER_SWATCH_PAD_X 5
-#define COLOR_PICKER_SWATCH_PAD_Y 4
-#define COLOR_PICKER_TEXT_GAP 8
-
 static void picker_patterns_build(struct ro_state *st, int32_t dw, int32_t dh) {
 	cairo_pattern_t *rainbow = cairo_pattern_create_linear(0, 0, dw, 0);
 	static const int N_HUE_STOPS = 6;

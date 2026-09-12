@@ -6,7 +6,7 @@
 
 #include "log.h"
 #include "notify/notify.h"
-#include "record/loop.h"
+#include "record/rec_flags.h"
 #include "tray/menu.h"
 #include "tray/sni.h"
 #include "util/util.h"

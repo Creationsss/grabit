@@ -38,8 +38,6 @@ struct frame {
 	struct buf_pool *pool;
 };
 
-void frame_release(struct frame *f);
-
 struct ring {
 	struct frame slots[RING_CAP];
 	size_t head;
@@ -63,7 +61,6 @@ struct enc_state {
 void ring_init(struct ring *r);
 void ring_destroy(struct ring *r);
 void ring_push(struct ring *r, const struct frame *f);
-int ring_pop(struct ring *r, struct frame *out);
 void ring_stop(struct ring *r);
 void ring_reset(struct ring *r);
 void ring_record_drop(struct ring *r);

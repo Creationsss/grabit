@@ -121,7 +121,7 @@ void gist_undo_record_anno(struct ro_state *st) {
 	undo_push(st, (struct undo_item){.kind = UNDO_ANNO_ADD});
 }
 
-void region_undo_record_anno_size(struct ro_state *st, size_t idx) {
+static void region_undo_record_anno_size(struct ro_state *st, size_t idx) {
 	if (!st->out_annos || idx >= st->out_annos->n) return;
 	const struct annotation *a = &st->out_annos->items[idx];
 	struct undo_item it = {.kind = UNDO_ANNO_SIZE};

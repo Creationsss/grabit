@@ -84,7 +84,7 @@ bool edit_swatches_parse(const char *s, uint32_t *out) {
 	return *s == '\0';
 }
 
-void edit_color_to_str(uint32_t hex, char *buf, size_t cap) {
+static void edit_color_to_str(uint32_t hex, char *buf, size_t cap) {
 	snprintf(buf, cap, "#%06X", hex & 0xFFFFFFu);
 }
 

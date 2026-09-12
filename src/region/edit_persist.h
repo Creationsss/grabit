@@ -34,7 +34,6 @@ bool edit_swatches_set_one(const char *cur, const char *nstr, const char *color,
 						   char *buf, size_t cap);
 void persist_swatches(struct config *cfg, const uint32_t *sw);
 const char *edit_color_names(void);
-void edit_color_to_str(uint32_t hex, char *buf, size_t cap);
 int32_t edit_width_from_str(const char *s);
 int32_t edit_tool_from_str(const char *s);
 int32_t edit_line_style_from_str(const char *s);

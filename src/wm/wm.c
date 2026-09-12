@@ -4,8 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "wm/wm.h"
 
-#include "wm/wm_internal.h"
-
 #include "log.h"
 #include "region/region.h"
 #include "wl/toplevel.h"
@@ -17,7 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum wm_kind grabit_wm_detect(void) {
+enum wm_kind {
+	WM_NONE = 0,
+	WM_HYPRLAND,
+	WM_NIRI,
+	WM_SWAY,
+};
+
+static enum wm_kind grabit_wm_detect(void) {
 	static enum wm_kind cached = WM_NONE;
 	static bool probed;
 	if (!probed) {

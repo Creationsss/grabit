@@ -20,6 +20,8 @@
 
 #include "vendor/tomlc99/toml.h"
 
+static void config_state_overlay(struct config *c);
+
 static void note_unknown(const char *full) {
 	if (cfg_key_is_known(full)) return;
 	const char *hint = cfg_help_suggest_key(full);
@@ -229,7 +231,7 @@ static int state_write_from(struct config *cfg) {
 	return rc;
 }
 
-void config_state_overlay(struct config *cfg) {
+static void config_state_overlay(struct config *cfg) {
 	if (!state_enabled(cfg)) return;
 	struct config st;
 	if (state_read(&st) != 0) return;

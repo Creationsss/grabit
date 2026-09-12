@@ -27,7 +27,7 @@ void region_tooltip_arm(struct ro_state *st) {
 	timerfd_settime(st->tooltip_timer_fd, 0, &it, NULL);
 }
 
-void region_tooltip_disarm(struct ro_state *st) {
+static void region_tooltip_disarm(struct ro_state *st) {
 	if (st->tooltip_timer_fd < 0) return;
 	struct itimerspec it = {0};
 	timerfd_settime(st->tooltip_timer_fd, 0, &it, NULL);

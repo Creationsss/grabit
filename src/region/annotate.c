@@ -133,7 +133,7 @@ void annotation_list_free(struct annotation_list *list) {
 	memset(list, 0, sizeof *list);
 }
 
-struct rect annotation_text_box(const struct annotation *a) {
+static struct rect annotation_text_box(const struct annotation *a) {
 	int32_t fs = annotation_font_size(a);
 	int32_t len = a->text ? (int32_t)strlen(a->text) : 0;
 	int32_t pad = a->tool == TOOL_CALLOUT ? fs / 2 : 0;

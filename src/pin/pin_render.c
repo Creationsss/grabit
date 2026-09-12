@@ -27,6 +27,8 @@ void pin_render_output_free(struct pin_output *o) {
 	grabit_shm_pool_finish(&o->pool);
 }
 
+static void pin_render_output_redraw(struct pin_output *o);
+
 static void draw_close_button(cairo_t *cr, int32_t width) {
 	double bw = PIN_CLOSE_BTN_SIZE;
 	double bx = (double)width - bw - PIN_CLOSE_BTN_INSET;
@@ -113,7 +115,7 @@ static const struct wl_callback_listener frame_listener_g = {
 	.done = frame_done,
 };
 
-void pin_render_output_redraw(struct pin_output *o) {
+static void pin_render_output_redraw(struct pin_output *o) {
 	if (!o->configured) return;
 	struct pin_state *st = o->st;
 	o->dirty = false;

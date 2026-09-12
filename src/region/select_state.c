@@ -137,7 +137,7 @@ void gregion_seat_acquire(struct ro_state *st, struct grabit_wl_state *s) {
 	region_input_attach(st);
 }
 
-void gregion_seat_release(struct ro_state *st) {
+static void gregion_seat_release(struct ro_state *st) {
 	if (st->pointer) wl_pointer_release(st->pointer);
 	if (st->touch) wl_touch_release(st->touch);
 	if (st->keyboard) wl_keyboard_release(st->keyboard);

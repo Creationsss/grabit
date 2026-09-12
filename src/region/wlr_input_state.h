@@ -42,7 +42,6 @@ void region_redo_pop(struct ro_state *st);
 void region_undo_free(struct ro_state *st);
 void region_undo_record_anno_delete(struct ro_state *st, size_t idx,
 									struct annotation *a);
-void region_undo_record_anno_size(struct ro_state *st, size_t idx);
 void region_undo_record_anno_color(struct ro_state *st, size_t idx);
 void region_undo_record_selected_sizes(struct ro_state *st, int font_filter);
 uint32_t region_active_color(const struct ro_state *st);
@@ -70,8 +69,6 @@ void region_nudge_disarm(struct ro_state *st);
 void region_nudge_tick(struct ro_state *st);
 
 void region_tooltip_arm(struct ro_state *st);
-void region_tooltip_disarm(struct ro_state *st);
-
 void region_drag_start(struct ro_state *st);
 bool region_drag_active(const struct ro_state *st);
 void region_drag_abort(struct ro_state *st);

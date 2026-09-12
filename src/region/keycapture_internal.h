@@ -34,6 +34,4 @@ extern const struct wl_keyboard_listener gkc_kb_listener;
 extern const struct wl_pointer_listener gkc_ptr_listener;
 
 void gkc_join(struct kc_state *s, char *out, size_t n);
-void gkc_add(struct kc_state *s, const struct keybind *b);
-
 #endif

@@ -98,7 +98,6 @@ static inline int32_t ctl_bar_width(void) {
 
 void ctl_btn_rect(int btn, int32_t *x, int32_t *y, int32_t *w, int32_t *h);
 
-void ctl_apply_input_region(struct ctl_output *o);
 void ctl_output_redraw(struct ctl_output *o);
 void ctl_redraw_all(struct rec_controls *c);
 

@@ -152,7 +152,7 @@ static int parse_pid_from_socket_name(const char *name, pid_t *out) {
 	return 0;
 }
 
-int pin_ipc_broadcast(const char *msg) {
+static int pin_ipc_broadcast(const char *msg) {
 	char dir[200];
 	if (grabit_runtime_dir(dir, sizeof dir) != 0) return -1;
 

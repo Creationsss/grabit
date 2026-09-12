@@ -16,7 +16,6 @@ struct grabit_translate_opts {
 
 char *grabit_translate(const char *text, const char *target,
 					   const struct grabit_translate_opts *opts);
-char *grabit_translate_trans(const char *text, const char *target);
 char *grabit_translate_libre(const char *text, const char *target,
 							 const char *url, const char *api_key);
 char *grabit_translate_deepl(const char *text, const char *target,

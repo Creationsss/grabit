@@ -41,7 +41,7 @@ void gkc_join(struct kc_state *s, char *out, size_t n) {
 	}
 }
 
-void gkc_add(struct kc_state *s, const struct keybind *b) {
+static void gkc_add(struct kc_state *s, const struct keybind *b) {
 	for (size_t i = 0; i < s->n_caps; i++) {
 		const struct keybind *e = &s->caps[i];
 		if (e->is_button == b->is_button &&

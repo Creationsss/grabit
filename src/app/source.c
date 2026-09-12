@@ -104,8 +104,8 @@ void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 	}
 }
 
-int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
-						   struct grabit_save_opts *out) {
+static int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
+								  struct grabit_save_opts *out) {
 	*out = (struct grabit_save_opts){0};
 	const char *fmt_name = a->format;
 	if (!fmt_name) fmt_name = config_get(cfg, "format");

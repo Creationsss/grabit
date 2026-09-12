@@ -20,6 +20,8 @@
 #define TRANS_BIN "trans"
 #define TRANSLATE_TIMEOUT_MS 20000
 
+static char *grabit_translate_trans(const char *text, const char *target);
+
 static int64_t now_ms(void) {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -65,7 +67,7 @@ char *grabit_translate(const char *text, const char *target,
 	return grabit_translate_trans(text, target);
 }
 
-char *grabit_translate_trans(const char *text, const char *target) {
+static char *grabit_translate_trans(const char *text, const char *target) {
 	if (!text || !target || !target[0]) return NULL;
 	if (!grabit_in_path(TRANS_BIN)) {
 		log_error("translate: `%s` not found in $PATH", TRANS_BIN);

@@ -20,7 +20,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-void ctl_apply_input_region(struct ctl_output *o) {
+static void ctl_apply_input_region(struct ctl_output *o) {
 	struct rec_controls *c = o->st;
 	struct wl_region *reg = wl_compositor_create_region(c->wls->compositor);
 	if (!reg) return;

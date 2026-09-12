@@ -65,9 +65,6 @@ struct pixels_shm_buf {
 	bool external;
 };
 
-int pixels_shm_buf_alloc(struct wl_shm *shm, const char *tag,
-						 int32_t w, int32_t h, int32_t stride, uint32_t format,
-						 struct pixels_shm_buf *out);
 void pixels_shm_buf_destroy(struct pixels_shm_buf *b);
 
 struct pixels_pool {

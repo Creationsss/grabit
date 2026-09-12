@@ -16,10 +16,6 @@ enum plugin_fetch_result {
 enum plugin_fetch_result plugin_fetch_url(const char *url, const char *dst,
 										  time_t if_modified_since);
 
-int plugin_sha256_file(const char *path, char *hex_out);
-
-bool plugin_sha256_equal(const char *expect_hex, const char *actual_hex);
-
 int plugin_verify_sha256(const char *path, const char *expect_hex);
 
 #endif

@@ -115,7 +115,7 @@ enum plugin_fetch_result plugin_fetch_url(const char *url, const char *dst,
 	return PLUGIN_FETCH_OK;
 }
 
-int plugin_sha256_file(const char *path, char *hex_out) {
+static int plugin_sha256_file(const char *path, char *hex_out) {
 	FILE *f = fopen(path, "rb");
 	if (!f) return -1;
 	struct sha256_ctx ctx;
@@ -134,7 +134,7 @@ int plugin_sha256_file(const char *path, char *hex_out) {
 	return 0;
 }
 
-bool plugin_sha256_equal(const char *expect_hex, const char *actual_hex) {
+static bool plugin_sha256_equal(const char *expect_hex, const char *actual_hex) {
 	if (!expect_hex || !*expect_hex) return true;
 	return strcasecmp(expect_hex, actual_hex) == 0;
 }

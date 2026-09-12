@@ -70,7 +70,7 @@ void pool_release(struct buf_pool *p, void *buf) {
 	pthread_mutex_unlock(&p->mu);
 }
 
-void frame_release(struct frame *f) {
+static void frame_release(struct frame *f) {
 	if (!f || !f->data) return;
 	if (f->pool)
 		pool_release(f->pool, f->data);
@@ -108,7 +108,7 @@ void ring_push(struct ring *r, const struct frame *f) {
 	pthread_mutex_unlock(&r->mu);
 }
 
-int ring_pop(struct ring *r, struct frame *out) {
+static int ring_pop(struct ring *r, struct frame *out) {
 	pthread_mutex_lock(&r->mu);
 	while (r->head == r->tail && !r->stopped) {
 		pthread_cond_wait(&r->cv_data, &r->mu);

@@ -254,9 +254,9 @@ void pixels_log_advertised(const char *backend,
 			  backend, off ? saw : "none");
 }
 
-int pixels_shm_buf_alloc(struct wl_shm *shm, const char *tag,
-						 int32_t w, int32_t h, int32_t stride, uint32_t format,
-						 struct pixels_shm_buf *out) {
+static int pixels_shm_buf_alloc(struct wl_shm *shm, const char *tag,
+								int32_t w, int32_t h, int32_t stride, uint32_t format,
+								struct pixels_shm_buf *out) {
 	memset(out, 0, sizeof *out);
 	if (w <= 0 || h <= 0 || stride <= 0) return -1;
 	size_t size = (size_t)stride * (size_t)h;

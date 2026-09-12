@@ -44,23 +44,12 @@ bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
 
 void toolbar_icon_region(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_select(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_marker(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_line(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_rect(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_ellipse(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_arrow(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_arrow_pen(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_pixelate(cairo_t *cr, double cx, double cy, double s);
-void toolbar_icon_spotlight(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_text(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_counter(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_callout(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_line_style(cairo_t *cr, double cx, double cy, double s,
 							 enum stroke_style style);
-void toolbar_icon_rrect(cairo_t *cr, double cx, double cy, double s);
 void toolbar_icon_for_tool(cairo_t *cr, enum tool_kind t,
 						   double cx, double cy, double s);
 void toolbar_icon_undo(cairo_t *cr, double cx, double cy, double s);

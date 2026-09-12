@@ -16,7 +16,7 @@
 
 #include <cairo/cairo.h>
 
-void ganno_set_color(cairo_t *cr, uint32_t color) {
+static void ganno_set_color(cairo_t *cr, uint32_t color) {
 	grabit_cairo_set_source_argb(cr, color, 1.0);
 }
 

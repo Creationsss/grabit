@@ -87,7 +87,7 @@ bool cfg_is_state_key(const char *key) {
 	return cfg_in_list(key, STATE_KEYS);
 }
 
-bool cfg_is_known_service(const char *s) {
+static bool cfg_is_known_service(const char *s) {
 	return cfg_in_list(s, KNOWN_SERVICES);
 }
 

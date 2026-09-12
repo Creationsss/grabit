@@ -37,7 +37,7 @@ static int section_depth(const char *key) {
 	return d;
 }
 
-void gcfg_emit_string(struct grabit_buf *out, const char *s) {
+static void gcfg_emit_string(struct grabit_buf *out, const char *s) {
 	grabit_buf_putc(out, '"');
 	for (const char *p = s; *p; p++) {
 		unsigned char ch = (unsigned char)*p;

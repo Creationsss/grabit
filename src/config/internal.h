@@ -33,7 +33,6 @@ int config_state_save(struct config *c);
 bool cfg_is_bool_key(const char *key);
 
 struct grabit_buf;
-void gcfg_emit_string(struct grabit_buf *out, const char *s);
 void gcfg_emit_key(struct grabit_buf *out, const char *k);
 void gcfg_emit_value(struct grabit_buf *out, const char *key, const char *val);
 int gcfg_emit_section(struct grabit_buf *out, const char *prefix, size_t len);
@@ -41,7 +40,6 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 const char *cfg_canonical_key(const char *key);
 bool cfg_is_state_key(const char *key);
 bool cfg_in_list(const char *needle, const char **list);
-bool cfg_is_known_service(const char *s);
 bool cfg_key_is_known(const char *key);
 
 void cfg_help_print_all_keys(void);

@@ -128,7 +128,6 @@ static inline bool pin_in_close_button(const struct pin_state *st) {
 }
 
 void pin_render_output_free(struct pin_output *o);
-void pin_render_output_redraw(struct pin_output *o);
 void pin_render_redraw_all(struct pin_state *st);
 int pin_render_create_layer(struct pin_output *o);
 void pin_render_create_fractional(struct pin_output *o);
@@ -146,8 +145,6 @@ void pin_cursor_refresh(struct pin_state *st);
 int pin_ipc_open(struct pin_state *st);
 void pin_ipc_close(struct pin_state *st);
 void pin_ipc_handle(struct pin_state *st);
-
-int pin_ipc_broadcast(const char *msg);
 
 struct transient_extras {
 	const char *position;

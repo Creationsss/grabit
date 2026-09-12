@@ -282,6 +282,9 @@ int grabit_kwin_capture_full(struct grabit_wl_state *s, struct grabit_output *o,
 	warn_rotation_once(o->transform);
 
 	int rc = kwin_capture(o->name, overlay_cursor, out);
-	if (rc != 0) image_free(out);
+	if (rc == 0)
+		image_set_color(out, o);
+	else
+		image_free(out);
 	return rc;
 }

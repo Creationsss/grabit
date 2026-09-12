@@ -111,6 +111,7 @@ GRABIT_SRCS := \
 	src/util/buf.c \
 	src/util/shm.c \
 	src/util/proc.c \
+	src/util/dbus.c \
 	src/cursor.c \
 	src/config/config.c \
 	src/config/kv.c \

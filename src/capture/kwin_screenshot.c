@@ -8,6 +8,7 @@
 #include "capture/kwin_internal.h"
 #include "capture/pixels.h"
 #include "log.h"
+#include "util/dbus.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -28,39 +29,8 @@
 #define KWIN_CALL_TIMEOUT_MS 20000
 #define KWIN_READ_CHUNK (256 * 1024)
 
-static DBusConnection *kwin_bus_open(bool quiet) {
-	DBusError err;
-	dbus_error_init(&err);
-	DBusConnection *bus = dbus_bus_get_private(DBUS_BUS_SESSION, &err);
-	if (!bus) {
-		if (!quiet)
-			log_error("kwin-screenshot: no user dbus session (%s)",
-					  err.message ? err.message : "unknown");
-		dbus_error_free(&err);
-		return NULL;
-	}
-	dbus_connection_set_exit_on_disconnect(bus, FALSE);
-	dbus_error_free(&err);
-	return bus;
-}
-
-static void kwin_bus_close(DBusConnection *bus) {
-	dbus_connection_close(bus);
-	dbus_connection_unref(bus);
-}
-
 bool grabit_kwin_screenshot_available(void) {
-	DBusConnection *bus = kwin_bus_open(true);
-	if (!bus) return false;
-
-	DBusError err;
-	dbus_error_init(&err);
-	dbus_bool_t owned = dbus_bus_name_has_owner(bus, KWIN_DEST, &err);
-	if (dbus_error_is_set(&err)) owned = FALSE;
-	dbus_error_free(&err);
-
-	kwin_bus_close(bus);
-	return owned == TRUE;
+	return grabit_dbus_name_owned(KWIN_DEST);
 }
 
 static bool pack_option_bool(DBusMessageIter *dict, const char *key, bool value) {
@@ -175,7 +145,7 @@ done:
 }
 
 static int kwin_capture(const char *output_name, bool cursor, struct image *out) {
-	DBusConnection *bus = kwin_bus_open(false);
+	DBusConnection *bus = grabit_dbus_session_open("kwin-screenshot", false);
 	if (!bus) return -1;
 
 	int fds[2] = {-1, -1};
@@ -257,7 +227,7 @@ cleanup:
 		dbus_pending_call_cancel(pending);
 		dbus_pending_call_unref(pending);
 	}
-	kwin_bus_close(bus);
+	grabit_dbus_session_close(bus);
 	return rc;
 }
 

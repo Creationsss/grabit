@@ -5,6 +5,7 @@
 #include "record/sc_backend.h"
 
 #include "log.h"
+#include "util/dbus.h"
 #include "util/rect.h"
 
 #include <stdio.h>
@@ -30,32 +31,8 @@ struct sc_gnome {
 	char *session_path;
 };
 
-static DBusConnection *bus_open(bool quiet) {
-	DBusError err;
-	dbus_error_init(&err);
-	DBusConnection *bus = dbus_bus_get_private(DBUS_BUS_SESSION, &err);
-	if (!bus) {
-		if (!quiet)
-			log_error("gnome-screencast: no user dbus session (%s)",
-					  err.message ? err.message : "unknown");
-		dbus_error_free(&err);
-		return NULL;
-	}
-	dbus_connection_set_exit_on_disconnect(bus, FALSE);
-	dbus_error_free(&err);
-	return bus;
-}
-
 bool sc_gnome_available(void) {
-	DBusConnection *bus = bus_open(true);
-	if (!bus) return false;
-	DBusError err;
-	dbus_error_init(&err);
-	dbus_bool_t owned = dbus_bus_name_has_owner(bus, MU_DEST, &err);
-	dbus_error_free(&err);
-	dbus_connection_close(bus);
-	dbus_connection_unref(bus);
-	return owned == TRUE;
+	return grabit_dbus_name_owned(MU_DEST);
 }
 
 static void append_empty_dict(DBusMessageIter *iter) {
@@ -178,7 +155,7 @@ struct sc_gnome *sc_gnome_start(struct rect r, bool cursor, uint32_t *out_node_i
 
 	struct sc_gnome *g = calloc(1, sizeof *g);
 	if (!g) return NULL;
-	g->bus = bus_open(false);
+	g->bus = grabit_dbus_session_open("gnome-screencast", false);
 	if (!g->bus) {
 		free(g);
 		return NULL;
@@ -257,8 +234,7 @@ void sc_gnome_stop(struct sc_gnome *g) {
 	}
 	free(g->session_path);
 	if (g->bus) {
-		dbus_connection_close(g->bus);
-		dbus_connection_unref(g->bus);
+		grabit_dbus_session_close(g->bus);
 	}
 	free(g);
 }

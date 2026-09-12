@@ -12,11 +12,9 @@
 #include "wl/wl.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 

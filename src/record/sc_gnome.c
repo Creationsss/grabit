@@ -5,7 +5,7 @@
 #include "record/sc_backend.h"
 
 #include "log.h"
-#include "region/region.h"
+#include "util/rect.h"
 
 #include <stdio.h>
 #include <stdlib.h>

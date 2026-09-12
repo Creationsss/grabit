@@ -8,8 +8,6 @@
 #include "ui_theme.h"
 #include "wl/wl.h"
 
-#include <math.h>
-
 #include <cairo/cairo.h>
 
 static const char *tooltip_text(enum tb_action act) {

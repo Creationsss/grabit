@@ -12,11 +12,6 @@
 #include "wl/wl.h"
 
 #include <stdint.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <linux/input-event-codes.h>
-
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>

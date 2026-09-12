@@ -5,14 +5,13 @@
 #include "record/overlay.h"
 
 #include "cairo_util.h"
-#include "region/region.h"
 #include "ui_theme.h"
+#include "util/rect.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include <cairo/cairo.h>
 #include <wayland-client.h>

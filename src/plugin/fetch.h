@@ -4,7 +4,6 @@
 #ifndef GRABIT_PLUGIN_FETCH_H
 #define GRABIT_PLUGIN_FETCH_H
 
-#include <stdbool.h>
 #include <time.h>
 
 enum plugin_fetch_result {

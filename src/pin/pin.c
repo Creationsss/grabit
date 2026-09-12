@@ -7,19 +7,16 @@
 #include "log.h"
 #include "notify/notify.h"
 #include "pin/pin_state.h"
-#include "region/region.h"
+#include "util/rect.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/timerfd.h>
-#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 

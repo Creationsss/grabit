@@ -4,12 +4,11 @@
 #define _XOPEN_SOURCE 700
 #include "wm/sway.h"
 
-#include "region/region.h"
 #include "util/json_path.h"
+#include "util/rect.h"
 #include "wm/ipc.h"
 
 #include <stdlib.h>
-#include <string.h>
 
 #include <json-c/json.h>
 

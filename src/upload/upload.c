@@ -4,7 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "upload/upload.h"
 
-#include "args.h"
 #include "config/config.h"
 #include "log.h"
 #include "notify/notify.h"
@@ -14,7 +13,6 @@
 #include "util/json_path.h"
 #include "util/util.h"
 
-#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -4,13 +4,8 @@
 #define _GNU_SOURCE
 #include "util/util.h"
 
-#include "log.h"
-
-#include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int grabit_buf_grow(struct grabit_buf *b, size_t need) {
 	if (b->cap >= need) return 0;

@@ -7,15 +7,8 @@
 #include "region/wlr_state.h"
 #include "util/util.h"
 
-#include "cairo_util.h"
-
-#include "wl/wl.h"
-
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 #include <cairo/cairo.h>
 

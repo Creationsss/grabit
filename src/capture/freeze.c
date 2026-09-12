@@ -13,7 +13,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  const char *path,

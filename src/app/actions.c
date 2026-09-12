@@ -3,8 +3,6 @@
 
 #define _XOPEN_SOURCE 700
 
-#include <errno.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,18 +18,13 @@
 #include "log.h"
 #include "mime.h"
 #include "notify/notify.h"
-#include "ocr/ocr.h"
 #include "paths.h"
 #include "pin/pin.h"
-#include "pin/preview.h"
-#include "pin/text_card.h"
-#include "plugin/dispatch.h"
-#include "plugin/plugin.h"
 #include "record/record.h"
 #include "region/edit_persist.h"
-#include "region/region.h"
 #include "sound/sound.h"
 #include "upload/upload.h"
+#include "util/rect.h"
 #include "util/util.h"
 #include "wl/wl.h"
 

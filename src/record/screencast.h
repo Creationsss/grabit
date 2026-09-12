@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "region/region.h"
+#include "util/rect.h"
 
 struct grabit_wl_state;
 struct screencast;

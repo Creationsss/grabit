@@ -12,7 +12,6 @@
 #include "util/util.h"
 #include "vendor/sha256/sha256.h"
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

@@ -10,12 +10,6 @@
 #include "wl/wl.h"
 #include "wm/wm.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <linux/input-event-codes.h>
-
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>

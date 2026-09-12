@@ -5,17 +5,13 @@
 #include "region/wlr_state.h"
 
 #include "cairo_util.h"
-#include "capture/capture.h"
-#include "log.h"
 #include "region/annotate.h"
 #include "region/wlr_input_state.h"
 #include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
-#include <math.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <cairo/cairo.h>

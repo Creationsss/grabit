@@ -7,8 +7,7 @@
 
 #include "capture/capture.h"
 #include "capture/pixels.h"
-#include "log.h"
-#include "region/region.h"
+#include "util/rect.h"
 #include "wl/wl.h"
 #include <math.h>
 

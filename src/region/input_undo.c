@@ -7,12 +7,10 @@
 #include "region/annotate.h"
 #include "region/wlr_state.h"
 
-#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
-#include <unistd.h>
 
 #define UNDO_HOLD_DELAY_MS 600
 #define UNDO_HOLD_REPEAT_MS 80

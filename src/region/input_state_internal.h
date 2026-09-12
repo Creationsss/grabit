@@ -4,10 +4,6 @@
 #ifndef GRABIT_REGION_INPUT_STATE_INTERNAL_H
 #define GRABIT_REGION_INPUT_STATE_INTERNAL_H
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "region/region.h"
 #include "region/wlr_state.h"
 
 struct undo_item gist_undo_apply(struct ro_state *st, const struct undo_item *it);

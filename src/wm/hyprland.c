@@ -4,8 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "wm/hyprland.h"
 
-#include "region/region.h"
 #include "util/json_path.h"
+#include "util/rect.h"
 #include "util/util.h"
 #include "wm/ipc.h"
 

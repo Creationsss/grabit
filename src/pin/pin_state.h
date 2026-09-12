@@ -13,7 +13,7 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
-#include "region/region.h"
+#include "util/rect.h"
 #include "util/util.h"
 
 struct grabit_output;

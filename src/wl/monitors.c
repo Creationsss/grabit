@@ -7,12 +7,10 @@
 #include "wl/wl.h"
 
 #include "log.h"
-#include "region/region.h"
+#include "util/rect.h"
 
 #include <stdlib.h>
 #include <string.h>
-
-#include <stdio.h>
 
 #include <wayland-client.h>
 

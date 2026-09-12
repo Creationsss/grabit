@@ -7,7 +7,7 @@
 #include "config/config.h"
 
 #include "region/edit_persist.h"
-#include "region/region.h"
+#include "util/rect.h"
 #include "wl/wl.h"
 #include "wm/wm.h"
 #include <string.h>

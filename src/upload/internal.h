@@ -5,7 +5,6 @@
 #define GRABIT_UPLOAD_INTERNAL_H
 
 #include <stdbool.h>
-#include <stddef.h>
 
 struct config;
 

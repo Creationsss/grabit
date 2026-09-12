@@ -5,7 +5,6 @@
 #define GRABIT_TEMPLATE_H
 
 #include <stdbool.h>
-#include <stddef.h>
 
 struct template_ctx {
 	const char *window_class;

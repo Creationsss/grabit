@@ -5,8 +5,7 @@
 
 #include "wl/wl.h"
 
-#include "log.h"
-#include "region/region.h"
+#include "util/rect.h"
 #include "wl/internal.h"
 
 #include <math.h>

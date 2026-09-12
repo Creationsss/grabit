@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "region/region.h"
+#include "util/rect.h"
 #include "util/util.h"
 
 struct grabit_wl_state;

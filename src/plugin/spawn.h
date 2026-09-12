@@ -4,8 +4,6 @@
 #ifndef GRABIT_PLUGIN_SPAWN_H
 #define GRABIT_PLUGIN_SPAWN_H
 
-#include <stddef.h>
-
 int plugin_run_in(const char *cwd, char *const argv[]);
 
 #endif

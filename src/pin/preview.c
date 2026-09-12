@@ -6,11 +6,7 @@
 
 #include "cairo_util.h"
 #include "capture/save.h"
-#include "log.h"
 #include "ui_theme.h"
-
-#include <stdbool.h>
-#include <stdlib.h>
 
 #include <cairo/cairo.h>
 

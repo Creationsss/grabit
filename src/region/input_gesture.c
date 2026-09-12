@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/timerfd.h>
-#include <unistd.h>
 
 #define TOOLTIP_DELAY_MS 1000
 

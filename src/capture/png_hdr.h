@@ -4,7 +4,6 @@
 #ifndef GRABIT_CAPTURE_PNG_HDR_H
 #define GRABIT_CAPTURE_PNG_HDR_H
 
-#include <stdbool.h>
 #include <stdint.h>
 
 struct image;

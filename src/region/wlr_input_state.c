@@ -4,15 +4,9 @@
 #define _XOPEN_SOURCE 700
 #include "region/wlr_input_state.h"
 
-#include "region/annotate.h"
 #include "region/wlr_state.h"
 
-#include <math.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/timerfd.h>
-#include <unistd.h>
 
 #include "region/input_state_internal.h"
 

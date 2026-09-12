@@ -5,13 +5,9 @@
 #include "region/keybinds.h"
 
 #include "config/config.h"
-#include "log.h"
 
-#include <ctype.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/mman.h>
 #include <unistd.h>
 

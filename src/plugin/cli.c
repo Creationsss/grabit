@@ -6,11 +6,8 @@
 
 #include "log.h"
 
-#include <dirent.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 static int usage(void) {
 	fputs("usage: grabit plugin <install|list|show|update|remove> [args]\n", stderr);

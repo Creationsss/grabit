@@ -9,8 +9,6 @@
 #include "util/util.h"
 #include "wl/wl.h"
 
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <linux/input-event-codes.h>

@@ -4,16 +4,12 @@
 #define _XOPEN_SOURCE 700
 #include "region/wlr_state.h"
 
-#include "capture/capture.h"
-#include "cursor.h"
 #include "region/annotate.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
 #include "wl/wl.h"
 
 #include <stdint.h>
-#include <string.h>
-#include <unistd.h>
 
 #include <linux/input-event-codes.h>
 

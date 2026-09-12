@@ -8,7 +8,6 @@
 #include "upload/upload.h"
 #include "util/util.h"
 
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -95,13 +94,8 @@ char *grabit_translate_libre(const char *text, const char *target,
 	struct curl_slist *hdrs = NULL;
 	struct grabit_buf resp = {0};
 
-	size_t ulen = strlen(url);
-	while (ulen > 0 && url[ulen - 1] == '/')
-		ulen--;
-	static const char PATH[] = "/translate";
-	size_t plen = sizeof PATH - 1;
-	bool has_path = ulen >= plen && strncmp(url + ulen - plen, PATH, plen) == 0;
-	if (grabit_xasprintf(&endpoint, "%.*s%s", (int)ulen, url, has_path ? "" : PATH) != 0) {
+	endpoint = grabit_url_with_path(url, "/translate", NULL);
+	if (!endpoint) {
 		log_error("translate: out of memory");
 		goto done;
 	}

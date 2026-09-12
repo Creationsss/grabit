@@ -28,7 +28,7 @@ void grabit_dbus_session_close(DBusConnection *bus) {
 }
 
 bool grabit_dbus_name_owned(const char *name) {
-	DBusConnection *bus = grabit_dbus_session_open(NULL, true);
+	DBusConnection *bus = grabit_dbus_session_open("dbus", true);
 	if (!bus) return false;
 	DBusError err;
 	dbus_error_init(&err);

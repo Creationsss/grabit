@@ -328,3 +328,20 @@ void grabit_redact_url(const char *url, char *out, size_t cap) {
 	out[n] = '\0';
 	if (q && n + 4 < cap) memcpy(out + n, "?...", 5);
 }
+
+char *grabit_url_with_path(const char *base, const char *path,
+						   const char *default_scheme) {
+	bool has_scheme =
+		strncmp(base, "http://", 7) == 0 || strncmp(base, "https://", 8) == 0;
+	size_t len = strlen(base);
+	while (len > 0 && base[len - 1] == '/')
+		len--;
+	size_t plen = strlen(path);
+	bool has_path = len >= plen && strncmp(base + len - plen, path, plen) == 0;
+	const char *scheme = default_scheme && !has_scheme ? default_scheme : "";
+	char *out = NULL;
+	if (grabit_xasprintf(&out, "%s%.*s%s", scheme, (int)len, base,
+						 has_path ? "" : path) != 0)
+		return NULL;
+	return out;
+}

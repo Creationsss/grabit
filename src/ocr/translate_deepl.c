@@ -142,14 +142,8 @@ char *grabit_translate_deepl(const char *text, const char *target,
 	}
 
 	if (url && url[0]) {
-		size_t ulen = strlen(url);
-		while (ulen > 0 && url[ulen - 1] == '/')
-			ulen--;
-		static const char PATH[] = "/v2/translate";
-		size_t plen = sizeof PATH - 1;
-		bool has_path = ulen >= plen && strncmp(url + ulen - plen, PATH, plen) == 0;
-		if (grabit_xasprintf(&endpoint, "%.*s%s", (int)ulen, url, has_path ? "" : PATH) != 0)
-			goto oom;
+		endpoint = grabit_url_with_path(url, "/v2/translate", NULL);
+		if (!endpoint) goto oom;
 	} else if (grabit_xasprintf(&endpoint, "%s/v2/translate",
 								key_is_free(api_key) ? DEEPL_HOST_FREE : DEEPL_HOST_PRO) != 0) {
 		goto oom;

@@ -7,7 +7,6 @@
 #include "log.h"
 #include "util/util.h"
 
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -92,23 +91,5 @@ int gcfg_validate_zl_header(const char *hdr, const char *value) {
 
 char *gcfg_normalize_zipline_domain(const char *value) {
 	if (!value || !*value) return NULL;
-	bool has_scheme = strncmp(value, "http://", 7) == 0 ||
-					  strncmp(value, "https://", 8) == 0;
-	size_t vlen = strlen(value);
-	while (vlen > 0 && value[vlen - 1] == '/')
-		vlen--;
-	const char *suffix = "/api/upload";
-	size_t slen = strlen(suffix);
-	bool has_path = vlen >= slen && strncmp(value + vlen - slen, suffix, slen) == 0;
-	char *out = NULL;
-	int rc;
-	if (has_scheme && has_path)
-		rc = grabit_xasprintf(&out, "%.*s", (int)vlen, value);
-	else if (has_scheme)
-		rc = grabit_xasprintf(&out, "%.*s/api/upload", (int)vlen, value);
-	else if (has_path)
-		rc = grabit_xasprintf(&out, "https://%.*s", (int)vlen, value);
-	else
-		rc = grabit_xasprintf(&out, "https://%.*s/api/upload", (int)vlen, value);
-	return rc == 0 ? out : NULL;
+	return grabit_url_with_path(value, "/api/upload", "https://");
 }

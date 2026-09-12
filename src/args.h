@@ -44,6 +44,8 @@ struct args {
 	const char *fullscreen_target;
 };
 
+extern const char *const grabit_action_names[];
+
 enum action args_default_action(const char *name);
 
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);

@@ -5,6 +5,7 @@
 
 #include "log.h"
 #include "upload/upload.h"
+#include "util/util.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -19,21 +20,22 @@ static bool is_debug_flag(const char *a) {
 	return strcmp(a, "-d") == 0 || strcmp(a, "--debug") == 0;
 }
 
+const char *const grabit_action_names[] = {"upload", "copy", "save", "pin", NULL};
+
+static const enum action ACTION_FOR_NAME[] = {ACTION_UPLOAD, ACTION_COPY, ACTION_OUTPUT,
+											  ACTION_PIN};
+
+_Static_assert(sizeof grabit_action_names / sizeof *grabit_action_names ==
+				   sizeof ACTION_FOR_NAME / sizeof *ACTION_FOR_NAME + 1,
+			   "grabit_action_names and ACTION_FOR_NAME must stay parallel");
+
 enum action args_default_action(const char *name) {
-	static const struct {
-		const char *name;
-		enum action act;
-	} MAP[] = {
-		{"upload", ACTION_UPLOAD},
-		{"copy", ACTION_COPY},
-		{"save", ACTION_OUTPUT},
-		{"pin", ACTION_PIN},
-	};
 	if (!name || !name[0]) return ACTION_COPY;
-	for (size_t i = 0; i < sizeof MAP / sizeof MAP[0]; i++) {
-		if (strcmp(name, MAP[i].name) == 0) return MAP[i].act;
+	for (size_t i = 0; grabit_action_names[i]; i++) {
+		if (strcmp(name, grabit_action_names[i]) == 0) return ACTION_FOR_NAME[i];
 	}
-	log_warn("default_action `%s` is not one of upload|copy|save|pin; copying", name);
+	log_warn("default_action `%s` is not one of %s; copying", name,
+			 grabit_join_names(grabit_action_names));
 	return ACTION_COPY;
 }
 

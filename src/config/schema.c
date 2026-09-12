@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "config/config.h"
 
+#include "args.h"
 #include "config/internal.h"
 #include "log.h"
 #include "region/edit_persist.h"
@@ -16,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *VALS_default_action[] = {"upload", "copy", "save", "pin", NULL};
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_modifier[] = {"ctrl", "shift", "alt", "super", NULL};
 static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
@@ -167,8 +167,10 @@ int config_set(struct config *c, const char *key, const char *value) {
 		log_error("recording.pix_fmt must be one of yuv420p|yuv422p|yuv444p|yuv420p10le");
 		return -1;
 	}
-	if (strcmp(key, "default_action") == 0 && !cfg_in_list(value, VALS_default_action)) {
-		log_error("default_action must be one of upload|copy|save|pin");
+	if (strcmp(key, "default_action") == 0 &&
+		!cfg_in_list(value, (const char **)grabit_action_names)) {
+		log_error("default_action must be one of %s",
+				  grabit_join_names(grabit_action_names));
 		return -1;
 	}
 	if (strcmp(key, "filename_preset") == 0 && !cfg_in_list(value, VALS_filename_preset)) {

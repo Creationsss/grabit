@@ -3,6 +3,7 @@
 
 #define _XOPEN_SOURCE 700
 
+#include "args.h"
 #include "config/internal.h"
 #include "log.h"
 #include "region/keybinds.h"
@@ -19,7 +20,6 @@ struct example {
 };
 
 static const struct example TOP_EXAMPLES[] = {
-	{"default_action", "upload|copy|save|pin", "copy"},
 	{"notifications", "true|false", "true"},
 	{"log_file", "true|false", "true"},
 	{"also_save", "true|false", "false"},
@@ -35,6 +35,11 @@ static const size_t TOP_EXAMPLES_N = sizeof TOP_EXAMPLES / sizeof TOP_EXAMPLES[0
 
 int cfg_help_example_for_key(const char *key, const char **example_out, const char **def_out) {
 	*def_out = NULL;
+	if (strcmp(key, "default_action") == 0) {
+		*example_out = grabit_join_names(grabit_action_names);
+		*def_out = "copy";
+		return 0;
+	}
 	for (size_t i = 0; i < TOP_EXAMPLES_N; i++) {
 		if (strcmp(TOP_EXAMPLES[i].key, key) == 0) {
 			*example_out = TOP_EXAMPLES[i].example;

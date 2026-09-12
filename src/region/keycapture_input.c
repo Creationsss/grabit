@@ -20,8 +20,6 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-#define KC_MAX_CAPS 12
-
 #include "region/keycapture_internal.h"
 
 static bool is_modifier_sym(xkb_keysym_t s) {

@@ -5,6 +5,7 @@
 #define GRABIT_REGION_UI_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cairo/cairo.h>

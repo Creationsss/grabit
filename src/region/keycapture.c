@@ -17,8 +17,6 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-#define KC_MAX_CAPS 12
-
 #include "region/keycapture_internal.h"
 
 int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,

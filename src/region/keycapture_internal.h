@@ -4,6 +4,14 @@
 #ifndef GRABIT_REGION_KEYCAPTURE_INTERNAL_H
 #define GRABIT_REGION_KEYCAPTURE_INTERNAL_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "region/keybinds.h"
+#include "util/util.h"
+
+#define KC_MAX_CAPS 12
+
 struct kc_state {
 	struct grabit_wl_state *wls;
 	struct grabit_output *go;

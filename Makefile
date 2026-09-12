@@ -302,7 +302,17 @@ check-docs: $(GRABIT_BIN) $(DOCS_BIN)
 	@$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE)
 
 .PHONY: test
-test: $(CHECK_BIN) check-docs
+.PHONY: check-headers-standalone
+check-headers-standalone:
+	@fail=0; \
+	for h in $$(find src tools -name '*.h' ! -path 'src/vendor/*'); do \
+		echo "#include \"$$h\"" | $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -fsyntax-only -xc - 2>/dev/null \
+			|| { echo "not self-contained: $$h"; fail=1; }; \
+	done; \
+	[ $$fail -eq 0 ] || { echo "a header does not compile on its own"; exit 1; }; \
+	echo "headers self-contained"
+
+test: $(CHECK_BIN) check-docs check-headers-standalone
 	$(CHECK_BIN) --check src
 
 .PHONY: apply-headers

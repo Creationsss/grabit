@@ -4,13 +4,14 @@
 #ifndef GRABIT_RECORD_COMPOSE_H
 #define GRABIT_RECORD_COMPOSE_H
 
+#include "util/rect.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 struct grabit_wl_state;
 struct grabit_output;
-struct rect;
 
 struct rec_slice {
 	struct grabit_output *out;

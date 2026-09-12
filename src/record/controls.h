@@ -4,12 +4,13 @@
 #ifndef GRABIT_RECORD_CONTROLS_H
 #define GRABIT_RECORD_CONTROLS_H
 
+#include "util/rect.h"
+
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 struct grabit_wl_state;
-struct rect;
 struct rec_controls;
 
 struct rec_controls *controls_start(struct grabit_wl_state *s, struct rect r,

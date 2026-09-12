@@ -43,7 +43,7 @@ int grabit_cairo_format_for_shm(uint32_t shm_fmt);
 
 bool capture_backend_available(const struct grabit_wl_state *s);
 
-bool capture_require_available(struct grabit_wl_state *s);
+bool capture_require_available(const struct grabit_wl_state *s);
 
 bool capture_is_streaming_capable(const struct grabit_wl_state *s);
 

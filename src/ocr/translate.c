@@ -20,8 +20,6 @@
 #define TRANS_BIN "trans"
 #define TRANSLATE_TIMEOUT_MS 20000
 
-static char *grabit_translate_trans(const char *text, const char *target);
-
 static int64_t now_ms(void) {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -55,16 +53,6 @@ static int reap_with_grace(pid_t pid, int *status) {
 	}
 	kill(pid, SIGKILL);
 	return grabit_waitpid_intr(pid, status);
-}
-
-char *grabit_translate(const char *text, const char *target,
-					   const struct grabit_translate_opts *opts) {
-	const char *backend = opts && opts->backend ? opts->backend : "trans";
-	if (strcmp(backend, "libretranslate") == 0)
-		return grabit_translate_libre(text, target, opts->url, opts->api_key);
-	if (strcmp(backend, "deepl") == 0)
-		return grabit_translate_deepl(text, target, opts->url, opts->api_key);
-	return grabit_translate_trans(text, target);
 }
 
 static char *grabit_translate_trans(const char *text, const char *target) {
@@ -220,4 +208,14 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	strip_ansi(buf.data);
 	grabit_rstrip(buf.data, strlen(buf.data));
 	return buf.data;
+}
+
+char *grabit_translate(const char *text, const char *target,
+					   const struct grabit_translate_opts *opts) {
+	const char *backend = opts && opts->backend ? opts->backend : "trans";
+	if (strcmp(backend, "libretranslate") == 0)
+		return grabit_translate_libre(text, target, opts->url, opts->api_key);
+	if (strcmp(backend, "deepl") == 0)
+		return grabit_translate_deepl(text, target, opts->url, opts->api_key);
+	return grabit_translate_trans(text, target);
 }

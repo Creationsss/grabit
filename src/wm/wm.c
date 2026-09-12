@@ -4,7 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "wm/wm.h"
 
-#include "util/rect.h"
 #include "wl/toplevel.h"
 #include "wl/wl.h"
 #include "wm/hyprland.h"

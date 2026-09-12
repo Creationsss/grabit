@@ -57,7 +57,7 @@ int capture_preview_surface(cairo_surface_t *src, int target_w,
 int capture_preview_png(const char *src_image_path, int target_w,
 						const char *out_path) {
 	if (!src_image_path) return -1;
-	cairo_surface_t *src = grabit_load_png_surface(src_image_path, "preview");
+	cairo_surface_t *src = grabit_load_image_surface(src_image_path, "preview");
 	if (!src) return -1;
 	int rc = capture_preview_surface(src, target_w, out_path);
 	cairo_surface_destroy(src);

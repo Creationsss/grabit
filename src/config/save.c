@@ -30,13 +30,6 @@ int gcfg_cmp_kv(const void *a, const void *b) {
 	return strcmp(ka->key, kb->key);
 }
 
-static int section_depth(const char *key) {
-	int d = 0;
-	for (const char *p = key; *p; p++)
-		if (*p == '.') d++;
-	return d;
-}
-
 static void gcfg_emit_string(struct grabit_buf *out, const char *s) {
 	grabit_buf_putc(out, '"');
 	for (const char *p = s; *p; p++) {
@@ -134,13 +127,11 @@ static int config_write_to(struct config *c, const char *path) {
 
 	for (size_t i = 0; i < c->n; i++) {
 		const char *key = c->kvs[i].key;
-		bool is_top = section_depth(key) == 0;
+		const char *dot = strrchr(key, '.');
 
-		if (!is_top) {
-			const char *last_dot = strrchr(key, '.');
-			size_t prefix_len = (size_t)(last_dot - key);
-			if (!current_section ||
-				current_section_len != prefix_len ||
+		if (dot) {
+			size_t prefix_len = (size_t)(dot - key);
+			if (!current_section || current_section_len != prefix_len ||
 				strncmp(current_section, key, prefix_len) != 0) {
 				if (out.len > 0) grabit_buf_putc(&out, '\n');
 				if (gcfg_emit_section(&out, key, prefix_len) != 0) goto oom;
@@ -149,7 +140,7 @@ static int config_write_to(struct config *c, const char *path) {
 			}
 		}
 
-		const char *short_key = is_top ? key : strrchr(key, '.') + 1;
+		const char *short_key = dot ? dot + 1 : key;
 		gcfg_emit_key(&out, short_key);
 		grabit_buf_puts(&out, " = ");
 		gcfg_emit_value(&out, key, c->kvs[i].val);

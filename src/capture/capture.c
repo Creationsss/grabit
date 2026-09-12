@@ -78,7 +78,7 @@ static enum capture_backend resolve_backend(const struct grabit_wl_state *s) {
 	return cached;
 }
 
-bool capture_require_available(struct grabit_wl_state *s) {
+bool capture_require_available(const struct grabit_wl_state *s) {
 	if (capture_backend_available(s)) return true;
 	const char *known = NULL;
 	const char *note = NULL;
@@ -116,16 +116,22 @@ void image_set_color(struct image *img, const struct grabit_output *o) {
 int capture_output_full(struct grabit_wl_state *s, struct grabit_output *o,
 						bool overlay_cursor, struct image *out) {
 	if (!s) return -1;
+	int rc;
 	switch (resolve_backend(s)) {
 	case CAP_WLR:
-		return grabit_wlr_capture_full(s, o, overlay_cursor, out);
+		rc = grabit_wlr_capture_full(s, o, overlay_cursor, out);
+		break;
 	case CAP_EXT:
-		return grabit_ext_capture_full(s, o, overlay_cursor, out);
+		rc = grabit_ext_capture_full(s, o, overlay_cursor, out);
+		break;
 	case CAP_KWIN:
-		return grabit_kwin_capture_full(s, o, overlay_cursor, out);
+		rc = grabit_kwin_capture_full(s, o, overlay_cursor, out);
+		break;
 	default:
 		return -1;
 	}
+	if (rc == 0) image_set_color(out, o);
+	return rc;
 }
 
 int capture_outputs_full(struct grabit_wl_state *s, struct grabit_output *const *outs,

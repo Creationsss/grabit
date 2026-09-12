@@ -27,8 +27,6 @@ void pin_render_output_free(struct pin_output *o) {
 	grabit_shm_pool_finish(&o->pool);
 }
 
-static void pin_render_output_redraw(struct pin_output *o);
-
 static void draw_close_button(cairo_t *cr, int32_t width) {
 	double bw = PIN_CLOSE_BTN_SIZE;
 	double bx = (double)width - bw - PIN_CLOSE_BTN_INSET;
@@ -102,6 +100,8 @@ static void draw_caption(cairo_t *cr, struct pin_state *st) {
 	cairo_move_to(cr, tx, bar_y + pad + font * 0.85);
 	cairo_show_text(cr, st->caption_fit);
 }
+
+static void pin_render_output_redraw(struct pin_output *o);
 
 static void frame_done(void *data, struct wl_callback *cb, uint32_t time) {
 	(void)cb;

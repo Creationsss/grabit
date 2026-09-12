@@ -146,7 +146,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
 	grabit_sleep_secs(a->delay_secs);
 
-	int fps = rec_cfg_fps(cfg);
+	int fps = config_get_int_clamp(cfg, "recording.fps", 30, 1, 120);
 	bool cursor = rec_cfg_cursor(cfg);
 	struct rec_layout layout = {0};
 	struct screencast *scast = NULL;
@@ -221,7 +221,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		.w = frame_w,
 		.h = frame_h,
 		.fps = fps,
-		.crf = rec_cfg_crf(cfg),
+		.crf = config_get_int_clamp(cfg, "recording.crf", 23, 0, 51),
 		.final_path = output_path,
 		.stop = &grabit_rec_stop,
 		.pid = -1,

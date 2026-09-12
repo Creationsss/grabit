@@ -9,14 +9,6 @@
 
 #include "config/config.h"
 
-static inline int rec_cfg_fps(struct config *cfg) {
-	return config_get_int_clamp(cfg, "recording.fps", 30, 1, 120);
-}
-
-static inline int rec_cfg_crf(struct config *cfg) {
-	return config_get_int_clamp(cfg, "recording.crf", 23, 0, 51);
-}
-
 static inline bool rec_cfg_cursor(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.cursor");
 	return !v || strcmp(v, "true") == 0;

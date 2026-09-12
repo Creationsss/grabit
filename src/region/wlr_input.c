@@ -12,6 +12,7 @@
 #include "wl/wl.h"
 
 #include <stdint.h>
+
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>

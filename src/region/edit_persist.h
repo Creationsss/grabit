@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "region/ui.h"
+
 struct config;
 struct rect;
 
@@ -20,6 +22,9 @@ struct edit_choices {
 #define EDIT_DEFAULT_WIDTH 4
 #define EDIT_MIN_WIDTH 1
 #define EDIT_MAX_WIDTH 20
+
+_Static_assert(EDIT_MAX_WIDTH >= WIDTH_MAX,
+			   "the persisted edit.width range must cover the toolbar slider range");
 
 #define EDIT_SWATCH_COUNT 6
 #define EDIT_SWATCHES_STR_MAX (EDIT_SWATCH_COUNT * 8 + 1)

@@ -10,6 +10,7 @@
 
 #include <wayland-client.h>
 
+#include "util/rect.h"
 #include "wl/color.h"
 
 #define GRABIT_WL_SEAT_VERSION 3
@@ -96,7 +97,6 @@ struct grabit_output *grabit_wl_primary_output(struct grabit_wl_state *s);
 struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, int32_t y);
 struct grabit_output *grabit_wl_output_by_name(struct grabit_wl_state *s, const char *name);
 
-struct rect;
 void grabit_output_rect(const struct grabit_output *o, struct rect *r);
 void grabit_wl_outputs_bbox(struct grabit_wl_state *s, struct rect *out);
 void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out);

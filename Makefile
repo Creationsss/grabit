@@ -266,7 +266,7 @@ CHECK_BIN   := $(BUILDDIR)/check_headers
 DOCS_OBJS   := $(DOCS_SRCS:%.c=$(BUILDDIR)/%.o)
 DOCS_BIN    := $(BUILDDIR)/check_docs
 
-OBJS := $(GRABIT_OBJS) $(CHECK_OBJS)
+OBJS := $(GRABIT_OBJS) $(CHECK_OBJS) $(DOCS_OBJS)
 DEPS := $(OBJS:.o=.d)
 
 .PHONY: all

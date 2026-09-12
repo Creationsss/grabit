@@ -141,7 +141,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 		}
 		if (st->color_input_active) {
 			uint32_t parsed = 0;
-			if (region_parse_hex_color(st->color_input_buf, &parsed))
+			if (grabit_parse_hex_color(st->color_input_buf, &parsed))
 				region_apply_color(st, parsed, true);
 			st->color_input_active = false;
 			st->color_input_len = 0;

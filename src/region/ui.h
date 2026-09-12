@@ -82,7 +82,6 @@ void region_color_eyedropper_rect(const struct ro_state *st,
 								  int32_t *out_w, int32_t *out_h);
 bool region_color_picker_pick(const struct ro_state *st, int32_t abs_x, int32_t abs_y,
 							  uint32_t *out_color);
-bool region_parse_hex_color(const char *s, uint32_t *out);
 void region_color_picker_render(cairo_t *cr, const struct ro_output *o);
 void region_color_picker_release_cache(struct ro_state *st);
 

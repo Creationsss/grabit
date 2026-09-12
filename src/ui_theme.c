@@ -10,12 +10,12 @@
 
 #include <string.h>
 
-static const double RADII[GUI_R_COUNT][2] = {
-	[GUI_R_PANEL] = {0.0, 1.0},
-	[GUI_R_BTN] = {0.0, 0.625},
-	[GUI_R_TIP] = {0.0, 0.75},
-	[GUI_R_TOOLTIP] = {0.0, 0.75},
-	[GUI_R_GLYPH] = {0.0, 0.1875},
+static const double RADII[GUI_R_COUNT] = {
+	[GUI_R_PANEL] = 1.0,
+	[GUI_R_BTN] = 0.625,
+	[GUI_R_TIP] = 0.75,
+	[GUI_R_TOOLTIP] = 0.75,
+	[GUI_R_GLYPH] = 0.1875,
 };
 
 #define GUI_RADIUS_AUTO (-1)
@@ -40,7 +40,7 @@ static int radius_base(void) {
 
 double grabit_ui_radius(enum gui_radius token) {
 	int base = radius_base();
-	return base > 0 ? RADII[token][1] * base : RADII[token][0];
+	return base > 0 ? RADII[token] * base : 0.0;
 }
 
 void grabit_ui_card_bg(cairo_t *cr) {

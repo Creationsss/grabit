@@ -75,10 +75,6 @@ void region_color_eyedropper_rect(const struct ro_state *st,
 	*out_h = COLOR_PICKER_INPUT_H;
 }
 
-bool region_parse_hex_color(const char *s, uint32_t *out) {
-	return grabit_parse_hex_color(s, out);
-}
-
 void gcp_hsl_to_rgb(double h, double s, double l, double *r, double *g, double *b) {
 	if (s <= 0.0) {
 		*r = *g = *b = l;

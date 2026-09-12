@@ -36,9 +36,6 @@ static const char *find_sound_file(const char *configured) {
 	return NULL;
 }
 
-static bool g_warned_player = false;
-static bool g_warned_file = false;
-
 void grabit_sound_play(struct config *cfg) {
 	if (log_is_silent()) return;
 	const char *enabled = config_get(cfg, "sound.enabled");
@@ -46,21 +43,15 @@ void grabit_sound_play(struct config *cfg) {
 
 	const char *player = find_player(config_get(cfg, "sound.player"));
 	if (!player) {
-		if (!g_warned_player) {
-			log_warn("sound: no audio player in $PATH; set one with `grabit set "
-					 "sound.player <path>`");
-			g_warned_player = true;
-		}
+		log_warn("sound: no audio player in $PATH; set one with `grabit set "
+				 "sound.player <path>`");
 		return;
 	}
 
 	const char *file = find_sound_file(config_get(cfg, "sound.file"));
 	if (!file) {
-		if (!g_warned_file) {
-			log_warn("sound: no sound file found; set one with `grabit set "
-					 "sound.file <path>`");
-			g_warned_file = true;
-		}
+		log_warn("sound: no sound file found; set one with `grabit set "
+				 "sound.file <path>`");
 		return;
 	}
 

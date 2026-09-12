@@ -20,12 +20,6 @@
 #define TRANS_BIN "trans"
 #define TRANSLATE_TIMEOUT_MS 20000
 
-static int64_t now_ms(void) {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-}
-
 static void strip_ansi(char *s) {
 	char *w = s;
 	const char *r = s;
@@ -43,8 +37,8 @@ static void strip_ansi(char *s) {
 }
 
 static int reap_with_grace(pid_t pid, int *status) {
-	int64_t deadline = now_ms() + 2000;
-	while (now_ms() < deadline) {
+	int64_t deadline = grabit_now_ns() / 1000000 + 2000;
+	while (grabit_now_ns() / 1000000 < deadline) {
 		pid_t r = waitpid(pid, status, WNOHANG);
 		if (r == pid) return 0;
 		if (r < 0 && errno != EINTR) return -1;
@@ -112,7 +106,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	close(in_p[0]);
 	close(out_p[1]);
 
-	int64_t deadline = now_ms() + TRANSLATE_TIMEOUT_MS;
+	int64_t deadline = grabit_now_ns() / 1000000 + TRANSLATE_TIMEOUT_MS;
 	bool timed_out = false;
 
 	int flags = fcntl(in_p[1], F_GETFL, 0);
@@ -120,7 +114,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	size_t tlen = strlen(text);
 	const char *p = text;
 	while (tlen > 0) {
-		int64_t remaining = deadline - now_ms();
+		int64_t remaining = deadline - grabit_now_ns() / 1000000;
 		if (remaining <= 0) {
 			timed_out = true;
 			break;
@@ -148,7 +142,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	struct grabit_buf buf = {0};
 	char chunk[4096];
 	for (;;) {
-		int64_t remaining = deadline - now_ms();
+		int64_t remaining = deadline - grabit_now_ns() / 1000000;
 		if (remaining <= 0) {
 			timed_out = true;
 			break;

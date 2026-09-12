@@ -5,27 +5,16 @@
 #define GRABIT_RECORD_REC_CFG_H
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "config/config.h"
 
-static inline int rec_cfg_int(struct config *cfg, const char *key,
-							  int def, int lo, int hi) {
-	const char *v = config_get(cfg, key);
-	if (!v || !v[0]) return def;
-	long n = strtol(v, NULL, 10);
-	if (n < lo) return def;
-	if (n > hi) return hi;
-	return (int)n;
-}
-
 static inline int rec_cfg_fps(struct config *cfg) {
-	return rec_cfg_int(cfg, "recording.fps", 30, 1, 120);
+	return config_get_int_clamp(cfg, "recording.fps", 30, 1, 120);
 }
 
 static inline int rec_cfg_crf(struct config *cfg) {
-	return rec_cfg_int(cfg, "recording.crf", 23, 0, 51);
+	return config_get_int_clamp(cfg, "recording.crf", 23, 0, 51);
 }
 
 static inline bool rec_cfg_cursor(struct config *cfg) {

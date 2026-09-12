@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 static void maybe_compress(struct config *cfg, const struct publish_opts *po) {
-	int max_mb = rec_cfg_int(cfg, "recording.max_size_mb", 0, 0, 100000);
+	int max_mb = config_get_int_clamp(cfg, "recording.max_size_mb", 0, 0, 100000);
 	if (max_mb <= 0) return;
 	if (strcmp(po->format, "mp4") != 0) {
 		log_debug("recording: max_size_mb only applies to mp4; skipping");

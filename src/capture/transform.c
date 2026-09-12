@@ -168,6 +168,5 @@ int image_apply_output_transform(struct image *img,
 	img->width = new_w;
 	img->height = new_h;
 	img->stride = new_stride;
-	img->size = new_size;
 	return 0;
 }

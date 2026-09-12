@@ -101,7 +101,6 @@ static void info_primaries(void *data, struct wp_image_description_info_v1 *i,
 	(void)i;
 	struct probe *p = data;
 	set_primaries(&p->info.primaries, rx, ry, gx, gy, bx, by, wx, wy);
-	p->info.have_primaries = true;
 }
 
 static void info_primaries_named(void *data, struct wp_image_description_info_v1 *i,
@@ -132,7 +131,6 @@ static void info_luminances(void *data, struct wp_image_description_info_v1 *i,
 	p->info.min_lum = min_lum;
 	p->info.max_lum = max_lum;
 	p->info.ref_lum = ref_lum;
-	p->info.have_luminances = true;
 }
 
 static void info_target_primaries(void *data, struct wp_image_description_info_v1 *i,

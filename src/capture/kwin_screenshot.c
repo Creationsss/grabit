@@ -245,7 +245,6 @@ static int kwin_capture(const char *output_name, bool cursor, struct image *out)
 	out->stride = (int32_t)meta.stride;
 	out->format = pixels_resolved_format(shm_fmt, conv);
 	out->bytes = buf.data;
-	out->size = (size_t)meta.stride * meta.height;
 	buf.data = NULL;
 	rc = 0;
 

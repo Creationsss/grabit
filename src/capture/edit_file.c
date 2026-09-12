@@ -63,7 +63,6 @@ static int fill_output_canvas(struct image *dst, const struct grabit_output *o,
 	dst->stride = stride;
 	dst->format = WL_SHM_FORMAT_XRGB8888;
 	dst->bytes = bytes;
-	dst->size = size;
 	return 0;
 }
 

@@ -8,6 +8,8 @@
 
 #include <cairo/cairo.h>
 
+struct annotation;
+
 double annotation_line_width(const struct annotation *a);
 void ganno_paint_blur(cairo_t *cr, double x, double y, double w, double h,
 					  double scale, int32_t strength, cairo_surface_t *backdrop);

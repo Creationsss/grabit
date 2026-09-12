@@ -34,7 +34,6 @@ struct frame {
 	int32_t width;
 	int32_t height;
 	int32_t stride;
-	uint32_t format;
 	struct buf_pool *pool;
 };
 

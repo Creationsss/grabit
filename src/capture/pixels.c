@@ -229,7 +229,6 @@ int pixels_image_from_buf(struct image *out, const void *map, size_t map_size,
 	out->height = h;
 	out->stride = dst_stride;
 	out->format = pixels_resolved_format(fmt, conv);
-	out->size = dst_size;
 	out->bytes = malloc(dst_size);
 	if (!out->bytes) return -1;
 	pixels_copy(out->bytes, dst_stride, map, stride, w, h, conv, y_invert);

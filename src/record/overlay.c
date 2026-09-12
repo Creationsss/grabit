@@ -31,7 +31,6 @@ struct overlay_output {
 	int32_t pixel_width;
 	int32_t pixel_height;
 	int32_t scale;
-	bool configured;
 };
 
 struct overlay_state {
@@ -128,7 +127,6 @@ static void layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *ls
 	wl_surface_attach(o->surface, o->buf.buffer, 0, 0);
 	wl_surface_damage_buffer(o->surface, 0, 0, o->pixel_width, o->pixel_height);
 	wl_surface_commit(o->surface);
-	o->configured = true;
 }
 
 static void layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *ls) {

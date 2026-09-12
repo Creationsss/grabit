@@ -31,7 +31,6 @@ struct grabit_color_primaries {
 struct grabit_colorimetry {
 	struct grabit_color_primaries primaries;
 	int cicp_primaries;
-	bool have_primaries;
 
 	int cicp_transfer;
 	uint32_t tf_power;
@@ -39,7 +38,6 @@ struct grabit_colorimetry {
 	uint32_t min_lum;
 	uint32_t max_lum;
 	uint32_t ref_lum;
-	bool have_luminances;
 
 	struct grabit_color_primaries target;
 	uint32_t target_min_lum;

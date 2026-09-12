@@ -233,7 +233,6 @@ double rec_capture_loop(struct grabit_wl_state *s, struct rec_layout *layout,
 			.width = layout->dst_w,
 			.height = layout->dst_h,
 			.stride = layout->dst_stride,
-			.format = WL_SHM_FORMAT_ARGB8888,
 			.pool = pool,
 		};
 		ring_push(ring, &f);

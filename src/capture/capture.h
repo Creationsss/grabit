@@ -19,7 +19,6 @@ struct image {
 	int32_t stride;
 	uint32_t format;
 	void *bytes;
-	size_t size;
 	struct grabit_colorimetry color;
 	bool have_color;
 };

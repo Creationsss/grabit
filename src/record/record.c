@@ -4,8 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "record/record.h"
 
-#include "app/app.h"
-
 #include "args.h"
 #include "capture/capture.h"
 #include "config/config.h"
@@ -95,7 +93,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	const char *upload_service = NULL;
 	if (!a->no_upload) {
 		bool default_is_upload =
-			gapp_default_action(config_get(cfg, "default_action")) == ACTION_UPLOAD;
+			args_default_action(config_get(cfg, "default_action")) == ACTION_UPLOAD;
 		if (a->service || default_is_upload) {
 			if (upload_preflight(cfg, a, &upload_service) != 0) return 1;
 		}
@@ -120,7 +118,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			log_error("recording needs a streaming capture protocol; this "
 					  "compositor only does single-shot screenshots");
 		else
-			(void)grabit_wl_require_capture(&s);
+			(void)capture_require_available(&s);
 		screencast_explain_unavailable();
 		rec_fail_notify("recording is not supported on this compositor");
 		grabit_wl_finish(&s);

@@ -215,7 +215,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		});
 		return NULL;
 	}
-	if (!grabit_wl_require_capture(&s)) {
+	if (!capture_require_available(&s)) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
 			.summary = "grabit",

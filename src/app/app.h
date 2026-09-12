@@ -18,8 +18,6 @@ int gapp_print_help_env(void);
 int gapp_print_help_ocr(void);
 int gapp_print_help_examples(void);
 
-enum action gapp_default_action(const char *name);
-
 void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 							 const char *caption, const char *click_open);
 char *gapp_capture_to_file(const struct args *a, struct config *cfg,

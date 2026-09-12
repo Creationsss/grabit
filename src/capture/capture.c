@@ -5,6 +5,7 @@
 
 #include "capture/backend.h"
 #include "log.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -75,6 +76,26 @@ static enum capture_backend resolve_backend(const struct grabit_wl_state *s) {
 									  : "kwin-screenshot");
 	}
 	return cached;
+}
+
+bool capture_require_available(struct grabit_wl_state *s) {
+	if (capture_backend_available(s)) return true;
+	const char *known = NULL;
+	const char *note = NULL;
+	if (grabit_desktop_is("KDE")) {
+		known = "KDE Plasma (KWin)";
+		note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
+	} else if (grabit_desktop_is("GNOME")) {
+		known = "GNOME (Mutter)";
+	} else if (grabit_desktop_is("COSMIC")) {
+		known = "Cosmic";
+	}
+	log_error("%s has no screen-capture protocol; grabit needs hyprland, sway, "
+			  "niri or river",
+			  known ? known : "this compositor");
+	log_debug("wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1");
+	if (note) log_debug("%s", note);
+	return false;
 }
 
 bool capture_backend_available(const struct grabit_wl_state *s) {

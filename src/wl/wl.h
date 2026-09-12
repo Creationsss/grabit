@@ -82,7 +82,6 @@ struct grabit_wl_state {
 };
 
 int grabit_wl_init(struct grabit_wl_state *s);
-bool grabit_wl_require_capture(struct grabit_wl_state *s);
 int grabit_wl_probe(struct grabit_wl_state *s);
 int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms);
 void grabit_wl_finish(struct grabit_wl_state *s);

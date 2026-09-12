@@ -44,6 +44,8 @@ struct args {
 	const char *fullscreen_target;
 };
 
+enum action args_default_action(const char *name);
+
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);
 int args_parse(int argc, char **argv, struct args *out);
 

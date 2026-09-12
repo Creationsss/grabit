@@ -48,7 +48,7 @@ static int run(const struct args *a) {
 	notify_init(&cfg, a->silent);
 
 	enum action eff = a->action;
-	if (eff == ACTION_NONE) eff = gapp_default_action(config_get(&cfg, "default_action"));
+	if (eff == ACTION_NONE) eff = args_default_action(config_get(&cfg, "default_action"));
 
 	struct args eff_a = *a;
 	if (!eff_a.edit && !a->file &&

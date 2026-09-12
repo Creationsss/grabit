@@ -19,6 +19,24 @@ static bool is_debug_flag(const char *a) {
 	return strcmp(a, "-d") == 0 || strcmp(a, "--debug") == 0;
 }
 
+enum action args_default_action(const char *name) {
+	static const struct {
+		const char *name;
+		enum action act;
+	} MAP[] = {
+		{"upload", ACTION_UPLOAD},
+		{"copy", ACTION_COPY},
+		{"save", ACTION_OUTPUT},
+		{"pin", ACTION_PIN},
+	};
+	if (!name || !name[0]) return ACTION_COPY;
+	for (size_t i = 0; i < sizeof MAP / sizeof MAP[0]; i++) {
+		if (strcmp(name, MAP[i].name) == 0) return MAP[i].act;
+	}
+	log_warn("default_action `%s` is not one of upload|copy|save|pin; copying", name);
+	return ACTION_COPY;
+}
+
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug) {
 	for (int i = 1; i < argc; i++) {
 		if (is_silent_flag(argv[i]))

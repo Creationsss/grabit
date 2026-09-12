@@ -9,7 +9,6 @@
 
 #include "color-management-v1-client-protocol.h"
 
-#include "capture/capture.h"
 #include "log.h"
 #include "util/util.h"
 #include "wl/internal.h"
@@ -32,26 +31,6 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
-
-bool grabit_wl_require_capture(struct grabit_wl_state *s) {
-	if (capture_backend_available(s)) return true;
-	const char *known = NULL;
-	const char *note = NULL;
-	if (grabit_desktop_is("KDE")) {
-		known = "KDE Plasma (KWin)";
-		note = "org.kde.KWin.ScreenShot2 is not on the session bus either";
-	} else if (grabit_desktop_is("GNOME")) {
-		known = "GNOME (Mutter)";
-	} else if (grabit_desktop_is("COSMIC")) {
-		known = "Cosmic";
-	}
-	log_error("%s has no screen-capture protocol; grabit needs hyprland, sway, "
-			  "niri or river",
-			  known ? known : "this compositor");
-	log_debug("wanted zwlr_screencopy_manager_v1 or ext_image_copy_capture_manager_v1");
-	if (note) log_debug("%s", note);
-	return false;
-}
 
 int grabit_wl_init(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);

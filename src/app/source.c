@@ -13,6 +13,7 @@
 #include "args.h"
 #include "capture/capture.h"
 #include "capture/freeze.h"
+#include "capture/preview.h"
 #include "capture/region_plan.h"
 #include "capture/save.h"
 #include "config/config.h"
@@ -20,7 +21,6 @@
 #include "notify/notify.h"
 #include "paths.h"
 #include "pin/pin.h"
-#include "pin/preview.h"
 #include "record/record.h"
 #include "region/edit_persist.h"
 #include "sound/sound.h"
@@ -77,7 +77,7 @@ void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 	const char *pos = config_get(cfg, "preview.position");
 	if (!pos || !pos[0]) pos = "bottom-right";
 
-	if (prerendered || pin_preview_render_png(image_path, width, png_path) == 0) {
+	if (prerendered || capture_preview_png(image_path, width, png_path) == 0) {
 		struct pin_show_opts opts = {
 			.dismiss_secs = config_get_int_clamp(cfg, "preview.dismiss_secs", 5, 0, 600),
 			.position = pos,

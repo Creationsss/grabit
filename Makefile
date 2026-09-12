@@ -248,7 +248,7 @@ GRABIT_SRCS := \
 	src/pin/pin_input.c \
 	src/pin/pin_ipc.c \
 	src/pin/text_card.c \
-	src/pin/preview.c
+	src/capture/preview.c
 
 GRABIT_VENDOR_SRCS := \
 	src/vendor/tomlc99/toml.c \

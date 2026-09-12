@@ -2,7 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
-#include "pin/preview.h"
+#include "capture/preview.h"
 
 #include "cairo_util.h"
 #include "capture/save.h"
@@ -10,8 +10,8 @@
 
 #include <cairo/cairo.h>
 
-int pin_preview_render_surface(cairo_surface_t *src, int target_w,
-							   const char *out_path) {
+int capture_preview_surface(cairo_surface_t *src, int target_w,
+							const char *out_path) {
 	if (!src || !out_path || target_w <= 0) return -1;
 	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) return -1;
 
@@ -54,12 +54,12 @@ int pin_preview_render_surface(cairo_surface_t *src, int target_w,
 	return rc;
 }
 
-int pin_preview_render_png(const char *src_image_path, int target_w,
-						   const char *out_path) {
+int capture_preview_png(const char *src_image_path, int target_w,
+						const char *out_path) {
 	if (!src_image_path) return -1;
 	cairo_surface_t *src = grabit_load_png_surface(src_image_path, "preview");
 	if (!src) return -1;
-	int rc = pin_preview_render_surface(src, target_w, out_path);
+	int rc = capture_preview_surface(src, target_w, out_path);
 	cairo_surface_destroy(src);
 	return rc;
 }

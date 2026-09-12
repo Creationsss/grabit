@@ -8,8 +8,8 @@
 
 #include "cairo_util.h"
 #include "capture/capture.h"
+#include "capture/preview.h"
 #include "log.h"
-#include "pin/preview.h"
 #include "region/annotate.h"
 #include "region/region.h"
 #include "util/util.h"
@@ -186,7 +186,7 @@ int grabit_save_surface(cairo_surface_t *dst,
 	}
 
 	if (rc == 0 && opts->preview_path && opts->preview_width > 0)
-		(void)pin_preview_render_surface(dst, opts->preview_width, opts->preview_path);
+		(void)capture_preview_surface(dst, opts->preview_width, opts->preview_path);
 
 	return rc;
 }

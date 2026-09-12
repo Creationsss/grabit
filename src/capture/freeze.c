@@ -47,11 +47,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		goto cleanup;
 	}
 	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (forced_only) {
-			int32_t ix, iy, iw, ih;
-			if (!grabit_output_rect_intersect(s->outputs[i], &r, &ix, &iy, &iw, &ih))
-				continue;
-		}
+		if (forced_only && !grabit_output_overlaps(s->outputs[i], r)) continue;
 		want_idx[n_want] = i;
 		want[n_want++] = s->outputs[i];
 	}
@@ -107,8 +103,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	double max_ratio = 1.0;
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];
-		int32_t ix, iy, iw, ih;
-		if (!grabit_output_rect_intersect(o, &r, &ix, &iy, &iw, &ih)) continue;
+		if (!grabit_output_overlaps(o, r)) continue;
 		if (o->logical_width > 0) {
 			double sxr = (double)frozen[i].width / (double)o->logical_width;
 			if (sxr > max_ratio) max_ratio = sxr;

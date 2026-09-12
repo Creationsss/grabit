@@ -145,7 +145,7 @@ struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
 
 	size_t n_overlap = 0;
 	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (grabit_output_rect_intersect(s->outputs[i], &r, NULL, NULL, NULL, NULL)) n_overlap++;
+		if (grabit_output_overlaps(s->outputs[i], r)) n_overlap++;
 	}
 	if (n_overlap == 0) return NULL;
 
@@ -163,7 +163,7 @@ struct overlay_state *overlay_start(struct grabit_wl_state *s, struct rect r,
 
 	size_t k = 0;
 	for (size_t i = 0; i < s->n_outputs; i++) {
-		if (!grabit_output_rect_intersect(s->outputs[i], &r, NULL, NULL, NULL, NULL)) continue;
+		if (!grabit_output_overlaps(s->outputs[i], r)) continue;
 		struct overlay_output *o = &st->outs[k++];
 		o->st = st;
 		o->go = s->outputs[i];

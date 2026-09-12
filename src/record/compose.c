@@ -25,8 +25,7 @@ int rec_layout_build(struct grabit_wl_state *s, struct rect r, struct rec_layout
 	size_t n_overlap = 0;
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];
-		int32_t ix, iy, iw, ih;
-		if (!grabit_output_rect_intersect(o, &r, &ix, &iy, &iw, &ih)) continue;
+		if (!grabit_output_overlaps(o, r)) continue;
 		n_overlap++;
 		double pr = grabit_output_pixel_ratio(o);
 		if (pr > max_ratio) max_ratio = pr;

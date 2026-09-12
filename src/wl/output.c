@@ -194,10 +194,9 @@ struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, 
 	for (size_t i = 0; i < s->n_outputs; i++) {
 		struct grabit_output *o = s->outputs[i];
 		if (o->dead) continue;
-		if (x >= o->x && y >= o->y &&
-			x < o->x + o->logical_width &&
-			y < o->y + o->logical_height)
-			return o;
+		struct rect r;
+		grabit_output_rect(o, &r);
+		if (rect_contains(r, x, y)) return o;
 	}
 	return NULL;
 }
@@ -205,16 +204,12 @@ struct grabit_output *grabit_wl_output_at(struct grabit_wl_state *s, int32_t x, 
 bool grabit_output_rect_intersect(const struct grabit_output *o, const struct rect *r,
 								  int32_t *out_x, int32_t *out_y,
 								  int32_t *out_w, int32_t *out_h) {
-	int32_t lx = r->x > o->x ? r->x : o->x;
-	int32_t ly = r->y > o->y ? r->y : o->y;
-	int32_t rx = (r->x + r->w) < (o->x + o->logical_width)
-					 ? (r->x + r->w)
-					 : (o->x + o->logical_width);
-	int32_t ry = (r->y + r->h) < (o->y + o->logical_height)
-					 ? (r->y + r->h)
-					 : (o->y + o->logical_height);
-	int32_t iw = rx - lx;
-	int32_t ih = ry - ly;
+	struct rect ro;
+	grabit_output_rect(o, &ro);
+	int32_t lx = i32max(r->x, ro.x);
+	int32_t ly = i32max(r->y, ro.y);
+	int32_t iw = i32min(r->x + r->w, ro.x + ro.w) - lx;
+	int32_t ih = i32min(r->y + r->h, ro.y + ro.h) - ly;
 	if (iw <= 0 || ih <= 0) return false;
 	if (out_x) *out_x = lx;
 	if (out_y) *out_y = ly;

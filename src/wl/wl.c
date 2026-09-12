@@ -11,7 +11,6 @@
 
 #include "capture/capture.h"
 #include "log.h"
-#include "region/region.h"
 #include "util/util.h"
 #include "wl/internal.h"
 

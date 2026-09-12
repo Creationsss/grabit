@@ -136,12 +136,7 @@ static int config_write_to(struct config *c, const char *path) {
 		const char *key = c->kvs[i].key;
 		bool is_top = section_depth(key) == 0;
 
-		if (is_top) {
-			if (current_section) {
-				current_section = NULL;
-				current_section_len = 0;
-			}
-		} else {
+		if (!is_top) {
 			const char *last_dot = strrchr(key, '.');
 			size_t prefix_len = (size_t)(last_dot - key);
 			if (!current_section ||
@@ -164,7 +159,6 @@ static int config_write_to(struct config *c, const char *path) {
 	if (out.len == 0) grabit_buf_putc(&out, '\n');
 	int rc = paths_atomic_write(path, out.data, out.len);
 	grabit_buf_free(&out);
-	(void)current_section_len;
 	if (c->n > 1) qsort(c->kvs, c->n, sizeof *c->kvs, kv_strcmp_cmp);
 	return rc;
 

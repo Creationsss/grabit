@@ -161,9 +161,6 @@ static int parse_regex_list(struct json_object *root, struct sxcu_uploader *out)
 }
 
 static int parse_with_source(const char *json, const char *src,
-							 struct sxcu_uploader *out);
-
-static int parse_with_source(const char *json, const char *src,
 							 struct sxcu_uploader *out) {
 	const char *label = src ? src : "<input>";
 	if (!json || !out) return -1;

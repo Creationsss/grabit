@@ -103,13 +103,11 @@ void grabit_wl_outputs_bbox(struct grabit_wl_state *s, struct rect *out);
 void grabit_wl_monitor_rects(struct grabit_wl_state *s, struct rect **out, size_t *n_out);
 int grabit_wl_fullscreen_plan(struct grabit_wl_state *s, const char *spec, struct rect *out);
 
-struct rect;
 bool grabit_output_rect_intersect(const struct grabit_output *o, const struct rect *r,
 								  int32_t *out_x, int32_t *out_y,
 								  int32_t *out_w, int32_t *out_h);
 bool grabit_output_overlaps(const struct grabit_output *o, struct rect r);
 
-struct wl_compositor;
 struct wl_surface;
 void grabit_wl_clear_input_region(struct wl_compositor *c, struct wl_surface *s);
 void grabit_wl_region_add_rounded(struct wl_region *reg, int32_t x, int32_t y,

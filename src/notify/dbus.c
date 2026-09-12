@@ -29,8 +29,6 @@ static bool g_warned_daemon;
 
 void notify_init(struct config *cfg, bool silent) {
 	g_silent = silent;
-	g_warned_bus = false;
-	g_warned_daemon = false;
 	if (silent) {
 		g_show = false;
 		return;

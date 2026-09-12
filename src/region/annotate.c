@@ -76,13 +76,6 @@ int annotation_list_push(struct annotation_list *list, const struct annotation *
 	return 0;
 }
 
-void annotation_list_pop(struct annotation_list *list) {
-	if (list->n == 0) return;
-	struct annotation *a = &list->items[--list->n];
-	annotation_free(a);
-	list->gen++;
-}
-
 bool annotation_list_pop_take(struct annotation_list *list, struct annotation *out) {
 	if (list->n == 0) return false;
 	*out = list->items[--list->n];

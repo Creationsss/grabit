@@ -117,10 +117,6 @@ struct ro_output *region_render_find_by_surface(struct ro_state *st, struct wl_s
 
 void region_input_attach(struct ro_state *st);
 
-struct config;
-struct rect;
-struct grabit_output;
-
 void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate_mode,
 						  struct grabit_wl_state *s, const struct rect *snap_rects,
 						  size_t n_snap_rects);

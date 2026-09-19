@@ -90,6 +90,54 @@ static const char *VALS_show_position[] = {
 	NULL,
 };
 
+struct cfg_enum_key {
+	const char *key;
+	const char *const *vals;
+	bool allow_empty;
+};
+
+static const struct cfg_enum_key ENUM_KEYS[] = {
+	{"format", VALS_format, false},
+	{"capture.backend", VALS_capture_backend, false},
+	{"edit.toolbar_placement", VALS_toolbar_placement, false},
+	{"preview.position", VALS_show_position, false},
+	{"text_card.position", VALS_show_position, false},
+	{"recording.preset", VALS_x264_preset, false},
+	{"recording.tune", VALS_x264_tune, true},
+	{"recording.format", VALS_record_format, false},
+	{"recording.pix_fmt", VALS_pix_fmt, false},
+	{"filename_preset", VALS_filename_preset, false},
+	{"translate.backend", VALS_translate_backend, false},
+	{"edit.multi_select", VALS_modifier, false},
+	{"default_action", grabit_action_names, false},
+	{"edit.line_style", grabit_line_style_names, false},
+	{"edit.tool", grabit_tool_names, false},
+};
+
+struct cfg_int_key {
+	const char *key;
+	long lo;
+	long hi;
+	bool allow_auto;
+};
+
+static const struct cfg_int_key INT_KEYS[] = {
+	{"png.level", 0, 9, false},
+	{"jpeg.quality", 1, 100, false},
+	{"webp.quality", 0, 100, false},
+	{"recording.fps", 1, 120, false},
+	{"recording.crf", 0, 51, false},
+	{"recording.max_size_mb", 0, 100000, false},
+	{"text_card.dismiss_secs", 0, 600, false},
+	{"preview.size", 100, 800, false},
+	{"preview.dismiss_secs", 0, 600, false},
+	{"services.zipline.chunk_size", 1, 95, false},
+	{"capture.delay", 0, 3600, false},
+	{"edit.width", EDIT_MIN_WIDTH, EDIT_MAX_WIDTH, false},
+	{"region.window_radius", 0, 100, true},
+	{"gui.radius", 0, 100, true},
+};
+
 const char *cfg_canonical_key(const char *key) {
 	return strcmp(key, "save_captures") == 0 ? "also_save" : key;
 }
@@ -106,76 +154,22 @@ int config_set(struct config *c, const char *key, const char *value) {
 				  "was launched from, which for a keybind is unpredictable");
 		return -1;
 	}
-	if (strcmp(key, "format") == 0 && !cfg_in_list(value, VALS_format)) {
-		log_error("format must be one of png|jpeg|webp");
-		return -1;
+	for (size_t i = 0; i < sizeof ENUM_KEYS / sizeof *ENUM_KEYS; i++) {
+		const struct cfg_enum_key *e = &ENUM_KEYS[i];
+		if (strcmp(key, e->key) != 0) continue;
+		if (e->allow_empty && !value[0]) break;
+		if (!cfg_in_list(value, e->vals)) {
+			log_error("%s must be one of %s", key, grabit_join_names(e->vals));
+			return -1;
+		}
+		break;
 	}
-	if (strcmp(key, "capture.backend") == 0 && !cfg_in_list(value, VALS_capture_backend)) {
-		log_error("capture.backend must be one of auto|wlr|ext|kwin");
-		return -1;
-	}
-	if (strcmp(key, "edit.toolbar_placement") == 0 &&
-		!cfg_in_list(value, VALS_toolbar_placement)) {
-		log_error("edit.toolbar_placement must be one of top|attach");
-		return -1;
-	}
-	if (strcmp(key, "png.level") == 0 &&
-		validate_int_in_range(key, value, 0, 9) != 0) return -1;
-	if (strcmp(key, "jpeg.quality") == 0 &&
-		validate_int_in_range(key, value, 1, 100) != 0) return -1;
-	if (strcmp(key, "webp.quality") == 0 &&
-		validate_int_in_range(key, value, 0, 100) != 0) return -1;
-	if (strcmp(key, "recording.fps") == 0 &&
-		validate_int_in_range(key, value, 1, 120) != 0) return -1;
-	if (strcmp(key, "text_card.dismiss_secs") == 0 &&
-		validate_int_in_range(key, value, 0, 600) != 0) return -1;
-	if (strcmp(key, "preview.size") == 0 &&
-		validate_int_in_range(key, value, 100, 800) != 0) return -1;
-	if (strcmp(key, "preview.dismiss_secs") == 0 &&
-		validate_int_in_range(key, value, 0, 600) != 0) return -1;
-	if (strcmp(key, "preview.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
-		log_error("preview.position must be one of "
-				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
-		return -1;
-	}
-	if (strcmp(key, "text_card.position") == 0 && !cfg_in_list(value, VALS_show_position)) {
-		log_error("text_card.position must be one of "
-				  "top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center");
-		return -1;
-	}
-	if (strcmp(key, "recording.crf") == 0 &&
-		validate_int_in_range(key, value, 0, 51) != 0) return -1;
-	if (strcmp(key, "recording.max_size_mb") == 0 &&
-		validate_int_in_range(key, value, 0, 100000) != 0) return -1;
-	if (strcmp(key, "recording.preset") == 0 && !cfg_in_list(value, VALS_x264_preset)) {
-		log_error("recording.preset must be one of "
-				  "ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow");
-		return -1;
-	}
-	if (strcmp(key, "recording.tune") == 0 && value[0] && !cfg_in_list(value, VALS_x264_tune)) {
-		log_error("recording.tune must be one of "
-				  "film|animation|grain|stillimage|psnr|ssim|fastdecode|zerolatency");
-		return -1;
-	}
-	if (strcmp(key, "services.zipline.chunk_size") == 0 &&
-		validate_int_in_range(key, value, 1, 95) != 0) return -1;
-	if (strcmp(key, "recording.format") == 0 && !cfg_in_list(value, VALS_record_format)) {
-		log_error("recording.format must be one of mp4|webm|gif");
-		return -1;
-	}
-	if (strcmp(key, "recording.pix_fmt") == 0 && !cfg_in_list(value, VALS_pix_fmt)) {
-		log_error("recording.pix_fmt must be one of yuv420p|yuv422p|yuv444p|yuv420p10le");
-		return -1;
-	}
-	if (strcmp(key, "default_action") == 0 &&
-		!cfg_in_list(value, (const char **)grabit_action_names)) {
-		log_error("default_action must be one of %s",
-				  grabit_join_names(grabit_action_names));
-		return -1;
-	}
-	if (strcmp(key, "filename_preset") == 0 && !cfg_in_list(value, VALS_filename_preset)) {
-		log_error("filename_preset must be one of date|random|uuid|timestamp");
-		return -1;
+	for (size_t i = 0; i < sizeof INT_KEYS / sizeof *INT_KEYS; i++) {
+		const struct cfg_int_key *k = &INT_KEYS[i];
+		if (strcmp(key, k->key) != 0) continue;
+		if (k->allow_auto && strcmp(value, "auto") == 0) break;
+		if (validate_int_in_range(key, value, k->lo, k->hi) != 0) return -1;
+		break;
 	}
 	if (strcmp(key, "service") == 0 && !upload_service_known(value)) {
 		log_error("service `%s` is not a built-in (zipline|nest|fakecrime|ez|guns|"
@@ -203,19 +197,6 @@ int config_set(struct config *c, const char *key, const char *value) {
 			return -1;
 		}
 	}
-	if (strcmp(key, "edit.multi_select") == 0 && !cfg_in_list(value, VALS_modifier)) {
-		log_error("edit.multi_select must be one of ctrl|shift|alt|super");
-		return -1;
-	}
-	if (strcmp(key, "capture.delay") == 0 &&
-		validate_int_in_range(key, value, 0, 3600) != 0)
-		return -1;
-	if (strcmp(key, "region.window_radius") == 0 && strcmp(value, "auto") != 0 &&
-		validate_int_in_range(key, value, 0, 100) != 0)
-		return -1;
-	if (strcmp(key, "gui.radius") == 0 && strcmp(value, "auto") != 0 &&
-		validate_int_in_range(key, value, 0, 100) != 0)
-		return -1;
 	if (strcmp(key, "region.last") == 0) {
 		struct rect tmp;
 		if (!last_region_parse(value, &tmp)) {
@@ -223,20 +204,6 @@ int config_set(struct config *c, const char *key, const char *value) {
 			return -1;
 		}
 	}
-	if (strcmp(key, "edit.line_style") == 0 &&
-		!cfg_in_list(value, (const char **)grabit_line_style_names)) {
-		log_error("edit.line_style must be one of %s",
-				  grabit_join_names(grabit_line_style_names));
-		return -1;
-	}
-	if (strcmp(key, "edit.tool") == 0 &&
-		!cfg_in_list(value, (const char **)grabit_tool_names)) {
-		log_error("edit.tool must be one of %s", grabit_join_names(grabit_tool_names));
-		return -1;
-	}
-	if (strcmp(key, "edit.width") == 0 &&
-		validate_int_in_range(key, value, EDIT_MIN_WIDTH, EDIT_MAX_WIDTH) != 0)
-		return -1;
 	if (cfg_is_bool_key(key) && strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
 		log_error("%s must be true or false", key);
 		return -1;

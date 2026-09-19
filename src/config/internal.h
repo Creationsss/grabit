@@ -39,7 +39,7 @@ int gcfg_emit_section(struct grabit_buf *out, const char *prefix, size_t len);
 int cfg_file_edit(const char *path, const char *key, const char *value, bool prefix);
 const char *cfg_canonical_key(const char *key);
 bool cfg_is_state_key(const char *key);
-bool cfg_in_list(const char *needle, const char **list);
+bool cfg_in_list(const char *needle, const char *const *list);
 bool cfg_key_is_known(const char *key);
 
 void cfg_help_print_all_keys(void);

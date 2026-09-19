@@ -193,7 +193,6 @@ void pixels_copy(void *dst, int32_t dst_stride,
 			break;
 		}
 		case PIX_COPY:
-		default:
 			memcpy(dp, sp, (size_t)w * 4);
 			break;
 		}

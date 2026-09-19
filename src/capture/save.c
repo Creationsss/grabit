@@ -171,7 +171,7 @@ int grabit_save_surface(cairo_surface_t *dst,
 
 	punch_rounded_corners(dst, opts);
 
-	int rc;
+	int rc = -1;
 	switch (opts->format) {
 	case GRABIT_FMT_JPEG:
 		rc = grabit_save_jpeg_surface(dst, path, opts->jpeg_quality);
@@ -180,7 +180,6 @@ int grabit_save_surface(cairo_surface_t *dst,
 		rc = grabit_save_webp_surface(dst, path, opts->webp_quality, opts->webp_lossless);
 		break;
 	case GRABIT_FMT_PNG:
-	default:
 		rc = grabit_save_png_surface(dst, path, opts->png_level);
 		break;
 	}

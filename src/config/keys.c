@@ -71,7 +71,7 @@ static const char *KNOWN_SERVICES[] = {
 	NULL,
 };
 
-bool cfg_in_list(const char *needle, const char **list) {
+bool cfg_in_list(const char *needle, const char *const *list) {
 	for (size_t i = 0; list[i]; i++) {
 		if (strcmp(list[i], needle) == 0) return true;
 	}

@@ -178,11 +178,6 @@ int config_set(struct config *c, const char *key, const char *value) {
 				  value);
 		return -1;
 	}
-	if (strcmp(key, "translate.backend") == 0 &&
-		!cfg_in_list(value, VALS_translate_backend)) {
-		log_error("translate.backend must be one of trans|libretranslate|deepl");
-		return -1;
-	}
 	uint32_t rgb;
 	if (strcmp(key, "edit.color") == 0 && !edit_color_try(value, &rgb)) {
 		log_error("edit.color must be #RRGGBB or one of %s", edit_color_names());

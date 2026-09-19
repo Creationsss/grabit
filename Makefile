@@ -304,11 +304,11 @@ check-docs: $(GRABIT_BIN) $(DOCS_BIN)
 
 .PHONY: test
 .PHONY: check-headers-standalone
-check-headers-standalone:
+check-headers-standalone: | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 	@fail=0; \
 	for h in $$(find src tools -name '*.h' ! -path 'src/vendor/*'); do \
-		echo "#include \"$$h\"" | $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -fsyntax-only -xc - 2>/dev/null \
-			|| { echo "not self-contained: $$h"; fail=1; }; \
+		out=$$(echo "#include \"$$h\"" | $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -fsyntax-only -xc - 2>&1) \
+			|| { echo "not self-contained: $$h"; echo "$$out" | head -3; fail=1; }; \
 	done; \
 	[ $$fail -eq 0 ] || { echo "a header does not compile on its own"; exit 1; }; \
 	echo "headers self-contained"

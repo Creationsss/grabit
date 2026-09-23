@@ -5,6 +5,7 @@
 #include "plugin/dispatch.h"
 
 #include "log.h"
+#include "notify/notify.h"
 #include "paths.h"
 #include "plugin/plugin.h"
 #include "util/util.h"
@@ -60,6 +61,13 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	char path[1024];
 	if (plugin_resolve(name, path, sizeof path) != 0) {
 		log_error("plugin: %s not installed", name);
+		char body[256];
+		snprintf(body, sizeof body, "%s is not installed", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+		});
 		return 1;
 	}
 	plugin_maybe_auto_update(name);
@@ -84,6 +92,14 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	if (capped) log_warn("plugin: %s stdout exceeded %d MiB; truncating",
 						 name, PLUGIN_OUTPUT_CAP >> 20);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		char body[256];
+		snprintf(body, sizeof body, "%s exited with an error", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+			.log_hint = true,
+		});
 		if (out.data && out.data[0]) {
 			fputs(out.data, stderr);
 			if (out.len > 0 && out.data[out.len - 1] != '\n') fputc('\n', stderr);
@@ -95,6 +111,13 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	const char *last = last_line(&out);
 	if (!*last) {
 		log_error("plugin: %s produced no output to pin", name);
+		char body[256];
+		snprintf(body, sizeof body, "%s printed no path to pin", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+		});
 		grabit_buf_free(&out);
 		return 1;
 	}

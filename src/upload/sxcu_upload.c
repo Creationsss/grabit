@@ -214,7 +214,9 @@ int sxcu_upload(const struct sxcu_uploader *u, const char *file_path,
 	curl_easy_setopt(c, CURLOPT_MAXREDIRS, 8L);
 	upload_curl_common(c);
 
+	log_info("uploading %s to %s ...", grabit_basename(file_path), u->name);
 	CURLcode rc = curl_easy_perform(c);
+	upload_progress_finish();
 	long status = 0;
 	char *eff_url = NULL;
 	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);

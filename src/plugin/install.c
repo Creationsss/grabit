@@ -131,7 +131,7 @@ int plugin_install_git(const char *url) {
 	struct stat st;
 	if (stat(plugin_dir, &st) == 0) (void)plugin_rm_rf(plugin_dir);
 
-	log_debug("plugin: cloning %s", url);
+	log_info("plugin: cloning %s ...", url);
 	if (git_clone(url, plugin_dir) != 0) {
 		log_error("plugin: git clone failed");
 		goto fail_clone;
@@ -176,7 +176,7 @@ int plugin_install_git(const char *url) {
 	plugin_dir = final_dir;
 
 	if (m.kind == PLUGIN_KIND_BUILD) {
-		log_debug("plugin: building (%s)", m.build_cmd);
+		log_info("plugin: building (%s) ...", m.build_cmd);
 		if (run_shell(plugin_dir, m.build_cmd) != 0) {
 			log_error("plugin: build failed");
 			goto fail_manifest;

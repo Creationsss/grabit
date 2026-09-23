@@ -86,6 +86,7 @@ int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
 			exit(1);
 		}
 		cap_cfg_loaded = true;
+		notify_init(&cap_cfg, log_is_silent());
 		struct args ca = {0};
 		captured = gapp_capture_to_file(&ca, &cap_cfg, ACTION_OUTPUT, &cap_is_temp, NULL);
 		if (!captured) {

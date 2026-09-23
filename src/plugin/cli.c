@@ -5,6 +5,7 @@
 #include "plugin/plugin.h"
 
 #include "log.h"
+#include "util/util.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -21,7 +22,7 @@ static int help(void) {
 	puts("  list               list installed plugins (alias: ls)");
 	puts("  show <name>        print parsed manifest");
 	puts("  update [<name>]    update one plugin (or all if omitted)");
-	puts("  remove <name>      uninstall a plugin (alias: rm)");
+	puts("  remove <name> [-y] uninstall a plugin (alias: rm)");
 	return 0;
 }
 
@@ -104,8 +105,23 @@ int cmd_plugin(int argc, char **argv) {
 		return usage();
 	}
 	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
-		if (argc != 2) return usage();
-		return plugin_remove(argv[1]) == 0 ? 0 : 1;
+		bool yes = false;
+		const char *name = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+				yes = true;
+			else if (!name)
+				name = argv[i];
+			else
+				return usage();
+		}
+		if (!name) return usage();
+		char what[256];
+		snprintf(what, sizeof what, "remove the plugin %s and everything in its "
+									"install directory",
+				 name);
+		if (!grabit_confirm(yes, what)) return 1;
+		return plugin_remove(name) == 0 ? 0 : 1;
 	}
 	return usage();
 }

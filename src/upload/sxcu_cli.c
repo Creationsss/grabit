@@ -26,7 +26,7 @@ static int help(void) {
 	puts("  add <file>     register a .sxcu uploader (--force replaces; alias: install)");
 	puts("  list           show registered uploaders (alias: ls)");
 	puts("  show <name>    print parsed fields (--show-secrets unmasks auth)");
-	puts("  remove <name>  remove an uploader (alias: rm)");
+	puts("  remove <name> [-y]  remove an uploader (alias: rm)");
 	return 0;
 }
 
@@ -110,8 +110,21 @@ int cmd_sxcu(int argc, char **argv) {
 	}
 	if (strcmp(sub, "list") == 0 || strcmp(sub, "ls") == 0) return do_list();
 	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
-		if (argc != 2) return usage();
-		return sxcu_dir_remove(argv[1]) == 0 ? 0 : 1;
+		bool yes = false;
+		const char *name = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+				yes = true;
+			else if (!name)
+				name = argv[i];
+			else
+				return usage();
+		}
+		if (!name) return usage();
+		char what[256];
+		snprintf(what, sizeof what, "remove the uploader %s", name);
+		if (!grabit_confirm(yes, what)) return 1;
+		return sxcu_dir_remove(name) == 0 ? 0 : 1;
 	}
 	if (strcmp(sub, "show") == 0) {
 		bool reveal = false;

@@ -10,6 +10,7 @@
 
 #include "region/edit_persist.h"
 #include "region/keybinds.h"
+#include "util/util.h"
 #include "wl/wl.h"
 #include <unistd.h>
 
@@ -140,8 +141,9 @@ static int cmd_set_keys_list(void) {
 	return 0;
 }
 
-static int cmd_set_reset(const char *key) {
+static int cmd_set_reset(const char *key, bool yes) {
 	bool all = strcmp(key, "keys") == 0;
+	if (all && !grabit_confirm(yes, "reset every keybind to its default")) return 1;
 	if (!all && !region_keybind_default(key)) {
 		log_error("--reset applies to a keys.* binding or `keys` (all); got `%s`", key);
 		return 2;
@@ -182,7 +184,7 @@ int cmd_set(int argc, char **argv) {
 		puts("       grabit set <key>            show a key's value and default");
 		puts("       grabit set <key> --watch    bind a keys.* action by pressing it");
 		puts("       grabit set <key> --reset    restore a keys.* default");
-		puts("       grabit set keys --reset     restore every keybind");
+		puts("       grabit set keys --reset [--yes]  restore every keybind");
 		puts("       grabit set                  list every settable key");
 		puts("");
 		puts("grabit get <key> reads a key back; grabit unset <key> removes it.");
@@ -198,13 +200,15 @@ int cmd_set(int argc, char **argv) {
 		return 2;
 	}
 
-	bool watch = false, reset = false;
+	bool watch = false, reset = false, yes = false;
 	int positional = 0;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--watch") == 0 || strcmp(argv[i], "-w") == 0)
 			watch = true;
 		else if (strcmp(argv[i], "--reset") == 0)
 			reset = true;
+		else if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+			yes = true;
 		else
 			positional++;
 	}
@@ -217,7 +221,7 @@ int cmd_set(int argc, char **argv) {
 			log_error("usage: grabit set <key> %s", watch ? "--watch" : "--reset");
 			return 2;
 		}
-		return watch ? cmd_set_watch(argv[0]) : cmd_set_reset(argv[0]);
+		return watch ? cmd_set_watch(argv[0]) : cmd_set_reset(argv[0], yes);
 	}
 
 	if (argc == 1 && strcmp(argv[0], "keys") == 0) return cmd_set_keys_list();

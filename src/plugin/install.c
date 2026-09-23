@@ -150,6 +150,12 @@ int plugin_install_git(const char *url) {
 		log_error("plugin: invalid manifest name `%s` (must be [a-z0-9_-]+)", m.name);
 		goto fail_manifest;
 	}
+	if (plugin_name_is_reserved(m.name)) {
+		log_error("plugin: `%s` is a built-in grabit command, so the plugin could "
+				  "never be run; rename it in manifest.toml",
+				  m.name);
+		goto fail_manifest;
+	}
 
 	char *final_dir = NULL;
 	if (grabit_xasprintf(&final_dir, "%s/%s", root, m.name) != 0) goto fail_manifest;

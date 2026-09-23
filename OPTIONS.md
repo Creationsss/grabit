@@ -144,7 +144,7 @@ grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into c
 grabit sxcu add  myhost.sxcu --force          # replace an uploader that already exists
 grabit sxcu list                              # registered names (alias: ls)
 grabit sxcu show <name>                       # parsed fields (auth masked; --show-secrets unmasks)
-grabit sxcu remove <name>                     # alias: rm
+grabit sxcu remove <name> [--yes]             # alias: rm; asks first on a terminal
 ```
 
 added uploaders live at `~/.config/grabit/uploaders/<name>.sxcu` (chmod 0600). once added, use them like a built-in:
@@ -584,7 +584,7 @@ grabit plugin install <git-url>   # clone, build, install (alias: add)
 grabit plugin list                # installed plugins (alias: ls)
 grabit plugin show <name>         # parsed manifest
 grabit plugin update [<name>]     # update one, or all
-grabit plugin remove <name>       # uninstall (alias: rm)
+grabit plugin remove <name> [--yes]  # uninstall (alias: rm); asks first on a terminal
 ```
 
 run one by name - a non-flag first argument resolving to an installed plugin execs `grabit-<name>`:

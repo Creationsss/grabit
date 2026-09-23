@@ -75,17 +75,27 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 		config_free(c);
 		return 1;
 	}
-	int rc = config_set(c, key, val);
 	const char *canon = cfg_canonical_key(key);
+	bool is_state = cfg_is_state_key(canon);
+	int rc;
 	const char *stored = NULL;
-	if (rc == 0) {
+	if (is_state) {
+		const char *keys[1] = {canon};
+		const char *vals[1] = {val};
+		rc = config_state_put(c, keys, vals, 1);
 		stored = config_get(c, canon);
 		if (!stored) stored = val;
-		rc = cfg_persist(c, canon, stored, false);
+	} else {
+		rc = config_set(c, key, val);
+		if (rc == 0) {
+			stored = config_get(c, canon);
+			if (!stored) stored = val;
+			rc = cfg_persist(c, canon, stored, false);
+		}
 	}
 	if (rc == 0) {
-		log_info("set %s = %s", key, cfg_key_is_secret(key) ? "<hidden>" : stored);
-		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
+		log_info("set %s = %s%s", key, cfg_key_is_secret(key) ? "<hidden>" : stored,
+				 is_state ? " (state)" : "");
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;

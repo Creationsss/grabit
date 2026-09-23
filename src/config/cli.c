@@ -36,6 +36,13 @@ static char *split_eq(const char *arg, const char **val_out) {
 	return k;
 }
 
+static bool cfg_writable(struct config *c) {
+	if (!c->unparsed) return true;
+	log_error("%s does not parse; fix it before changing settings",
+			  paths_config_file());
+	return false;
+}
+
 static int cfg_persist(struct config *c, const char *key, const char *val, bool prefix) {
 	const char *path = paths_config_file();
 	if (cfg_file_edit(path, key, val, prefix) == 0) return 0;
@@ -47,6 +54,10 @@ static int cfg_persist(struct config *c, const char *key, const char *val, bool 
 }
 
 static int cfg_store(struct config *c, const char *key, const char *val) {
+	if (!cfg_writable(c)) {
+		config_free(c);
+		return 1;
+	}
 	int rc = config_set(c, key, val);
 	const char *canon = cfg_canonical_key(key);
 	const char *stored = NULL;
@@ -121,6 +132,10 @@ static int cmd_set_reset(const char *key) {
 	}
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (!cfg_writable(&c)) {
+		config_free(&c);
+		return 1;
+	}
 
 	size_t removed = all ? cfg_kv_remove(&c, "keys.", true)
 						 : cfg_kv_remove(&c, key, false);
@@ -296,6 +311,10 @@ int cmd_unset(int argc, char **argv) {
 
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (!cfg_writable(&c)) {
+		config_free(&c);
+		return 1;
+	}
 
 	int rc = 0;
 	bool found = cfg_kv_remove(&c, key, false) > 0;

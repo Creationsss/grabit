@@ -101,6 +101,11 @@ static int kv_strcmp_cmp(const void *a, const void *b) {
 static int config_write_to(struct config *c, const char *path);
 
 int config_save(struct config *c) {
+	if (c->unparsed) {
+		log_error("refusing to overwrite %s while it does not parse",
+				  paths_config_file());
+		return -1;
+	}
 	if (c->overlaid) {
 		log_debug("refusing to write state-overlaid config to %s",
 				  paths_config_file());

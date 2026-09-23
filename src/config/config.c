@@ -6,6 +6,7 @@
 
 #include "config/internal.h"
 #include "log.h"
+#include "notify/notify.h"
 #include "paths.h"
 #include "ui_theme.h"
 #include "util/util.h"
@@ -148,26 +149,23 @@ int config_load(struct config *c) {
 	toml_table_t *root = toml_parse_file(f, errbuf, sizeof errbuf);
 	fclose(f);
 	if (!root) {
-		char *broken = NULL;
-		if (grabit_xasprintf(&broken, "%s.broken", file) != 0 ||
-			rename(file, broken) != 0) {
-			log_error("parse %s: %s", file, errbuf);
-			free(broken);
-			return -1;
-		}
-		log_warn("config %s unparseable (%s); moved to %s, using defaults", file,
-				 errbuf, broken);
-		free(broken);
+		log_error("%s: %s", file, errbuf);
+		log_error("using built-in defaults for this run; fix the file or move it "
+				  "aside, then run `grabit get` to check it");
+		char body[512];
+		snprintf(body, sizeof body, "%s\n%s\nusing defaults until it parses", file,
+				 errbuf);
+		notify_send(&(struct notify_opts){
+			.summary = "Config could not be read",
+			.body = body,
+			.force = true,
+		});
 		if (seed_defaults(c) != 0) {
 			log_error("out of memory");
 			config_free(c);
 			return -1;
 		}
-		if (config_save(c) != 0) {
-			log_error("could not write default config to %s: %s", file, strerror(errno));
-			config_free(c);
-			return -1;
-		}
+		c->unparsed = true;
 		config_apply_runtime(c);
 		return 0;
 	}

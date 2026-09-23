@@ -104,7 +104,9 @@ struct tray_state *tray_start(void) {
 		log_warn("tray: fork failed: %s", strerror(errno));
 		notify_send(&(struct notify_opts){
 			.summary = "Tray icon unavailable",
-			.body = "could not spawn the tray process (transient); recording continues without it",
+			.body = "recording continues without it",
+			.urgency = NOTIFY_LOW,
+			.transient = true,
 		});
 		free(t);
 		return NULL;

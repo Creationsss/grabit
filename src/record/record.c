@@ -140,6 +140,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		log_debug("recording cancelled");
 		notify_send(&(struct notify_opts){
 			.summary = "Recording cancelled",
+			.urgency = NOTIFY_LOW,
+			.transient = true,
 		});
 		return 0;
 	}
@@ -270,6 +272,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	bool aborted = atomic_load_explicit(&grabit_rec_abort, memory_order_relaxed) != 0;
+	unsigned int notify_id = 0;
 
 	tray_stop(tray);
 	controls_stop(controls);
@@ -293,8 +296,11 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			log_debug("recording: finishing %zu segment%s...",
 					  sc.n_segs, sc.n_segs == 1 ? "" : "s");
 			notify_send(&(struct notify_opts){
-				.summary = "Recording finishing",
+				.summary = "Finishing recording",
 				.body = grabit_basename(output_path),
+				.urgency = NOTIFY_LOW,
+				.transient = true,
+				.replaces = &notify_id,
 			});
 		}
 		seg_reap_all(&sc);
@@ -314,14 +320,21 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				.chunked = a->chunked,
 				.secs = secs,
 				.stop = &grabit_rec_stop,
+				.notify_id = &notify_id,
 			};
 			record_publish(cfg, &po);
 		} else {
 			log_error("recording failed; output may be incomplete: %s", output_path);
-			if (explain_missing_encoder(ffmpeg_bin, format))
+			if (explain_missing_encoder(ffmpeg_bin, format)) {
 				rec_fail_notify("ffmpeg lacks the encoder for this recording format");
-			else
-				rec_fail_notify(grabit_basename(output_path));
+			} else {
+				char why[512];
+				snprintf(why, sizeof why,
+						 "could not assemble the segments; the partial recording is "
+						 "at %s",
+						 output_path);
+				rec_fail_notify(why);
+			}
 		}
 	}
 

@@ -164,6 +164,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 	if (region_key_action(&st->keys, KA_CONFIRM, sym, mods)) {
+		if (region_drag_active(st)) return;
 		ginp_region_do_confirm(st);
 		return;
 	}

@@ -102,7 +102,7 @@ static int log_file_fd(void) {
 
 	opening = true;
 	int fd = open(log_file_path(),
-				  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+				  O_RDWR | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
 	opening = false;
 	if (fd < 0) {
 		g_file_on = false;
@@ -116,8 +116,29 @@ static int log_file_fd(void) {
 
 static void log_file_cap(int fd) {
 	if (g_file_written <= LOG_FILE_MAX_BYTES) return;
-	if (ftruncate(fd, 0) != 0) return;
+	size_t keep = LOG_FILE_MAX_BYTES / 4;
+	char *tail = malloc(keep);
+	ssize_t got = -1;
+	if (tail) {
+		off_t from = (off_t)g_file_written - (off_t)keep;
+		got = pread(fd, tail, keep, from < 0 ? 0 : from);
+	}
+	if (ftruncate(fd, 0) != 0) {
+		free(tail);
+		return;
+	}
 	g_file_written = 0;
+	if (got > 0) {
+		const char *start = tail;
+		size_t len = (size_t)got;
+		char *nl = memchr(tail, '\n', len);
+		if (nl && (size_t)(nl - tail + 1) < len) {
+			len -= (size_t)(nl - tail + 1);
+			start = nl + 1;
+		}
+		if (write(fd, start, len) == (ssize_t)len) g_file_written = len;
+	}
+	free(tail);
 }
 
 static void emit_file(const char *prefix, const char *msg) {

@@ -42,7 +42,8 @@ const char *gup_resolve_auth(struct config *cfg, const char *service) {
 	const char *auth = getenv(env_key);
 	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
 	if (!auth || !auth[0]) {
-		log_error("no auth token for %s: set $%s or run `grabit set %s <token>`",
+		log_error("no auth token for %s: set $%s, or run `grabit set %s -` and paste "
+				  "the token (keeps it out of shell history)",
 				  service, env_key, cfg_key);
 		return NULL;
 	}
@@ -126,7 +127,8 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 
 	if (!gup_resolve_auth(cfg, service)) {
 		char body[160];
-		snprintf(body, sizeof body, "run: grabit set services.%s.auth <token>", service);
+		snprintf(body, sizeof body,
+				 "run: grabit set services.%s.auth - (then paste the token)", service);
 		notify_send(&(struct notify_opts){
 			.summary = "Missing auth token",
 			.body = body,

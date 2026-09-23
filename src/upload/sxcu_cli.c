@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "upload/upload.h"
 
+#include "config/internal.h"
 #include "log.h"
 #include "upload/sxcu.h"
 #include "util/util.h"
@@ -48,26 +49,9 @@ static int do_list(void) {
 	return 0;
 }
 
-static bool contains_ci(const char *hay, const char *needle) {
-	size_t n = strlen(needle);
-	for (; *hay; hay++)
-		if (strncasecmp(hay, needle, n) == 0) return true;
-	return false;
-}
-
-static bool key_is_secret(const char *k) {
-	static const char *const NEEDLES[] = {"auth", "secret", "token", "key",
-										  "password", "passwd", "session",
-										  "cookie", "bearer", NULL};
-	if (!k) return false;
-	for (size_t i = 0; NEEDLES[i]; i++)
-		if (contains_ci(k, NEEDLES[i])) return true;
-	return false;
-}
-
 static void show_kv(const char *label, const char *k, const char *sep,
 					const char *v, bool reveal) {
-	if (!reveal && key_is_secret(k))
+	if (!reveal && cfg_key_is_secret(k))
 		printf("%s%s%s<hidden>\n", label, k, sep);
 	else
 		printf("%s%s%s%s\n", label, k, sep, v ? v : "");

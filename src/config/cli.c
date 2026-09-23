@@ -53,6 +53,22 @@ static int cfg_persist(struct config *c, const char *key, const char *val, bool 
 	return config_save(c);
 }
 
+static char *read_value_stdin(void) {
+	char buf[4096];
+	if (!fgets(buf, sizeof buf, stdin)) {
+		log_error("no value on stdin");
+		return NULL;
+	}
+	size_t n = strlen(buf);
+	while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r'))
+		buf[--n] = '\0';
+	if (n == 0) {
+		log_error("no value on stdin");
+		return NULL;
+	}
+	return strdup(buf);
+}
+
 static int cfg_store(struct config *c, const char *key, const char *val) {
 	if (!cfg_writable(c)) {
 		config_free(c);
@@ -67,7 +83,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 		rc = cfg_persist(c, canon, stored, false);
 	}
 	if (rc == 0) {
-		log_info("set %s = %s", key, stored);
+		log_info("set %s = %s", key, cfg_key_is_secret(key) ? "<hidden>" : stored);
 		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
 	}
 	config_free(c);
@@ -158,6 +174,7 @@ static int cmd_set_reset(const char *key) {
 int cmd_set(int argc, char **argv) {
 	if (wants_help(argc, argv)) {
 		puts("Usage: grabit set <key> <value>    write a config key (validated)");
+		puts("       grabit set <key> -          read the value from stdin");
 		puts("       grabit set <key>=<value>    same, single argument");
 		puts("       grabit set edit.swatches <n> <color>");
 		puts("                                   set one swatch, n is 1-6,");
@@ -232,7 +249,10 @@ int cmd_set(int argc, char **argv) {
 		const char *current = NULL;
 		bool loaded = config_load_full(&c) == 0;
 		if (loaded) current = config_get(&c, argv[0]);
-		printf("current: %s\n", current ? current : "(unset)");
+		printf("current: %s\n",
+			   !current						? "(unset)"
+			   : cfg_key_is_secret(argv[0]) ? "<hidden>"
+											: current);
 		if (loaded) config_free(&c);
 		return 0;
 	}
@@ -257,36 +277,56 @@ int cmd_set(int argc, char **argv) {
 	}
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (strcmp(argv[1], "-") == 0) {
+		char *v = read_value_stdin();
+		if (!v) {
+			config_free(&c);
+			return 2;
+		}
+		int rc = cfg_store(&c, argv[0], v);
+		free(v);
+		return rc;
+	}
 	return cfg_store(&c, argv[0], argv[1]);
 }
 
 int cmd_get(int argc, char **argv) {
 	if (wants_help(argc, argv)) {
-		puts("usage: grabit get [<key>]");
+		puts("usage: grabit get [<key>] [--show-secrets]");
 		return 0;
 	}
-	if (argc > 1) {
-		log_error("usage: grabit get [<key>]");
-		return 2;
+	bool reveal = false;
+	const char *key = NULL;
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--show-secrets") == 0)
+			reveal = true;
+		else if (!key)
+			key = argv[i];
+		else {
+			log_error("usage: grabit get [<key>] [--show-secrets]");
+			return 2;
+		}
 	}
 	struct config c;
 	if (config_load_full(&c) != 0) return 1;
 
 	int rc = 0;
-	if (argc == 0) {
+	if (!key) {
 		if (c.n > 1) qsort(c.kvs, c.n, sizeof *c.kvs, gcfg_cmp_kv);
 		for (size_t i = 0; i < c.n; i++) {
-			printf("%s = %s\n", c.kvs[i].key, c.kvs[i].val);
+			bool hide = !reveal && cfg_key_is_secret(c.kvs[i].key);
+			printf("%s = %s\n", c.kvs[i].key, hide ? "<hidden>" : c.kvs[i].val);
 		}
+		if (!reveal) log_info("secrets hidden; --show-secrets reveals them");
 	} else {
-		const char *v = config_get(&c, argv[0]);
+		const char *v = config_get(&c, key);
 		if (v) {
-			puts(v);
-		} else if (!cfg_key_is_known(argv[0])) {
-			cfg_help_report_unknown_key(argv[0]);
+			puts(!reveal && cfg_key_is_secret(key) ? "<hidden>" : v);
+		} else if (!cfg_key_is_known(key)) {
+			cfg_help_report_unknown_key(key);
 			rc = 2;
 		} else {
-			log_error("not set: `%s`", argv[0]);
+			log_error("not set: `%s`", key);
 			rc = 1;
 		}
 	}

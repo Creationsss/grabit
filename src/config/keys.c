@@ -6,6 +6,7 @@
 #include "config/internal.h"
 #include "region/keybinds.h"
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -70,6 +71,27 @@ static const char *KNOWN_SERVICES[] = {
 	"pixelvault",
 	NULL,
 };
+
+static bool contains_ci(const char *hay, const char *needle) {
+	size_t nl = strlen(needle);
+	for (const char *p = hay; *p; p++) {
+		size_t i = 0;
+		while (i < nl && p[i] && tolower((unsigned char)p[i]) == needle[i])
+			i++;
+		if (i == nl) return true;
+	}
+	return false;
+}
+
+bool cfg_key_is_secret(const char *key) {
+	static const char *const NEEDLES[] = {"auth", "secret", "token", "key",
+										  "password", "passwd", "session",
+										  "cookie", "bearer", NULL};
+	if (!key) return false;
+	for (size_t i = 0; NEEDLES[i]; i++)
+		if (contains_ci(key, NEEDLES[i])) return true;
+	return false;
+}
 
 bool cfg_in_list(const char *needle, const char *const *list) {
 	for (size_t i = 0; list[i]; i++) {

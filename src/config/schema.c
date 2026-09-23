@@ -142,12 +142,7 @@ const char *cfg_canonical_key(const char *key) {
 	return strcmp(key, "save_captures") == 0 ? "also_save" : key;
 }
 
-int config_set(struct config *c, const char *key, const char *value) {
-	key = cfg_canonical_key(key);
-	if (!cfg_key_is_known(key)) {
-		cfg_help_report_unknown_key(key);
-		return -1;
-	}
+int cfg_validate_value(const char *key, const char *value) {
 	if (strcmp(key, "save_dir") == 0 && value[0] != '/' && value[0] != '~') {
 		log_error("save_dir must be an absolute path or start with ~/");
 		log_error("  a relative path is resolved against whatever directory grabit "
@@ -214,6 +209,17 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {
 		if (gcfg_validate_zl_header(key + strlen(zl_prefix), value) != 0) return -1;
 	}
+
+	return 0;
+}
+
+int config_set(struct config *c, const char *key, const char *value) {
+	key = cfg_canonical_key(key);
+	if (!cfg_key_is_known(key)) {
+		cfg_help_report_unknown_key(key);
+		return -1;
+	}
+	if (cfg_validate_value(key, value) != 0) return -1;
 
 	char *normalized = NULL;
 	if (strcmp(key, "services.zipline.domain") == 0) {

@@ -31,6 +31,14 @@ static void note_unknown(const char *full) {
 		log_warn("config: unknown key `%s`; it has no effect", full);
 }
 
+static bool accept_value(const char *full, const char *val) {
+	note_unknown(full);
+	if (!cfg_key_is_known(full)) return true;
+	if (cfg_validate_value(full, val) == 0) return true;
+	log_warn("config: ignoring %s = %s; using the default", full, val);
+	return false;
+}
+
 static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) {
 	for (int i = 0;; i++) {
 		const char *k = toml_key_in(t, i);
@@ -46,8 +54,7 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t s = toml_string_in(t, k);
 		if (s.ok) {
-			note_unknown(full);
-			int rc = cfg_kv_upsert(c, full, s.u.s);
+			int rc = accept_value(full, s.u.s) ? cfg_kv_upsert(c, full, s.u.s) : 0;
 			free(s.u.s);
 			free(full);
 			if (rc != 0) return -1;
@@ -56,8 +63,8 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t b = toml_bool_in(t, k);
 		if (b.ok) {
-			note_unknown(full);
-			int rc = cfg_kv_upsert(c, full, b.u.b ? "true" : "false");
+			const char *bv = b.u.b ? "true" : "false";
+			int rc = accept_value(full, bv) ? cfg_kv_upsert(c, full, bv) : 0;
 			free(full);
 			if (rc != 0) return -1;
 			continue;
@@ -65,10 +72,9 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t n = toml_int_in(t, k);
 		if (n.ok) {
-			note_unknown(full);
 			char buf[32];
 			snprintf(buf, sizeof buf, "%lld", (long long)n.u.i);
-			int rc = cfg_kv_upsert(c, full, buf);
+			int rc = accept_value(full, buf) ? cfg_kv_upsert(c, full, buf) : 0;
 			free(full);
 			if (rc != 0) return -1;
 			continue;

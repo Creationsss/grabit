@@ -313,11 +313,13 @@ int cmd_get(int argc, char **argv) {
 	int rc = 0;
 	if (!key) {
 		if (c.n > 1) qsort(c.kvs, c.n, sizeof *c.kvs, gcfg_cmp_kv);
+		bool hid = false;
 		for (size_t i = 0; i < c.n; i++) {
 			bool hide = !reveal && cfg_key_is_secret(c.kvs[i].key);
+			hid |= hide;
 			printf("%s = %s\n", c.kvs[i].key, hide ? "<hidden>" : c.kvs[i].val);
 		}
-		if (!reveal) log_info("secrets hidden; --show-secrets reveals them");
+		if (hid) log_info("secrets hidden; --show-secrets reveals them");
 	} else {
 		const char *v = config_get(&c, key);
 		if (v) {

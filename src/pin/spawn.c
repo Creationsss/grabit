@@ -84,7 +84,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 
 	if (probe_layer_shell() != 0) {
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: layer-shell unsupported",
+			.summary = "Layer-shell unsupported",
 			.body = "compositor lacks layer-shell",
 			.log_hint = true,
 		});
@@ -94,7 +94,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 	cairo_surface_t *img = grabit_load_png_surface(path, "pin");
 	if (!img) {
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: pin failed",
+			.summary = "Pin failed",
 			.body = "could not load image",
 			.force = true,
 		});
@@ -114,7 +114,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		if (sync_p[1] >= 0) close(sync_p[1]);
 		cairo_surface_destroy(img);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: pin failed",
+			.summary = "Pin failed",
 			.body = "could not fork pin process",
 			.force = true,
 		});
@@ -156,7 +156,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 	if (!reaped || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 		log_error("pin: detach failed");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: pin failed",
+			.summary = "Pin failed",
 			.body = "could not detach pin process",
 			.force = true,
 		});

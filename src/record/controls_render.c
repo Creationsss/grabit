@@ -59,8 +59,13 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	cairo_fill(cr);
 
 	char tbuf[32];
-	snprintf(tbuf, sizeof tbuf, "%lld:%02lld",
-			 (long long)(c->secs / 60), (long long)(c->secs % 60));
+	long long hrs = (long long)(c->secs / 3600);
+	long long mins = (long long)((c->secs / 60) % 60);
+	long long secs = (long long)(c->secs % 60);
+	if (hrs > 0)
+		snprintf(tbuf, sizeof tbuf, "%lld:%02lld:%02lld", hrs, mins, secs);
+	else
+		snprintf(tbuf, sizeof tbuf, "%lld:%02lld", mins, secs);
 	cairo_select_font_face(cr, "sans-serif",
 						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 14.0);

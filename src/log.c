@@ -26,6 +26,7 @@ static bool g_color;
 static int g_file_fd = -1;
 static bool g_file_on = true;
 static bool g_file_locked;
+static bool g_no_color;
 static size_t g_file_written;
 
 static const char *C_RED = "";
@@ -35,6 +36,10 @@ static const char *C_RESET = "";
 
 bool log_is_silent(void) {
 	return g_silent;
+}
+
+void log_color_disable(void) {
+	g_no_color = true;
 }
 
 void log_init(bool silent, bool debug) {
@@ -50,7 +55,10 @@ void log_init(bool silent, bool debug) {
 	g_file_locked = lf && lf[0];
 	if (g_file_locked) g_file_on = strcmp(lf, "0") != 0;
 
-	g_color = isatty(STDERR_FILENO) && getenv("NO_COLOR") == NULL;
+	const char *nc = getenv("NO_COLOR");
+	const char *term = getenv("TERM");
+	g_color = isatty(STDERR_FILENO) && !g_no_color && !(nc && nc[0]) &&
+			  !(term && strcmp(term, "dumb") == 0);
 	if (g_color) {
 		C_RED = "\033[31m";
 		C_YELLOW = "\033[33m";
@@ -59,7 +67,7 @@ void log_init(bool silent, bool debug) {
 	}
 }
 
-static const char *log_file_path(void) {
+const char *log_file_path(void) {
 	static char path[256];
 	if (path[0]) return path;
 	char dir[200];

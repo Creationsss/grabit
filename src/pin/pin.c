@@ -90,7 +90,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	if (wls.n_outputs == 0) {
 		log_error("pin: no outputs available; cannot show card");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: show failed",
+			.summary = "Show failed",
 			.body = "no monitor is connected",
 			.force = true,
 		});

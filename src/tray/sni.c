@@ -28,7 +28,7 @@ struct sni_ctx {
 
 static void notify_tray_unavailable(const char *body) {
 	notify_send(&(struct notify_opts){
-		.summary = "grabit: tray unavailable",
+		.summary = "Tray unavailable",
 		.body = body,
 		.log_hint = true,
 	});

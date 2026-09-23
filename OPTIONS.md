@@ -27,9 +27,9 @@ make
 ```sh
 make             # release build into build/grabit
 make sanitize    # asan + ubsan into build-san/grabit
-make install     # to $(DESTDIR)$(PREFIX)/bin/grabit
+make install     # binary, man page and grabit.desktop to $(DESTDIR)$(PREFIX)
 make clean
-make test        # spdx-header lint
+make test        # spdx headers, doc sync, self-contained headers
 make apply-headers
 make fmt         # clang-format -i
 make fmt-check   # dry-run, errors on diff
@@ -166,14 +166,14 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 |---|---|---|
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
-| `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
+| `notifications` | bool | enable desktop notifications (default `true`); failure notifications are still sent (see `--silent` in `man grabit`) |
 | `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the color swatches, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
-| `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
+| `format` | enum | screenshot output format: `png`/`jpeg` (alias `jpg`)/`webp` (default `png`). per-run override: `--format <name>` |
 
 ### capture backend
 
@@ -272,13 +272,13 @@ grabit --record               # stop
 
 KDE and GNOME both hand back a pipewire node, so a `libpipewire-0.3` build is required for either. neither shows a portal dialog.
 
-KWin keeps `zkde_screencast_unstable_v1` on an interface blacklist and only grants it to programs whose installed `.desktop` declares `X-KDE-Wayland-Interfaces`, so recording on KDE needs `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
+KWin keeps both `org.kde.KWin.ScreenShot2` and `zkde_screencast_unstable_v1` behind an allow-list and only grants them to programs whose installed `.desktop` declares `X-KDE-DBUS-Restricted-Interfaces` (screenshots) and `X-KDE-Wayland-Interfaces` (recording), so both on KDE need `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
 
 GNOME has no `zwlr_layer_shell_v1`, so the region selector, overlay and control bar do not appear. pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record`. `org.gnome.Mutter.ScreenCast` is a private API, so a GNOME upgrade can break recording there.
 
 while recording you'll see:
 - a thin red border around the captured region
-- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
+- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; it stays where it is placed (unlike the editor toolbar, it cannot be dragged)
 - a recording icon in your status bar tray (waybar with `tray` module, etc.)
 
 the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.
@@ -369,7 +369,7 @@ requires `tesseract` on `$PATH` and the training data for the language you OCR i
 
 | key | default | notes |
 |---|---|---|
-| `ocr.tesseract` | `tesseract` | path to the tesseract binary |
+| `ocr.tesseract` | `tesseract-ocr`, then `tesseract` | path to the tesseract binary |
 | `ocr.lang` | `eng` | language passed to tesseract's `-l`. combine with `+` (e.g. `eng+deu`). needs the matching traineddata installed; list what you have with `tesseract --list-langs` |
 
 ```sh
@@ -453,7 +453,7 @@ the preview is the scaled screenshot with a thin dark border. hovering over it o
 - after `-o`: runs `xdg-open <dir>` (opens the containing folder in your file manager)
 - after `-c`: just dismisses (the file may already be gone if it was a temp)
 
-the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
+the `--show` text card is click-through (no input region); the preview card takes hover and click as above. running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
 
 
 ## fullscreen
@@ -521,7 +521,7 @@ grabit -e -o                  # annotate, then save
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (hex digits only, `rrggbb` or `rgb`; the `#` is implied), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). the wheel sizes the font instead (8-72) while text, counter or callout is active
-- **undo** (`u` or `ctrl+z`) / **redo** (`ctrl+y` or `ctrl+shift+z`), hold to repeat - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
+- **undo** (`u` or `ctrl+z`, hold to repeat) / **redo** (`ctrl+y` or `ctrl+shift+z`) - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region (with a drawing tool active)
 - **shift** while drawing constrains rect/rounded rect/ellipse/blur/pixelate/spotlight to squares and arrows/lines to 45° angles
 - **arrow keys / shift+arrows** still move and resize the capture region while the editor is open

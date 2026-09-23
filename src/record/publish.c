@@ -68,12 +68,13 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 	int up_rc = upload_perform(po->upload_service, po->output_path, cfg,
 							   po->chunked, &ur);
 	if (up_rc == 0 && ur.url) {
-		clipboard_set_text(ur.url);
+		bool copied = clipboard_set_text(ur.url) == 0;
 		puts(ur.url);
 		fflush(stdout);
 		notify_send(&(struct notify_opts){
 			.summary = "Recording uploaded",
-			.body = "link copied to clipboard",
+			.body = copied ? "link copied to clipboard"
+						   : "link is on stdout; clipboard write failed",
 		});
 		if (!po->keep_locally) unlink(po->output_path);
 	} else {

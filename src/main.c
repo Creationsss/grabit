@@ -61,7 +61,7 @@ static int run(const struct args *a) {
 		const char *v = config_get(&cfg, "region.repeat_last");
 		if (v && strcmp(v, "true") == 0) eff_a.last_region = true;
 	}
-	if (eff_a.delay_secs == 0)
+	if (!eff_a.delay_set)
 		eff_a.delay_secs = config_get_int_clamp(&cfg, "capture.delay", 0, 0, 3600);
 	a = &eff_a;
 
@@ -100,7 +100,7 @@ static int run(const struct args *a) {
 	default:
 		log_error("no action specified; try -u, -c, -o, --pin, --record, or --tesseract");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: no action set",
+			.summary = "No action set",
 			.body = "run `grabit set default_action upload|copy|save|pin`",
 		});
 		rc = 1;
@@ -157,6 +157,12 @@ int main(int argc, char **argv) {
 			int prc = gapp_try_dispatch_plugin(first, argc - 1, argv + 1);
 			if (prc >= 0) return prc;
 		}
+	}
+
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--") == 0) break;
+		if (args_is_version_flag(argv[i])) return gapp_print_version();
+		if (args_is_help_flag(argv[i])) return gapp_print_help();
 	}
 
 	struct args a;

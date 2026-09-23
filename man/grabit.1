@@ -147,7 +147,9 @@ translate the OCR text and copy the translation instead.
 .I lang
 is the target language (default
 .BR en ;
-source auto-detected). Falls back to raw OCR if the call fails (20s cap).
+source auto-detected). Falls back to raw OCR if the call fails (20s cap for
+.BR trans ,
+30s for libretranslate and deepl).
 .B translate.backend
 picks the translator:
 .BR trans " (default), " libretranslate ", or " deepl .
@@ -261,19 +263,6 @@ and
 removes the selected ones. There is also an HSL color picker with an eyedropper
 and a width slider (or the scroll wheel, which sizes the font instead for text,
 counter and callout).
-The six color buttons can be repointed with
-.B edit.swatches
-(six comma separated
-.IR #rrggbb ,
-.I #rgb
-or named colors), or one at a time with
-.BR "grabit set edit.swatches " <n> " " <color> ,
-where
-.I <color>
-may be
-.B default
-to restore that one. Clicking a swatch that is already selected opens the color
-picker on it, with a reset button beside the eyedropper.
 Undo
 .RB ( u
 or
@@ -644,7 +633,7 @@ Active window title.
 and
 .B %t
 read the focused toplevel over
-.BR wlr\-foreign\-toplevel\-management\-v1 ,
+.BR wlr\-foreign\-toplevel\-management\-unstable\-v1 ,
 so they work on Hyprland, sway, niri, and river, and resolve to empty where
 that protocol is missing.)
 .TP

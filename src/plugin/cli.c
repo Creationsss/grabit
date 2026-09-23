@@ -78,11 +78,14 @@ static int do_show(const char *name) {
 }
 
 int cmd_plugin(int argc, char **argv) {
-	if (argc < 1) return usage();
-	const char *sub = argv[0];
-	if (strcmp(sub, "--help") == 0 || strcmp(sub, "-h") == 0) {
-		return help();
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) return help();
 	}
+	if (argc < 1) {
+		help();
+		return 2;
+	}
+	const char *sub = argv[0];
 	if (strcmp(sub, "install") == 0 || strcmp(sub, "add") == 0) {
 		if (argc != 2) {
 			log_error("usage: grabit plugin install <git-url>");

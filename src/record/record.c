@@ -102,8 +102,8 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct grabit_wl_state s;
 	if (grabit_wl_init(&s) != 0) {
 		notify_send(&(struct notify_opts){
-			.summary = "grabit",
-			.body = "could not connect to wayland compositor",
+			.summary = "Cannot reach the compositor",
+			.body = "grabit needs a running wayland session",
 			.force = true,
 		});
 		return 1;

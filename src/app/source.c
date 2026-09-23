@@ -209,8 +209,8 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	struct grabit_wl_state s;
 	if (grabit_wl_init(&s) != 0) {
 		notify_send(&(struct notify_opts){
-			.summary = "grabit",
-			.body = "could not connect to wayland compositor",
+			.summary = "Cannot reach the compositor",
+			.body = "grabit needs a running wayland session",
 			.force = true,
 		});
 		return NULL;
@@ -218,8 +218,8 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	if (!capture_require_available(&s)) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit",
-			.body = "this compositor has no screen-capture protocol",
+			.summary = "No capture protocol",
+			.body = "this compositor supports none of the capture protocols grabit can use",
 			.force = true,
 		});
 		return NULL;
@@ -239,7 +239,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: fullscreen failed",
+			.summary = "Fullscreen failed",
 			.body = "no matching monitor",
 			.force = true,
 		});
@@ -251,7 +251,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	if (!path) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: capture failed",
+			.summary = "Capture failed",
 			.body = "could not build output path",
 			.force = true,
 		});
@@ -269,7 +269,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 		if (capture_wm_window(cfg, cursor, &opts, path) != 0) {
 			log_error("--window: %s cannot capture the active window",
 					  grabit_wm_current_name());
-			return discard_capture(path, "grabit: window capture failed");
+			return discard_capture(path, "Window capture failed");
 		}
 		if (a->edit)
 			log_warn("--window: %s rendered the window itself, so it was captured "
@@ -307,7 +307,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	if (rc != 0)
 		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
 										 ? NULL
-										 : "grabit: capture failed");
+										 : "Capture failed");
 
 	log_debug("captured to %s", path);
 	return path;
@@ -345,7 +345,7 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 			}
 			return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
 											 ? NULL
-											 : "grabit: edit failed");
+											 : "Edit failed");
 		}
 		return path;
 	}

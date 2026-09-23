@@ -115,6 +115,7 @@ static void motion_event(struct pin_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	st->cy = st->ptr_on->go->y + wl_fixed_to_int(sy);
 	if (st->dragging)
 		pin_move_to(st, st->cx - st->grab_dx, st->cy - st->grab_dy);
+	pin_dismiss_rearm(st);
 	pin_cursor_update(st);
 }
 

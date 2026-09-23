@@ -19,7 +19,7 @@
 
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_modifier[] = {"ctrl", "shift", "alt", "super", NULL};
-static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
+static const char *VALS_format[] = {"png", "jpeg", "jpg", "webp", NULL};
 static const char *VALS_translate_backend[] = {"trans", "libretranslate", "deepl", NULL};
 
 static const char *VALS_x264_tune[] = {

@@ -22,6 +22,12 @@ static bool is_help_arg(const char *s) {
 	return s && (strcmp(s, "--help") == 0 || strcmp(s, "-h") == 0);
 }
 
+static bool wants_help(int argc, char **argv) {
+	for (int i = 0; i < argc; i++)
+		if (is_help_arg(argv[i])) return true;
+	return false;
+}
+
 static char *split_eq(const char *arg, const char **val_out) {
 	const char *eq = strchr(arg, '=');
 	if (!eq) return NULL;
@@ -135,7 +141,7 @@ static int cmd_set_reset(const char *key) {
 }
 
 int cmd_set(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
+	if (wants_help(argc, argv)) {
 		puts("Usage: grabit set <key> <value>    write a config key (validated)");
 		puts("       grabit set <key>=<value>    same, single argument");
 		puts("       grabit set edit.swatches <n> <color>");
@@ -240,7 +246,7 @@ int cmd_set(int argc, char **argv) {
 }
 
 int cmd_get(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
+	if (wants_help(argc, argv)) {
 		puts("usage: grabit get [<key>]");
 		return 0;
 	}
@@ -274,7 +280,7 @@ int cmd_get(int argc, char **argv) {
 }
 
 int cmd_unset(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
+	if (wants_help(argc, argv)) {
 		puts("usage: grabit unset <key>");
 		return 0;
 	}
@@ -282,22 +288,33 @@ int cmd_unset(int argc, char **argv) {
 		log_error("usage: grabit unset <key>");
 		return 2;
 	}
+	const char *key = cfg_canonical_key(argv[0]);
+	if (!cfg_key_is_known(key)) {
+		cfg_help_report_unknown_key(argv[0]);
+		return 2;
+	}
+
 	struct config c;
 	if (config_load(&c) != 0) return 1;
 
 	int rc = 0;
-	bool found = cfg_kv_remove(&c, argv[0], false) > 0;
-	if (cfg_is_state_key(argv[0])) {
-		(void)config_state_clear(&c, argv[0]);
+	bool found = cfg_kv_remove(&c, key, false) > 0;
+	if (strcmp(key, argv[0]) != 0) found |= cfg_kv_remove(&c, argv[0], false) > 0;
+	if (cfg_is_state_key(key)) {
+		(void)config_state_clear(&c, key);
 		found = true;
 	}
 	if (!found) {
-		log_info("%s was not set", argv[0]);
-	} else if (cfg_persist(&c, cfg_canonical_key(argv[0]), NULL, false) != 0) {
+		log_info("%s was not set", key);
+	} else if (cfg_persist(&c, key, NULL, false) != 0 ||
+			   (strcmp(key, argv[0]) != 0 &&
+				cfg_persist(&c, argv[0], NULL, false) != 0)) {
 		log_error("could not save config");
 		rc = 1;
+	} else if (strcmp(key, argv[0]) != 0) {
+		log_info("unset %s (%s)", argv[0], key);
 	} else {
-		log_info("unset %s", argv[0]);
+		log_info("unset %s", key);
 	}
 	config_free(&c);
 	return rc;

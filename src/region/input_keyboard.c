@@ -49,6 +49,10 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (st->cleanup) return;
 	region_nudge_disarm(st);
 	region_undo_disarm(st);
+	if (st->magnifier_held) {
+		st->magnifier_held = false;
+		region_render_request_redraw_all(st);
+	}
 }
 
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {

@@ -58,8 +58,8 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	const char *summary = utf8_safe(o->summary, summary_buf, sizeof summary_buf);
 	const char *body = utf8_safe(o->body, scrub_buf, sizeof scrub_buf);
 	if ((o->log_hint || o->force) && log_file_enabled()) {
-		snprintf(body_buf, sizeof body_buf, "%s%scheck the log file",
-				 body, body[0] ? "\n" : "");
+		snprintf(body_buf, sizeof body_buf, "%s%ssee %s", body, body[0] ? "\n" : "",
+				 log_file_path());
 		body = body_buf;
 	}
 	dbus_uint32_t replaces = 0;

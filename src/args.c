@@ -7,13 +7,23 @@
 #include "upload/upload.h"
 #include "util/util.h"
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static bool is_silent_flag(const char *a) {
 	return strcmp(a, "--silent") == 0 || strcmp(a, "--quiet") == 0 ||
 		   strcmp(a, "-q") == 0;
+}
+
+bool args_is_help_flag(const char *a) {
+	return strcmp(a, "--help") == 0 || strcmp(a, "-h") == 0;
+}
+
+bool args_is_version_flag(const char *a) {
+	return strcmp(a, "--version") == 0 || strcmp(a, "-V") == 0;
 }
 
 static bool is_debug_flag(const char *a) {
@@ -45,6 +55,9 @@ void args_pre_scan(int argc, char **argv, bool *silent, bool *debug) {
 			*silent = true;
 		else if (is_debug_flag(argv[i]))
 			*debug = true;
+		else if (strcmp(argv[i], "--no-color") == 0 ||
+				 strcmp(argv[i], "--no-colour") == 0)
+			log_color_disable();
 	}
 }
 
@@ -156,10 +169,12 @@ int args_parse(int argc, char **argv, struct args *out) {
 				return -1;
 			}
 			if (parse_delay(argv[i], &out->delay_secs) != 0) return -1;
+			out->delay_set = true;
 			continue;
 		}
 		if (strncmp(arg, "--delay=", 8) == 0) {
 			if (parse_delay(arg + 8, &out->delay_secs) != 0) return -1;
+			out->delay_set = true;
 			continue;
 		}
 		if (strcmp(arg, "--chunked") == 0) {
@@ -189,6 +204,9 @@ int args_parse(int argc, char **argv, struct args *out) {
 		}
 		if (strcmp(arg, "--no-upload") == 0) {
 			out->no_upload = true;
+			continue;
+		}
+		if (strcmp(arg, "--no-color") == 0 || strcmp(arg, "--no-colour") == 0) {
 			continue;
 		}
 		if (is_silent_flag(arg)) {
@@ -291,6 +309,11 @@ int args_parse(int argc, char **argv, struct args *out) {
 		return -1;
 	}
 
+	if (out->file && access(out->file, R_OK) != 0) {
+		log_error("cannot read %s: %s", out->file, strerror(errno));
+		return -1;
+	}
+
 	if (out->service && out->action != ACTION_UPLOAD &&
 		out->action != ACTION_RECORD && out->action != ACTION_NONE) {
 		log_error("--%s only makes sense with -u or --record", out->service);
@@ -321,16 +344,16 @@ int args_parse(int argc, char **argv, struct args *out) {
 							out->action == ACTION_PIN ||
 							out->action == ACTION_OCR ||
 							out->action == ACTION_NONE;
-		if (!edit_applies) log_debug("--edit is ignored for this action");
+		if (!edit_applies) log_warn("--edit is ignored for this action");
 	}
 	if (out->no_tray && out->action != ACTION_RECORD && out->action != ACTION_NONE) {
-		log_debug("--no-tray only applies to --record");
+		log_warn("--no-tray only applies to --record");
 	}
 	if (out->file && out->format) {
-		log_debug("--format is ignored when -f is used");
+		log_warn("--format is ignored when -f is used");
 	}
 	if (out->file && out->filename_tpl) {
-		log_debug("--filename is ignored when -f is used");
+		log_warn("--filename is ignored when -f is used");
 	}
 	if (out->translate && out->action != ACTION_OCR) {
 		log_warn("--translate only applies to --tesseract");
@@ -341,7 +364,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 		out->show = false;
 	}
 	if (out->no_copy && out->action != ACTION_OCR) {
-		log_debug("--no-copy only applies to --tesseract");
+		log_warn("--no-copy only applies to --tesseract");
 		out->no_copy = false;
 	} else if (out->no_copy && !out->show) {
 		log_warn("--no-copy without --show discards the OCR text");

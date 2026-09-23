@@ -42,12 +42,13 @@ int gapp_run_upload(struct config *cfg, const struct args *a) {
 	int rc = upload_perform(service, path, cfg, a->chunked, &r);
 
 	if (rc == 0) {
-		clipboard_set_text(r.url);
+		bool copied = clipboard_set_text(r.url) == 0;
 		char *m = mime_for_file(path);
 		const char *summary = mime_is_video(m) ? "Video uploaded" : "Uploaded";
 		struct notify_opts opts = {
 			.summary = summary,
-			.body = "link copied to clipboard",
+			.body = copied ? "link copied to clipboard"
+						   : "link is on stdout; clipboard write failed",
 			.icon_path = mime_is_image(m) ? path : NULL,
 		};
 		notify_send(&opts);
@@ -63,15 +64,17 @@ int gapp_run_upload(struct config *cfg, const struct args *a) {
 	} else {
 		char body[256];
 		upload_friendly_error(&r, body, sizeof body);
+		char kept[512] = {0};
 		if (is_temp) {
-			log_info("upload failed; capture kept at %s", path);
-			log_info("retry with: grabit -f %s --%s", path, service);
+			log_error("upload failed; capture kept at %s", path);
+			log_error("retry with: grabit -f %s --%s", path, service);
+			snprintf(kept, sizeof kept, "%s\nkept at %s", body, path);
 			is_temp = false;
 			gapp_clear_tmpfile();
 		}
 		notify_send(&(struct notify_opts){
 			.summary = "Upload failed",
-			.body = body,
+			.body = kept[0] ? kept : body,
 			.force = true,
 		});
 	}
@@ -120,14 +123,12 @@ int gapp_run_output(struct config *cfg, const struct args *a) {
 	if (!path) return 1;
 
 	puts(path);
-	if (isatty(STDOUT_FILENO)) {
-		notify_send(&(struct notify_opts){
-			.summary = "Saved",
-			.body = grabit_basename(path),
-			.icon_path = path,
-		});
-		grabit_sound_play(cfg);
-	}
+	notify_send(&(struct notify_opts){
+		.summary = "Saved",
+		.body = grabit_basename(path),
+		.icon_path = path,
+	});
+	grabit_sound_play(cfg);
 	char dir[4096];
 	snprintf(dir, sizeof dir, "%s", path);
 	char *slash = strrchr(dir, '/');

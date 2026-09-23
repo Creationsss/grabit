@@ -100,11 +100,14 @@ static int do_show(const char *name, bool reveal) {
 }
 
 int cmd_sxcu(int argc, char **argv) {
-	if (argc < 1) return usage();
-	const char *sub = argv[0];
-	if (strcmp(sub, "--help") == 0 || strcmp(sub, "-h") == 0) {
-		return help();
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) return help();
 	}
+	if (argc < 1) {
+		help();
+		return 2;
+	}
+	const char *sub = argv[0];
 	if (strcmp(sub, "add") == 0 || strcmp(sub, "install") == 0) {
 		bool force = false;
 		const char *file = NULL;

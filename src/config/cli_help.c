@@ -113,6 +113,7 @@ static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
 										"capture.delay", "capture.hdr", NULL};
 static const char *const G_GUI[] = {"gui.radius", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
+									   "region.window_borders",
 									   "region.snap_animation", "region.confirm",
 									   "region.show_coords", "region.repeat_last",
 									   "region.last", NULL};

@@ -47,8 +47,9 @@ int region_window_outer_radius(struct config *cfg, const struct rect *win,
 	/* hyprland draws the border ring outside the rounding radius, so the
 	   captured outer arc is rounding + border. Without border expansion the
 	   frame corner sits one ring inside the outer edge, needing another
-	   border px of tolerance on top. */
-	return base + border + (borders_included ? 0 : border);
+	   border px of tolerance on top. An expanded frame carries a 1px
+	   background margin instead, so cut 1px outside the border aa there. */
+	return base + border + (borders_included ? 1 : border);
 }
 
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,

@@ -33,11 +33,10 @@ bool region_window_borders_included(struct config *cfg) {
 
 int region_window_outer_radius(struct config *cfg, const struct rect *win,
 							   bool borders_included) {
-	const char *v = config_get(cfg, "region.window_radius");
-	if (v && v[0] && strcmp(v, "auto") != 0)
-		return config_get_int_clamp(cfg, "region.window_radius", 0, 0, 100);
-	int base = grabit_wm_window_radius(win);
+	int base = region_window_radius(cfg, win);
 	if (base <= 0) return 0;
+	const char *v = config_get(cfg, "region.window_radius");
+	if (v && v[0] && strcmp(v, "auto") != 0) return base;
 	int border = grabit_wm_window_border(win);
 	if (border < 0) border = 0;
 	/* hyprland draws the border ring outside the rounding radius, so the

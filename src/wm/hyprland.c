@@ -125,6 +125,24 @@ int grabit_hyprland_window_radius(const struct rect *win) {
 	return (win && target_is_fullscreen(win)) ? 0 : radius;
 }
 
+int grabit_hyprland_window_border(const struct rect *win) {
+	static int cached = -1;
+	if (cached < 0) {
+		struct json_object *root = NULL;
+		if (query_object("j/getoption general:border_size", &root) != 0) return 0;
+		struct json_object *val = NULL;
+		cached = 0;
+		if (json_object_object_get_ex(root, "int", &val))
+			cached = json_object_get_int(val);
+		if (cached < 0) cached = 0;
+		json_object_put(root);
+	}
+	int border = cached;
+	if (border <= 0) return 0;
+
+	return (win && target_is_fullscreen(win)) ? 0 : border;
+}
+
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {
 	struct json_object *root = NULL;
 	if (query_object("j/cursorpos", &root) != 0) return -1;

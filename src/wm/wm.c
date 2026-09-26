@@ -84,6 +84,21 @@ int grabit_wm_window_radius(const struct rect *win) {
 	return 0;
 }
 
+int grabit_wm_window_border(const struct rect *win) {
+	switch (grabit_wm_detect()) {
+	case WM_HYPRLAND:
+		return grabit_hyprland_window_border(win);
+	case WM_NIRI:
+	case WM_SWAY:
+	case WM_NONE:
+		break;
+	}
+	/* sway rects already cover the window and its border, and niri border
+	   geometry is not published over ipc; expanding there would double
+	   count or misplace the rect, so this stays a no-op off hyprland. */
+	return 0;
+}
+
 int grabit_wm_windows(struct rect **out, size_t *n_out) {
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:

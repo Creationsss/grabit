@@ -23,11 +23,11 @@ int region_window_border(struct config *cfg, const struct rect *win) {
 	if (!v || strcmp(v, "true") != 0) return 0;
 	int b = grabit_wm_window_border(win);
 	if (b <= 0) return 0;
-	/* ipc geometry is integer-rounded while the compositor rasterizes the
-	   1px border ring at float coordinates, so a crop exactly around the
-	   ring can miss it on one side. Capture a 1px background margin too;
-	   a sub-pixel shift then only moves background, never clips the ring. */
-	return b + 1;
+	/* hyprland reports integer geometry for a ring rasterized at float
+	   coordinates, but on a settled window the ring's outer edge sits
+	   exactly b pixels outside the rect on every side, so expanding by
+	   exactly b frames it with nothing extra. */
+	return b;
 }
 
 bool region_window_borders_included(struct config *cfg) {

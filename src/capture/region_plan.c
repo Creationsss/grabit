@@ -22,7 +22,12 @@ int region_window_border(struct config *cfg, const struct rect *win) {
 	const char *v = config_get(cfg, "region.window_borders");
 	if (!v || strcmp(v, "true") != 0) return 0;
 	int b = grabit_wm_window_border(win);
-	return b > 0 ? b : 0;
+	if (b <= 0) return 0;
+	/* ipc geometry is integer-rounded while the compositor rasterizes the
+	   1px border ring at float coordinates, so a crop exactly around the
+	   ring can miss it on one side. Capture a 1px background margin too;
+	   a sub-pixel shift then only moves background, never clips the ring. */
+	return b + 1;
 }
 
 bool region_window_borders_included(struct config *cfg) {

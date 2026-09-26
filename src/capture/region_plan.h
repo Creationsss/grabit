@@ -30,5 +30,9 @@ enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *c
 									 struct rect *out);
 
 int region_window_radius(struct config *cfg, const struct rect *win);
+int region_window_border(struct config *cfg, const struct rect *win);
+int region_window_outer_radius(struct config *cfg, const struct rect *win,
+							   bool borders_included);
+bool region_window_borders_included(struct config *cfg);
 
 #endif

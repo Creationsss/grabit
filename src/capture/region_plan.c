@@ -18,6 +18,35 @@ int region_window_radius(struct config *cfg, const struct rect *win) {
 	return config_get_int_clamp(cfg, "region.window_radius", 0, 0, 100);
 }
 
+int region_window_border(struct config *cfg, const struct rect *win) {
+	const char *v = config_get(cfg, "region.window_borders");
+	if (!v || strcmp(v, "true") != 0) return 0;
+	int b = grabit_wm_window_border(win);
+	return b > 0 ? b : 0;
+}
+
+bool region_window_borders_included(struct config *cfg) {
+	const char *v = config_get(cfg, "region.window_borders");
+	if (!v || strcmp(v, "true") != 0) return false;
+	return grabit_wm_window_border(NULL) > 0;
+}
+
+int region_window_outer_radius(struct config *cfg, const struct rect *win,
+							   bool borders_included) {
+	const char *v = config_get(cfg, "region.window_radius");
+	if (v && v[0] && strcmp(v, "auto") != 0)
+		return config_get_int_clamp(cfg, "region.window_radius", 0, 0, 100);
+	int base = grabit_wm_window_radius(win);
+	if (base <= 0) return 0;
+	int border = grabit_wm_window_border(win);
+	if (border < 0) border = 0;
+	/* hyprland draws the border ring outside the rounding radius, so the
+	   captured outer arc is rounding + border. Without border expansion the
+	   frame corner sits one ring inside the outer edge, needing another
+	   border px of tolerance on top. */
+	return base + border + (borders_included ? 0 : border);
+}
+
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,
 									 const struct region_plan_req *req,
 									 struct rect *out) {
@@ -32,8 +61,10 @@ enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *c
 		return REGION_PLAN_MONITOR_PICK;
 	}
 	if (req->window) {
-		return grabit_wm_active_window_rect(out) == 0 ? REGION_PLAN_FIXED
-													  : REGION_PLAN_NO_WINDOW;
+		if (grabit_wm_active_window_rect(out) != 0) return REGION_PLAN_NO_WINDOW;
+		int b = region_window_border(cfg, out);
+		if (b > 0) *out = rect_inflate(*out, b);
+		return REGION_PLAN_FIXED;
 	}
 	if (req->use_last && last_region_parse(config_get(cfg, "region.last"), out))
 		return REGION_PLAN_FIXED;

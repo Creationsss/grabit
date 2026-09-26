@@ -41,4 +41,12 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 	return r;
 }
 
+static inline struct rect rect_inflate(struct rect r, int32_t d) {
+	r.x -= d;
+	r.y -= d;
+	r.w += 2 * d;
+	r.h += 2 * d;
+	return r;
+}
+
 #endif

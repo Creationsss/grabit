@@ -10,6 +10,7 @@
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
+#include "util/rect.h"
 #include "wl/wl.h"
 #include "wm/wm.h"
 
@@ -100,6 +101,11 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 	} else if (snap_enabled) {
 		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
 			log_debug("region: window snap disabled (no compositor window geometry)");
+		} else {
+			for (size_t i = 0; i < st->n_snap_windows; i++) {
+				int b = region_window_border(cfg, &st->snap_windows[i]);
+				if (b > 0) st->snap_windows[i] = rect_inflate(st->snap_windows[i], b);
+			}
 		}
 	}
 }

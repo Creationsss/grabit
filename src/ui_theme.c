@@ -57,3 +57,24 @@ void grabit_ui_panel(cairo_t *cr, double x, double y, double w, double h, double
 	grabit_cairo_rect_r_inset(cr, x, y, w, h, r, s);
 	cairo_stroke(cr);
 }
+
+void grabit_ui_hint_pill(cairo_t *cr, double s, const char *text, double cx,
+						 double baseline_y, double max_w) {
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
+						   CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 12.0 * s);
+	cairo_text_extents_t ext;
+	cairo_text_extents(cr, text, &ext);
+	double pad = 8.0 * s;
+	double tx = cx - ext.width / 2.0;
+	if (tx < pad) tx = pad;
+	if (tx + ext.width + pad > max_w) tx = max_w - ext.width - pad;
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	grabit_cairo_rect_r(cr, tx - pad, baseline_y - ext.height - pad,
+						ext.width + pad * 2, ext.height + pad * 2,
+						grabit_ui_radius(GUI_R_TIP) * s);
+	cairo_fill(cr);
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, tx, baseline_y);
+	cairo_show_text(cr, text);
+}

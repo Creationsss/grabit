@@ -23,5 +23,7 @@ void grabit_ui_theme_init(struct config *cfg);
 double grabit_ui_radius(enum gui_radius token);
 void grabit_ui_card_bg(cairo_t *cr);
 void grabit_ui_panel(cairo_t *cr, double x, double y, double w, double h, double s);
+void grabit_ui_hint_pill(cairo_t *cr, double s, const char *text, double cx,
+						 double baseline_y, double max_w);
 
 #endif

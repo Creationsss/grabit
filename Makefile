@@ -170,6 +170,7 @@ GRABIT_SRCS := \
 	src/region/keybinds_parse.c \
 	src/region/keycapture.c \
 	src/region/keycapture_input.c \
+	src/region/keycapture_render.c \
 	src/region/edit_persist.c \
 	src/util/json_path.c \
 	src/clipboard/clipboard.c \

@@ -30,7 +30,7 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 		return -1;
 	}
 
-	struct kc_state st = {.wls = s, .scale = 1};
+	struct kc_state st = {.wls = s, .scale = 1, .action_key = action_key};
 
 	st.go = grabit_wm_active_output(s);
 	if (!st.go) st.go = grabit_wl_primary_output(s);

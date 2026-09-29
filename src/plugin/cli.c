@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/plugin.h"
 
+#include "exit.h"
 #include "log.h"
 #include "util/util.h"
 
@@ -11,14 +12,14 @@
 #include <string.h>
 
 static int usage(void) {
-	fputs("usage: grabit plugin <install|list|show|update|remove> [args]\n", stderr);
-	return 2;
+	fputs("usage: grabit plugin <add|list|show|update|remove> [args]\n", stderr);
+	return GRABIT_EXIT_USAGE;
 }
 
 static int help(void) {
 	puts("usage: grabit plugin <subcommand> [args]");
 	puts("");
-	puts("  install <git-url>  install a plugin (alias: add)");
+	puts("  add <git-url>      install a plugin (alias: install)");
 	puts("  list               list installed plugins (alias: ls)");
 	puts("  show <name>        print parsed manifest");
 	puts("  update [<name>]    update one plugin (or all if omitted)");

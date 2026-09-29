@@ -70,6 +70,8 @@ bool region_keybind_validate(const char *value);
 const char *region_keybind_action_key(enum region_action act);
 const char *region_keybind_default(const char *key);
 void region_keybind_format(const struct keybind *b, char *out, size_t n);
+void region_keybind_first(const struct region_keymap *km, enum region_action act,
+						  char *out, size_t n);
 
 bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
 							   struct xkb_keymap **km, struct xkb_state **state);

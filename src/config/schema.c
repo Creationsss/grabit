@@ -132,14 +132,25 @@ static const struct cfg_int_key INT_KEYS[] = {
 	{"preview.size", 100, 800, false},
 	{"preview.dismiss_secs", 0, 600, false},
 	{"services.zipline.chunk_size", 1, 95, false},
-	{"capture.delay", 0, 3600, false},
+	{"capture.delay_secs", 0, 3600, false},
 	{"edit.width", EDIT_MIN_WIDTH, EDIT_MAX_WIDTH, false},
 	{"region.window_radius", 0, 100, true},
 	{"gui.radius", 0, 100, true},
 };
 
 const char *cfg_canonical_key(const char *key) {
-	return strcmp(key, "save_captures") == 0 ? "also_save" : key;
+	static const struct {
+		const char *old;
+		const char *now;
+	} ALIASES[] = {
+		{"save_captures", "also_save"},
+		{"log_file", "log.enabled"},
+		{"capture.delay", "capture.delay_secs"},
+		{"edit.default", "edit.always"},
+	};
+	for (size_t i = 0; i < sizeof ALIASES / sizeof *ALIASES; i++)
+		if (strcmp(key, ALIASES[i].old) == 0) return ALIASES[i].now;
+	return key;
 }
 
 int cfg_validate_value(const char *key, const char *value) {

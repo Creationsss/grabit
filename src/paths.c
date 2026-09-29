@@ -168,6 +168,23 @@ static char *expand_tilde(const char *p) {
 	return out;
 }
 
+char *paths_output_at(const char *path) {
+	char *full = expand_tilde(path);
+	if (!full) return NULL;
+	char *slash = strrchr(full, '/');
+	if (slash && slash != full) {
+		*slash = '\0';
+		int rc = paths_mkdir_p(full);
+		*slash = '/';
+		if (rc != 0) {
+			log_error("mkdir -p %.*s: %s", (int)(slash - full), full, strerror(errno));
+			free(full);
+			return NULL;
+		}
+	}
+	return full;
+}
+
 static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 	if (dest == PATHS_DEST_TEMP) {
 		char rt[4096];

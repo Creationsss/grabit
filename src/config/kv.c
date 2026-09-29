@@ -41,6 +41,7 @@ static struct kv *kv_find(struct config *c, const char *key) {
 }
 
 int cfg_kv_upsert(struct config *c, const char *key, const char *val) {
+	key = cfg_canonical_key(key);
 	size_t i = kv_lower_bound(c, key);
 	if (i < c->n && strcmp(c->kvs[i].key, key) == 0) {
 		char *nv = strdup(val);
@@ -108,12 +109,11 @@ int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int
 }
 
 const char *config_get(struct config *c, const char *key) {
-	struct kv *e = kv_find(c, key);
+	struct kv *e = kv_find(c, cfg_canonical_key(key));
 	return e ? e->val : NULL;
 }
 
 bool config_also_save(struct config *c) {
 	const char *v = config_get(c, "also_save");
-	if (!v) v = config_get(c, "save_captures");
 	return v && strcmp(v, "true") == 0;
 }

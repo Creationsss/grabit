@@ -99,7 +99,6 @@ int args_parse(int argc, char **argv, struct args *out) {
 				return -1;
 			}
 			out->file = arg;
-			if (out->action == ACTION_NONE) out->action = ACTION_UPLOAD;
 			continue;
 		}
 
@@ -115,6 +114,23 @@ int args_parse(int argc, char **argv, struct args *out) {
 			strcmp(arg, "--output") == 0 ||
 			strcmp(arg, "--save") == 0) {
 			if (set_action(out, ACTION_OUTPUT, arg) != 0) return -1;
+			if (i + 1 < argc && argv[i + 1][0] != '-') out->out_path = argv[++i];
+			continue;
+		}
+		const char *out_eq = NULL;
+		if (strncmp(arg, "--output=", 9) == 0)
+			out_eq = arg + 9;
+		else if (strncmp(arg, "--save=", 7) == 0)
+			out_eq = arg + 7;
+		else if (strncmp(arg, "-o=", 3) == 0)
+			out_eq = arg + 3;
+		if (out_eq) {
+			if (set_action(out, ACTION_OUTPUT, "--output") != 0) return -1;
+			if (!*out_eq) {
+				log_error("--output= requires a path");
+				return -1;
+			}
+			out->out_path = out_eq;
 			continue;
 		}
 		if (strcmp(arg, "--tesseract") == 0) {
@@ -217,13 +233,12 @@ int args_parse(int argc, char **argv, struct args *out) {
 			continue;
 		}
 
-		if (strcmp(arg, "-f") == 0) {
+		if (strcmp(arg, "-f") == 0 || strcmp(arg, "--file") == 0) {
 			if (++i >= argc) {
-				log_error("-f requires a file argument");
+				log_error("-f/--file requires a file argument");
 				return -1;
 			}
 			out->file = argv[i];
-			if (out->action == ACTION_NONE) out->action = ACTION_UPLOAD;
 			continue;
 		}
 

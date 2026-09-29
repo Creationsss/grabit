@@ -167,7 +167,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
 | `notifications` | bool | enable desktop notifications (default `true`); failure notifications are still sent (see `--silent` in `man grabit`) |
-| `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
+| `log.enabled` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way. old name: `log_file` |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the color swatches, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
@@ -181,7 +181,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 |---|---|---|
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
 | `capture.hdr` | `false` | keep the full range of an hdr output instead of tone mapping it. off by default: grabit converts pq or hlg to srgb so a capture looks the way the screen does, and most viewers cannot read a 16-bit png anyway. set `true` and a plain `-F`/`-w`/`-L` png keeps 10 bits, written as a 16-bit file carrying `cICP`, `mDCV` and `cLLI`. it does not apply to an interactive region drag, to `-e`, a preview, a rounded window, jpeg or webp, or a capture spanning two monitors, all of which are tone mapped instead. the files are roughly 2.5x larger. needs the compositor to report its colorimetry over `color-management-v1` |
-| `capture.delay` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts |
+| `capture.delay_secs` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts. old name: `capture.delay` |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 
 ### region selector
@@ -212,8 +212,8 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 
 | key | default | action |
 |---|---|---|
-| `keys.confirm` | `Return, KP_Enter, Ctrl+c` | capture/save the selection (copy/upload path chosen elsewhere) |
-| `keys.cancel` | `Escape, mouse:right` | cancel; while dragging/typing it aborts that instead |
+| `keys.confirm` | `Return, KP_Enter, Ctrl+s` | capture/save the selection (copy/upload path chosen elsewhere) |
+| `keys.cancel` | `Escape, Ctrl+w, Ctrl+q, mouse:right` | cancel; while dragging/typing it aborts that instead |
 | `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
 | `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
 | `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo the last undo (edit mode) |
@@ -227,7 +227,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
 ```sh
-grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+c"
+grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+s"
 grabit set keys.cancel "Escape"
 ```
 
@@ -544,7 +544,7 @@ last-picked color, width, and tool persist via:
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
 | `edit.width` | `4` | integer 1-20 |
 | `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` - the editor reopens with your last-used tool |
-| `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
+| `edit.always` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR). old name: `edit.default` |
 | `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
 | `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
@@ -591,7 +591,7 @@ run one by name - a non-flag first argument resolving to an installed plugin exe
 
 ```sh
 grabit <name> [args]              # run the plugin
-grabit -p <name> [args]           # run it and pin its last stdout line as a file
+grabit <name> --pin [args]        # run it and pin its last stdout line as a file (old: -p <name>)
 ```
 
 plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
@@ -602,7 +602,7 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 |---|---|
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
-| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log_file` config key |
+| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log.enabled` config key |
 | `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
@@ -640,7 +640,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | `~/.config/grabit/plugins/.lock` | plugin install/update lock |
 | `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
-| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log_file false` or `GRABIT_LOG_FILE=0` |
+| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log.enabled false` or `GRABIT_LOG_FILE=0` |
 | `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp/grabit-<uid>/grabit/`; grabit refuses a world-writable directory rather than using `/tmp` itself) |
 | `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit-<uid>/grabit_recording.pid`) |
 | `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |

@@ -94,8 +94,12 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 		}
 	}
 	if (rc == 0) {
-		log_info("set %s = %s%s", key, cfg_key_is_secret(key) ? "<hidden>" : stored,
-				 is_state ? " (state)" : "");
+		const char *shown = cfg_key_is_secret(canon) ? "<hidden>" : stored;
+		const char *where = is_state ? " (state)" : "";
+		if (strcmp(canon, key) != 0)
+			log_info("set %s (was %s) = %s%s", canon, key, shown, where);
+		else
+			log_info("set %s = %s%s", canon, shown, where);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;

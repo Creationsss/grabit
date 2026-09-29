@@ -53,13 +53,15 @@ static const char *last_line(struct grabit_buf *b) {
 	return nl ? nl + 1 : b->data;
 }
 
-int plugin_dispatch_pin(const char *name, int argc, char **argv) {
+int plugin_dispatch_pin(const char *name, int argc, char **argv, bool quiet) {
 	if (!plugin_name_is_valid(name)) {
+		if (quiet) return -1;
 		log_error("plugin: invalid name `%s`", name ? name : "");
 		return 1;
 	}
 	char path[1024];
 	if (plugin_resolve(name, path, sizeof path) != 0) {
+		if (quiet) return -1;
 		log_error("plugin: %s not installed", name);
 		char body[256];
 		snprintf(body, sizeof body, "%s is not installed", name);
@@ -75,9 +77,12 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 
 	char **new_argv = calloc((size_t)argc + 1, sizeof *new_argv);
 	if (!new_argv) return 1;
-	new_argv[0] = path;
-	for (int i = 1; i < argc; i++)
-		new_argv[i] = argv[i];
+	int n = 0;
+	new_argv[n++] = path;
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--pin") == 0) continue;
+		new_argv[n++] = argv[i];
+	}
 
 	struct grabit_buf out = {0};
 	enum { PLUGIN_OUTPUT_CAP = 16u << 20 };

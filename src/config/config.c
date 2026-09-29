@@ -22,7 +22,6 @@
 #include "vendor/tomlc99/toml.h"
 
 static void note_unknown(const char *full) {
-	if (cfg_key_is_known(full)) return;
 	const char *hint = cfg_help_suggest_key(full);
 	if (hint && strcmp(hint, full) == 0) hint = NULL;
 	if (hint)
@@ -32,8 +31,11 @@ static void note_unknown(const char *full) {
 }
 
 static bool accept_value(const char *full, const char *val) {
-	note_unknown(full);
-	if (!cfg_key_is_known(full)) return true;
+	full = cfg_canonical_key(full);
+	if (!cfg_key_is_known(full)) {
+		note_unknown(full);
+		return true;
+	}
 	if (cfg_validate_value(full, val) == 0) return true;
 	log_warn("config: ignoring %s = %s; using the default", full, val);
 	return false;
@@ -97,14 +99,14 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 static int seed_defaults(struct config *c) {
 	if (cfg_kv_upsert(c, "default_action", "copy") != 0) return -1;
 	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
-	if (cfg_kv_upsert(c, "log_file", "true") != 0) return -1;
+	if (cfg_kv_upsert(c, "log.enabled", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
 	if (cfg_kv_upsert(c, "save_state", "true") != 0) return -1;
 	return 0;
 }
 
 static void config_apply_runtime(struct config *c) {
-	const char *v = config_get(c, "log_file");
+	const char *v = config_get(c, "log.enabled");
 	if (v && strcmp(v, "false") == 0) log_file_disable();
 
 	v = config_get(c, "capture.backend");

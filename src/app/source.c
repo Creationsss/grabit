@@ -31,8 +31,10 @@
 #include "wm/wm.h"
 
 #include "app/app.h"
+
 #include "cairo_util.h"
 #include "capture/edit_file.h"
+#include "exit.h"
 
 static char g_tmpfile_path[4096] = {0};
 static char *g_preview_png;
@@ -106,6 +108,15 @@ static int gapp_resolve_save_opts(const struct args *a, struct config *cfg,
 		log_error("unknown format `%s` (expected png|jpeg|webp)", fmt_name);
 		return -1;
 	}
+	if (a->out_path && !a->format) {
+		const char *dot = strrchr(grabit_basename(a->out_path), '.');
+		enum grabit_image_format from_ext;
+		if (dot && grabit_format_from_name(dot + 1, &from_ext) == 0)
+			out->format = from_ext;
+		else if (dot)
+			log_warn("-o %s: unknown extension `%s`; writing %s", a->out_path, dot + 1,
+					 grabit_format_extension(out->format) + 1);
+	}
 	out->png_level = config_get_int_clamp(cfg, "png.level", 1, 0, 9);
 	if (preview_enabled(cfg)) {
 		free(g_preview_png);
@@ -166,6 +177,11 @@ static int capture_wm_window(struct config *cfg, bool cursor,
 	return rc;
 }
 
+static char *fail_with(int *status, int code) {
+	if (status) *status = code;
+	return NULL;
+}
+
 static char *discard_capture(char *path, const char *summary) {
 	unlink(path);
 	gapp_clear_tmpfile();
@@ -194,15 +210,17 @@ static char *build_capture_path(const struct args *a, struct config *cfg,
 		save = config_also_save(cfg);
 	}
 	*is_temp = !save;
+	if (a->out_path) return paths_output_at(a->out_path);
 	enum paths_dest dest = save ? PATHS_DEST_PICTURES : PATHS_DEST_TEMP;
 	const char *ext = grabit_format_extension(opts->format);
 	return paths_build_output(cfg, a->filename_tpl, ext, dest);
 }
 
 char *gapp_capture_to_file(const struct args *a, struct config *cfg,
-						   enum action eff, bool *is_temp,
-						   struct rect *out_rect) {
+						   enum action eff, bool *is_temp, struct rect *out_rect,
+						   int *status) {
 	*is_temp = false;
+	if (status) *status = GRABIT_EXIT_FAIL;
 	struct grabit_save_opts opts;
 	if (gapp_resolve_save_opts(a, cfg, &opts) != 0) return NULL;
 
@@ -213,7 +231,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 			.body = "grabit needs a running wayland session",
 			.force = true,
 		});
-		return NULL;
+		return fail_with(status, GRABIT_EXIT_UNSUPPORTED);
 	}
 	if (!capture_require_available(&s)) {
 		grabit_wl_finish(&s);
@@ -222,7 +240,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 			.body = "this compositor supports none of the capture protocols grabit can use",
 			.force = true,
 		});
-		return NULL;
+		return fail_with(status, GRABIT_EXIT_UNSUPPORTED);
 	}
 
 	struct rect forced_rect = {0, 0, 0, 0};
@@ -304,23 +322,29 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	persist_capture_state(cfg, (a->edit && edit_dirty) ? &ec : NULL,
 						  (rc == 0 && !a->fullscreen) ? &got : NULL);
 
-	if (rc != 0)
+	if (rc != 0) {
+		(void)fail_with(status, rc == GRABIT_CAPTURE_CANCELLED ? GRABIT_EXIT_CANCELLED
+															   : GRABIT_EXIT_FAIL);
 		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
 										 ? NULL
 										 : "Capture failed");
+	}
 
 	log_debug("captured to %s", path);
+	if (status) *status = GRABIT_EXIT_OK;
 	return path;
 }
 
 char *gapp_acquire_source(const struct args *a, struct config *cfg,
-						  enum action eff, bool *is_temp,
-						  struct rect *out_rect) {
+						  enum action eff, bool *is_temp, struct rect *out_rect,
+						  int *status) {
 	*is_temp = false;
+	if (status) *status = GRABIT_EXIT_FAIL;
 	if (a->file) {
 		if (!a->edit) {
 			char *path = strdup(a->file);
-			if (!path) log_error("out of memory");
+			if (!path) return fail_with(status, GRABIT_EXIT_FAIL);
+			if (status) *status = GRABIT_EXIT_OK;
 			return path;
 		}
 		struct grabit_save_opts opts;
@@ -338,6 +362,9 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 		struct edit_choices ec = {edit_color, edit_width, edit_tool};
 		persist_capture_state(cfg, edit_dirty ? &ec : NULL, NULL);
 		if (rc != 0) {
+			(void)fail_with(status, rc == GRABIT_CAPTURE_CANCELLED
+										? GRABIT_EXIT_CANCELLED
+										: GRABIT_EXIT_FAIL);
 			if (grabit_same_file(path, a->file)) {
 				gapp_clear_tmpfile();
 				free(path);
@@ -347,9 +374,10 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 											 ? NULL
 											 : "Edit failed");
 		}
+		if (status) *status = GRABIT_EXIT_OK;
 		return path;
 	}
-	return gapp_capture_to_file(a, cfg, eff, is_temp, out_rect);
+	return gapp_capture_to_file(a, cfg, eff, is_temp, out_rect, status);
 }
 
 void gapp_release_source(char *path, bool is_temp) {

@@ -7,6 +7,7 @@
 #include "args.h"
 #include "capture/capture.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "record/compose.h"
@@ -106,7 +107,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			.body = "grabit needs a running wayland session",
 			.force = true,
 		});
-		return 1;
+		return GRABIT_EXIT_UNSUPPORTED;
 	}
 
 	bool have_stills = capture_backend_available(&s);
@@ -122,7 +123,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		screencast_explain_unavailable();
 		rec_fail_notify("recording is not supported on this compositor");
 		grabit_wl_finish(&s);
-		return 1;
+		return GRABIT_EXIT_UNSUPPORTED;
 	}
 	if (use_screencast)
 		log_debug("recording: using the %s screencast source",
@@ -143,7 +144,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			.urgency = NOTIFY_LOW,
 			.transient = true,
 		});
-		return 0;
+		return GRABIT_EXIT_CANCELLED;
 	}
 	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
 	grabit_sleep_secs(a->delay_secs);

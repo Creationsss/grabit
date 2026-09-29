@@ -34,8 +34,8 @@ static const char *const ACTION_KEYS[KA_COUNT] = {
 };
 
 static const char *const ACTION_DEFAULTS[KA_COUNT] = {
-	[KA_CONFIRM] = "Return, KP_Enter, Ctrl+c",
-	[KA_CANCEL] = "Escape, mouse:right",
+	[KA_CONFIRM] = "Return, KP_Enter, Ctrl+s",
+	[KA_CANCEL] = "Escape, Ctrl+w, Ctrl+q, mouse:right",
 	[KA_SELECT_ALL] = "Ctrl+a",
 	[KA_UNDO] = "u, Ctrl+z",
 	[KA_REDO] = "Ctrl+y, Ctrl+Shift+z",
@@ -128,6 +128,17 @@ static bool list_has_key(const struct keybind_list *list, xkb_keysym_t sym,
 			return true;
 	}
 	return false;
+}
+
+void region_keybind_first(const struct region_keymap *km, enum region_action act,
+						  char *out, size_t n) {
+	out[0] = '\0';
+	if (act >= KA_COUNT) return;
+	for (uint8_t i = 0; i < km->actions[act].n; i++) {
+		if (km->actions[act].items[i].is_button) continue;
+		region_keybind_format(&km->actions[act].items[i], out, n);
+		return;
+	}
 }
 
 bool region_key_action(const struct region_keymap *km, enum region_action act,

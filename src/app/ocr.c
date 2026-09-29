@@ -13,6 +13,7 @@
 #include "capture/freeze.h"
 #include "clipboard/clipboard.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "ocr/ocr.h"
@@ -74,8 +75,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	bool is_temp = false;
-	char *path = gapp_acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL);
-	if (!path) return 1;
+	int status = GRABIT_EXIT_FAIL;
+	char *path = gapp_acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL, &status);
+	if (!path) return status;
 
 	char *text = grabit_ocr_run(bin, path, lang);
 

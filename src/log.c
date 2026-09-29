@@ -167,6 +167,8 @@ static void emit(const char *prefix, const char *color, bool bare, const char *f
 
 	if (bare)
 		fprintf(stderr, "%s\n", msg);
+	else if (g_color && !g_debug)
+		fprintf(stderr, "%s%s%s\n", color, msg, C_RESET);
 	else
 		fprintf(stderr, "%s%s%s %s\n", color, prefix, C_RESET, msg);
 	emit_file(prefix, msg);

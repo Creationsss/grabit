@@ -12,7 +12,7 @@
 
 static const char *BOOL_KEYS[] = {
 	"notifications",
-	"log_file",
+	"log.enabled",
 	"save_captures",
 	"also_save",
 	"save_state",
@@ -29,7 +29,7 @@ static const char *BOOL_KEYS[] = {
 	"region.show_coords",
 	"region.repeat_last",
 	"services.zipline.chunked",
-	"edit.default",
+	"edit.always",
 	"edit.instant_capture",
 	"edit.smooth",
 	"edit.start_with_tool",
@@ -50,7 +50,7 @@ static const char *STATE_KEYS[] = {
 static const char *KNOWN_TOP[] = {
 	"default_action",
 	"notifications",
-	"log_file",
+	"log.enabled",
 	"save_captures",
 	"also_save",
 	"save_state",
@@ -84,12 +84,14 @@ static bool contains_ci(const char *hay, const char *needle) {
 }
 
 bool cfg_key_is_secret(const char *key) {
-	static const char *const NEEDLES[] = {"auth", "secret", "token", "key",
-										  "password", "passwd", "session",
-										  "cookie", "bearer", NULL};
+	static const char *const NEEDLES[] = {"auth", "secret", "token",
+										  "api_key", "password", "passwd",
+										  "session", "cookie", "bearer", NULL};
 	if (!key) return false;
+	const char *dot = strrchr(key, '.');
+	const char *leaf = dot ? dot + 1 : key;
 	for (size_t i = 0; NEEDLES[i]; i++)
-		if (contains_ci(key, NEEDLES[i])) return true;
+		if (contains_ci(leaf, NEEDLES[i])) return true;
 	return false;
 }
 
@@ -148,7 +150,7 @@ static bool valid_edit_key(const char *key) {
 	if (strncmp(key, "edit.", 5) != 0) return false;
 	const char *leaf = key + 5;
 	return strcmp(leaf, "color") == 0 || strcmp(leaf, "width") == 0 ||
-		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "default") == 0 ||
+		   strcmp(leaf, "tool") == 0 || strcmp(leaf, "always") == 0 ||
 		   strcmp(leaf, "toolbar_output") == 0 ||
 		   strcmp(leaf, "toolbar_pos") == 0 ||
 		   strcmp(leaf, "instant_capture") == 0 ||
@@ -210,7 +212,7 @@ static bool valid_capture_key(const char *key) {
 	if (strncmp(key, "capture.", 8) != 0) return false;
 	const char *leaf = key + 8;
 	return strcmp(leaf, "backend") == 0 || strcmp(leaf, "cursor") == 0 ||
-		   strcmp(leaf, "delay") == 0 || strcmp(leaf, "hdr") == 0;
+		   strcmp(leaf, "delay_secs") == 0 || strcmp(leaf, "hdr") == 0;
 }
 
 static bool valid_gui_key(const char *key) {

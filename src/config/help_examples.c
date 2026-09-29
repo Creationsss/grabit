@@ -21,7 +21,7 @@ struct example {
 
 static const struct example TOP_EXAMPLES[] = {
 	{"notifications", "true|false", "true"},
-	{"log_file", "true|false", "true"},
+	{"log.enabled", "true|false", "true"},
 	{"also_save", "true|false", "false"},
 	{"save_captures", "true|false (use also_save)", "false"},
 	{"save_state", "true|false", "true"},
@@ -132,7 +132,7 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
-	if (strcmp(key, "capture.delay") == 0) {
+	if (strcmp(key, "capture.delay_secs") == 0) {
 		*example_out = "0..3600 (seconds to wait before capturing)";
 		*def_out = "0";
 		return 0;

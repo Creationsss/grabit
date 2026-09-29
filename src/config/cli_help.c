@@ -65,7 +65,7 @@ static const char *find_default(const char *key) {
 static const char *const G_TOP[] = {
 	"default_action",
 	"notifications",
-	"log_file",
+	"log.enabled",
 	"also_save",
 	"save_state",
 	"save_dir",
@@ -94,7 +94,7 @@ static const char *const G_EDIT[] = {
 	"edit.color",
 	"edit.width",
 	"edit.tool",
-	"edit.default",
+	"edit.always",
 	"edit.instant_capture",
 	"edit.start_with_tool",
 	"edit.multi_select",
@@ -110,7 +110,7 @@ static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quali
 										"webp.lossless", NULL};
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
-										"capture.delay", "capture.hdr", NULL};
+										"capture.delay_secs", "capture.hdr", NULL};
 static const char *const G_GUI[] = {"gui.radius", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
 									   "region.snap_animation", "region.confirm",

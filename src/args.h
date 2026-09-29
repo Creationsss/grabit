@@ -40,6 +40,7 @@ struct args {
 	const char *file;
 	const char *service;
 	const char *filename_tpl;
+	const char *out_path;
 	const char *format;
 	const char *translate_to;
 	const char *fullscreen_target;

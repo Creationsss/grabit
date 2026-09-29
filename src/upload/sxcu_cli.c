@@ -5,6 +5,7 @@
 #include "upload/upload.h"
 
 #include "config/internal.h"
+#include "exit.h"
 #include "log.h"
 #include "upload/sxcu.h"
 #include "util/util.h"
@@ -17,15 +18,15 @@
 
 static int usage(void) {
 	log_error("usage: grabit sxcu <add|list|remove|show> [args]");
-	return 2;
+	return GRABIT_EXIT_USAGE;
 }
 
 static int help(void) {
 	puts("usage: grabit sxcu <subcommand> [args]");
 	puts("");
-	puts("  add <file>     register a .sxcu uploader (--force replaces; alias: install)");
-	puts("  list           show registered uploaders (alias: ls)");
-	puts("  show <name>    print parsed fields (--show-secrets unmasks auth)");
+	puts("  add <file>          register a .sxcu uploader (--force replaces; alias: install)");
+	puts("  list                show registered uploaders (alias: ls)");
+	puts("  show <name>         print parsed fields (--show-secrets unmasks auth)");
 	puts("  remove <name> [-y]  remove an uploader (alias: rm)");
 	return 0;
 }

@@ -84,7 +84,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		}
 	}
 	if (r.w <= 0 || r.h <= 0) {
-		log_error("empty selection");
+		log_debug("empty selection; treating as cancelled");
 		rc = GRABIT_CAPTURE_CANCELLED;
 		goto cleanup;
 	}

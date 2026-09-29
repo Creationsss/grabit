@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "pin/pin.h"
 
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "pin/pin_state.h"
@@ -82,7 +83,7 @@ int gpin_main(cairo_surface_t *img, bool have_rect, struct rect r,
 	grabit_install_signal_handler(SIGHUP, on_term);
 
 	struct grabit_wl_state wls;
-	if (grabit_wl_init(&wls) != 0) return 1;
+	if (grabit_wl_init(&wls) != 0) return GRABIT_EXIT_UNSUPPORTED;
 	if (!wls.layer_shell || !wls.compositor) {
 		grabit_wl_finish(&wls);
 		return 1;

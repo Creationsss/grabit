@@ -87,24 +87,40 @@ static bool client_is_fullscreen(struct json_object *c) {
 	return false;
 }
 
-static bool target_is_fullscreen(const struct rect *win) {
+struct client_state {
+	struct rect r;
+	bool full;
+};
+
+static struct client_state *g_clients;
+static size_t g_n_clients;
+static bool g_clients_loaded;
+
+static void load_clients(void) {
+	if (g_clients_loaded) return;
+	g_clients_loaded = true;
 	struct json_object *root = NULL;
-	if (query("j/clients", &root) != 0) return false;
-	bool full = false;
+	if (query("j/clients", &root) != 0) return;
 	if (json_object_get_type(root) == json_type_array) {
 		size_t n = json_object_array_length(root);
-		for (size_t i = 0; i < n; i++) {
+		g_clients = calloc(n ? n : 1, sizeof *g_clients);
+		for (size_t i = 0; g_clients && i < n; i++) {
 			struct json_object *c = json_object_array_get_idx(root, i);
 			struct rect r;
 			if (!client_rect(c, &r)) continue;
-			if (r.x != win->x || r.y != win->y || r.w != win->w || r.h != win->h)
-				continue;
-			full = client_is_fullscreen(c);
-			break;
+			g_clients[g_n_clients].r = r;
+			g_clients[g_n_clients].full = client_is_fullscreen(c);
+			g_n_clients++;
 		}
 	}
 	json_object_put(root);
-	return full;
+}
+
+static bool target_is_fullscreen(const struct rect *win) {
+	load_clients();
+	for (size_t i = 0; i < g_n_clients; i++)
+		if (rect_equal(g_clients[i].r, *win)) return g_clients[i].full;
+	return false;
 }
 
 int grabit_hyprland_window_radius(const struct rect *win) {

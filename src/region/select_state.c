@@ -103,10 +103,9 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
 			log_debug("region: window snap disabled (no compositor window geometry)");
 		} else {
-			for (size_t i = 0; i < st->n_snap_windows; i++) {
-				int b = region_window_border(cfg, &st->snap_windows[i]);
-				if (b > 0) st->snap_windows[i] = rect_inflate(st->snap_windows[i], b);
-			}
+			for (size_t i = 0; i < st->n_snap_windows; i++)
+				st->snap_windows[i] =
+					region_window_with_border(st->wls, cfg, st->snap_windows[i]);
 		}
 	}
 }

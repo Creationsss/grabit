@@ -27,6 +27,21 @@ static bool borders_wanted(struct config *cfg) {
 	return v && strcmp(v, "true") == 0;
 }
 
+struct rect region_window_with_border(struct grabit_wl_state *s, struct config *cfg,
+									  struct rect win) {
+	int b = region_window_border(cfg, &win);
+	if (b <= 0) return win;
+	struct rect grown = rect_inflate(win, b);
+	struct grabit_output *o =
+		grabit_wl_output_at(s, win.x + win.w / 2, win.y + win.h / 2);
+	if (o) {
+		struct rect mon;
+		grabit_output_rect(o, &mon);
+		grown = rect_intersect(grown, mon);
+	}
+	return grown.w > 0 && grown.h > 0 ? grown : win;
+}
+
 int region_window_border(struct config *cfg, const struct rect *win) {
 	if (!borders_wanted(cfg)) return 0;
 	int b = grabit_wm_window_border(win);
@@ -61,8 +76,7 @@ enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *c
 	}
 	if (req->window) {
 		if (grabit_wm_active_window_rect(out) != 0) return REGION_PLAN_NO_WINDOW;
-		int b = region_window_border(cfg, out);
-		if (b > 0) *out = rect_inflate(*out, b);
+		*out = region_window_with_border(s, cfg, *out);
 		return REGION_PLAN_FIXED;
 	}
 	if (req->use_last && last_region_parse(config_get(cfg, "region.last"), out))

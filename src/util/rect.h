@@ -41,6 +41,15 @@ static inline struct rect rect_clamp_into(struct rect r, struct rect b) {
 	return r;
 }
 
+static inline struct rect rect_intersect(struct rect a, struct rect b) {
+	int32_t x = i32max(a.x, b.x);
+	int32_t y = i32max(a.y, b.y);
+	int32_t r = i32min(a.x + a.w, b.x + b.w);
+	int32_t bot = i32min(a.y + a.h, b.y + b.h);
+	if (r <= x || bot <= y) return (struct rect){0, 0, 0, 0};
+	return (struct rect){x, y, r - x, bot - y};
+}
+
 static inline struct rect rect_inflate(struct rect r, int32_t d) {
 	r.x -= d;
 	r.y -= d;

@@ -93,9 +93,6 @@ int grabit_wm_window_border(const struct rect *win) {
 	case WM_NONE:
 		break;
 	}
-	/* sway rects already cover the window and its border, and niri border
-	   geometry is not published over ipc; expanding there would double
-	   count or misplace the rect, so this stays a no-op off hyprland. */
 	return 0;
 }
 

@@ -12,44 +12,38 @@
 #include "wm/wm.h"
 #include <string.h>
 
-int region_window_radius(struct config *cfg, const struct rect *win) {
+static bool radius_is_auto(struct config *cfg) {
 	const char *v = config_get(cfg, "region.window_radius");
-	if (!v || !v[0] || strcmp(v, "auto") == 0) return grabit_wm_window_radius(win);
+	return !v || !v[0] || strcmp(v, "auto") == 0;
+}
+
+int region_window_radius(struct config *cfg, const struct rect *win) {
+	if (radius_is_auto(cfg)) return grabit_wm_window_radius(win);
 	return config_get_int_clamp(cfg, "region.window_radius", 0, 0, 100);
 }
 
-int region_window_border(struct config *cfg, const struct rect *win) {
+static bool borders_wanted(struct config *cfg) {
 	const char *v = config_get(cfg, "region.window_borders");
-	if (!v || strcmp(v, "true") != 0) return 0;
+	return v && strcmp(v, "true") == 0;
+}
+
+int region_window_border(struct config *cfg, const struct rect *win) {
+	if (!borders_wanted(cfg)) return 0;
 	int b = grabit_wm_window_border(win);
-	if (b <= 0) return 0;
-	/* hyprland reports integer geometry for a ring rasterized at float
-	   coordinates, but on a settled window the ring's outer edge sits
-	   exactly b pixels outside the rect on every side, so expanding by
-	   exactly b frames it with nothing extra. */
-	return b;
+	return b > 0 ? b : 0;
 }
 
 bool region_window_borders_included(struct config *cfg) {
-	const char *v = config_get(cfg, "region.window_borders");
-	if (!v || strcmp(v, "true") != 0) return false;
-	return grabit_wm_window_border(NULL) > 0;
+	return region_window_border(cfg, NULL) > 0;
 }
 
 int region_window_outer_radius(struct config *cfg, const struct rect *win,
 							   bool borders_included) {
 	int base = region_window_radius(cfg, win);
-	if (base <= 0) return 0;
-	const char *v = config_get(cfg, "region.window_radius");
-	if (v && v[0] && strcmp(v, "auto") != 0) return base;
+	if (base <= 0 || !radius_is_auto(cfg)) return base > 0 ? base : 0;
 	int border = grabit_wm_window_border(win);
-	if (border < 0) border = 0;
-	/* hyprland draws the border ring outside the rounding radius, so the
-	   captured outer arc is rounding + border. An expanded frame puts its
-	   corner exactly on the ring's outer corner, making rounding + border
-	   concentric with it. Without expansion the frame corner sits one ring
-	   inside the outer edge, needing another border px of tolerance. */
-	return base + border + (borders_included ? 0 : border);
+	if (border <= 0) return base;
+	return borders_included ? base + border : base + 2 * border;
 }
 
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,

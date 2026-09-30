@@ -17,6 +17,7 @@ struct config {
 	size_t n;
 	size_t cap;
 	bool overlaid;
+	bool unparsed;
 };
 
 int config_load(struct config *c);

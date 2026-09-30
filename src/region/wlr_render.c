@@ -116,18 +116,8 @@ static void hint_text_extents(cairo_t *cr, double S, const char *hint,
 static void render_hint_pill(cairo_t *cr, double S, const char *hint,
 							 const cairo_text_extents_t *ext, double cx, double ty,
 							 double pw) {
-	double pad = 8.0 * S;
-	double tx = cx - ext->width / 2.0;
-	if (tx < pad) tx = pad;
-	if (tx + ext->width + pad > pw) tx = pw - ext->width - pad;
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
-	grabit_cairo_rect_r(cr, tx - pad, ty - ext->height - pad,
-						ext->width + pad * 2, ext->height + pad * 2,
-						grabit_ui_radius(GUI_R_TIP) * S);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
-	cairo_move_to(cr, tx, ty);
-	cairo_show_text(cr, hint);
+	(void)ext;
+	grabit_ui_hint_pill(cr, S, hint, cx, ty, pw);
 }
 
 void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char *hint) {

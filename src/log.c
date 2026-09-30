@@ -26,6 +26,7 @@ static bool g_color;
 static int g_file_fd = -1;
 static bool g_file_on = true;
 static bool g_file_locked;
+static bool g_no_color;
 static size_t g_file_written;
 
 static const char *C_RED = "";
@@ -35,6 +36,10 @@ static const char *C_RESET = "";
 
 bool log_is_silent(void) {
 	return g_silent;
+}
+
+void log_color_disable(void) {
+	g_no_color = true;
 }
 
 void log_init(bool silent, bool debug) {
@@ -50,7 +55,10 @@ void log_init(bool silent, bool debug) {
 	g_file_locked = lf && lf[0];
 	if (g_file_locked) g_file_on = strcmp(lf, "0") != 0;
 
-	g_color = isatty(STDERR_FILENO) && getenv("NO_COLOR") == NULL;
+	const char *nc = getenv("NO_COLOR");
+	const char *term = getenv("TERM");
+	g_color = isatty(STDERR_FILENO) && !g_no_color && !(nc && nc[0]) &&
+			  !(term && strcmp(term, "dumb") == 0);
 	if (g_color) {
 		C_RED = "\033[31m";
 		C_YELLOW = "\033[33m";
@@ -59,7 +67,7 @@ void log_init(bool silent, bool debug) {
 	}
 }
 
-static const char *log_file_path(void) {
+const char *log_file_path(void) {
 	static char path[256];
 	if (path[0]) return path;
 	char dir[200];
@@ -94,7 +102,7 @@ static int log_file_fd(void) {
 
 	opening = true;
 	int fd = open(log_file_path(),
-				  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+				  O_RDWR | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
 	opening = false;
 	if (fd < 0) {
 		g_file_on = false;
@@ -108,8 +116,29 @@ static int log_file_fd(void) {
 
 static void log_file_cap(int fd) {
 	if (g_file_written <= LOG_FILE_MAX_BYTES) return;
-	if (ftruncate(fd, 0) != 0) return;
+	size_t keep = LOG_FILE_MAX_BYTES / 4;
+	char *tail = malloc(keep);
+	ssize_t got = -1;
+	if (tail) {
+		off_t from = (off_t)g_file_written - (off_t)keep;
+		got = pread(fd, tail, keep, from < 0 ? 0 : from);
+	}
+	if (ftruncate(fd, 0) != 0) {
+		free(tail);
+		return;
+	}
 	g_file_written = 0;
+	if (got > 0) {
+		const char *start = tail;
+		size_t len = (size_t)got;
+		char *nl = memchr(tail, '\n', len);
+		if (nl && (size_t)(nl - tail + 1) < len) {
+			len -= (size_t)(nl - tail + 1);
+			start = nl + 1;
+		}
+		if (write(fd, start, len) == (ssize_t)len) g_file_written = len;
+	}
+	free(tail);
 }
 
 static void emit_file(const char *prefix, const char *msg) {
@@ -138,6 +167,8 @@ static void emit(const char *prefix, const char *color, bool bare, const char *f
 
 	if (bare)
 		fprintf(stderr, "%s\n", msg);
+	else if (g_color && !g_debug)
+		fprintf(stderr, "%s%s%s\n", color, msg, C_RESET);
 	else
 		fprintf(stderr, "%s%s%s %s\n", color, prefix, C_RESET, msg);
 	emit_file(prefix, msg);

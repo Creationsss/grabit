@@ -10,6 +10,7 @@
 #include "args.h"
 #include "capture/freeze.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -54,15 +55,15 @@ static int run(const struct args *a) {
 	if (!eff_a.edit && !a->file &&
 		(eff == ACTION_UPLOAD || eff == ACTION_COPY ||
 		 eff == ACTION_OUTPUT || eff == ACTION_PIN)) {
-		const char *v = config_get(&cfg, "edit.default");
+		const char *v = config_get(&cfg, "edit.always");
 		if (v && strcmp(v, "true") == 0) eff_a.edit = true;
 	}
 	if (!eff_a.last_region && !eff_a.no_last) {
 		const char *v = config_get(&cfg, "region.repeat_last");
 		if (v && strcmp(v, "true") == 0) eff_a.last_region = true;
 	}
-	if (eff_a.delay_secs == 0)
-		eff_a.delay_secs = config_get_int_clamp(&cfg, "capture.delay", 0, 0, 3600);
+	if (!eff_a.delay_set)
+		eff_a.delay_secs = config_get_int_clamp(&cfg, "capture.delay_secs", 0, 0, 3600);
 	a = &eff_a;
 
 	int rc;
@@ -100,7 +101,7 @@ static int run(const struct args *a) {
 	default:
 		log_error("no action specified; try -u, -c, -o, --pin, --record, or --tesseract");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: no action set",
+			.summary = "No action set",
 			.body = "run `grabit set default_action upload|copy|save|pin`",
 		});
 		rc = 1;
@@ -125,7 +126,7 @@ static int help_topic(const char *sub) {
 	if (strcmp(sub, "plugin") == 0) return cmd_plugin(1, help_argv);
 	log_error("no help topic for `%s`", sub);
 	gapp_print_help_topics();
-	return 2;
+	return GRABIT_EXIT_USAGE;
 }
 
 int main(int argc, char **argv) {
@@ -148,18 +149,29 @@ int main(int argc, char **argv) {
 		if (strcmp(first, "plugin") == 0) return cmd_plugin(argc - 2, argv + 2);
 		if (strcmp(first, "-p") == 0) {
 			if (argc < 3) {
-				log_error("usage: grabit -p <plugin> [args]");
-				return 2;
+				log_error("usage: grabit <plugin> --pin [args]");
+				return GRABIT_EXIT_USAGE;
 			}
-			return plugin_dispatch_pin(argv[2], argc - 2, argv + 2);
+			log_warn("-p is deprecated; use `grabit %s --pin`", argv[2]);
+			return plugin_dispatch_pin(argv[2], argc - 2, argv + 2, false);
 		}
 		if (first[0] != '-') {
-			int prc = gapp_try_dispatch_plugin(first, argc - 1, argv + 1);
+			bool pin = false;
+			for (int i = 2; i < argc && strcmp(argv[i], "--") != 0; i++)
+				if (strcmp(argv[i], "--pin") == 0) pin = true;
+			int prc = pin ? plugin_dispatch_pin(first, argc - 1, argv + 1, true)
+						  : gapp_try_dispatch_plugin(first, argc - 1, argv + 1);
 			if (prc >= 0) return prc;
 		}
 	}
 
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--") == 0) break;
+		if (args_is_version_flag(argv[i])) return gapp_print_version();
+		if (args_is_help_flag(argv[i])) return gapp_print_help();
+	}
+
 	struct args a;
-	if (args_parse(argc, argv, &a) != 0) return 2;
+	if (args_parse(argc, argv, &a) != 0) return GRABIT_EXIT_USAGE;
 	return run(&a);
 }

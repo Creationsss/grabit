@@ -92,13 +92,16 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 		argv[i++] = (char *)"vfr";
 		bool gif = strcmp(format, "gif") == 0;
 		bool webm = strcmp(format, "webm") == 0;
+		char vf[256];
+		snprintf(vf, sizeof vf,
+				 "crop=trunc(iw/2)*2:trunc(ih/2)*2,"
+				 "scale=in_range=full:in_color_matrix=bt709:"
+				 "out_range=tv:out_color_matrix=bt709:"
+				 "flags=accurate_rnd+full_chroma_int+full_chroma_inp,"
+				 "format=%s",
+				 out_pix_fmt);
 		argv[i++] = (char *)"-vf";
-		argv[i++] = (char *)(gif ? GIF_PALETTE_VF
-								 : "crop=trunc(iw/2)*2:trunc(ih/2)*2,"
-								   "scale=in_range=full:in_color_matrix=bt709:"
-								   "out_range=tv:out_color_matrix=bt709:"
-								   "flags=accurate_rnd+full_chroma_int+full_chroma_inp,"
-								   "format=yuv420p");
+		argv[i++] = (char *)(gif ? GIF_PALETTE_VF : vf);
 		if (webm) {
 			argv[i++] = (char *)"-c:v";
 			argv[i++] = (char *)"libvpx-vp9";

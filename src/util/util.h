@@ -43,6 +43,7 @@ size_t grabit_rstrip(char *s, size_t len);
 void grabit_redact_url(const char *url, char *out, size_t cap);
 size_t grabit_utf8_valid_prefix(const char *s, size_t n);
 const char *grabit_join_names(const char *const *names);
+bool grabit_confirm(bool assume_yes, const char *action);
 char *grabit_url_with_path(const char *base, const char *path,
 						   const char *default_scheme);
 bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,

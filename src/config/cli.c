@@ -10,6 +10,7 @@
 
 #include "region/edit_persist.h"
 #include "region/keybinds.h"
+#include "util/util.h"
 #include "wl/wl.h"
 #include <unistd.h>
 
@@ -22,12 +23,25 @@ static bool is_help_arg(const char *s) {
 	return s && (strcmp(s, "--help") == 0 || strcmp(s, "-h") == 0);
 }
 
+static bool wants_help(int argc, char **argv) {
+	for (int i = 0; i < argc; i++)
+		if (is_help_arg(argv[i])) return true;
+	return false;
+}
+
 static char *split_eq(const char *arg, const char **val_out) {
 	const char *eq = strchr(arg, '=');
 	if (!eq) return NULL;
 	*val_out = eq + 1;
 	char *k = strndup(arg, (size_t)(eq - arg));
 	return k;
+}
+
+static bool cfg_writable(struct config *c) {
+	if (!c->unparsed) return true;
+	log_error("%s does not parse; fix it before changing settings",
+			  paths_config_file());
+	return false;
 }
 
 static int cfg_persist(struct config *c, const char *key, const char *val, bool prefix) {
@@ -40,18 +54,52 @@ static int cfg_persist(struct config *c, const char *key, const char *val, bool 
 	return config_save(c);
 }
 
+static char *read_value_stdin(void) {
+	char buf[4096];
+	if (!fgets(buf, sizeof buf, stdin)) {
+		log_error("no value on stdin");
+		return NULL;
+	}
+	size_t n = strlen(buf);
+	while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r'))
+		buf[--n] = '\0';
+	if (n == 0) {
+		log_error("no value on stdin");
+		return NULL;
+	}
+	return strdup(buf);
+}
+
 static int cfg_store(struct config *c, const char *key, const char *val) {
-	int rc = config_set(c, key, val);
+	if (!cfg_writable(c)) {
+		config_free(c);
+		return 1;
+	}
 	const char *canon = cfg_canonical_key(key);
+	bool is_state = cfg_is_state_key(canon);
+	int rc;
 	const char *stored = NULL;
-	if (rc == 0) {
+	if (is_state) {
+		const char *keys[1] = {canon};
+		const char *vals[1] = {val};
+		rc = config_state_put(c, keys, vals, 1);
 		stored = config_get(c, canon);
 		if (!stored) stored = val;
-		rc = cfg_persist(c, canon, stored, false);
+	} else {
+		rc = config_set(c, key, val);
+		if (rc == 0) {
+			stored = config_get(c, canon);
+			if (!stored) stored = val;
+			rc = cfg_persist(c, canon, stored, false);
+		}
 	}
 	if (rc == 0) {
-		log_info("set %s = %s", key, stored);
-		if (cfg_is_state_key(key)) (void)config_state_clear(c, key);
+		const char *shown = cfg_key_is_secret(canon) ? "<hidden>" : stored;
+		const char *where = is_state ? " (state)" : "";
+		if (strcmp(canon, key) != 0)
+			log_info("set %s (was %s) = %s%s", canon, key, shown, where);
+		else
+			log_info("set %s = %s%s", canon, shown, where);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;
@@ -107,14 +155,19 @@ static int cmd_set_keys_list(void) {
 	return 0;
 }
 
-static int cmd_set_reset(const char *key) {
+static int cmd_set_reset(const char *key, bool yes) {
 	bool all = strcmp(key, "keys") == 0;
+	if (all && !grabit_confirm(yes, "reset every keybind to its default")) return 1;
 	if (!all && !region_keybind_default(key)) {
 		log_error("--reset applies to a keys.* binding or `keys` (all); got `%s`", key);
 		return 2;
 	}
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (!cfg_writable(&c)) {
+		config_free(&c);
+		return 1;
+	}
 
 	size_t removed = all ? cfg_kv_remove(&c, "keys.", true)
 						 : cfg_kv_remove(&c, key, false);
@@ -135,8 +188,9 @@ static int cmd_set_reset(const char *key) {
 }
 
 int cmd_set(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
+	if (wants_help(argc, argv)) {
 		puts("Usage: grabit set <key> <value>    write a config key (validated)");
+		puts("       grabit set <key> -          read the value from stdin");
 		puts("       grabit set <key>=<value>    same, single argument");
 		puts("       grabit set edit.swatches <n> <color>");
 		puts("                                   set one swatch, n is 1-6,");
@@ -144,7 +198,7 @@ int cmd_set(int argc, char **argv) {
 		puts("       grabit set <key>            show a key's value and default");
 		puts("       grabit set <key> --watch    bind a keys.* action by pressing it");
 		puts("       grabit set <key> --reset    restore a keys.* default");
-		puts("       grabit set keys --reset     restore every keybind");
+		puts("       grabit set keys --reset [--yes]  restore every keybind");
 		puts("       grabit set                  list every settable key");
 		puts("");
 		puts("grabit get <key> reads a key back; grabit unset <key> removes it.");
@@ -160,13 +214,15 @@ int cmd_set(int argc, char **argv) {
 		return 2;
 	}
 
-	bool watch = false, reset = false;
+	bool watch = false, reset = false, yes = false;
 	int positional = 0;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--watch") == 0 || strcmp(argv[i], "-w") == 0)
 			watch = true;
 		else if (strcmp(argv[i], "--reset") == 0)
 			reset = true;
+		else if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+			yes = true;
 		else
 			positional++;
 	}
@@ -179,7 +235,7 @@ int cmd_set(int argc, char **argv) {
 			log_error("usage: grabit set <key> %s", watch ? "--watch" : "--reset");
 			return 2;
 		}
-		return watch ? cmd_set_watch(argv[0]) : cmd_set_reset(argv[0]);
+		return watch ? cmd_set_watch(argv[0]) : cmd_set_reset(argv[0], yes);
 	}
 
 	if (argc == 1 && strcmp(argv[0], "keys") == 0) return cmd_set_keys_list();
@@ -211,7 +267,10 @@ int cmd_set(int argc, char **argv) {
 		const char *current = NULL;
 		bool loaded = config_load_full(&c) == 0;
 		if (loaded) current = config_get(&c, argv[0]);
-		printf("current: %s\n", current ? current : "(unset)");
+		printf("current: %s\n",
+			   !current						? "(unset)"
+			   : cfg_key_is_secret(argv[0]) ? "<hidden>"
+											: current);
 		if (loaded) config_free(&c);
 		return 0;
 	}
@@ -236,36 +295,58 @@ int cmd_set(int argc, char **argv) {
 	}
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (strcmp(argv[1], "-") == 0) {
+		char *v = read_value_stdin();
+		if (!v) {
+			config_free(&c);
+			return 2;
+		}
+		int rc = cfg_store(&c, argv[0], v);
+		free(v);
+		return rc;
+	}
 	return cfg_store(&c, argv[0], argv[1]);
 }
 
 int cmd_get(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
-		puts("usage: grabit get [<key>]");
+	if (wants_help(argc, argv)) {
+		puts("usage: grabit get [<key>] [--show-secrets]");
 		return 0;
 	}
-	if (argc > 1) {
-		log_error("usage: grabit get [<key>]");
-		return 2;
+	bool reveal = false;
+	const char *key = NULL;
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--show-secrets") == 0)
+			reveal = true;
+		else if (!key)
+			key = argv[i];
+		else {
+			log_error("usage: grabit get [<key>] [--show-secrets]");
+			return 2;
+		}
 	}
 	struct config c;
 	if (config_load_full(&c) != 0) return 1;
 
 	int rc = 0;
-	if (argc == 0) {
+	if (!key) {
 		if (c.n > 1) qsort(c.kvs, c.n, sizeof *c.kvs, gcfg_cmp_kv);
+		bool hid = false;
 		for (size_t i = 0; i < c.n; i++) {
-			printf("%s = %s\n", c.kvs[i].key, c.kvs[i].val);
+			bool hide = !reveal && cfg_key_is_secret(c.kvs[i].key);
+			hid |= hide;
+			printf("%s = %s\n", c.kvs[i].key, hide ? "<hidden>" : c.kvs[i].val);
 		}
+		if (hid) log_info("secrets hidden; --show-secrets reveals them");
 	} else {
-		const char *v = config_get(&c, argv[0]);
+		const char *v = config_get(&c, key);
 		if (v) {
-			puts(v);
-		} else if (!cfg_key_is_known(argv[0])) {
-			cfg_help_report_unknown_key(argv[0]);
+			puts(!reveal && cfg_key_is_secret(key) ? "<hidden>" : v);
+		} else if (!cfg_key_is_known(key)) {
+			cfg_help_report_unknown_key(key);
 			rc = 2;
 		} else {
-			log_error("not set: `%s`", argv[0]);
+			log_error("not set: `%s`", key);
 			rc = 1;
 		}
 	}
@@ -274,7 +355,7 @@ int cmd_get(int argc, char **argv) {
 }
 
 int cmd_unset(int argc, char **argv) {
-	if (argc == 1 && is_help_arg(argv[0])) {
+	if (wants_help(argc, argv)) {
 		puts("usage: grabit unset <key>");
 		return 0;
 	}
@@ -282,22 +363,37 @@ int cmd_unset(int argc, char **argv) {
 		log_error("usage: grabit unset <key>");
 		return 2;
 	}
+	const char *key = cfg_canonical_key(argv[0]);
+	if (!cfg_key_is_known(key)) {
+		cfg_help_report_unknown_key(argv[0]);
+		return 2;
+	}
+
 	struct config c;
 	if (config_load(&c) != 0) return 1;
+	if (!cfg_writable(&c)) {
+		config_free(&c);
+		return 1;
+	}
 
 	int rc = 0;
-	bool found = cfg_kv_remove(&c, argv[0], false) > 0;
-	if (cfg_is_state_key(argv[0])) {
-		(void)config_state_clear(&c, argv[0]);
+	bool found = cfg_kv_remove(&c, key, false) > 0;
+	if (strcmp(key, argv[0]) != 0) found |= cfg_kv_remove(&c, argv[0], false) > 0;
+	if (cfg_is_state_key(key)) {
+		(void)config_state_clear(&c, key);
 		found = true;
 	}
 	if (!found) {
-		log_info("%s was not set", argv[0]);
-	} else if (cfg_persist(&c, cfg_canonical_key(argv[0]), NULL, false) != 0) {
+		log_info("%s was not set", key);
+	} else if (cfg_persist(&c, key, NULL, false) != 0 ||
+			   (strcmp(key, argv[0]) != 0 &&
+				cfg_persist(&c, argv[0], NULL, false) != 0)) {
 		log_error("could not save config");
 		rc = 1;
+	} else if (strcmp(key, argv[0]) != 0) {
+		log_info("unset %s (%s)", argv[0], key);
 	} else {
-		log_info("unset %s", argv[0]);
+		log_info("unset %s", key);
 	}
 	config_free(&c);
 	return rc;

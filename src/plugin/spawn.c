@@ -15,6 +15,7 @@ int plugin_run_in(const char *cwd, char *const argv[]) {
 	if (pid < 0) return -1;
 	if (pid == 0) {
 		if (cwd && chdir(cwd) != 0) _exit(127);
+		if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) _exit(127);
 		execvp(argv[0], argv);
 		_exit(127);
 	}

@@ -36,9 +36,11 @@ struct args {
 	bool last_region;
 	bool no_last;
 	int delay_secs;
+	bool delay_set;
 	const char *file;
 	const char *service;
 	const char *filename_tpl;
+	const char *out_path;
 	const char *format;
 	const char *translate_to;
 	const char *fullscreen_target;
@@ -49,6 +51,8 @@ extern const char *const grabit_action_names[];
 enum action args_default_action(const char *name);
 
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);
+bool args_is_help_flag(const char *a);
+bool args_is_version_flag(const char *a);
 int args_parse(int argc, char **argv, struct args *out);
 
 #endif

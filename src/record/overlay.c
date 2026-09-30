@@ -94,7 +94,9 @@ static void draw_border(struct overlay_output *o) {
 		double pillw = ext.width + 2 * pad;
 		double pillh = ext.height + 2 * pad;
 		double pillx = rx + rw - pillw;
+		if (pillx < 0) pillx = 0;
 		double pilly = ry - bw - pillh - 2.0 * S;
+		if (pilly < 0) pilly = ry + bw + 2.0 * S;
 
 		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
 		grabit_cairo_rect_r(cr, pillx, pilly, pillw, pillh,

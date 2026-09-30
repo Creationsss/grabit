@@ -5,6 +5,7 @@
 #include "plugin/dispatch.h"
 
 #include "log.h"
+#include "notify/notify.h"
 #include "paths.h"
 #include "plugin/plugin.h"
 #include "util/util.h"
@@ -52,14 +53,23 @@ static const char *last_line(struct grabit_buf *b) {
 	return nl ? nl + 1 : b->data;
 }
 
-int plugin_dispatch_pin(const char *name, int argc, char **argv) {
+int plugin_dispatch_pin(const char *name, int argc, char **argv, bool quiet) {
 	if (!plugin_name_is_valid(name)) {
+		if (quiet) return -1;
 		log_error("plugin: invalid name `%s`", name ? name : "");
 		return 1;
 	}
 	char path[1024];
 	if (plugin_resolve(name, path, sizeof path) != 0) {
+		if (quiet) return -1;
 		log_error("plugin: %s not installed", name);
+		char body[256];
+		snprintf(body, sizeof body, "%s is not installed", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+		});
 		return 1;
 	}
 	plugin_maybe_auto_update(name);
@@ -67,9 +77,12 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 
 	char **new_argv = calloc((size_t)argc + 1, sizeof *new_argv);
 	if (!new_argv) return 1;
-	new_argv[0] = path;
-	for (int i = 1; i < argc; i++)
-		new_argv[i] = argv[i];
+	int n = 0;
+	new_argv[n++] = path;
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--pin") == 0) continue;
+		new_argv[n++] = argv[i];
+	}
 
 	struct grabit_buf out = {0};
 	enum { PLUGIN_OUTPUT_CAP = 16u << 20 };
@@ -84,6 +97,14 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	if (capped) log_warn("plugin: %s stdout exceeded %d MiB; truncating",
 						 name, PLUGIN_OUTPUT_CAP >> 20);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		char body[256];
+		snprintf(body, sizeof body, "%s exited with an error", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+			.log_hint = true,
+		});
 		if (out.data && out.data[0]) {
 			fputs(out.data, stderr);
 			if (out.len > 0 && out.data[out.len - 1] != '\n') fputc('\n', stderr);
@@ -95,6 +116,13 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv) {
 	const char *last = last_line(&out);
 	if (!*last) {
 		log_error("plugin: %s produced no output to pin", name);
+		char body[256];
+		snprintf(body, sizeof body, "%s printed no path to pin", name);
+		notify_send(&(struct notify_opts){
+			.summary = "Plugin failed",
+			.body = body,
+			.force = true,
+		});
 		grabit_buf_free(&out);
 		return 1;
 	}

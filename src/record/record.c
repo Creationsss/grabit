@@ -7,6 +7,7 @@
 #include "args.h"
 #include "capture/capture.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "record/compose.h"
@@ -102,11 +103,11 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	struct grabit_wl_state s;
 	if (grabit_wl_init(&s) != 0) {
 		notify_send(&(struct notify_opts){
-			.summary = "grabit",
-			.body = "could not connect to wayland compositor",
+			.summary = "Cannot reach the compositor",
+			.body = "grabit needs a running wayland session",
 			.force = true,
 		});
-		return 1;
+		return GRABIT_EXIT_UNSUPPORTED;
 	}
 
 	bool have_stills = capture_backend_available(&s);
@@ -122,7 +123,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		screencast_explain_unavailable();
 		rec_fail_notify("recording is not supported on this compositor");
 		grabit_wl_finish(&s);
-		return 1;
+		return GRABIT_EXIT_UNSUPPORTED;
 	}
 	if (use_screencast)
 		log_debug("recording: using the %s screencast source",
@@ -140,8 +141,10 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		log_debug("recording cancelled");
 		notify_send(&(struct notify_opts){
 			.summary = "Recording cancelled",
+			.urgency = NOTIFY_LOW,
+			.transient = true,
 		});
-		return 0;
+		return GRABIT_EXIT_CANCELLED;
 	}
 	if (!a->fullscreen) persist_capture_state(cfg, NULL, &r);
 	grabit_sleep_secs(a->delay_secs);
@@ -270,6 +273,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	}
 
 	bool aborted = atomic_load_explicit(&grabit_rec_abort, memory_order_relaxed) != 0;
+	unsigned int notify_id = 0;
 
 	tray_stop(tray);
 	controls_stop(controls);
@@ -293,8 +297,11 @@ int record_toggle(struct config *cfg, const struct args *a) {
 			log_debug("recording: finishing %zu segment%s...",
 					  sc.n_segs, sc.n_segs == 1 ? "" : "s");
 			notify_send(&(struct notify_opts){
-				.summary = "Recording finishing",
+				.summary = "Finishing recording",
 				.body = grabit_basename(output_path),
+				.urgency = NOTIFY_LOW,
+				.transient = true,
+				.replaces = &notify_id,
 			});
 		}
 		seg_reap_all(&sc);
@@ -314,14 +321,21 @@ int record_toggle(struct config *cfg, const struct args *a) {
 				.chunked = a->chunked,
 				.secs = secs,
 				.stop = &grabit_rec_stop,
+				.notify_id = &notify_id,
 			};
 			record_publish(cfg, &po);
 		} else {
 			log_error("recording failed; output may be incomplete: %s", output_path);
-			if (explain_missing_encoder(ffmpeg_bin, format))
+			if (explain_missing_encoder(ffmpeg_bin, format)) {
 				rec_fail_notify("ffmpeg lacks the encoder for this recording format");
-			else
-				rec_fail_notify(grabit_basename(output_path));
+			} else {
+				char why[512];
+				snprintf(why, sizeof why,
+						 "could not assemble the segments; the partial recording is "
+						 "at %s",
+						 output_path);
+				rec_fail_notify(why);
+			}
 		}
 	}
 

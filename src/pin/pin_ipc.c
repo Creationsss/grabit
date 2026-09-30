@@ -223,7 +223,7 @@ int pin_close_all(void) {
 		char body[64];
 		snprintf(body, sizeof body, "%d pin%s closed", n, n == 1 ? "" : "s");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit",
+			.summary = "Pins closed",
 			.body = body,
 		});
 	}

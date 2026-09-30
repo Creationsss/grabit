@@ -10,6 +10,8 @@ void log_init(bool silent, bool debug);
 bool log_is_silent(void);
 
 bool log_file_enabled(void);
+const char *log_file_path(void);
+void log_color_disable(void);
 void log_file_close(void);
 void log_file_disable(void);
 

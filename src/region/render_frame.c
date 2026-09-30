@@ -236,6 +236,13 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 	}
 
+	char confirm_key[64], cancel_key[64];
+	region_keybind_first(&o->st->keys, KA_CONFIRM, confirm_key, sizeof confirm_key);
+	region_keybind_first(&o->st->keys, KA_CANCEL, cancel_key, sizeof cancel_key);
+	char capture_hint[160];
+	snprintf(capture_hint, sizeof capture_hint, "%s to capture, %s to cancel",
+			 confirm_key[0] ? confirm_key : "enter", cancel_key[0] ? cancel_key : "esc");
+
 	if (o->st->region_locked) {
 		if (region_editing(o->st) && o->st->text_input_active &&
 			rect_contains((struct rect){o->go->x, o->go->y,
@@ -267,7 +274,7 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 
 		if (!region_editing(o->st) && sel_visible) {
-			gren_render_bottom_hint(cr, o, "enter or ctrl+c to capture, esc to cancel");
+			gren_render_bottom_hint(cr, o, capture_hint);
 		}
 	}
 
@@ -277,7 +284,7 @@ void gren_output_redraw(struct ro_output *o) {
 			hint = "click anywhere to sample a color, esc to cancel";
 		else if (!region_toolbar_visible(o->st)) {
 			if (o->st->has_selection)
-				hint = "enter or ctrl+c to capture, esc to cancel";
+				hint = capture_hint;
 			else if (o->st->n_snap_windows > 0)
 				hint = "drag or click a window, esc to cancel";
 			else

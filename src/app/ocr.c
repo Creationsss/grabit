@@ -13,6 +13,7 @@
 #include "capture/freeze.h"
 #include "clipboard/clipboard.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "ocr/ocr.h"
@@ -37,7 +38,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 				  "unset with: grabit unset ocr.tesseract",
 				  bin);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: tesseract not found",
+			.summary = "Tesseract not found",
 			.body = "configured tesseract not found",
 			.log_hint = true,
 		});
@@ -57,7 +58,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 				  "ocr.tesseract <path>` (needs the %s training data too)",
 				  lang);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: tesseract not installed",
+			.summary = "Tesseract not installed",
 			.body = "install tesseract + the matching training data",
 		});
 		return 1;
@@ -66,7 +67,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		log_error("ocr: tesseract has no `%s` language data (see `%s --list-langs`)",
 				  lang, bin);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: language data missing",
+			.summary = "Language data missing",
 			.body = "tesseract language data missing; install the language pack",
 			.force = true,
 		});
@@ -74,8 +75,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	bool is_temp = false;
-	char *path = gapp_acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL);
-	if (!path) return 1;
+	int status = GRABIT_EXIT_FAIL;
+	char *path = gapp_acquire_source(a, cfg, ACTION_OCR, &is_temp, NULL, &status);
+	if (!path) return status;
 
 	char *text = grabit_ocr_run(bin, path, lang);
 
@@ -93,7 +95,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		free(text);
 		log_info("ocr: no text found in selection");
 		notify_send(&(struct notify_opts){
-			.summary = "ocr: no text found",
+			.summary = "No text found",
+			.body = "nothing was recognised in this area; try a larger region or "
+					"a different ocr.lang",
 		});
 		return 1;
 	}
@@ -177,8 +181,8 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 
 	size_t tlen = strlen(text);
 	bool want_notify = !a->show && !a->no_copy;
-	enum { PREVIEW_MAX = 800 };
-	char preview[PREVIEW_MAX + 8];
+	enum { PREVIEW_MAX = 160 };
+	char preview[PREVIEW_MAX * 6 + 8];
 	char flat[PREVIEW_MAX + 1];
 	size_t fi = 0;
 	bool prev_space = false;
@@ -203,11 +207,23 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		fi--;
 	flat[fi] = '\0';
 	bool truncated = overflowed || tlen > fi + 16;
-	if (truncated) {
-		snprintf(preview, sizeof preview, "%s…", flat);
-	} else {
-		snprintf(preview, sizeof preview, "%s", flat);
+	char escaped[sizeof flat * 6];
+	size_t ei = 0;
+	for (size_t i = 0; i < fi && ei + 6 < sizeof escaped; i++) {
+		const char *rep = flat[i] == '&'   ? "&amp;"
+						  : flat[i] == '<' ? "&lt;"
+						  : flat[i] == '>' ? "&gt;"
+										   : NULL;
+		if (rep) {
+			size_t rl = strlen(rep);
+			memcpy(escaped + ei, rep, rl);
+			ei += rl;
+		} else {
+			escaped[ei++] = flat[i];
+		}
 	}
+	escaped[ei] = '\0';
+	snprintf(preview, sizeof preview, "%s%s", escaped, truncated ? "…" : "");
 
 	const char *what;
 	if (a->show && !a->no_copy)
@@ -224,7 +240,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			.summary = translated ? "OCR + Translate" : "OCR Complete",
 			.body = preview,
 		});
-	grabit_sound_play(cfg);
+	if (!a->no_copy || a->show) grabit_sound_play(cfg);
 
 	free(text);
 	return 0;

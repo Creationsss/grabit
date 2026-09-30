@@ -47,6 +47,33 @@ static const char *utf8_safe(const char *s, char *buf, size_t cap) {
 	return buf;
 }
 
+static bool hint_basic(DBusMessageIter *hints, const char *key, int type,
+					   const char *sig, const void *val) {
+	DBusMessageIter entry, var;
+	if (!dbus_message_iter_open_container(hints, DBUS_TYPE_DICT_ENTRY, NULL, &entry))
+		return false;
+	if (!dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key)) return false;
+	if (!dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, sig, &var))
+		return false;
+	if (!dbus_message_iter_append_basic(&var, type, val)) return false;
+	if (!dbus_message_iter_close_container(&entry, &var)) return false;
+	return dbus_message_iter_close_container(hints, &entry);
+}
+
+static unsigned char urgency_byte(const struct notify_opts *o) {
+	switch (o->urgency) {
+	case NOTIFY_LOW:
+		return 0;
+	case NOTIFY_NORMAL:
+		return 1;
+	case NOTIFY_CRITICAL:
+		return 2;
+	case NOTIFY_URGENCY_AUTO:
+		break;
+	}
+	return o->force ? 2 : 1;
+}
+
 static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	DBusMessageIter args;
 	dbus_message_iter_init_append(msg, &args);
@@ -58,16 +85,18 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	const char *summary = utf8_safe(o->summary, summary_buf, sizeof summary_buf);
 	const char *body = utf8_safe(o->body, scrub_buf, sizeof scrub_buf);
 	if ((o->log_hint || o->force) && log_file_enabled()) {
-		snprintf(body_buf, sizeof body_buf, "%s%scheck the log file",
-				 body, body[0] ? "\n" : "");
+		snprintf(body_buf, sizeof body_buf, "%s%ssee %s", body, body[0] ? "\n" : "",
+				 log_file_path());
 		body = body_buf;
 	}
-	dbus_uint32_t replaces = 0;
-	dbus_int32_t expire = EXPIRE_DEFAULT;
+	dbus_uint32_t replaces = o->replaces ? (dbus_uint32_t)*o->replaces : 0;
+	unsigned char urgency = urgency_byte(o);
+	dbus_int32_t expire = urgency == 2 ? 0 : EXPIRE_DEFAULT;
+	const char *no_icon = "";
 
 	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &app)) return false;
 	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_UINT32, &replaces)) return false;
-	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &icon)) return false;
+	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &no_icon)) return false;
 	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &summary)) return false;
 	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &body)) return false;
 
@@ -77,6 +106,15 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 
 	DBusMessageIter hints;
 	if (!dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &hints)) return false;
+	if (!hint_basic(&hints, "urgency", DBUS_TYPE_BYTE, "y", &urgency)) return false;
+	const char *entry = APP_NAME;
+	if (!hint_basic(&hints, "desktop-entry", DBUS_TYPE_STRING, "s", &entry)) return false;
+	if (icon[0] && !hint_basic(&hints, "image-path", DBUS_TYPE_STRING, "s", &icon))
+		return false;
+	if (o->transient) {
+		dbus_bool_t yes = TRUE;
+		if (!hint_basic(&hints, "transient", DBUS_TYPE_BOOLEAN, "b", &yes)) return false;
+	}
 	if (!dbus_message_iter_close_container(&args, &hints)) return false;
 
 	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_INT32, &expire)) return false;
@@ -122,6 +160,10 @@ void notify_send(const struct notify_opts *o) {
 			g_warned_daemon = true;
 		}
 	} else {
+		dbus_uint32_t id = 0;
+		if (o->replaces &&
+			dbus_message_get_args(reply, NULL, DBUS_TYPE_UINT32, &id, DBUS_TYPE_INVALID))
+			*o->replaces = (unsigned int)id;
 		dbus_message_unref(reply);
 	}
 

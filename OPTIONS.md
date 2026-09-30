@@ -27,9 +27,9 @@ make
 ```sh
 make             # release build into build/grabit
 make sanitize    # asan + ubsan into build-san/grabit
-make install     # to $(DESTDIR)$(PREFIX)/bin/grabit
+make install     # binary, man page and grabit.desktop to $(DESTDIR)$(PREFIX)
 make clean
-make test        # spdx-header lint
+make test        # spdx headers, doc sync, self-contained headers
 make apply-headers
 make fmt         # clang-format -i
 make fmt-check   # dry-run, errors on diff
@@ -144,7 +144,7 @@ grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into c
 grabit sxcu add  myhost.sxcu --force          # replace an uploader that already exists
 grabit sxcu list                              # registered names (alias: ls)
 grabit sxcu show <name>                       # parsed fields (auth masked; --show-secrets unmasks)
-grabit sxcu remove <name>                     # alias: rm
+grabit sxcu remove <name> [--yes]             # alias: rm; asks first on a terminal
 ```
 
 added uploaders live at `~/.config/grabit/uploaders/<name>.sxcu` (chmod 0600). once added, use them like a built-in:
@@ -166,14 +166,14 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 |---|---|---|
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
 | `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
-| `notifications` | bool | enable desktop notifications (default `true`); same forced-failure caveat as `--silent` below |
-| `log_file` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way |
+| `notifications` | bool | enable desktop notifications (default `true`); failure notifications are still sent (see `--silent` in `man grabit`) |
+| `log.enabled` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way. old name: `log_file` |
 | `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
 | `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the color swatches, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
 | `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
 | `filename` | string | filename template (see "filename templates" below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
-| `format` | enum | screenshot output format: `png`/`jpeg`/`webp` (default `png`). per-run override: `--format <name>` |
+| `format` | enum | screenshot output format: `png`/`jpeg` (alias `jpg`)/`webp` (default `png`). per-run override: `--format <name>` |
 
 ### capture backend
 
@@ -181,7 +181,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 |---|---|---|
 | `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
 | `capture.hdr` | `false` | keep the full range of an hdr output instead of tone mapping it. off by default: grabit converts pq or hlg to srgb so a capture looks the way the screen does, and most viewers cannot read a 16-bit png anyway. set `true` and a plain `-F`/`-w`/`-L` png keeps 10 bits, written as a 16-bit file carrying `cICP`, `mDCV` and `cLLI`. it does not apply to an interactive region drag, to `-e`, a preview, a rounded window, jpeg or webp, or a capture spanning two monitors, all of which are tone mapped instead. the files are roughly 2.5x larger. needs the compositor to report its colorimetry over `color-management-v1` |
-| `capture.delay` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts |
+| `capture.delay_secs` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts. old name: `capture.delay` |
 | `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
 
 ### region selector
@@ -213,8 +213,8 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 
 | key | default | action |
 |---|---|---|
-| `keys.confirm` | `Return, KP_Enter, Ctrl+c` | capture/save the selection (copy/upload path chosen elsewhere) |
-| `keys.cancel` | `Escape, mouse:right` | cancel; while dragging/typing it aborts that instead |
+| `keys.confirm` | `Return, KP_Enter, Ctrl+s` | capture/save the selection (copy/upload path chosen elsewhere) |
+| `keys.cancel` | `Escape, Ctrl+w, Ctrl+q, mouse:right` | cancel; while dragging/typing it aborts that instead |
 | `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
 | `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
 | `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo the last undo (edit mode) |
@@ -228,7 +228,7 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
 ```sh
-grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+c"
+grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+s"
 grabit set keys.cancel "Escape"
 ```
 
@@ -273,13 +273,13 @@ grabit --record               # stop
 
 KDE and GNOME both hand back a pipewire node, so a `libpipewire-0.3` build is required for either. neither shows a portal dialog.
 
-KWin keeps `zkde_screencast_unstable_v1` on an interface blacklist and only grants it to programs whose installed `.desktop` declares `X-KDE-Wayland-Interfaces`, so recording on KDE needs `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
+KWin keeps both `org.kde.KWin.ScreenShot2` and `zkde_screencast_unstable_v1` behind an allow-list and only grants them to programs whose installed `.desktop` declares `X-KDE-DBUS-Restricted-Interfaces` (screenshots) and `X-KDE-Wayland-Interfaces` (recording), so both on KDE need `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
 
 GNOME has no `zwlr_layer_shell_v1`, so the region selector, overlay and control bar do not appear. pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record`. `org.gnome.Mutter.ScreenCast` is a private API, so a GNOME upgrade can break recording there.
 
 while recording you'll see:
 - a thin red border around the captured region
-- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; drag it by its background to move it, same as the editor toolbar
+- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; it stays where it is placed (unlike the editor toolbar, it cannot be dragged)
 - a recording icon in your status bar tray (waybar with `tray` module, etc.)
 
 the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.
@@ -370,7 +370,7 @@ requires `tesseract` on `$PATH` and the training data for the language you OCR i
 
 | key | default | notes |
 |---|---|---|
-| `ocr.tesseract` | `tesseract` | path to the tesseract binary |
+| `ocr.tesseract` | `tesseract-ocr`, then `tesseract` | path to the tesseract binary |
 | `ocr.lang` | `eng` | language passed to tesseract's `-l`. combine with `+` (e.g. `eng+deu`). needs the matching traineddata installed; list what you have with `tesseract --list-langs` |
 
 ```sh
@@ -454,7 +454,7 @@ the preview is the scaled screenshot with a thin dark border. hovering over it o
 - after `-o`: runs `xdg-open <dir>` (opens the containing folder in your file manager)
 - after `-c`: just dismisses (the file may already be gone if it was a temp)
 
-the card is click-through (no input region). running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
+the `--show` text card is click-through (no input region); the preview card takes hover and click as above. running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
 
 
 ## fullscreen
@@ -522,7 +522,7 @@ grabit -e -o                  # annotate, then save
 - **6 preset color swatches** + a current-color square (click to open the picker)
 - **hsl picker panel**: drag in the gradient, type a hex value (hex digits only, `rrggbb` or `rgb`; the `#` is implied), or click the eyedropper to sample a pixel from the screen
 - **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). the wheel sizes the font instead (8-72) while text, counter or callout is active
-- **undo** (`u` or `ctrl+z`) / **redo** (`ctrl+y` or `ctrl+shift+z`), hold to repeat - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
+- **undo** (`u` or `ctrl+z`, hold to repeat) / **redo** (`ctrl+y` or `ctrl+shift+z`) - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region (with a drawing tool active)
 - **shift** while drawing constrains rect/rounded rect/ellipse/blur/pixelate/spotlight to squares and arrows/lines to 45° angles
 - **arrow keys / shift+arrows** still move and resize the capture region while the editor is open
@@ -545,7 +545,7 @@ last-picked color, width, and tool persist via:
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
 | `edit.width` | `4` | integer 1-20 |
 | `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` - the editor reopens with your last-used tool |
-| `edit.default` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR) |
+| `edit.always` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR). old name: `edit.default` |
 | `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
 | `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
 | `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
@@ -585,14 +585,14 @@ grabit plugin install <git-url>   # clone, build, install (alias: add)
 grabit plugin list                # installed plugins (alias: ls)
 grabit plugin show <name>         # parsed manifest
 grabit plugin update [<name>]     # update one, or all
-grabit plugin remove <name>       # uninstall (alias: rm)
+grabit plugin remove <name> [--yes]  # uninstall (alias: rm); asks first on a terminal
 ```
 
 run one by name - a non-flag first argument resolving to an installed plugin execs `grabit-<name>`:
 
 ```sh
 grabit <name> [args]              # run the plugin
-grabit -p <name> [args]           # run it and pin its last stdout line as a file
+grabit <name> --pin [args]        # run it and pin its last stdout line as a file (old: -p <name>)
 ```
 
 plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
@@ -603,7 +603,7 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 |---|---|
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
-| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log_file` config key |
+| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log.enabled` config key |
 | `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
 | `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
 | `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
@@ -641,7 +641,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | `~/.config/grabit/plugins/.lock` | plugin install/update lock |
 | `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
-| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log_file false` or `GRABIT_LOG_FILE=0` |
+| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log.enabled false` or `GRABIT_LOG_FILE=0` |
 | `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp/grabit-<uid>/grabit/`; grabit refuses a world-writable directory rather than using `/tmp` itself) |
 | `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit-<uid>/grabit_recording.pid`) |
 | `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |

@@ -31,8 +31,11 @@ static void maybe_compress(struct config *cfg, const struct publish_opts *po) {
 	log_info("recording: %lld bytes > %d MiB, compressing...",
 			 (long long)st.st_size, max_mb);
 	notify_send(&(struct notify_opts){
-		.summary = "Recording compressing",
+		.summary = "Compressing recording",
 		.body = grabit_basename(po->output_path),
+		.urgency = NOTIFY_LOW,
+		.transient = true,
+		.replaces = po->notify_id,
 	});
 	if (compress_to_target_size(po->ffmpeg_bin, po->output_path, max_mb,
 								po->secs, po->stop) == 0) {
@@ -55,7 +58,8 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 	if (!po->upload_service) {
 		notify_send(&(struct notify_opts){
 			.summary = "Recording saved",
-			.body = grabit_basename(po->output_path),
+			.body = po->output_path,
+			.replaces = po->notify_id,
 		});
 		return;
 	}
@@ -63,17 +67,22 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 	notify_send(&(struct notify_opts){
 		.summary = "Uploading recording",
 		.body = po->upload_service,
+		.urgency = NOTIFY_LOW,
+		.transient = true,
+		.replaces = po->notify_id,
 	});
 	struct upload_result ur = {0};
 	int up_rc = upload_perform(po->upload_service, po->output_path, cfg,
 							   po->chunked, &ur);
 	if (up_rc == 0 && ur.url) {
-		clipboard_set_text(ur.url);
+		bool copied = clipboard_set_text(ur.url) == 0;
 		puts(ur.url);
 		fflush(stdout);
 		notify_send(&(struct notify_opts){
 			.summary = "Recording uploaded",
-			.body = "link copied to clipboard",
+			.body = copied ? "link copied to clipboard"
+						   : "link is on stdout; clipboard write failed",
+			.replaces = po->notify_id,
 		});
 		if (!po->keep_locally) unlink(po->output_path);
 	} else {
@@ -82,10 +91,13 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 		log_error("recording upload failed; file kept at %s", po->output_path);
 		log_error("  retry with: grabit -f %s --%s", po->output_path,
 				  po->upload_service);
+		char kept[512];
+		snprintf(kept, sizeof kept, "%s\nkept at %s", body, po->output_path);
 		notify_send(&(struct notify_opts){
 			.summary = "Upload failed",
-			.body = body,
+			.body = kept,
 			.force = true,
+			.replaces = po->notify_id,
 		});
 	}
 	upload_result_free(&ur);

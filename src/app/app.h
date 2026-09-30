@@ -21,9 +21,12 @@ int gapp_print_help_examples(void);
 void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 							 const char *caption, const char *click_open);
 char *gapp_capture_to_file(const struct args *a, struct config *cfg,
-						   enum action eff, bool *is_temp, struct rect *out_rect);
+						   enum action eff, bool *is_temp, struct rect *out_rect,
+						   int *status);
+
 char *gapp_acquire_source(const struct args *a, struct config *cfg,
-						  enum action eff, bool *is_temp, struct rect *out_rect);
+						  enum action eff, bool *is_temp, struct rect *out_rect,
+						  int *status);
 void gapp_release_source(char *path, bool is_temp);
 void gapp_clear_tmpfile(void);
 void gapp_unlink_tmpfile(void);

@@ -24,6 +24,7 @@ enum paths_dest {
 	PATHS_DEST_VIDEOS,
 };
 
+char *paths_output_at(const char *path);
 char *paths_build_output(struct config *cfg, const char *cli_template,
 						 const char *extension, enum paths_dest dest);
 

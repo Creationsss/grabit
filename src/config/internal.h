@@ -41,6 +41,8 @@ const char *cfg_canonical_key(const char *key);
 bool cfg_is_state_key(const char *key);
 bool cfg_in_list(const char *needle, const char *const *list);
 bool cfg_key_is_known(const char *key);
+bool cfg_key_is_secret(const char *key);
+int cfg_validate_value(const char *key, const char *value);
 
 void cfg_help_print_all_keys(void);
 int cfg_help_example_for_key(const char *key, const char **example_out, const char **def_out);

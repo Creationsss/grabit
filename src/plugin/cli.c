@@ -4,24 +4,26 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/plugin.h"
 
+#include "exit.h"
 #include "log.h"
+#include "util/util.h"
 
 #include <stdio.h>
 #include <string.h>
 
 static int usage(void) {
-	fputs("usage: grabit plugin <install|list|show|update|remove> [args]\n", stderr);
-	return 2;
+	fputs("usage: grabit plugin <add|list|show|update|remove> [args]\n", stderr);
+	return GRABIT_EXIT_USAGE;
 }
 
 static int help(void) {
 	puts("usage: grabit plugin <subcommand> [args]");
 	puts("");
-	puts("  install <git-url>  install a plugin (alias: add)");
+	puts("  add <git-url>      install a plugin (alias: install)");
 	puts("  list               list installed plugins (alias: ls)");
 	puts("  show <name>        print parsed manifest");
 	puts("  update [<name>]    update one plugin (or all if omitted)");
-	puts("  remove <name>      uninstall a plugin (alias: rm)");
+	puts("  remove <name> [-y] uninstall a plugin (alias: rm)");
 	return 0;
 }
 
@@ -78,11 +80,14 @@ static int do_show(const char *name) {
 }
 
 int cmd_plugin(int argc, char **argv) {
-	if (argc < 1) return usage();
-	const char *sub = argv[0];
-	if (strcmp(sub, "--help") == 0 || strcmp(sub, "-h") == 0) {
-		return help();
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) return help();
 	}
+	if (argc < 1) {
+		help();
+		return 2;
+	}
+	const char *sub = argv[0];
 	if (strcmp(sub, "install") == 0 || strcmp(sub, "add") == 0) {
 		if (argc != 2) {
 			log_error("usage: grabit plugin install <git-url>");
@@ -101,8 +106,23 @@ int cmd_plugin(int argc, char **argv) {
 		return usage();
 	}
 	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
-		if (argc != 2) return usage();
-		return plugin_remove(argv[1]) == 0 ? 0 : 1;
+		bool yes = false;
+		const char *name = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+				yes = true;
+			else if (!name)
+				name = argv[i];
+			else
+				return usage();
+		}
+		if (!name) return usage();
+		char what[256];
+		snprintf(what, sizeof what, "remove the plugin %s and everything in its "
+									"install directory",
+				 name);
+		if (!grabit_confirm(yes, what)) return 1;
+		return plugin_remove(name) == 0 ? 0 : 1;
 	}
 	return usage();
 }

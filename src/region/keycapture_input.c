@@ -53,6 +53,7 @@ static void gkc_add(struct kc_state *s, const struct keybind *b) {
 	char one[80];
 	region_keybind_format(b, one, sizeof one);
 	log_info("  + %s", one);
+	gkc_render(s);
 }
 
 static void layer_configure(void *data, struct zwlr_layer_surface_v1 *ls,
@@ -62,17 +63,15 @@ static void layer_configure(void *data, struct zwlr_layer_surface_v1 *ls,
 	if (s->mapped) return;
 
 	s->scale = s->go->scale > 0 ? s->go->scale : 1;
-	int32_t pw = (int32_t)w * s->scale;
-	int32_t ph = (int32_t)h * s->scale;
+	s->w = (int32_t)w;
+	s->h = (int32_t)h;
+	int32_t pw = s->w * s->scale;
+	int32_t ph = s->h * s->scale;
 
 	if (grabit_shm_argb_buf(s->wls->shm, "grabit-keycapture", pw, ph, &s->buf) != 0)
 		return;
 
-	wl_surface_set_buffer_scale(s->surface, s->scale);
-	wl_surface_attach(s->surface, s->buf.buffer, 0, 0);
-	wl_surface_damage_buffer(s->surface, 0, 0, pw, ph);
-	wl_surface_commit(s->surface);
-	wl_display_flush(s->wls->display);
+	gkc_render(s);
 	s->mapped = true;
 }
 
@@ -131,6 +130,11 @@ static void kb_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
 		s->done = true;
+		return;
+	}
+	if (sym == XKB_KEY_BackSpace && s->n_caps > 0) {
+		s->n_caps--;
+		gkc_render(s);
 		return;
 	}
 	if (sym == XKB_KEY_NoSymbol || is_modifier_sym(sym)) return;

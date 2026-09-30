@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "upload/upload.h"
 
+#include "config/internal.h"
+#include "exit.h"
 #include "log.h"
 #include "upload/sxcu.h"
 #include "util/util.h"
@@ -16,16 +18,16 @@
 
 static int usage(void) {
 	log_error("usage: grabit sxcu <add|list|remove|show> [args]");
-	return 2;
+	return GRABIT_EXIT_USAGE;
 }
 
 static int help(void) {
 	puts("usage: grabit sxcu <subcommand> [args]");
 	puts("");
-	puts("  add <file>     register a .sxcu uploader (--force replaces; alias: install)");
-	puts("  list           show registered uploaders (alias: ls)");
-	puts("  show <name>    print parsed fields (--show-secrets unmasks auth)");
-	puts("  remove <name>  remove an uploader (alias: rm)");
+	puts("  add <file>          register a .sxcu uploader (--force replaces; alias: install)");
+	puts("  list                show registered uploaders (alias: ls)");
+	puts("  show <name>         print parsed fields (--show-secrets unmasks auth)");
+	puts("  remove <name> [-y]  remove an uploader (alias: rm)");
 	return 0;
 }
 
@@ -48,26 +50,9 @@ static int do_list(void) {
 	return 0;
 }
 
-static bool contains_ci(const char *hay, const char *needle) {
-	size_t n = strlen(needle);
-	for (; *hay; hay++)
-		if (strncasecmp(hay, needle, n) == 0) return true;
-	return false;
-}
-
-static bool key_is_secret(const char *k) {
-	static const char *const NEEDLES[] = {"auth", "secret", "token", "key",
-										  "password", "passwd", "session",
-										  "cookie", "bearer", NULL};
-	if (!k) return false;
-	for (size_t i = 0; NEEDLES[i]; i++)
-		if (contains_ci(k, NEEDLES[i])) return true;
-	return false;
-}
-
 static void show_kv(const char *label, const char *k, const char *sep,
 					const char *v, bool reveal) {
-	if (!reveal && key_is_secret(k))
+	if (!reveal && cfg_key_is_secret(k))
 		printf("%s%s%s<hidden>\n", label, k, sep);
 	else
 		printf("%s%s%s%s\n", label, k, sep, v ? v : "");
@@ -100,11 +85,14 @@ static int do_show(const char *name, bool reveal) {
 }
 
 int cmd_sxcu(int argc, char **argv) {
-	if (argc < 1) return usage();
-	const char *sub = argv[0];
-	if (strcmp(sub, "--help") == 0 || strcmp(sub, "-h") == 0) {
-		return help();
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) return help();
 	}
+	if (argc < 1) {
+		help();
+		return 2;
+	}
+	const char *sub = argv[0];
 	if (strcmp(sub, "add") == 0 || strcmp(sub, "install") == 0) {
 		bool force = false;
 		const char *file = NULL;
@@ -123,8 +111,21 @@ int cmd_sxcu(int argc, char **argv) {
 	}
 	if (strcmp(sub, "list") == 0 || strcmp(sub, "ls") == 0) return do_list();
 	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
-		if (argc != 2) return usage();
-		return sxcu_dir_remove(argv[1]) == 0 ? 0 : 1;
+		bool yes = false;
+		const char *name = NULL;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
+				yes = true;
+			else if (!name)
+				name = argv[i];
+			else
+				return usage();
+		}
+		if (!name) return usage();
+		char what[256];
+		snprintf(what, sizeof what, "remove the uploader %s", name);
+		if (!grabit_confirm(yes, what)) return 1;
+		return sxcu_dir_remove(name) == 0 ? 0 : 1;
 	}
 	if (strcmp(sub, "show") == 0) {
 		bool reveal = false;

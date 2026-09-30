@@ -6,6 +6,7 @@
 
 #include "config/internal.h"
 #include "log.h"
+#include "notify/notify.h"
 #include "paths.h"
 #include "ui_theme.h"
 #include "util/util.h"
@@ -21,13 +22,23 @@
 #include "vendor/tomlc99/toml.h"
 
 static void note_unknown(const char *full) {
-	if (cfg_key_is_known(full)) return;
 	const char *hint = cfg_help_suggest_key(full);
 	if (hint && strcmp(hint, full) == 0) hint = NULL;
 	if (hint)
 		log_warn("config: unknown key `%s`; did you mean `%s`?", full, hint);
 	else
 		log_warn("config: unknown key `%s`; it has no effect", full);
+}
+
+static bool accept_value(const char *full, const char *val) {
+	full = cfg_canonical_key(full);
+	if (!cfg_key_is_known(full)) {
+		note_unknown(full);
+		return true;
+	}
+	if (cfg_validate_value(full, val) == 0) return true;
+	log_warn("config: ignoring %s = %s; using the default", full, val);
+	return false;
 }
 
 static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) {
@@ -45,8 +56,7 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t s = toml_string_in(t, k);
 		if (s.ok) {
-			note_unknown(full);
-			int rc = cfg_kv_upsert(c, full, s.u.s);
+			int rc = accept_value(full, s.u.s) ? cfg_kv_upsert(c, full, s.u.s) : 0;
 			free(s.u.s);
 			free(full);
 			if (rc != 0) return -1;
@@ -55,8 +65,8 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t b = toml_bool_in(t, k);
 		if (b.ok) {
-			note_unknown(full);
-			int rc = cfg_kv_upsert(c, full, b.u.b ? "true" : "false");
+			const char *bv = b.u.b ? "true" : "false";
+			int rc = accept_value(full, bv) ? cfg_kv_upsert(c, full, bv) : 0;
 			free(full);
 			if (rc != 0) return -1;
 			continue;
@@ -64,10 +74,9 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t n = toml_int_in(t, k);
 		if (n.ok) {
-			note_unknown(full);
 			char buf[32];
 			snprintf(buf, sizeof buf, "%lld", (long long)n.u.i);
-			int rc = cfg_kv_upsert(c, full, buf);
+			int rc = accept_value(full, buf) ? cfg_kv_upsert(c, full, buf) : 0;
 			free(full);
 			if (rc != 0) return -1;
 			continue;
@@ -90,14 +99,14 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 static int seed_defaults(struct config *c) {
 	if (cfg_kv_upsert(c, "default_action", "copy") != 0) return -1;
 	if (cfg_kv_upsert(c, "notifications", "true") != 0) return -1;
-	if (cfg_kv_upsert(c, "log_file", "true") != 0) return -1;
+	if (cfg_kv_upsert(c, "log.enabled", "true") != 0) return -1;
 	if (cfg_kv_upsert(c, "also_save", "false") != 0) return -1;
 	if (cfg_kv_upsert(c, "save_state", "true") != 0) return -1;
 	return 0;
 }
 
 static void config_apply_runtime(struct config *c) {
-	const char *v = config_get(c, "log_file");
+	const char *v = config_get(c, "log.enabled");
 	if (v && strcmp(v, "false") == 0) log_file_disable();
 
 	v = config_get(c, "capture.backend");
@@ -148,26 +157,23 @@ int config_load(struct config *c) {
 	toml_table_t *root = toml_parse_file(f, errbuf, sizeof errbuf);
 	fclose(f);
 	if (!root) {
-		char *broken = NULL;
-		if (grabit_xasprintf(&broken, "%s.broken", file) != 0 ||
-			rename(file, broken) != 0) {
-			log_error("parse %s: %s", file, errbuf);
-			free(broken);
-			return -1;
-		}
-		log_warn("config %s unparseable (%s); moved to %s, using defaults", file,
-				 errbuf, broken);
-		free(broken);
+		log_error("%s: %s", file, errbuf);
+		log_error("using built-in defaults for this run; fix the file or move it "
+				  "aside, then run `grabit get` to check it");
+		char body[512];
+		snprintf(body, sizeof body, "%s\n%s\nusing defaults until it parses", file,
+				 errbuf);
+		notify_send(&(struct notify_opts){
+			.summary = "Config could not be read",
+			.body = body,
+			.force = true,
+		});
 		if (seed_defaults(c) != 0) {
 			log_error("out of memory");
 			config_free(c);
 			return -1;
 		}
-		if (config_save(c) != 0) {
-			log_error("could not write default config to %s: %s", file, strerror(errno));
-			config_free(c);
-			return -1;
-		}
+		c->unparsed = true;
 		config_apply_runtime(c);
 		return 0;
 	}

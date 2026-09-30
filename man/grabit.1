@@ -50,12 +50,10 @@ GNOME: recording only, via org.gnome.Mutter.ScreenCast. X11 is not supported.
 With no action flag, grabit performs the configured
 .BR default_action ,
 except that
-.B \-f
-and
 .BI \-\- service
-imply
+implies
 .B \-\-upload
-on their own
+on its own
 (seeded to
 .B copy
 on first run, which also writes a default config to
@@ -86,10 +84,13 @@ uploader. Only valid with
 .BR \-\-record ,
 or no action flag; any other action is an error.
 .TP
-.BR \-o ", " \-\-output ", " \-\-save
-Capture, save to disk, and print the path to standard output. The \(dqSaved\(dq
-notification and shutter sound are emitted only when standard output is a
-terminal, so redirecting the path to a file or pipe is silent by design.
+.BR \-o ", " \-\-output " [" \fIpath\fR "], " \-\-save
+Capture, save to disk, and print the path to standard output. With a
+.I path
+the capture is written there instead of the configured directory, and a
+recognised extension
+.RI ( .png ", " .jpg ", " .jpeg ", " .webp )
+selects the format.
 .TP
 .B \-\-record
 Toggle screen recording (run again to stop). Records a region to MP4/H.264,
@@ -147,7 +148,9 @@ translate the OCR text and copy the translation instead.
 .I lang
 is the target language (default
 .BR en ;
-source auto-detected). Falls back to raw OCR if the call fails (20s cap).
+source auto-detected). Falls back to raw OCR if the call fails (20s cap for
+.BR trans ,
+30s for libretranslate and deepl).
 .B translate.backend
 picks the translator:
 .BR trans " (default), " libretranslate ", or " deepl .
@@ -186,7 +189,7 @@ ignored for
 .B \-\-tray
 and the pin-management flags.
 Make it the default with
-.BR "grabit set edit.default true" .
+.BR "grabit set edit.always true" .
 A toolbar opens at the top of the primary monitor (override with
 .BR edit.toolbar_output );
 drag it by its background to park it anywhere, including onto another
@@ -261,19 +264,6 @@ and
 removes the selected ones. There is also an HSL color picker with an eyedropper
 and a width slider (or the scroll wheel, which sizes the font instead for text,
 counter and callout).
-The six color buttons can be repointed with
-.B edit.swatches
-(six comma separated
-.IR #rrggbb ,
-.I #rgb
-or named colors), or one at a time with
-.BR "grabit set edit.swatches " <n> " " <color> ,
-where
-.I <color>
-may be
-.B default
-to restore that one. Clicking a swatch that is already selected opens the color
-picker on it, with a reset button beside the eyedropper.
 Undo
 .RB ( u
 or
@@ -410,7 +400,7 @@ opened during it is captured; for
 .B \-\-record
 it happens after the region is picked, immediately before recording starts.
 Set
-.B capture.delay
+.B capture.delay_secs
 for a default without passing the flag.
 .TP
 .B \-\-no\-last
@@ -440,7 +430,7 @@ Plain uploads rejected with HTTP 413 (e.g. Cloudflare's 100MB cap) retry in
 chunks automatically, halving the chunk size if needed. Zipline only; other
 services ignore it.
 .TP
-.BI \-f " file"
+.BR \-f ", " \-\-file " " \fIfile\fR
 Use an existing
 .I file
 instead of capturing.
@@ -644,7 +634,7 @@ Active window title.
 and
 .B %t
 read the focused toplevel over
-.BR wlr\-foreign\-toplevel\-management\-v1 ,
+.BR wlr\-foreign\-toplevel\-management\-unstable\-v1 ,
 so they work on Hyprland, sway, niri, and river, and resolve to empty where
 that protocol is missing.)
 .TP
@@ -712,7 +702,7 @@ Set to
 .B 0
 to disable the log file and log to stderr only; any other value forces it on.
 Takes precedence over the
-.B log_file
+.B log.enabled
 config key.
 .TP
 .B GRABIT_RECORD_ENC_DELAY_US
@@ -868,7 +858,7 @@ mean this one, since grabit is usually run from a keybind with no terminal
 attached. That line is added only while the log file is enabled. It is
 truncated once it grows past 1 MiB. On by default; turn it off
 with
-.B grabit set log_file false
+.B grabit set log.enabled false
 or
 .BR GRABIT_LOG_FILE=0 .
 .TP
@@ -945,16 +935,19 @@ Success.
 .TP
 .B 1
 Runtime failure (capture, upload, clipboard, plugin, or subcommand error).
-Cancelling an interactive selection also exits
-.BR 1 ,
-but without an error notification. Cancelling
-.B \-\-record
-exits
-.B 0
-and notifies instead.
 .TP
 .B 2
 Command-line parse or usage error.
+.TP
+.B 3
+Cancelled by the user: the selection was dismissed with
+.BR Escape ,
+an empty region was dragged, or a recording was cancelled. Nothing is written
+and no error notification is sent.
+.TP
+.B 4
+The environment cannot do it: no wayland session, or the compositor implements
+none of the capture protocols grabit can use.
 .SH SEE ALSO
 .BR ffmpeg (1),
 .BR tesseract (1),

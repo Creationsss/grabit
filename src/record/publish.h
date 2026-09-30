@@ -18,6 +18,7 @@ struct publish_opts {
 	bool chunked;
 	double secs;
 	atomic_int *stop;
+	unsigned int *notify_id;
 };
 
 void record_publish(struct config *cfg, const struct publish_opts *po);

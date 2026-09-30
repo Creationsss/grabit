@@ -32,10 +32,10 @@ grabit plugin remove <name>              # alias: rm
 
 ```sh
 grabit <name> [args]                     # exec the plugin
-grabit -p <name> [args]                  # run plugin, then pin its last stdout line as a file
+grabit <name> --pin [args]               # run plugin, then pin its last stdout line as a file
 ```
 
-dispatch looks only at the first argument, and only when it doesn't start with `-` (`grabit --silent <name>` never dispatches). `set`, `get`, `unset`, `sxcu`, `plugin`, and `help` are matched first, so plugins with those names are unreachable. on a match grabit sets the env vars below, optionally captures (`capture.auto`), and exec's the plugin binary. if there's no match, `grabit <name>` falls through to the usual `unknown argument` error; `grabit -p <name>` does print a dedicated `plugin: <name> not installed`.
+dispatch looks only at the first argument, and only when it doesn't start with `-` (`grabit --silent <name>` never dispatches). `set`, `get`, `unset`, `sxcu`, `plugin`, and `help` are matched first, so plugins with those names are unreachable. on a match grabit sets the env vars below, optionally captures (`capture.auto`), and exec's the plugin binary. if there's no match, `grabit <name>` falls through to the usual `unknown argument` error; `grabit <name> --pin` does print a dedicated `plugin: <name> not installed`. `-p <name>` still works as a deprecated spelling.
 
 ### `-p <name>` semantics
 
@@ -139,7 +139,7 @@ there is no `--force` flag - `If-Modified-Since` is always honored. any foregrou
 
 ### auto-update
 
-triggered on every `grabit <name>` and `grabit -p <name>` invocation. flow:
+triggered on every `grabit <name>` and `grabit <name> --pin` invocation. flow:
 
 1. tries the lock non-blockingly. if held by another op, **silently skips this round** (no log).
 2. if `<plugin-dir>/.last_check` is newer than `check_every_hours` ago, skip.

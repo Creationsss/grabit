@@ -19,7 +19,7 @@
 
 static const char *VALS_filename_preset[] = {"date", "random", "uuid", "timestamp", NULL};
 static const char *VALS_modifier[] = {"ctrl", "shift", "alt", "super", NULL};
-static const char *VALS_format[] = {"png", "jpeg", "webp", NULL};
+static const char *VALS_format[] = {"png", "jpeg", "jpg", "webp", NULL};
 static const char *VALS_translate_backend[] = {"trans", "libretranslate", "deepl", NULL};
 
 static const char *VALS_x264_tune[] = {
@@ -132,22 +132,28 @@ static const struct cfg_int_key INT_KEYS[] = {
 	{"preview.size", 100, 800, false},
 	{"preview.dismiss_secs", 0, 600, false},
 	{"services.zipline.chunk_size", 1, 95, false},
-	{"capture.delay", 0, 3600, false},
+	{"capture.delay_secs", 0, 3600, false},
 	{"edit.width", EDIT_MIN_WIDTH, EDIT_MAX_WIDTH, false},
 	{"region.window_radius", 0, 100, true},
 	{"gui.radius", 0, 100, true},
 };
 
 const char *cfg_canonical_key(const char *key) {
-	return strcmp(key, "save_captures") == 0 ? "also_save" : key;
+	static const struct {
+		const char *old;
+		const char *now;
+	} ALIASES[] = {
+		{"save_captures", "also_save"},
+		{"log_file", "log.enabled"},
+		{"capture.delay", "capture.delay_secs"},
+		{"edit.default", "edit.always"},
+	};
+	for (size_t i = 0; i < sizeof ALIASES / sizeof *ALIASES; i++)
+		if (strcmp(key, ALIASES[i].old) == 0) return ALIASES[i].now;
+	return key;
 }
 
-int config_set(struct config *c, const char *key, const char *value) {
-	key = cfg_canonical_key(key);
-	if (!cfg_key_is_known(key)) {
-		cfg_help_report_unknown_key(key);
-		return -1;
-	}
+int cfg_validate_value(const char *key, const char *value) {
 	if (strcmp(key, "save_dir") == 0 && value[0] != '/' && value[0] != '~') {
 		log_error("save_dir must be an absolute path or start with ~/");
 		log_error("  a relative path is resolved against whatever directory grabit "
@@ -214,6 +220,17 @@ int config_set(struct config *c, const char *key, const char *value) {
 	if (strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {
 		if (gcfg_validate_zl_header(key + strlen(zl_prefix), value) != 0) return -1;
 	}
+
+	return 0;
+}
+
+int config_set(struct config *c, const char *key, const char *value) {
+	key = cfg_canonical_key(key);
+	if (!cfg_key_is_known(key)) {
+		cfg_help_report_unknown_key(key);
+		return -1;
+	}
+	if (cfg_validate_value(key, value) != 0) return -1;
 
 	char *normalized = NULL;
 	if (strcmp(key, "services.zipline.domain") == 0) {

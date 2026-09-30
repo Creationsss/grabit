@@ -19,6 +19,9 @@ struct kc_state {
 	struct zwlr_layer_surface_v1 *layer;
 	struct grabit_shm_buf buf;
 	int32_t scale;
+	int32_t w;
+	int32_t h;
+	const char *action_key;
 	bool mapped;
 
 	struct wl_keyboard *keyboard;
@@ -42,4 +45,7 @@ extern const struct wl_keyboard_listener gkc_kb_listener;
 extern const struct wl_pointer_listener gkc_ptr_listener;
 
 void gkc_join(struct kc_state *s, char *out, size_t n);
+struct _cairo;
+void gkc_draw(struct _cairo *cr, struct kc_state *s);
+void gkc_render(struct kc_state *s);
 #endif

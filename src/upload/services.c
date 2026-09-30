@@ -42,7 +42,8 @@ const char *gup_resolve_auth(struct config *cfg, const char *service) {
 	const char *auth = getenv(env_key);
 	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
 	if (!auth || !auth[0]) {
-		log_error("no auth token for %s: set $%s or run `grabit set %s <token>`",
+		log_error("no auth token for %s: set $%s, or run `grabit set %s -` and paste "
+				  "the token (keeps it out of shell history)",
 				  service, env_key, cfg_key);
 		return NULL;
 	}
@@ -103,16 +104,18 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 	if (!service || !service[0]) {
 		log_error("no service: pass --<service> or `grabit set service <name>`");
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: no upload service",
+			.summary = "No upload service",
 			.body = "run: grabit set service <name> (see grabit --help)",
+			.force = true,
 		});
 		return -1;
 	}
 	if (!upload_service_known(service)) {
 		log_error("unknown service: %s", service);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: unknown service",
+			.summary = "Unknown service",
 			.body = "not a built-in or a registered .sxcu uploader",
+			.force = true,
 		});
 		return -1;
 	}
@@ -124,10 +127,12 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 
 	if (!gup_resolve_auth(cfg, service)) {
 		char body[160];
-		snprintf(body, sizeof body, "run: grabit set services.%s.auth <token>", service);
+		snprintf(body, sizeof body,
+				 "run: grabit set services.%s.auth - (then paste the token)", service);
 		notify_send(&(struct notify_opts){
-			.summary = "grabit: missing auth token",
+			.summary = "Missing auth token",
 			.body = body,
+			.force = true,
 		});
 		return -1;
 	}
@@ -138,8 +143,9 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 			log_error("zipline needs a domain: grabit set services.zipline.domain "
 					  "https://<host>/api/upload");
 			notify_send(&(struct notify_opts){
-				.summary = "grabit: zipline domain not set",
+				.summary = "Zipline domain not set",
 				.body = "run: grabit set services.zipline.domain https://<host>/api/upload",
+				.force = true,
 			});
 			return -1;
 		}

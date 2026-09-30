@@ -131,7 +131,7 @@ int plugin_install_git(const char *url) {
 	struct stat st;
 	if (stat(plugin_dir, &st) == 0) (void)plugin_rm_rf(plugin_dir);
 
-	log_debug("plugin: cloning %s", url);
+	log_info("plugin: cloning %s ...", url);
 	if (git_clone(url, plugin_dir) != 0) {
 		log_error("plugin: git clone failed");
 		goto fail_clone;
@@ -148,6 +148,12 @@ int plugin_install_git(const char *url) {
 
 	if (!plugin_name_is_valid(m.name)) {
 		log_error("plugin: invalid manifest name `%s` (must be [a-z0-9_-]+)", m.name);
+		goto fail_manifest;
+	}
+	if (plugin_name_is_reserved(m.name)) {
+		log_error("plugin: `%s` is a built-in grabit command, so the plugin could "
+				  "never be run; rename it in manifest.toml",
+				  m.name);
 		goto fail_manifest;
 	}
 
@@ -176,7 +182,7 @@ int plugin_install_git(const char *url) {
 	plugin_dir = final_dir;
 
 	if (m.kind == PLUGIN_KIND_BUILD) {
-		log_debug("plugin: building (%s)", m.build_cmd);
+		log_info("plugin: building (%s) ...", m.build_cmd);
 		if (run_shell(plugin_dir, m.build_cmd) != 0) {
 			log_error("plugin: build failed");
 			goto fail_manifest;
@@ -269,8 +275,7 @@ int plugin_remove(const char *name) {
 	if (grabit_xasprintf(&plugin_dir, "%s/%s", root, name) != 0) goto out;
 	struct stat st;
 	if (stat(plugin_dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
-		log_info("plugin: %s is not installed", name);
-		ret = 0;
+		log_error("plugin: %s is not installed", name);
 		goto out;
 	}
 	if (grabit_xasprintf(&link_path, "%s/grabit-%s", bin, name) != 0) goto out;

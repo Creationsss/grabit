@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <curl/curl.h>
 #include <json-c/json.h>
@@ -29,7 +30,45 @@ size_t upload_curl_buf_write(char *ptr, size_t size, size_t nmemb, void *user) {
 	return grabit_buf_putn(b, ptr, total) == 0 ? total : 0;
 }
 
+static bool g_progress_shown;
+static curl_off_t g_progress_bytes = -1;
+static int64_t g_progress_ms;
+
+static int upload_xfer_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
+						  curl_off_t ultotal, curl_off_t ulnow) {
+	(void)clientp;
+	(void)dltotal;
+	(void)dlnow;
+	if (ultotal <= 0 || log_is_silent() || !isatty(STDERR_FILENO)) return 0;
+
+	int64_t now = grabit_now_ns() / 1000000;
+	bool done = ulnow >= ultotal;
+	if (ulnow == g_progress_bytes) return 0;
+	if (!done && g_progress_ms && now - g_progress_ms < 100) return 0;
+	g_progress_ms = now;
+	g_progress_bytes = ulnow;
+
+	double mib = 1024.0 * 1024.0;
+	fprintf(stderr, "\r  uploading %3.0f%% (%.1f/%.1f MiB)",
+			(double)ulnow * 100.0 / (double)ultotal, (double)ulnow / mib,
+			(double)ultotal / mib);
+	fflush(stderr);
+	g_progress_shown = true;
+	return 0;
+}
+
+void upload_progress_finish(void) {
+	g_progress_bytes = -1;
+	g_progress_ms = 0;
+	if (!g_progress_shown) return;
+	fputs("\r\033[K", stderr);
+	fflush(stderr);
+	g_progress_shown = false;
+}
+
 void upload_curl_common(CURL *curl) {
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, upload_xfer_cb);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 8L);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
@@ -198,7 +237,6 @@ int upload_perform(const char *service_name, const char *file_path,
 	curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
 	upload_curl_common(curl);
 
 	log_info("uploading %s to %s ...", grabit_basename(file_path), svc->name);
@@ -206,6 +244,7 @@ int upload_perform(const char *service_name, const char *file_path,
 	grabit_redact_url(url, safe_url, sizeof safe_url);
 	log_debug("POST %s", safe_url);
 	CURLcode rc = curl_easy_perform(curl);
+	upload_progress_finish();
 	long http_code = 0;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 	out->http_code = http_code;

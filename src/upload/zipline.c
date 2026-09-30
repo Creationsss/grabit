@@ -96,7 +96,6 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 	curl_easy_setopt(c, CURLOPT_URL, purl);
 	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
 	curl_easy_setopt(c, CURLOPT_WRITEDATA, &resp);
-	curl_easy_setopt(c, CURLOPT_NOPROGRESS, 1L);
 	upload_curl_common(c);
 
 	long long off = 0;
@@ -144,6 +143,7 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 			grabit_redact_url(purl, safe_url, sizeof safe_url);
 			log_debug("POST %s (offset %lld, %zu bytes)", safe_url, start, send);
 			CURLcode rc = oom ? CURLE_OUT_OF_MEMORY : curl_easy_perform(c);
+			upload_progress_finish();
 			long http_code = 0;
 			curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &http_code);
 			curl_slist_free_all(headers);

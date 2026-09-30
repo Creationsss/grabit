@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -30,6 +31,15 @@ static void init_paths(void) {
 		g_plugin_bin[0] = '\0';
 	}
 	g_init = true;
+}
+
+bool plugin_name_is_reserved(const char *name) {
+	static const char *const RESERVED[] = {"set", "get", "unset", "sxcu",
+										   "plugin", "help", NULL};
+	if (!name) return false;
+	for (size_t i = 0; RESERVED[i]; i++)
+		if (strcmp(name, RESERVED[i]) == 0) return true;
+	return false;
 }
 
 bool plugin_name_is_valid(const char *name) {

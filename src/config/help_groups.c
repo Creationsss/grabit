@@ -131,7 +131,7 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = "pen";
 			return 0;
 		}
-		if (strcmp(leaf, "default") == 0) {
+		if (strcmp(leaf, "always") == 0) {
 			*example_out = "true|false";
 			*def_out = "false";
 			return 0;

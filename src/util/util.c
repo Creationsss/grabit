@@ -356,3 +356,16 @@ int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms) {
 		if (errno != EINTR) return -1;
 	}
 }
+
+bool grabit_confirm(bool assume_yes, const char *action) {
+	if (assume_yes) return true;
+	if (!isatty(STDIN_FILENO)) {
+		log_error("%s: pass --yes to confirm", action);
+		return false;
+	}
+	fprintf(stderr, "%s? [y/N] ", action);
+	fflush(stderr);
+	char buf[16];
+	if (!fgets(buf, sizeof buf, stdin)) return false;
+	return buf[0] == 'y' || buf[0] == 'Y';
+}

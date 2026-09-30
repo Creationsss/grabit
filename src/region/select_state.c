@@ -34,8 +34,7 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		if (snap_enabled && n_snap_rects == 0)
-			st->snap_radius = region_window_outer_radius(
-				cfg, NULL, region_window_borders_included(cfg));
+			st->snap_radius = region_window_outer_radius(cfg, NULL);
 		v = config_get(cfg, "region.snap_animation");
 		st->snap_anim = v && strcmp(v, "true") == 0;
 		if (st->snap_anim && !snap_enabled)

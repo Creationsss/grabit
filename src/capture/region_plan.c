@@ -48,17 +48,12 @@ int region_window_border(struct config *cfg, const struct rect *win) {
 	return b > 0 ? b : 0;
 }
 
-bool region_window_borders_included(struct config *cfg) {
-	return region_window_border(cfg, NULL) > 0;
-}
-
-int region_window_outer_radius(struct config *cfg, const struct rect *win,
-							   bool borders_included) {
+int region_window_outer_radius(struct config *cfg, const struct rect *win) {
 	int base = region_window_radius(cfg, win);
 	if (base <= 0 || !radius_is_auto(cfg)) return base > 0 ? base : 0;
 	int border = grabit_wm_window_border(win);
 	if (border <= 0) return base;
-	return borders_included ? base + border : base + 2 * border;
+	return borders_wanted(cfg) ? base + border : base + 2 * border;
 }
 
 enum region_plan region_plan_resolve(struct grabit_wl_state *s, struct config *cfg,

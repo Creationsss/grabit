@@ -75,8 +75,7 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 						   NULL, &snapped, NULL, mon, n_mon);
 	if (out_radius)
 		*out_radius = (snapped && plan != REGION_PLAN_MONITOR_PICK)
-						  ? region_window_outer_radius(
-								cfg, out, region_window_borders_included(cfg))
+						  ? region_window_outer_radius(cfg, out)
 						  : 0;
 	free(mon);
 	if (rc != 0 && rc != REGION_SELECT_CANCELLED)

@@ -28,6 +28,7 @@ bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 		return false;
 
 	enum tb_action act = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
+	st->pressed_button = state == WL_POINTER_BUTTON_STATE_PRESSED ? (int)act : -1;
 	if (act == TB_NONE) {
 		if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			st->tb_dragging = true;

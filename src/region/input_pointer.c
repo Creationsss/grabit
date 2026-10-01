@@ -55,7 +55,9 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 		st->drawing)
 		return;
 	st->cursor_on = NULL;
-	if (region_set_hover(st, -1)) region_render_request_redraw_all(st);
+	st->pressed_button = -1;
+	region_set_hover(st, -1);
+	region_render_request_redraw_all(st);
 }
 
 static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
@@ -121,6 +123,7 @@ static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 		enum tb_action a = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
 		if (a != TB_NONE) hover = (int)a;
 	}
+	if (st->pressed_button >= 0 && hover != st->pressed_button) st->pressed_button = -1;
 	region_set_hover(st, hover);
 
 	ginp_refresh_cursor(st);

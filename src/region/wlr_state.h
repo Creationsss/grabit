@@ -271,6 +271,7 @@ struct ro_state {
 
 	int tooltip_timer_fd;
 	int hovered_button;
+	int pressed_button;
 	bool tooltip_visible;
 
 	cairo_pattern_t *picker_rainbow_pat;

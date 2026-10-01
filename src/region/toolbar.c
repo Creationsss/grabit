@@ -55,6 +55,15 @@ static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
 		bb = 0.22;
 		aa = 0.96;
 	}
+	if ((int)act == st->pressed_button) {
+		rr *= 0.72;
+		gg *= 0.72;
+		bb *= 0.72;
+	} else if ((int)act == st->hovered_button) {
+		rr += (1.0 - rr) * 0.22;
+		gg += (1.0 - gg) * 0.22;
+		bb += (1.0 - bb) * 0.22;
+	}
 	cairo_set_source_rgba(cr, rr, gg, bb, aa);
 	grabit_cairo_rect_r(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2,
 						grabit_ui_radius(GUI_R_BTN) * S);

@@ -421,12 +421,12 @@ grabit set translate.target EN-US            # deepl codes: EN-US, PT-BR, ZH-HAN
 
 ### show on screen
 
-combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped). the text is still copied; add `--no-copy` to show without copying:
+combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped). the text is printed to stdout either way; add `--no-copy` to leave the clipboard alone:
 
 ```sh
 grabit --tesseract --show                 # show the raw OCR
 grabit --tesseract --translate --show     # show the translation
-grabit --tesseract --show --no-copy       # show only, leave the clipboard alone
+grabit --tesseract --show --no-copy       # print and show, leave the clipboard alone
 grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until replaced)
 ```
 

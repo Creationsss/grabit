@@ -381,8 +381,6 @@ int args_parse(int argc, char **argv, struct args *out) {
 	if (out->no_copy && out->action != ACTION_OCR) {
 		log_warn("--no-copy only applies to --tesseract");
 		out->no_copy = false;
-	} else if (out->no_copy && !out->show) {
-		log_warn("--no-copy without --show discards the OCR text");
 	}
 
 	return 0;

@@ -168,6 +168,11 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 		}
 	}
 
+	fputs(text, stdout);
+	size_t len = strlen(text);
+	if (len == 0 || text[len - 1] != '\n') fputc('\n', stdout);
+	fflush(stdout);
+
 	if (!a->no_copy && clipboard_set_text(text) != 0) {
 		log_error("ocr: clipboard write failed");
 		notify_send(&(struct notify_opts){
@@ -227,20 +232,20 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 
 	const char *what;
 	if (a->show && !a->no_copy)
-		what = "shown on screen and copied to clipboard";
+		what = "printed, shown on screen and copied to clipboard";
 	else if (a->show)
-		what = "shown on screen";
+		what = "printed and shown on screen";
 	else if (!a->no_copy)
-		what = "copied to clipboard";
+		what = "printed and copied to clipboard";
 	else
-		what = "discarded";
+		what = "printed";
 	log_info("ocr: %zu chars %s%s", tlen, what, translated ? " (translated)" : "");
 	if (want_notify)
 		notify_send(&(struct notify_opts){
 			.summary = translated ? "OCR + Translate" : "OCR Complete",
 			.body = preview,
 		});
-	if (!a->no_copy || a->show) grabit_sound_play(cfg);
+	grabit_sound_play(cfg);
 
 	free(text);
 	return 0;

@@ -10,6 +10,7 @@
 #include "region/edit_persist.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
+#include "util/rect.h"
 #include "wl/wl.h"
 #include "wm/wm.h"
 
@@ -33,7 +34,7 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		const char *v = config_get(cfg, "region.window_snap");
 		if (v && strcmp(v, "false") == 0) snap_enabled = false;
 		if (snap_enabled && n_snap_rects == 0)
-			st->snap_radius = region_window_radius(cfg, NULL);
+			st->snap_radius = region_window_outer_radius(cfg, NULL);
 		v = config_get(cfg, "region.snap_animation");
 		st->snap_anim = v && strcmp(v, "true") == 0;
 		if (st->snap_anim && !snap_enabled)
@@ -100,6 +101,10 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 	} else if (snap_enabled) {
 		if (grabit_wm_windows(&st->snap_windows, &st->n_snap_windows) != 0) {
 			log_debug("region: window snap disabled (no compositor window geometry)");
+		} else {
+			for (size_t i = 0; i < st->n_snap_windows; i++)
+				st->snap_windows[i] =
+					region_window_with_border(st->wls, cfg, st->snap_windows[i]);
 		}
 	}
 }

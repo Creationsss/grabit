@@ -253,7 +253,7 @@ char *gapp_capture_to_file(const struct args *a, struct config *cfg,
 	};
 	enum region_plan plan = region_plan_resolve(&s, cfg, &plan_req, &forced_rect);
 	if (a->window && plan == REGION_PLAN_FIXED)
-		opts.corner_radius = region_window_radius(cfg, &forced_rect);
+		opts.corner_radius = region_window_outer_radius(cfg, &forced_rect);
 	if (plan == REGION_PLAN_NO_MONITOR) {
 		grabit_wl_finish(&s);
 		notify_send(&(struct notify_opts){

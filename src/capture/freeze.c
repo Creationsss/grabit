@@ -151,7 +151,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	if (forced_region && !forced_only && !rect_equal(r, *forced_region))
 		eff_opts.corner_radius = 0;
 	if (snapped && n_snap_rects == 0)
-		eff_opts.corner_radius = region_window_radius(cfg, &r);
+		eff_opts.corner_radius = region_window_outer_radius(cfg, &r);
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices, &r,
 										 max_ratio, annos.n > 0 ? &annos : NULL,
 										 &eff_opts, path);

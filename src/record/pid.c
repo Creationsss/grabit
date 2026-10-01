@@ -39,6 +39,29 @@ void unlink_pid_file(void) {
 	if (p) unlink(p);
 }
 
+static int signal_running_recording(int sig, const char *what) {
+	const char *p = pid_file_path();
+	if (!p) return -1;
+	pid_t prev = grabit_lock_owner(p);
+	if (prev <= 0) {
+		log_error("no recording is running");
+		return -1;
+	}
+	log_debug("%s recording (pid %d)", what, (int)prev);
+	if (kill(prev, sig) != 0) {
+		if (errno == EPERM)
+			log_error("recording PID %d not owned by us; cannot signal", (int)prev);
+		else
+			log_error("kill(%d): %s", (int)prev, strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+int pause_running_recording(void) {
+	return signal_running_recording(SIGUSR1, "pausing");
+}
+
 int stop_running_recording(void) {
 	const char *p = pid_file_path();
 	if (!p) return -1;

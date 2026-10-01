@@ -157,6 +157,10 @@ int args_parse(int argc, char **argv, struct args *out) {
 			if (set_action(out, ACTION_PIN_CLOSE_ALL, arg) != 0) return -1;
 			continue;
 		}
+		if (strcmp(arg, "--pause") == 0) {
+			if (set_action(out, ACTION_REC_PAUSE, arg) != 0) return -1;
+			continue;
+		}
 		if (strcmp(arg, "--tray") == 0) {
 			if (set_action(out, ACTION_TRAY, arg) != 0) return -1;
 			continue;

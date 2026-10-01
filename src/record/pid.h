@@ -7,5 +7,6 @@
 int write_pid_file(void);
 void unlink_pid_file(void);
 int stop_running_recording(void);
+int pause_running_recording(void);
 
 #endif

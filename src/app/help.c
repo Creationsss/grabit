@@ -52,6 +52,7 @@ int gapp_print_help(void) {
 		"                      capture, save, print the path (alias: --save)\n"
 		"  --record            toggle screen recording\n"
 		"  --pin               pin a capture to the desktop\n"
+		"  --pause             pause or resume the running recording\n"
 		"  --grab, --release, --close-all   manage existing pins\n"
 		"  --tray              toggle the persistent tray icon (background process)\n"
 		"  --tesseract         OCR a region to the clipboard\n"

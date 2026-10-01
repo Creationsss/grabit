@@ -17,6 +17,7 @@
 #include "pin/pin.h"
 #include "plugin/dispatch.h"
 #include "plugin/plugin.h"
+#include "record/pid.h"
 #include "record/record.h"
 #include "region/edit_persist.h"
 #include "sound/sound.h"
@@ -94,6 +95,9 @@ static int run(const struct args *a) {
 		break;
 	case ACTION_PIN_CLOSE_ALL:
 		rc = pin_close_all();
+		break;
+	case ACTION_REC_PAUSE:
+		rc = pause_running_recording() == 0 ? 0 : GRABIT_EXIT_FAIL;
 		break;
 	case ACTION_TRAY:
 		rc = tray_app_run(&cfg);

@@ -205,6 +205,17 @@ int pin_grab(void) {
 	int n = pin_ipc_broadcast("grab\n");
 	if (n < 0) return 1;
 	log_debug("pin: grab → %d pin(s)", n);
+	if (n > 0) {
+		char body[96];
+		snprintf(body, sizeof body, "%d pin%s clicks now; drag to move, X to close", n,
+				 n == 1 ? " takes" : "s take");
+		notify_send(&(struct notify_opts){
+			.summary = "Pins grabbed",
+			.body = body,
+			.urgency = NOTIFY_LOW,
+			.transient = true,
+		});
+	}
 	return 0;
 }
 
@@ -212,6 +223,18 @@ int pin_release(void) {
 	int n = pin_ipc_broadcast("release\n");
 	if (n < 0) return 1;
 	log_debug("pin: release → %d pin(s)", n);
+	if (n > 0) {
+		char body[96];
+		snprintf(body, sizeof body,
+				 "%d pin%s click-through again; `grabit --grab` to take %s back", n,
+				 n == 1 ? " is" : "s are", n == 1 ? "it" : "them");
+		notify_send(&(struct notify_opts){
+			.summary = "Pins released",
+			.body = body,
+			.urgency = NOTIFY_LOW,
+			.transient = true,
+		});
+	}
 	return 0;
 }
 

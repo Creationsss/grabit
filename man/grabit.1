@@ -97,10 +97,14 @@ Toggle screen recording (run again to stop). Records a region to MP4/H.264,
 or WebM/GIF via
 .BR "grabit set recording.format webm|gif" .
 Shows a border overlay, an on-screen control bar (start, pause, stop, abort)
-and a tray icon. Sending
+and a tray icon. See the recording section of OPTIONS.md for backends and
+pause/segment behaviour.
+.TP
+.B \-\-pause
+Pause or resume the running recording, for compositor keybinds. Equivalent to
+sending
 .B SIGUSR1
-to the recording process toggles pause, for compositor keybinds. See the
-recording section of OPTIONS.md for backends and pause/segment behaviour.
+to the recording process. Exits 1 when no recording is running.
 .TP
 .B \-\-pin
 Capture a region and pin it to the desktop as a click-through overlay. Pins

@@ -261,6 +261,7 @@ JPEG and WebP support is detected at build time via `pkg-config libjpeg` and `pk
 ```sh
 grabit --record               # start (region selector, then begins)
 grabit --record               # stop
+grabit --pause                # pause or resume it (same as SIGUSR1)
 ```
 
 ### backends

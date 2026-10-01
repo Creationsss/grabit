@@ -130,15 +130,27 @@ static bool list_has_key(const struct keybind_list *list, xkb_keysym_t sym,
 	return false;
 }
 
+static void first_key(const struct keybind_list *list, char *out, size_t n) {
+	out[0] = '\0';
+	for (uint8_t i = 0; i < list->n; i++) {
+		if (list->items[i].is_button) continue;
+		region_keybind_format(&list->items[i], out, n);
+		return;
+	}
+}
+
 void region_keybind_first(const struct region_keymap *km, enum region_action act,
 						  char *out, size_t n) {
 	out[0] = '\0';
 	if (act >= KA_COUNT) return;
-	for (uint8_t i = 0; i < km->actions[act].n; i++) {
-		if (km->actions[act].items[i].is_button) continue;
-		region_keybind_format(&km->actions[act].items[i], out, n);
-		return;
-	}
+	first_key(&km->actions[act], out, n);
+}
+
+void region_keybind_first_tool(const struct region_keymap *km, int tool, char *out,
+							   size_t n) {
+	out[0] = '\0';
+	if (tool < 0 || tool >= TOOL_COUNT) return;
+	first_key(&km->tools[tool], out, n);
 }
 
 bool region_key_action(const struct region_keymap *km, enum region_action act,

@@ -5,48 +5,83 @@
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
+#include "region/keybinds.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
+#include <stdio.h>
+
 #include <cairo/cairo.h>
 
-static const char *tooltip_text(enum tb_action act) {
-	const struct tool_group *g = toolbar_tool_group(act);
-	if (g) return g->tip;
+static const char *plain_label(enum tb_action act, enum region_action *out_action) {
+	*out_action = KA_COUNT;
 	switch (act) {
 	case TB_REGION:
-		return "Select region  (q)";
+		*out_action = KA_REGION_MODE;
+		return "Select region";
 	case TB_EDIT:
-		return "Move/resize annotations  (s)";
+		*out_action = KA_EDIT_MODE;
+		return "Move/resize annotations";
 	case TB_TOOL_TEXT:
-		return "Text  (8 / t)";
+		return "Text";
 	case TB_TOOL_COUNTER:
-		return "Counter  (c)";
+		return "Counter";
 	case TB_TOOL_CALLOUT:
-		return "Callout  (k)";
+		return "Callout";
 	case TB_TOOL_ERASER:
-		return "Eraser  (9 / e)";
+		return "Eraser";
 	case TB_COLOR_CURRENT:
 		return "Current color";
 	case TB_WIDTH_SLIDER:
 		return "Size  (drag or scroll)";
 	case TB_UNDO:
-		return "Undo  (u or ctrl+z, hold to repeat)";
+		*out_action = KA_UNDO;
+		return "Undo";
 	case TB_REDO:
-		return "Redo  (ctrl+y or ctrl+shift+z)";
+		*out_action = KA_REDO;
+		return "Redo";
 	case TB_SAVE:
-		return "Capture  (Enter)";
+		*out_action = KA_CONFIRM;
+		return "Capture";
 	case TB_CANCEL:
-		return "Cancel  (Esc)";
+		*out_action = KA_CANCEL;
+		return "Cancel";
 	default:
 		return NULL;
 	}
 }
 
+static const char *tooltip_text(const struct ro_state *st, enum tb_action act,
+								char *buf, size_t cap) {
+	char key[64] = "";
+	const struct tool_group *g = toolbar_tool_group(act);
+	if (g) {
+		region_keybind_first_tool(&st->keys, g->tools[0], key, sizeof key);
+		if (!key[0]) return g->label;
+		snprintf(buf, cap, "%s  (%s cycles)", g->label, key);
+		return buf;
+	}
+
+	enum region_action ra;
+	const char *label = plain_label(act, &ra);
+	if (!label) return NULL;
+	if (ra != KA_COUNT) {
+		region_keybind_first(&st->keys, ra, key, sizeof key);
+	} else {
+		int32_t tool = toolbar_standalone_tool(act);
+		if (tool >= 0) region_keybind_first_tool(&st->keys, (int)tool, key, sizeof key);
+	}
+	if (!key[0]) return label;
+	snprintf(buf, cap, "%s  (%s)", label, key);
+	return buf;
+}
+
 void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	const struct ro_state *st = o->st;
 	if (!st->tooltip_visible || st->hovered_button < 0) return;
-	const char *text = tooltip_text((enum tb_action)st->hovered_button);
+	char tipbuf[160];
+	const char *text =
+		tooltip_text(st, (enum tb_action)st->hovered_button, tipbuf, sizeof tipbuf);
 	if (!text) return;
 
 	int32_t tx, ty, tw, th;

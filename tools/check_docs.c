@@ -47,12 +47,24 @@ static void set_free(struct strset *s) {
 	s->n = 0;
 }
 
+static void unescape_roff(char *buf) {
+	char *w = buf;
+	for (const char *r = buf; *r; r++) {
+		if (r[0] == '\\' && r[1] == '-') r++;
+		*w++ = *r;
+	}
+	*w = '\0';
+}
+
 static bool read_file(const char *path, char *buf, size_t cap) {
 	FILE *f = fopen(path, "r");
 	if (!f) return false;
 	size_t n = fread(buf, 1, cap - 1, f);
 	buf[n] = '\0';
 	fclose(f);
+	size_t len = strlen(path);
+	if (len > 2 && path[len - 2] == '.' && isdigit((unsigned char)path[len - 1]))
+		unescape_roff(buf);
 	return true;
 }
 

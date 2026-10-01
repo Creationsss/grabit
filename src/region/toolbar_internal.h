@@ -29,7 +29,7 @@ struct tool_group {
 	int n;
 	bool has_style;
 	const char *const *labels;
-	const char *tip;
+	const char *label;
 };
 
 const struct tool_group *toolbar_tool_group(enum tb_action btn);

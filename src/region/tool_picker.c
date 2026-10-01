@@ -35,13 +35,13 @@ static const char *const REDACT_LABELS[] = {"Blur", "Pixelate", "Spotlight"};
 
 static const struct tool_group GROUPS[] = {
 	{TB_TOOL_LINES, LINES_TOOLS, 3, true, LINES_LABELS,
-	 "Line tools  (p cycles)"},
+	 "Line tools"},
 	{TB_TOOL_SHAPES, SHAPES_TOOLS, 3, true, SHAPES_LABELS,
-	 "Shapes  (r cycles)"},
+	 "Shapes"},
 	{TB_TOOL_ARROW, ARROW_TOOLS, 2, false, ARROW_LABELS,
-	 "Arrows  (a cycles)"},
+	 "Arrows"},
 	{TB_TOOL_REDACT, REDACT_TOOLS, 3, false, REDACT_LABELS,
-	 "Redact & focus  (b cycles)"},
+	 "Redact & focus"},
 };
 
 _Static_assert(sizeof GROUPS / sizeof GROUPS[0] == TB_TOOL_GROUP_COUNT,

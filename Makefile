@@ -38,6 +38,13 @@ ifeq ($(HAVE_PIPEWIRE),1)
   LDLIBS += $(shell $(PKG_CONFIG) --libs libpipewire-0.3)
 endif
 
+HAVE_PNG_HDR := $(shell $(CC) tools/png_hdr_probe.c \
+	$(shell $(PKG_CONFIG) --cflags libpng) $(shell $(PKG_CONFIG) --libs libpng) \
+	-o /dev/null >/dev/null 2>&1 && echo 1)
+ifeq ($(HAVE_PNG_HDR),1)
+  CFLAGS += -DHAVE_PNG_HDR
+endif
+
 HAVE_JPEG := $(shell $(PKG_CONFIG) --exists libjpeg && echo 1)
 HAVE_WEBP := $(shell $(PKG_CONFIG) --exists libwebp && echo 1)
 

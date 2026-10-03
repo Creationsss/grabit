@@ -36,14 +36,22 @@ static void pack_row(uint16_t *dst, const uint32_t *line, int w, bool swap_rb) {
 	}
 }
 
+#ifdef HAVE_PNG_HDR
 static double xy(int32_t v) {
 	return (double)v / 1000000.0;
 }
+#endif
 
 static void apply_metadata(png_structp png, png_infop info,
 						   const struct image *img) {
 	if (!img->have_color) return;
 	const struct grabit_colorimetry *c = &img->color;
+#ifndef HAVE_PNG_HDR
+	(void)png;
+	(void)info;
+	(void)c;
+	log_debug("png: libpng has no cICP/mDCV/cLLI; writing without hdr metadata");
+#else
 
 	if (c->cicp_primaries != GRABIT_CICP_UNKNOWN &&
 		c->cicp_transfer != GRABIT_CICP_UNKNOWN) {
@@ -64,6 +72,7 @@ static void apply_metadata(png_structp png, png_infop info,
 
 	if (c->max_cll || c->max_fall)
 		png_set_cLLI(png, info, (double)c->max_cll, (double)c->max_fall);
+#endif
 }
 
 int grabit_save_png_hdr(const struct image *img, int32_t x, int32_t y,

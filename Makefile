@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-VERSION    := 0.7.0
+VERSION    := 0.8.0
 NAME       := grabit
 
 BUILDDIR   := build

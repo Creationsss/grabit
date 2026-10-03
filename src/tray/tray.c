@@ -53,7 +53,7 @@ static void signal_parent(int sig) {
 }
 
 static const char *pause_label(void) {
-	return atomic_load(&grabit_rec_pause) ? "Continue" : "Pause";
+	return atomic_load(&grabit_rec_pause) ? "Resume" : "Pause";
 }
 
 static void click_pause(const struct tray_menu_item *it) {
@@ -78,7 +78,7 @@ static void activate_stop(void) {
 static const struct tray_menu_item rec_menu_items[] = {
 	{.id = 1, .label_fn = pause_label, .on_click = click_pause},
 	{.id = 2, .label = "Stop", .on_click = click_stop},
-	{.id = 3, .label = "Abort", .on_click = click_abort},
+	{.id = 3, .label = "Discard recording", .on_click = click_abort},
 };
 
 static const struct tray_menu rec_menu = {
@@ -88,7 +88,7 @@ static const struct tray_menu rec_menu = {
 
 static const struct sni_cfg rec_sni_cfg = {
 	.icon_name = "media-record",
-	.tooltip_body = "Left click to stop, Right click for options",
+	.tooltip_body = "Left click to stop, right click for options",
 	.persist = false,
 	.on_activate = activate_stop,
 	.menu = &rec_menu,

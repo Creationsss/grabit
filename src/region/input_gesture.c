@@ -82,6 +82,7 @@ void region_drag_abort(struct ro_state *st) {
 	if (st->text_input_active) {
 		st->text_input_active = false;
 		st->text_len = 0;
+		st->text_caret = 0;
 	}
 	region_undo_commit(st);
 	region_undo_disarm(st);
@@ -336,6 +337,7 @@ void region_commit_text(struct ro_state *st) {
 	if (!st->text_input_active || st->text_len == 0) {
 		st->text_input_active = false;
 		st->text_len = 0;
+		st->text_caret = 0;
 		return;
 	}
 	struct annotation a = {0};
@@ -354,6 +356,7 @@ void region_commit_text(struct ro_state *st) {
 		region_annotation_commit(st, &a);
 	st->text_input_active = false;
 	st->text_len = 0;
+	st->text_caret = 0;
 }
 
 void region_place_counter(struct ro_state *st) {

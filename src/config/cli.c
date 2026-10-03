@@ -209,33 +209,34 @@ int cmd_set(int argc, char **argv) {
 		return 0;
 	}
 
-	if (argv[0] && argv[0][0] == '-') {
-		log_error("usage: grabit set <key> [--watch|--reset]");
-		return 2;
-	}
-
 	bool watch = false, reset = false, yes = false;
-	int positional = 0;
-	for (int i = 1; i < argc; i++) {
+	char *rest[8];
+	int n_rest = 0;
+	for (int i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "--watch") == 0 || strcmp(argv[i], "-w") == 0)
 			watch = true;
 		else if (strcmp(argv[i], "--reset") == 0)
 			reset = true;
 		else if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0)
 			yes = true;
-		else
-			positional++;
+		else if (n_rest < (int)(sizeof rest / sizeof *rest))
+			rest[n_rest++] = argv[i];
 	}
 	if (watch || reset) {
 		if (watch && reset) {
 			log_error("--watch and --reset are mutually exclusive");
 			return 2;
 		}
-		if (positional) {
+		if (n_rest != 1) {
 			log_error("usage: grabit set <key> %s", watch ? "--watch" : "--reset");
 			return 2;
 		}
-		return watch ? cmd_set_watch(argv[0]) : cmd_set_reset(argv[0], yes);
+		return watch ? cmd_set_watch(rest[0]) : cmd_set_reset(rest[0], yes);
+	}
+
+	if (argv[0] && argv[0][0] == '-') {
+		log_error("usage: grabit set <key> [<value>]");
+		return 2;
 	}
 
 	if (argc == 1 && strcmp(argv[0], "keys") == 0) return cmd_set_keys_list();

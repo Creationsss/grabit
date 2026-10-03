@@ -115,30 +115,30 @@ static void activate_screenshot(void) {
 }
 
 static const struct tray_menu_item shot_items[] = {
-	{.id = 11, .label = "Region", .on_click = click_spawn, .user = ARGS_SHOT_REGION},
-	{.id = 12, .label = "Monitor", .on_click = click_spawn, .user = ARGS_SHOT_MONITOR},
-	{.id = 13, .label = "Copy", .on_click = click_spawn, .user = ARGS_SHOT_COPY},
-	{.id = 14, .label = "Upload", .on_click = click_spawn, .user = ARGS_SHOT_UPLOAD},
-	{.id = 15, .label = "Save", .on_click = click_spawn, .user = ARGS_SHOT_SAVE},
-	{.id = 16, .label = "Edit", .on_click = click_spawn, .user = ARGS_SHOT_EDIT},
+	{.id = 11, .label = "Region…", .on_click = click_spawn, .user = ARGS_SHOT_REGION},
+	{.id = 12, .label = "Monitor…", .on_click = click_spawn, .user = ARGS_SHOT_MONITOR},
+	{.id = 13, .label = "Region and copy…", .on_click = click_spawn, .user = ARGS_SHOT_COPY},
+	{.id = 14, .label = "Region and upload…", .on_click = click_spawn, .user = ARGS_SHOT_UPLOAD},
+	{.id = 15, .label = "Region and save…", .on_click = click_spawn, .user = ARGS_SHOT_SAVE},
+	{.id = 16, .label = "Region and edit…", .on_click = click_spawn, .user = ARGS_SHOT_EDIT},
 };
 
 static const struct tray_menu_item rec_items[] = {
-	{.id = 21, .label = "Region", .on_click = click_spawn, .user = ARGS_REC_REGION},
-	{.id = 22, .label = "Monitor", .on_click = click_spawn, .user = ARGS_REC_MONITOR},
+	{.id = 21, .label = "Region…", .on_click = click_spawn, .user = ARGS_REC_REGION},
+	{.id = 22, .label = "Monitor…", .on_click = click_spawn, .user = ARGS_REC_MONITOR},
 };
 
 static const struct tray_menu_item ocr_items[] = {
-	{.id = 31, .label = "Copy text", .on_click = click_spawn, .user = ARGS_OCR_COPY},
-	{.id = 32, .label = "Show", .on_click = click_spawn, .user = ARGS_OCR_SHOW},
-	{.id = 33, .label = "Translate", .on_click = click_spawn, .user = ARGS_OCR_TRANSLATE},
+	{.id = 31, .label = "Read text…", .on_click = click_spawn, .user = ARGS_OCR_COPY},
+	{.id = 32, .label = "Read and show…", .on_click = click_spawn, .user = ARGS_OCR_SHOW},
+	{.id = 33, .label = "Read and translate…", .on_click = click_spawn, .user = ARGS_OCR_TRANSLATE},
 };
 
 static const struct tray_menu_item pin_items[] = {
-	{.id = 41, .label = "Pin", .on_click = click_spawn, .user = ARGS_PIN_NEW},
-	{.id = 42, .label = "Grab", .on_click = click_spawn, .user = ARGS_PIN_GRAB},
-	{.id = 43, .label = "Release", .on_click = click_spawn, .user = ARGS_PIN_RELEASE},
-	{.id = 44, .label = "Close all", .on_click = click_spawn, .user = ARGS_PIN_CLOSE},
+	{.id = 41, .label = "Pin a capture…", .on_click = click_spawn, .user = ARGS_PIN_NEW},
+	{.id = 42, .label = "Make pins clickable", .on_click = click_spawn, .user = ARGS_PIN_GRAB},
+	{.id = 43, .label = "Make pins click-through", .on_click = click_spawn, .user = ARGS_PIN_RELEASE},
+	{.id = 44, .label = "Close all pins", .on_click = click_spawn, .user = ARGS_PIN_CLOSE},
 };
 
 static const struct tray_menu_item app_items[] = {

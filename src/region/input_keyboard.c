@@ -55,12 +55,55 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 }
 
+static size_t utf8_prev(const char *s, size_t at) {
+	if (at == 0) return 0;
+	size_t i = at - 1;
+	while (i > 0 && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i--;
+	return i;
+}
+
+static size_t utf8_next(const char *s, size_t len, size_t at) {
+	if (at >= len) return len;
+	size_t i = at + 1;
+	while (i < len && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i++;
+	return i;
+}
+
+static void text_erase(struct ro_state *st, size_t from, size_t to) {
+	if (to <= from) return;
+	memmove(st->text_buf + from, st->text_buf + to, st->text_len - to);
+	st->text_len -= to - from;
+	st->text_buf[st->text_len] = '\0';
+	st->text_caret = from;
+}
+
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {
+	if (st->text_caret > st->text_len) st->text_caret = st->text_len;
 	if (sym == XKB_KEY_BackSpace) {
-		if (st->text_len > 0) {
-			st->text_len--;
-			st->text_buf[st->text_len] = '\0';
-		}
+		text_erase(st, utf8_prev(st->text_buf, st->text_caret), st->text_caret);
+		return;
+	}
+	if (sym == XKB_KEY_Delete || sym == XKB_KEY_KP_Delete) {
+		text_erase(st, st->text_caret,
+				   utf8_next(st->text_buf, st->text_len, st->text_caret));
+		return;
+	}
+	if (sym == XKB_KEY_Left || sym == XKB_KEY_KP_Left) {
+		st->text_caret = utf8_prev(st->text_buf, st->text_caret);
+		return;
+	}
+	if (sym == XKB_KEY_Right || sym == XKB_KEY_KP_Right) {
+		st->text_caret = utf8_next(st->text_buf, st->text_len, st->text_caret);
+		return;
+	}
+	if (sym == XKB_KEY_Home || sym == XKB_KEY_KP_Home) {
+		st->text_caret = 0;
+		return;
+	}
+	if (sym == XKB_KEY_End || sym == XKB_KEY_KP_End) {
+		st->text_caret = st->text_len;
 		return;
 	}
 	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
@@ -70,6 +113,7 @@ static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t ke
 	if (sym == XKB_KEY_Escape) {
 		st->text_input_active = false;
 		st->text_len = 0;
+		st->text_caret = 0;
 		return;
 	}
 	char buf[8];
@@ -77,8 +121,11 @@ static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t ke
 	if (n <= 0) return;
 	if ((unsigned char)buf[0] < 0x20) return;
 	if (st->text_len + (size_t)n + 1 > sizeof st->text_buf) return;
-	memcpy(st->text_buf + st->text_len, buf, (size_t)n);
+	memmove(st->text_buf + st->text_caret + (size_t)n, st->text_buf + st->text_caret,
+			st->text_len - st->text_caret);
+	memcpy(st->text_buf + st->text_caret, buf, (size_t)n);
 	st->text_len += (size_t)n;
+	st->text_caret += (size_t)n;
 	st->text_buf[st->text_len] = '\0';
 }
 

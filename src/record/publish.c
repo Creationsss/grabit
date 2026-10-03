@@ -9,6 +9,7 @@
 #include "notify/notify.h"
 #include "record/ffmpeg.h"
 #include "record/rec_cfg.h"
+#include "sound/sound.h"
 #include "upload/upload.h"
 #include "util/util.h"
 
@@ -50,6 +51,7 @@ static void maybe_compress(struct config *cfg, const struct publish_opts *po) {
 
 void record_publish(struct config *cfg, const struct publish_opts *po) {
 	maybe_compress(cfg, po);
+	grabit_sound_play(cfg);
 
 	if (po->keep_locally) {
 		puts(po->output_path);

@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "upload/sxcu.h"
 
+#include "args.h"
 #include "log.h"
 #include "paths.h"
 
@@ -203,6 +204,13 @@ int sxcu_dir_add(const char *file_path, bool force) {
 	free(fb_clean);
 	sxcu_free(&probe);
 	if (!name) return -1;
+	if (args_flag_name_taken(name)) {
+		log_error("sxcu: `%s` is a built-in grabit flag, so `--%s` could never "
+				  "select this uploader; rename it in the .sxcu file",
+				  name, name);
+		free(name);
+		return -1;
+	}
 
 	char dst[SXCU_PATH_MAX];
 	int rc = sxcu_path_for(name, dst, sizeof dst);

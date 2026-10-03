@@ -112,6 +112,7 @@ static int run(const struct args *a) {
 		break;
 	}
 
+	notify_finish();
 	config_free(&cfg);
 	return rc;
 }

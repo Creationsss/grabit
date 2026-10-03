@@ -52,6 +52,7 @@ extern const char *const grabit_action_names[];
 enum action args_default_action(const char *name);
 
 void args_pre_scan(int argc, char **argv, bool *silent, bool *debug);
+bool args_flag_name_taken(const char *name);
 bool args_is_help_flag(const char *a);
 bool args_is_version_flag(const char *a);
 int args_parse(int argc, char **argv, struct args *out);

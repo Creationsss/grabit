@@ -15,6 +15,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <cairo/cairo.h>
 #include <wayland-client.h>
@@ -183,6 +184,15 @@ void gren_output_redraw(struct ro_output *o) {
 				cairo_text_extents_t typed_ext = {0};
 				if (o->st->text_len > 0)
 					cairo_text_extents(cr, o->st->text_buf, &typed_ext);
+				cairo_text_extents_t caret_ext = {0};
+				size_t caret = o->st->text_caret < o->st->text_len ? o->st->text_caret
+																   : o->st->text_len;
+				if (caret > 0) {
+					char head[sizeof o->st->text_buf];
+					memcpy(head, o->st->text_buf, caret);
+					head[caret] = '\0';
+					cairo_text_extents(cr, head, &caret_ext);
+				}
 				double pad = 4.0;
 				double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
 				cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
@@ -192,7 +202,7 @@ void gren_output_redraw(struct ro_output *o) {
 									grabit_ui_radius(GUI_R_TIP));
 				cairo_fill(cr);
 				if (o->st->text_len > 0) annotation_paint(cr, &typing, 1.0);
-				double cursor_x = (double)o->st->text_x + typed_ext.x_advance;
+				double cursor_x = (double)o->st->text_x + caret_ext.x_advance;
 				cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
 				cairo_set_line_width(cr, 1.5);
 				cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);

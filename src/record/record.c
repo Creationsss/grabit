@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "record/record.h"
 
+#include "sound/sound.h"
+
 #include "args.h"
 #include "capture/capture.h"
 #include "config/config.h"
@@ -258,6 +260,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	else
 		log_debug("recording %zu output%s", layout.n, layout.n == 1 ? "" : "s");
 	log_info("recording %dx%d @ %d fps -> %s", frame_w, frame_h, fps, output_path);
+	grabit_sound_play(cfg);
 
 	bool show_dims = rec_cfg_show_dimensions(cfg);
 	struct overlay_state *overlay = overlay_start(&s, r, show_dims);

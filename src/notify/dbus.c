@@ -121,6 +121,22 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 	return true;
 }
 
+static DBusConnection *g_bus;
+
+void notify_finish(void) {
+	if (!g_bus) return;
+	dbus_connection_close(g_bus);
+	dbus_connection_unref(g_bus);
+	g_bus = NULL;
+}
+
+static DBusConnection *notify_bus(DBusError *err) {
+	if (g_bus) return g_bus;
+	g_bus = dbus_bus_get_private(DBUS_BUS_SESSION, err);
+	if (g_bus) dbus_connection_set_exit_on_disconnect(g_bus, FALSE);
+	return g_bus;
+}
+
 void notify_send(const struct notify_opts *o) {
 	if (!o || !o->summary) return;
 	if ((g_silent || !g_show) && !o->force) return;
@@ -128,7 +144,7 @@ void notify_send(const struct notify_opts *o) {
 	DBusError err;
 	dbus_error_init(&err);
 
-	DBusConnection *bus = dbus_bus_get_private(DBUS_BUS_SESSION, &err);
+	DBusConnection *bus = notify_bus(&err);
 	if (!bus) {
 		if (!g_warned_bus) {
 			log_warn("notifications unavailable: no user dbus session (%s)",
@@ -138,7 +154,6 @@ void notify_send(const struct notify_opts *o) {
 		dbus_error_free(&err);
 		return;
 	}
-	dbus_connection_set_exit_on_disconnect(bus, FALSE);
 
 	DBusMessage *msg = dbus_message_new_method_call(BUS_DEST, BUS_PATH, BUS_IFACE, BUS_METHOD);
 	if (!msg || !pack_notify_args(msg, o)) {
@@ -169,7 +184,5 @@ void notify_send(const struct notify_opts *o) {
 
 cleanup:
 	if (msg) dbus_message_unref(msg);
-	dbus_connection_close(bus);
-	dbus_connection_unref(bus);
 	dbus_error_free(&err);
 }

@@ -30,5 +30,6 @@ struct notify_opts {
 };
 
 void notify_send(const struct notify_opts *o);
+void notify_finish(void);
 
 #endif

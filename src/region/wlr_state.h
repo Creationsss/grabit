@@ -194,6 +194,7 @@ struct ro_state {
 	bool text_input_active;
 	char text_buf[256];
 	size_t text_len;
+	size_t text_caret;
 	int32_t text_x;
 	int32_t text_y;
 	int32_t text_ax;

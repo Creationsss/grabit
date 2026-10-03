@@ -18,6 +18,52 @@ static bool is_silent_flag(const char *a) {
 		   strcmp(a, "-q") == 0;
 }
 
+static const char *const RESERVED_FLAGS[] = {
+	"chunked",
+	"close-all",
+	"copy",
+	"cursor",
+	"debug",
+	"delay",
+	"edit",
+	"file",
+	"filename",
+	"format",
+	"fullscreen",
+	"grab",
+	"help",
+	"last",
+	"no-color",
+	"no-colour",
+	"no-copy",
+	"no-last",
+	"no-tray",
+	"no-upload",
+	"output",
+	"pause",
+	"pin",
+	"quiet",
+	"record",
+	"release",
+	"save",
+	"show",
+	"silent",
+	"tesseract",
+	"translate",
+	"tray",
+	"upload",
+	"version",
+	"window",
+	NULL,
+};
+
+bool args_flag_name_taken(const char *name) {
+	if (!name) return false;
+	for (size_t i = 0; RESERVED_FLAGS[i]; i++)
+		if (strcmp(name, RESERVED_FLAGS[i]) == 0) return true;
+	return false;
+}
+
 bool args_is_help_flag(const char *a) {
 	return strcmp(a, "--help") == 0 || strcmp(a, "-h") == 0;
 }
@@ -385,6 +431,30 @@ int args_parse(int argc, char **argv, struct args *out) {
 	if (out->no_copy && out->action != ACTION_OCR) {
 		log_warn("--no-copy only applies to --tesseract");
 		out->no_copy = false;
+	}
+	if (out->no_upload && out->action != ACTION_RECORD) {
+		log_warn("--no-upload only applies to --record");
+		out->no_upload = false;
+	}
+	if (out->chunked && out->service && strcmp(out->service, "zipline") != 0) {
+		log_warn("--chunked only applies to zipline uploads");
+		out->chunked = false;
+	}
+	if (out->cursor && out->action == ACTION_RECORD) {
+		log_warn("--cursor is ignored for --record; set recording.cursor instead");
+		out->cursor = false;
+	}
+	if (out->format && out->action == ACTION_RECORD) {
+		log_warn("--format is ignored for --record; set recording.format instead");
+		out->format = NULL;
+	}
+	if (out->last_region && out->no_last) {
+		log_error("--last cannot be combined with --no-last");
+		return -1;
+	}
+	if (out->last_region && out->fullscreen) {
+		log_warn("--last is ignored with --fullscreen");
+		out->last_region = false;
 	}
 
 	return 0;

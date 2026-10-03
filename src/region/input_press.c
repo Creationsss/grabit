@@ -317,6 +317,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 			st->text_x = st->cursor_x + (callout ? CALLOUT_DX : 0);
 			st->text_y = st->cursor_y + (callout ? CALLOUT_DY : 0);
 			st->text_len = 0;
+			st->text_caret = 0;
 			st->text_buf[0] = '\0';
 			region_drag_start(st);
 			region_render_request_redraw_all(st);

@@ -31,6 +31,7 @@ static int32_t section_gap_before(enum tb_action act) {
 	if (act == TB_WIDTH_SLIDER) return 2;
 	if (act == TB_UNDO) return 10;
 	if (act == TB_SAVE) return 12;
+	if (act == TB_CANCEL) return 10;
 	return 2;
 }
 

@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/dispatch.h"
 
+#include "app/app.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -75,12 +76,19 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv, bool quiet) {
 	plugin_maybe_auto_update(name);
 	plugin_dispatch_set_env(name);
 
-	char **new_argv = calloc((size_t)argc + 1, sizeof *new_argv);
-	if (!new_argv) return 1;
+	char *captured = gapp_plugin_capture(name, argc, argv);
+	char **new_argv = calloc((size_t)argc + 2, sizeof *new_argv);
+	if (!new_argv) {
+		free(captured);
+		return 1;
+	}
 	int n = 0;
 	new_argv[n++] = path;
+	if (captured) new_argv[n++] = captured;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--pin") == 0) continue;
+		if (strcmp(argv[i], "--capture") == 0) continue;
+		if (strcmp(argv[i], "--no-capture") == 0) continue;
 		new_argv[n++] = argv[i];
 	}
 
@@ -90,6 +98,7 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv, bool quiet) {
 	int status = 0;
 	int rc = grabit_spawn_capture(new_argv, false, PLUGIN_OUTPUT_CAP, &out, &capped, &status);
 	free(new_argv);
+	free(captured);
 	if (rc != 0) {
 		grabit_buf_free(&out);
 		return 1;

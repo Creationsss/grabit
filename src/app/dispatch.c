@@ -43,14 +43,7 @@ static bool plugin_argv_has_input(int argc, char **argv) {
 	return false;
 }
 
-int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
-	if (!plugin_name_is_valid(name)) return -1;
-	char path[1024];
-	if (plugin_resolve(name, path, sizeof path) != 0) return -1;
-
-	plugin_maybe_auto_update(name);
-	plugin_dispatch_set_env(name);
-
+char *gapp_plugin_capture(const char *name, int argc, char **argv) {
 	bool force_capture = false;
 	bool no_capture = false;
 	for (int i = 1; i < argc; i++) {
@@ -72,35 +65,39 @@ int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
 		}
 	}
 
-	bool want_capture = !no_capture &&
-						(force_capture ||
-						 (manifest_auto && !plugin_argv_has_input(argc, argv)));
+	if (no_capture ||
+		(!force_capture && !(manifest_auto && !plugin_argv_has_input(argc, argv))))
+		return NULL;
 
-	char *captured = NULL;
 	struct config cap_cfg;
-	bool cap_cfg_loaded = false;
-	bool cap_is_temp = false;
-	if (want_capture) {
-		if (config_load_full(&cap_cfg) != 0) {
-			log_error("plugin: --capture: config_load failed");
-			exit(1);
-		}
-		cap_cfg_loaded = true;
-		notify_init(&cap_cfg, log_is_silent());
-		struct args ca = {0};
-		captured = gapp_capture_to_file(&ca, &cap_cfg, ACTION_OUTPUT, &cap_is_temp, NULL,
-										NULL);
-		if (!captured) {
-			config_free(&cap_cfg);
-			exit(1);
-		}
-		log_debug("plugin: captured %s for %s", captured, name);
+	if (config_load_full(&cap_cfg) != 0) {
+		log_error("plugin: --capture: config_load failed");
+		exit(1);
 	}
+	notify_init(&cap_cfg, log_is_silent());
+	struct args ca = {0};
+	bool cap_is_temp = false;
+	char *captured =
+		gapp_capture_to_file(&ca, &cap_cfg, ACTION_OUTPUT, &cap_is_temp, NULL, NULL);
+	config_free(&cap_cfg);
+	if (!captured) exit(1);
+	log_debug("plugin: captured %s for %s", captured, name);
+	return captured;
+}
+
+int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
+	if (!plugin_name_is_valid(name)) return -1;
+	char path[1024];
+	if (plugin_resolve(name, path, sizeof path) != 0) return -1;
+
+	plugin_maybe_auto_update(name);
+	plugin_dispatch_set_env(name);
+
+	char *captured = gapp_plugin_capture(name, argc, argv);
 
 	int extra = captured ? 1 : 0;
 	char **new_argv = calloc((size_t)argc + 1 + extra, sizeof *new_argv);
 	if (!new_argv) {
-		if (cap_cfg_loaded) config_free(&cap_cfg);
 		free(captured);
 		return -1;
 	}
@@ -116,7 +113,6 @@ int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
 	execv(path, new_argv);
 	int err = errno;
 	free(new_argv);
-	if (cap_cfg_loaded) config_free(&cap_cfg);
 	free(captured);
 	log_error("plugin: exec %s: %s", path, strerror(err));
 	return 1;

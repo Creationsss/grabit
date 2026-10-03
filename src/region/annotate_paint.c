@@ -11,6 +11,8 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <cairo/cairo.h>
 
@@ -66,29 +68,47 @@ static void curve_push(cairo_t *cr, double *wx, double *wy, size_t *nw, double x
 					   wx[2], wy[2]);
 }
 
-static void pen_arrow_head(cairo_t *cr, const struct annotation *a, double w,
-						   double tip_x, double tip_y) {
+static double pen_head_dir(const struct annotation *a, double w, double tip_x,
+						   double tip_y, double *bx, double *by) {
 	size_t n = a->n_points;
-	if (n < 2) return;
+	if (n < 2) return 0.0;
 	size_t last = n - 1;
 	if (a->smooth && n >= 4) {
-		if (last < (size_t)SMOOTH_WINDOW) return;
+		if (last < (size_t)SMOOTH_WINDOW) return 0.0;
 		last -= (size_t)SMOOTH_WINDOW;
 	}
 	double want = grabit_cairo_arrow_head_len(w, ANNO_ARROW_MIN_HEAD);
-	double bx = 0.0, by = 0.0, blen = 0.0;
+	double blen = 0.0;
 	for (size_t i = last + 1; i-- > 0;) {
 		double dx = tip_x - a->points[i * 2], dy = tip_y - a->points[i * 2 + 1];
 		double len = sqrt(dx * dx + dy * dy);
 		if (len > blen) {
-			bx = a->points[i * 2];
-			by = a->points[i * 2 + 1];
+			*bx = a->points[i * 2];
+			*by = a->points[i * 2 + 1];
 			blen = len;
 		}
 		if (len >= want) break;
 	}
-	if (blen < 0.001) return;
-	grabit_cairo_arrow_head(cr, bx, by, tip_x, tip_y, w, ANNO_ARROW_MIN_HEAD);
+	return blen;
+}
+
+static size_t pen_trim_at(const int32_t *p, size_t n, double tip_x, double tip_y,
+						  double want, double *out_x, double *out_y) {
+	for (size_t i = n - 1; i > 0; i--) {
+		double ax = p[i * 2], ay = p[i * 2 + 1];
+		double bx = p[(i - 1) * 2], by = p[(i - 1) * 2 + 1];
+		double da = hypot(tip_x - ax, tip_y - ay);
+		double db = hypot(tip_x - bx, tip_y - by);
+		if (db < want) continue;
+		double span = db - da;
+		double t = span > 0.0 ? (want - da) / span : 0.0;
+		if (t < 0.0) t = 0.0;
+		if (t > 1.0) t = 1.0;
+		*out_x = ax + (bx - ax) * t;
+		*out_y = ay + (by - ay) * t;
+		return i;
+	}
+	return 0;
 }
 
 static void stroke_path(cairo_t *cr, const int32_t *p, size_t n, bool smooth, double lw,
@@ -255,15 +275,44 @@ void annotation_paint_backdrop(cairo_t *cr, const struct annotation *a, double s
 		cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
 		if (tool_uses_line_style(a->tool)) apply_stroke_style(cr, a->style, w);
+		const int32_t *pts = a->points;
+		size_t n_pts = a->n_points;
+		int32_t *trimmed = NULL;
+		double hx = 0, hy = 0, hlen = 0;
+		if (a->tool == TOOL_ARROW_PEN && n_pts >= 2) {
+			double tipx = pts[(n_pts - 1) * 2], tipy = pts[(n_pts - 1) * 2 + 1];
+			hlen = pen_head_dir(a, w, tipx, tipy, &hx, &hy);
+			if (hlen >= 0.001) {
+				double head_len = grabit_cairo_arrow_head_len(w, ANNO_ARROW_MIN_HEAD);
+				if (head_len > hlen * 0.5) head_len = hlen * 0.5;
+				double cx, cy;
+				size_t keep = pen_trim_at(pts, n_pts, tipx, tipy, head_len, &cx, &cy);
+				if (keep >= 1) {
+					trimmed = malloc((keep + 1) * 2 * sizeof *trimmed);
+					if (trimmed) {
+						memcpy(trimmed, pts, keep * 2 * sizeof *trimmed);
+						trimmed[keep * 2] = (int32_t)lround(cx);
+						trimmed[keep * 2 + 1] = (int32_t)lround(cy);
+						pts = trimmed;
+						n_pts = keep + 1;
+					}
+				}
+			}
+		}
+
 		double ex, ey;
-		stroke_path(cr, a->points, a->n_points, a->smooth, w, &ex, &ey);
-		if (a->n_points == 1) {
-			cairo_arc(cr, a->points[0], a->points[1], w / 2.0, 0, 2.0 * M_PI);
+		stroke_path(cr, pts, n_pts, a->smooth, w, &ex, &ey);
+		if (n_pts == 1) {
+			cairo_arc(cr, pts[0], pts[1], w / 2.0, 0, 2.0 * M_PI);
 			cairo_fill(cr);
 		} else {
 			cairo_stroke(cr);
 		}
-		if (a->tool == TOOL_ARROW_PEN) pen_arrow_head(cr, a, w, ex, ey);
+		if (a->tool == TOOL_ARROW_PEN && hlen >= 0.001)
+			grabit_cairo_arrow_head(cr, hx, hy, a->points[(a->n_points - 1) * 2],
+									a->points[(a->n_points - 1) * 2 + 1], w,
+									ANNO_ARROW_MIN_HEAD);
+		free(trimmed);
 		break;
 	}
 	case TOOL_BLUR:

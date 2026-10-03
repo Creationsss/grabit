@@ -4,13 +4,17 @@
 #define _XOPEN_SOURCE 700
 #include "region/wlr_state.h"
 
+#include "clipboard/clipboard.h"
 #include "cursor.h"
 #include "region/annotate.h"
+#include "region/keybinds.h"
 #include "region/toolbar_internal.h"
 #include "region/wlr_input_state.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -79,8 +83,41 @@ static void text_erase(struct ro_state *st, size_t from, size_t to) {
 	st->text_caret = from;
 }
 
+static void text_insert(struct ro_state *st, const char *add, size_t n) {
+	if (n == 0 || st->text_len + n + 1 > sizeof st->text_buf) return;
+	memmove(st->text_buf + st->text_caret + n, st->text_buf + st->text_caret,
+			st->text_len - st->text_caret);
+	memcpy(st->text_buf + st->text_caret, add, n);
+	st->text_len += n;
+	st->text_caret += n;
+	st->text_buf[st->text_len] = '\0';
+}
+
+static void text_paste(struct ro_state *st) {
+	char *clip = clipboard_get_text();
+	if (!clip) return;
+	size_t room = sizeof st->text_buf - 1 - st->text_len;
+	size_t n = 0;
+	for (size_t i = 0; clip[i] && n < room; i++) {
+		if ((unsigned char)clip[i] < 0x20) {
+			if (clip[i] != '\t') break;
+			clip[n++] = ' ';
+			continue;
+		}
+		clip[n++] = clip[i];
+	}
+	n = grabit_utf8_valid_prefix(clip, n);
+	text_insert(st, clip, n);
+	free(clip);
+}
+
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {
 	if (st->text_caret > st->text_len) st->text_caret = st->text_len;
+	if ((sym == XKB_KEY_v || sym == XKB_KEY_V) &&
+		(region_xkb_mods(st->xkb_state) & KB_MOD_CTRL)) {
+		text_paste(st);
+		return;
+	}
 	if (sym == XKB_KEY_BackSpace) {
 		text_erase(st, utf8_prev(st->text_buf, st->text_caret), st->text_caret);
 		return;
@@ -120,13 +157,7 @@ static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t ke
 	int n = xkb_state_key_get_utf8(st->xkb_state, key + 8, buf, sizeof buf);
 	if (n <= 0) return;
 	if ((unsigned char)buf[0] < 0x20) return;
-	if (st->text_len + (size_t)n + 1 > sizeof st->text_buf) return;
-	memmove(st->text_buf + st->text_caret + (size_t)n, st->text_buf + st->text_caret,
-			st->text_len - st->text_caret);
-	memcpy(st->text_buf + st->text_caret, buf, (size_t)n);
-	st->text_len += (size_t)n;
-	st->text_caret += (size_t)n;
-	st->text_buf[st->text_len] = '\0';
+	text_insert(st, buf, (size_t)n);
 }
 
 static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,

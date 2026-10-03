@@ -527,7 +527,7 @@ grabit -e -o                  # annotate, then save
 - **resize handles** on the locked region; **ctrl+drag** inside to move the whole region (with a drawing tool active)
 - **shift** while drawing constrains rect/rounded rect/ellipse/blur/pixelate/spotlight to squares and arrows/lines to 45° angles
 - **arrow keys / shift+arrows** still move and resize the capture region while the editor is open
-- **text tool**: `enter` commits the annotation, clicking anywhere else commits it too, `esc` discards the typed text without leaving the editor
+- **text tool**: `enter` commits the annotation, clicking anywhere else commits it too, `esc` discards the typed text without leaving the editor. while typing, `left`/`right`/`home`/`end` move the caret, `backspace`/`delete` cut either side of it, and `ctrl+v` pastes the clipboard
 - **hex field**: the typed value applies on `enter` or when you click elsewhere in the picker; `esc` abandons it
 - **right-click** cancels the selector in every mode, aborting an in-progress drag or text entry first
 - **magnifier**: hold `Alt` for a pixel loupe showing the color under the cursor as `#rrggbb` and its coordinates. works in region-select mode too

@@ -9,6 +9,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include <wayland-client.h>
 
@@ -65,4 +67,82 @@ int clip_ext_serve(struct grabit_wl_state *s, const struct clip_payload *p,
 	ext_data_control_source_v1_destroy(src);
 	ext_data_control_device_v1_destroy(dev);
 	return 0;
+}
+
+struct ext_recv {
+	struct ext_data_control_offer_v1 *offer;
+	int best;
+	char mime[128];
+	bool got_selection;
+};
+
+static void ext_offer_mime(void *data, struct ext_data_control_offer_v1 *offer, const char *mime) {
+	(void)offer;
+	struct ext_recv *r = data;
+	int rank = clip_rank_mime(mime);
+	if (rank <= r->best) return;
+	r->best = rank;
+	snprintf(r->mime, sizeof r->mime, "%s", mime);
+}
+
+static const struct ext_data_control_offer_v1_listener ext_offer_listener_g = {
+	.offer = ext_offer_mime,
+};
+
+static void ext_data_offer(void *data, struct ext_data_control_device_v1 *dev,
+						   struct ext_data_control_offer_v1 *offer) {
+	(void)dev;
+	ext_data_control_offer_v1_add_listener(offer, &ext_offer_listener_g, data);
+}
+
+static void ext_selection(void *data, struct ext_data_control_device_v1 *dev,
+						  struct ext_data_control_offer_v1 *offer) {
+	(void)dev;
+	struct ext_recv *r = data;
+	r->offer = offer;
+	r->got_selection = true;
+}
+
+static void ext_finished(void *data, struct ext_data_control_device_v1 *dev) {
+	(void)dev;
+	((struct ext_recv *)data)->got_selection = true;
+}
+
+static void ext_primary(void *data, struct ext_data_control_device_v1 *dev, struct ext_data_control_offer_v1 *offer) {
+	(void)data;
+	(void)dev;
+	if (offer) ext_data_control_offer_v1_destroy(offer);
+}
+
+static const struct ext_data_control_device_v1_listener ext_recv_listener_g = {
+	.data_offer = ext_data_offer,
+	.selection = ext_selection,
+	.finished = ext_finished,
+	.primary_selection = ext_primary,
+};
+
+int clip_ext_recv(struct grabit_wl_state *s, char **out) {
+	struct ext_data_control_device_v1 *dev = ext_data_control_manager_v1_get_data_device(s->ext_data_control_manager, s->seat);
+	if (!dev) return -1;
+
+	struct ext_recv r = {0};
+	ext_data_control_device_v1_add_listener(dev, &ext_recv_listener_g, &r);
+	if (wl_display_roundtrip(s->display) < 0 || !r.got_selection || !r.offer ||
+		r.best == 0) {
+		ext_data_control_device_v1_destroy(dev);
+		return -1;
+	}
+
+	int fds[2];
+	if (pipe(fds) != 0) {
+		ext_data_control_device_v1_destroy(dev);
+		return -1;
+	}
+	ext_data_control_offer_v1_receive(r.offer, r.mime, fds[1]);
+	close(fds[1]);
+	wl_display_flush(s->display);
+
+	int rc = clip_read_fd(fds[0], out);
+	ext_data_control_device_v1_destroy(dev);
+	return rc;
 }

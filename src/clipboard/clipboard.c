@@ -53,3 +53,9 @@ int clipboard_set_image_file(const char *path) {
 	free(buf);
 	return rc;
 }
+
+char *clipboard_get_text(void) {
+	char *text = NULL;
+	if (clipboard_recv_text(&text) != 0) return NULL;
+	return text;
+}

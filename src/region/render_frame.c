@@ -260,8 +260,8 @@ void gren_output_redraw(struct ro_output *o) {
 						  o->st->text_x, o->st->text_y)) {
 			gren_render_bottom_hint(cr, o,
 									o->st->text_len > 0
-										? "type more, enter to commit, esc to cancel"
-										: "type your text, enter to commit, esc to cancel");
+										? "type more, ctrl+v pastes, enter to commit, esc to cancel"
+										: "type your text, ctrl+v pastes, enter to commit, esc to cancel");
 		}
 
 		if (o->st->has_selection) {

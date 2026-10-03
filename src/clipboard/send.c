@@ -37,6 +37,46 @@ static clip_serve_fn clip_pick(const struct grabit_wl_state *s, const char **nam
 	return NULL;
 }
 
+int clip_rank_mime(const char *mime) {
+	if (!mime) return 0;
+	if (strcmp(mime, "text/plain;charset=utf-8") == 0) return 4;
+	if (strcmp(mime, "text/plain") == 0) return 3;
+	if (strcmp(mime, "UTF8_STRING") == 0) return 2;
+	if (strcmp(mime, "STRING") == 0) return 1;
+	return 0;
+}
+
+int clip_read_fd(int fd, char **out) {
+	struct grabit_buf buf = {0};
+	char chunk[4096];
+	int64_t deadline = grabit_now_ns() / 1000000 + CLIP_READY_TIMEOUT_MS;
+	int rc = -1;
+	for (;;) {
+		struct pollfd pfd = {.fd = fd, .events = POLLIN};
+		int pr = grabit_poll_deadline(&pfd, 1, deadline);
+		if (pr <= 0) break;
+		ssize_t n = read(fd, chunk, sizeof chunk);
+		if (n < 0) {
+			if (errno == EINTR || errno == EAGAIN) continue;
+			break;
+		}
+		if (n == 0) {
+			rc = 0;
+			break;
+		}
+		if (buf.len + (size_t)n > CLIP_TEXT_MAX ||
+			grabit_buf_putn(&buf, chunk, (size_t)n) != 0)
+			break;
+	}
+	close(fd);
+	if (rc != 0 || grabit_buf_putn(&buf, "", 1) != 0) {
+		grabit_buf_free(&buf);
+		return -1;
+	}
+	*out = buf.data;
+	return 0;
+}
+
 void clip_write_all(int fd, const void *bytes, size_t size) {
 	signal(SIGPIPE, SIG_IGN);
 
@@ -143,6 +183,31 @@ __attribute__((noreturn)) static void clip_child(const struct clip_payload *pay,
 	if (rc != 0) clip_signal_ready(&ready_fd, 0);
 	grabit_wl_finish(&s);
 	_exit(rc == 0 ? 0 : 1);
+}
+
+static clip_recv_fn clip_pick_recv(const struct grabit_wl_state *s) {
+	const char *pref = getenv("GRABIT_CLIPBOARD_BACKEND");
+	if (!pref || !pref[0]) pref = "auto";
+	if (s->ext_data_control_manager && strcmp(pref, "wlr") != 0) return clip_ext_recv;
+	if (s->data_control_manager && strcmp(pref, "ext") != 0) return clip_wlr_recv;
+	return NULL;
+}
+
+int clipboard_recv_text(char **out) {
+	struct grabit_wl_state s;
+	if (grabit_wl_probe(&s) != 0) {
+		log_error("clipboard: cannot connect to wayland");
+		return -1;
+	}
+	clip_recv_fn recv = clip_pick_recv(&s);
+	if (!recv || !s.seat) {
+		log_error("clipboard: compositor lacks a usable data-control protocol");
+		grabit_wl_finish(&s);
+		return -1;
+	}
+	int rc = recv(&s, out);
+	grabit_wl_finish(&s);
+	return rc;
 }
 
 int clipboard_send_bytes(const void *bytes, size_t size,

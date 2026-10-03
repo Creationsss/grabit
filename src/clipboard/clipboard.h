@@ -6,5 +6,6 @@
 
 int clipboard_set_text(const char *text);
 int clipboard_set_image_file(const char *path);
+char *clipboard_get_text(void);
 
 #endif

@@ -7,6 +7,7 @@
 #include "config/internal.h"
 #include "exit.h"
 #include "log.h"
+#include "subcmd.h"
 #include "upload/sxcu.h"
 #include "util/util.h"
 
@@ -16,19 +17,24 @@
 #include <string.h>
 #include <strings.h>
 
+static const struct subcmd SUBCMDS[] = {
+	{"add", "install", "<file> [--force]", "register a .sxcu uploader"},
+	{"list", "ls", "", "show registered uploaders"},
+	{"show", NULL, "<name> [--show-secrets]", "print parsed fields"},
+	{"remove", "rm", "<name> [-y]", "remove an uploader"},
+};
+#define N_SUBCMDS (sizeof SUBCMDS / sizeof SUBCMDS[0])
+
 static int usage(void) {
-	log_error("usage: grabit sxcu <add|list|remove|show> [args]");
-	return GRABIT_EXIT_USAGE;
+	return subcmd_usage(SUBCMDS, N_SUBCMDS, "sxcu");
 }
 
 static int help(void) {
-	puts("usage: grabit sxcu <subcommand> [args]");
-	puts("");
-	puts("  add <file>          register a .sxcu uploader (--force replaces; alias: install)");
-	puts("  list                show registered uploaders (alias: ls)");
-	puts("  show <name>         print parsed fields (--show-secrets unmasks auth)");
-	puts("  remove <name> [-y]  remove an uploader (alias: rm)");
-	return 0;
+	return subcmd_help(SUBCMDS, N_SUBCMDS, "sxcu");
+}
+
+static bool is_sub(const char *name, const char *sub) {
+	return subcmd_is(SUBCMDS, N_SUBCMDS, name, sub);
 }
 
 static int do_list(void) {
@@ -93,7 +99,7 @@ int cmd_sxcu(int argc, char **argv) {
 		return 2;
 	}
 	const char *sub = argv[0];
-	if (strcmp(sub, "add") == 0 || strcmp(sub, "install") == 0) {
+	if (is_sub("add", sub)) {
 		bool force = false;
 		const char *file = NULL;
 		for (int i = 1; i < argc; i++) {
@@ -109,8 +115,8 @@ int cmd_sxcu(int argc, char **argv) {
 		log_info("sxcu: added to %s", sxcu_dir_path());
 		return 0;
 	}
-	if (strcmp(sub, "list") == 0 || strcmp(sub, "ls") == 0) return do_list();
-	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
+	if (is_sub("list", sub)) return do_list();
+	if (is_sub("remove", sub)) {
 		bool yes = false;
 		const char *name = NULL;
 		for (int i = 1; i < argc; i++) {
@@ -127,7 +133,7 @@ int cmd_sxcu(int argc, char **argv) {
 		if (!grabit_confirm(yes, what)) return 1;
 		return sxcu_dir_remove(name) == 0 ? 0 : 1;
 	}
-	if (strcmp(sub, "show") == 0) {
+	if (is_sub("show", sub)) {
 		bool reveal = false;
 		const char *target = NULL;
 		for (int i = 1; i < argc; i++) {

@@ -124,6 +124,7 @@ GRABIT_SRCS := \
 	src/config/cli_help.c \
 	src/config/help_examples.c \
 	src/config/help_groups.c \
+	src/subcmd.c \
 	src/template.c \
 	src/cairo_util.c \
 	src/ui_theme.c \

@@ -6,25 +6,31 @@
 
 #include "exit.h"
 #include "log.h"
+#include "subcmd.h"
 #include "util/util.h"
 
 #include <stdio.h>
 #include <string.h>
 
+static const struct subcmd SUBCMDS[] = {
+	{"add", "install", "<git-url>", "install a plugin"},
+	{"list", "ls", "", "list installed plugins"},
+	{"show", NULL, "<name>", "print parsed manifest"},
+	{"update", NULL, "[<name>]", "update one plugin, or all if omitted"},
+	{"remove", "rm", "<name> [-y]", "uninstall a plugin"},
+};
+#define N_SUBCMDS (sizeof SUBCMDS / sizeof SUBCMDS[0])
+
 static int usage(void) {
-	fputs("usage: grabit plugin <add|list|show|update|remove> [args]\n", stderr);
-	return GRABIT_EXIT_USAGE;
+	return subcmd_usage(SUBCMDS, N_SUBCMDS, "plugin");
 }
 
 static int help(void) {
-	puts("usage: grabit plugin <subcommand> [args]");
-	puts("");
-	puts("  add <git-url>      install a plugin (alias: install)");
-	puts("  list               list installed plugins (alias: ls)");
-	puts("  show <name>        print parsed manifest");
-	puts("  update [<name>]    update one plugin (or all if omitted)");
-	puts("  remove <name> [-y] uninstall a plugin (alias: rm)");
-	return 0;
+	return subcmd_help(SUBCMDS, N_SUBCMDS, "plugin");
+}
+
+static bool is_sub(const char *name, const char *sub) {
+	return subcmd_is(SUBCMDS, N_SUBCMDS, name, sub);
 }
 
 static int list_one_cb(const char *name, void *ud) {
@@ -88,24 +94,24 @@ int cmd_plugin(int argc, char **argv) {
 		return 2;
 	}
 	const char *sub = argv[0];
-	if (strcmp(sub, "install") == 0 || strcmp(sub, "add") == 0) {
+	if (is_sub("add", sub)) {
 		if (argc != 2) {
-			log_error("usage: grabit plugin install <git-url>");
+			log_error("usage: grabit plugin add <git-url>");
 			return 2;
 		}
 		return plugin_install_git(argv[1]) == 0 ? 0 : 1;
 	}
-	if (strcmp(sub, "list") == 0 || strcmp(sub, "ls") == 0) return do_list();
-	if (strcmp(sub, "show") == 0) {
+	if (is_sub("list", sub)) return do_list();
+	if (is_sub("show", sub)) {
 		if (argc != 2) return usage();
 		return do_show(argv[1]);
 	}
-	if (strcmp(sub, "update") == 0) {
+	if (is_sub("update", sub)) {
 		if (argc == 1) return plugin_update_all() == 0 ? 0 : 1;
 		if (argc == 2) return plugin_update(argv[1]) == 0 ? 0 : 1;
 		return usage();
 	}
-	if (strcmp(sub, "remove") == 0 || strcmp(sub, "rm") == 0) {
+	if (is_sub("remove", sub)) {
 		bool yes = false;
 		const char *name = NULL;
 		for (int i = 1; i < argc; i++) {

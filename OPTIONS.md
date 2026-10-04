@@ -188,7 +188,7 @@ auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.aut
 
 | key | default | notes |
 |---|---|---|
-| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland and sway report for every window and niri only for floating ones |
+| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland, sway and umbriel report for every window and niri only for floating ones |
 | `region.window_radius` | `auto` | round the corners of window captures to match the compositor. `auto` reads hyprland's `decoration:rounding` plus its border width (and stays square for fullscreen windows); `0`..`100` forces a radius. applies to `-w`/`--window` and to click-to-snap selections, never to a manual drag. png and webp keep the corners transparent; jpeg cannot store alpha so it is left square with a warning; recordings get black corners |
 | `region.window_borders` | `false` | include the compositor's window borders in window captures: the hover highlight and the `-w`/`--window` rect grow by the border width on every side, framing the ring's outer edge exactly. reads hyprland's `general:border_size`, so a per-window `bordersize` rule is not seen and such a window is framed by the global width. fullscreen windows are never expanded, and the growth is clamped to the window's own monitor, so a window flush with a screen edge gains nothing on that side. currently a no-op on sway (its rects already cover the border) and niri |
 | `region.snap_animation` | `false` | animate the window-snap highlight: it slides and resizes between windows and fades out when the cursor leaves them, instead of jumping. needs `region.window_snap` |
@@ -497,6 +497,7 @@ grabit -w -e -u               # annotate the active window, then upload
 how the window is captured depends on what the compositor can tell grabit:
 
 - **hyprland** and **sway** report the geometry of every window, so `-w` resolves the focused window to a rectangle and crops the screen to it. this behaves exactly like `-F` with a smaller region: `-e` works, and anything drawn on top of the window is included. on sway the rectangle is the window and its border but not its title bar, which is what sway's own ipc reports and what grimshot captures; bars and panels are missing from window snapping there, because sway's ipc does not list layer surfaces.
+- **umbriel** reports the geometry of every window over its ipc socket, so `-w` and window snapping take the same crop path as hyprland. bars and panels are not part of window snapping there.
 - **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
 - **other compositors** have no way to report the active window; `-w` fails with a notification.
 
@@ -612,6 +613,7 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
 | `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
 | `SWAYSOCK` | set by sway; locates the sway ipc socket behind `-w`/`--window` and window snapping |
+| `UMBRIEL_SOCKET` | set by umbriel; locates the umbriel ipc socket behind `-w`/`--window` and window snapping. falls back to `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock` |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
 | `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
 | `XDG_STATE_HOME` | where `state.toml` lives, default `~/.local/state` |

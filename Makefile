@@ -141,6 +141,7 @@ GRABIT_SRCS := \
 	src/wm/niri.c \
 	src/wm/sway.c \
 	src/wm/umbriel.c \
+	src/wm/aqueous.c \
 	src/mime.c \
 	src/wl/wl.c \
 	src/wl/toplevel.c \

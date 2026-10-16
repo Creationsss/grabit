@@ -6,6 +6,7 @@
 
 #include "wl/toplevel.h"
 #include "wl/wl.h"
+#include "wm/aqueous.h"
 #include "wm/hyprland.h"
 #include "wm/niri.h"
 #include "wm/sway.h"
@@ -19,6 +20,7 @@ enum wm_kind {
 	WM_NIRI,
 	WM_SWAY,
 	WM_UMBRIEL,
+	WM_AQUEOUS,
 };
 
 static enum wm_kind grabit_wm_detect(void) {
@@ -34,6 +36,8 @@ static enum wm_kind grabit_wm_detect(void) {
 			cached = WM_SWAY;
 		else if (grabit_umbriel_present())
 			cached = WM_UMBRIEL;
+		else if (grabit_aqueous_present())
+			cached = WM_AQUEOUS;
 	}
 	return cached;
 }
@@ -43,7 +47,8 @@ const char *grabit_wm_current_name(void) {
 										[WM_HYPRLAND] = "hyprland",
 										[WM_NIRI] = "niri",
 										[WM_SWAY] = "sway",
-										[WM_UMBRIEL] = "umbriel"};
+										[WM_UMBRIEL] = "umbriel",
+										[WM_AQUEOUS] = "aqueous"};
 	const char *name = NAMES[grabit_wm_detect()];
 	return name ? name : NAMES[WM_NONE];
 }
@@ -58,6 +63,9 @@ int grabit_wm_active_window(char **class_out, char **title_out) {
 		break;
 	case WM_UMBRIEL:
 		if (grabit_umbriel_active_window(class_out, title_out) == 0) return 0;
+		break;
+	case WM_AQUEOUS:
+		if (grabit_aqueous_active_window(class_out, title_out) == 0) return 0;
 		break;
 	case WM_SWAY:
 	case WM_NONE:
@@ -76,6 +84,8 @@ int grabit_wm_active_window_rect(struct rect *out) {
 		return grabit_sway_active_window_rect(out);
 	case WM_UMBRIEL:
 		return grabit_umbriel_active_window_rect(out);
+	case WM_AQUEOUS:
+		return grabit_aqueous_active_window_rect(out);
 	case WM_NONE:
 		break;
 	}
@@ -89,6 +99,7 @@ int grabit_wm_window_radius(const struct rect *win) {
 	case WM_NIRI:
 	case WM_SWAY:
 	case WM_UMBRIEL:
+	case WM_AQUEOUS:
 	case WM_NONE:
 		break;
 	}
@@ -99,6 +110,8 @@ int grabit_wm_window_border(const struct rect *win) {
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:
 		return grabit_hyprland_window_border(win);
+	case WM_AQUEOUS:
+		return grabit_aqueous_window_border(win);
 	case WM_NIRI:
 	case WM_SWAY:
 	case WM_UMBRIEL:
@@ -118,6 +131,8 @@ int grabit_wm_windows(struct rect **out, size_t *n_out) {
 		return grabit_sway_windows(out, n_out);
 	case WM_UMBRIEL:
 		return grabit_umbriel_windows(out, n_out);
+	case WM_AQUEOUS:
+		return grabit_aqueous_windows(out, n_out);
 	case WM_NONE:
 		break;
 	}
@@ -143,6 +158,9 @@ struct grabit_output *grabit_wm_active_output(struct grabit_wl_state *s) {
 	case WM_UMBRIEL:
 		name = grabit_umbriel_focused_output();
 		break;
+	case WM_AQUEOUS:
+		name = grabit_aqueous_focused_output();
+		break;
 	case WM_NONE:
 		break;
 	}
@@ -161,6 +179,7 @@ int grabit_wm_capture_active_window(bool cursor, const char *png_path) {
 	case WM_HYPRLAND:
 	case WM_SWAY:
 	case WM_UMBRIEL:
+	case WM_AQUEOUS:
 	case WM_NONE:
 		break;
 	}

@@ -2,7 +2,7 @@
 
 screenshot, screen-recording, ocr, and uploader for wlroots wayland compositors.
 
-works on: hyprland, sway, niri, umbriel, river (window snapping and `-w` need hyprland, sway, niri or umbriel ipc). kde plasma screenshots via kwin's ScreenShot2 and records via kwin's screencast protocol; gnome is recording-only (mutter's screencast d-bus api). both go through pipewire with no portal dialog. not supported: x11.
+works on: hyprland, sway, niri, umbriel, aqueous, river (window snapping and `-w` need hyprland, sway, niri, umbriel or aqueous ipc). kde plasma screenshots via kwin's ScreenShot2 and records via kwin's screencast protocol; gnome is recording-only (mutter's screencast d-bus api). both go through pipewire with no portal dialog. not supported: x11.
 
 ## install
 
@@ -50,7 +50,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`. see [OPTIONS.md
 - confirm mode: adjust the selection before capturing
 - **`-F`/`--fullscreen`** grabs one monitor, or every monitor stitched together
 - hdr outputs are tone mapped to srgb so captures look right; `capture.hdr` keeps the full range as a 16-bit png instead
-- **`-w`/`--window`** grabs the active window (hyprland, sway and umbriel, and niri via its own window screenshot)
+- **`-w`/`--window`** grabs the active window (hyprland, sway, umbriel and aqueous, and niri via its own window screenshot)
 - **`-L`/`--last`** reuses the last region instead of selecting one, screenshots and `--record` alike
 - **`--delay <secs>`** waits before capturing, so menus and tooltips stay open
 - annotator (`-e`): pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, spotlight, text, counter, callout, eraser

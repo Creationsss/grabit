@@ -42,8 +42,8 @@ otherwise the
 .B org.kde.KWin.ScreenShot2
 dbus service on KDE Plasma.
 .PP
-Supported compositors: Hyprland, sway, niri, Umbriel, river. KDE Plasma:
-screenshots via
+Supported compositors: Hyprland, sway, niri, Umbriel, Aqueous, river. KDE
+Plasma: screenshots via
 ScreenShot2, recording via zkde_screencast_unstable_v1 (see
 .BR NOTES ).
 GNOME: recording only, via org.gnome.Mutter.ScreenCast. X11 is not supported.
@@ -358,8 +358,8 @@ cannot be combined with
 .BR \-F ,
 or
 .BR \-\-record .
-On Hyprland, sway and Umbriel the window's geometry is read over IPC and the
-screen is cropped to it, so
+On Hyprland, sway, Umbriel and Aqueous the window's geometry is read over IPC
+and the screen is cropped to it, so
 .B \-e
 works and anything overlapping the window is included. On sway the rectangle
 covers the window and its border but not its title bar, matching what sway's own
@@ -784,6 +784,11 @@ Set by Umbriel; locates the Umbriel IPC socket that powers
 .BR \-w / \-\-window
 and window snapping. Falls back to
 .IR $XDG_RUNTIME_DIR/umbriel\-$WAYLAND_DISPLAY.sock .
+.TP
+.B AQUEOUS_SOCKET
+Set by Aqueous; locates the Aqueous IPC socket that powers
+.BR \-w / \-\-window
+and window snapping. There is no fallback path.
 Absent elsewhere, all of this degrades gracefully.
 .TP
 .BR XCURSOR_THEME ", " XCURSOR_SIZE

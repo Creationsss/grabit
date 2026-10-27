@@ -8,6 +8,7 @@
 #include "wl/wl.h"
 #include "wm/aqueous.h"
 #include "wm/hyprland.h"
+#include "wm/ipc.h"
 #include "wm/niri.h"
 #include "wm/sway.h"
 #include "wm/umbriel.h"
@@ -121,7 +122,8 @@ int grabit_wm_window_border(const struct rect *win) {
 	return 0;
 }
 
-int grabit_wm_windows(struct rect **out, size_t *n_out) {
+int grabit_wm_windows(const char *ignore, struct rect **out, size_t *n_out) {
+	gwm_set_snap_ignore(ignore);
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:
 		return grabit_hyprland_windows(out, n_out);

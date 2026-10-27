@@ -274,6 +274,7 @@ int grabit_niri_windows(struct rect **out, size_t *n_out) {
 	for (size_t i = 0; i < n; i++) {
 		struct json_object *win = json_object_array_get_idx(arr, i);
 		if (!win || json_object_get_type(win) != json_type_object) continue;
+		if (gwm_snap_ignored(win, "app_id")) continue;
 		const struct niri_workspace *ws = ws_of(&l, win);
 		if (!ws || !ws->active) continue;
 		if (window_rect(win, &l, ws, &rects[k])) k++;

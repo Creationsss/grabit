@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -137,6 +138,32 @@ int gwm_ipc_line(int fd, const char *req, int64_t deadline,
 	int rc = ipc_write(fd, req, strlen(req), deadline);
 	if (rc == 0) rc = slurp(fd, &body, deadline, true);
 	return parse_body(rc, &body, req, root_out);
+}
+
+static char *g_snap_ignore;
+
+void gwm_set_snap_ignore(const char *classes) {
+	free(g_snap_ignore);
+	g_snap_ignore = classes && classes[0] ? strdup(classes) : NULL;
+}
+
+bool gwm_snap_ignored(struct json_object *win, const char *key) {
+	struct json_object *o = NULL;
+	if (!g_snap_ignore || !win || !json_object_object_get_ex(win, key, &o) ||
+		json_object_get_type(o) != json_type_string || !*json_object_get_string(o))
+		return false;
+	const char *cls = json_object_get_string(o);
+	size_t len = strlen(cls);
+	for (const char *p = g_snap_ignore; *p;) {
+		p += strspn(p, " \t,");
+		size_t n = strcspn(p, ",");
+		size_t t = n;
+		while (t > 0 && (p[t - 1] == ' ' || p[t - 1] == '\t'))
+			t--;
+		if (t == len && strncasecmp(p, cls, len) == 0) return true;
+		p += n;
+	}
+	return false;
 }
 
 #define I3_MAGIC "i3-ipc"

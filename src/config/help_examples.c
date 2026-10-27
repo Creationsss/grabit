@@ -112,6 +112,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "region.snap_ignore") == 0) {
+		*example_out = "orbolay,neru-overlay";
+		*def_out = "";
+		return 0;
+	}
 	if (strcmp(key, "region.window_radius") == 0) {
 		*example_out = "auto|0..100";
 		*def_out = "auto";

@@ -101,7 +101,10 @@ static bool count_node(struct json_object *node, void *ctx) {
 static bool take_view(struct json_object *node, void *ctx) {
 	struct collect *c = ctx;
 	struct rect r;
-	if (node_is_view(node) && node_flag(node, "visible") && node_rect(node, &r))
+	if (node_is_view(node) && node_flag(node, "visible") &&
+		!gwm_snap_ignored(node, "app_id") &&
+		!gwm_snap_ignored(json_object_object_get(node, "window_properties"), "class") &&
+		node_rect(node, &r))
 		c->arr[c->n++] = r;
 	return false;
 }

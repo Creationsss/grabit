@@ -4,6 +4,7 @@
 #ifndef GRABIT_WM_IPC_H
 #define GRABIT_WM_IPC_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define WM_IPC_TIMEOUT_MS 2000
@@ -19,6 +20,9 @@ int gwm_ipc_open(const char *path);
 
 int gwm_ipc_line(int fd, const char *req, int64_t deadline,
 				 struct json_object **root_out);
+
+void gwm_set_snap_ignore(const char *classes);
+bool gwm_snap_ignored(struct json_object *win, const char *key);
 
 int gwm_ipc_query_i3(const char *path, uint32_t type,
 					 struct json_object **root_out);

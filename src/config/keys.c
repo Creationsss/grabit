@@ -228,6 +228,7 @@ static bool valid_region_key(const char *key) {
 		   strcmp(leaf, "window_radius") == 0 ||
 		   strcmp(leaf, "window_borders") == 0 ||
 		   strcmp(leaf, "snap_animation") == 0 ||
+		   strcmp(leaf, "snap_ignore") == 0 ||
 		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "repeat_last") == 0 ||
 		   strcmp(leaf, "last") == 0;
 }

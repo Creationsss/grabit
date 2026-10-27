@@ -39,12 +39,16 @@ static int query(const char *cmd, struct json_object **root_out) {
 	return rc;
 }
 
-static int query_object(const char *cmd, struct json_object **root_out) {
+static int query_typed(const char *cmd, enum json_type type, struct json_object **root_out) {
 	if (query(cmd, root_out) != 0) return -1;
-	if (json_object_get_type(*root_out) == json_type_object) return 0;
+	if (json_object_get_type(*root_out) == type) return 0;
 	json_object_put(*root_out);
 	*root_out = NULL;
 	return -1;
+}
+
+static int query_object(const char *cmd, struct json_object **root_out) {
+	return query_typed(cmd, json_type_object, root_out);
 }
 
 static bool client_rect(struct json_object *c, struct rect *out) {
@@ -184,21 +188,10 @@ static bool ws_name_is_special(const char *n) {
 	return n && (strcmp(n, "special") == 0 || strncmp(n, "special:", 8) == 0);
 }
 
-static int collect_active_ws(struct active_ws **out, size_t *n_out) {
-	*out = NULL;
-	*n_out = 0;
-	struct json_object *root = NULL;
-	if (query("j/monitors", &root) != 0) return -1;
-	if (json_object_get_type(root) != json_type_array) {
-		json_object_put(root);
-		return -1;
-	}
+static struct active_ws *collect_active_ws(struct json_object *root, size_t *n_out) {
 	size_t n = json_object_array_length(root);
 	struct active_ws *wss = calloc(n * 2 + 1, sizeof *wss);
-	if (!wss) {
-		json_object_put(root);
-		return -1;
-	}
+	if (!wss) return NULL;
 	size_t k = 0;
 	for (size_t i = 0; i < n; i++) {
 		struct json_object *mon = json_object_array_get_idx(root, i);
@@ -227,10 +220,32 @@ static int collect_active_ws(struct active_ws **out, size_t *n_out) {
 			k++;
 		}
 	}
-	json_object_put(root);
-	*out = wss;
 	*n_out = k;
-	return 0;
+	return wss;
+}
+
+static double num(struct json_object *obj, const char *key, double fallback) {
+	struct json_object *o = NULL;
+	return json_object_object_get_ex(obj, key, &o) ? json_object_get_double(o) : fallback;
+}
+
+static bool monitor_rect(struct json_object *mons, const char *name, struct rect *out) {
+	size_t n = json_object_array_length(mons);
+	for (size_t i = 0; i < n; i++) {
+		struct json_object *m = json_object_array_get_idx(mons, i), *o = NULL;
+		if (!json_object_object_get_ex(m, "name", &o) ||
+			strcmp(json_object_get_string(o), name) != 0)
+			continue;
+		double scale = num(m, "scale", 1), w = num(m, "width", 0), h = num(m, "height", 0);
+		if (scale <= 0) return false;
+		bool rotated = ((int)num(m, "transform", 0) & 1) != 0;
+		*out = (struct rect){.x = (int32_t)lround(num(m, "x", 0)),
+							 .y = (int32_t)lround(num(m, "y", 0)),
+							 .w = (int32_t)lround((rotated ? h : w) / scale),
+							 .h = (int32_t)lround((rotated ? w : h) / scale)};
+		return out->w > 0 && out->h > 0;
+	}
+	return false;
 }
 
 static bool ws_is_active(int64_t ws_id, const char *ws_name, const struct active_ws *active, size_t n, bool *out_is_special) {
@@ -256,6 +271,9 @@ static bool layer_rect(struct json_object *s, struct rect *out) {
 		const char *ns = json_object_get_string(o);
 		if (ns && strncmp(ns, "grabit-", 7) == 0) return false;
 	}
+	if (gwm_snap_ignored(s, "namespace")) return false;
+	if (json_object_object_get_ex(s, "alpha", &o) && json_object_get_double(o) <= 0)
+		return false;
 	int32_t v[4];
 	static const char *const keys[4] = {"x", "y", "w", "h"};
 	for (int i = 0; i < 4; i++) {
@@ -279,7 +297,8 @@ static int push_rect(struct rect **arr, size_t *n, size_t *cap, struct rect r) {
 	return 0;
 }
 
-static int grabit_hyprland_layers(struct rect **below_out, size_t *n_below_out,
+static int grabit_hyprland_layers(struct json_object *mons, struct rect **below_out,
+								  size_t *n_below_out,
 								  struct rect **above_out, size_t *n_above_out) {
 	*below_out = NULL;
 	*n_below_out = 0;
@@ -293,7 +312,8 @@ static int grabit_hyprland_layers(struct rect **below_out, size_t *n_below_out,
 	int rc = 0;
 
 	json_object_object_foreach(root, oname, oval) {
-		(void)oname;
+		struct rect mon;
+		bool have_mon = monitor_rect(mons, oname, &mon);
 		struct json_object *levels = NULL;
 		if (!json_object_object_get_ex(oval, "levels", &levels)) continue;
 		json_object_object_foreach(levels, lvl, surfaces) {
@@ -304,6 +324,7 @@ static int grabit_hyprland_layers(struct rect **below_out, size_t *n_below_out,
 			for (size_t i = 0; i < n; i++) {
 				struct rect r;
 				if (!layer_rect(json_object_array_get_idx(surfaces, i), &r)) continue;
+				if (have_mon && rect_equal(rect_intersect(rect_inflate(r, 1), mon), mon)) continue;
 				rc = over ? push_rect(&above, &n_above, &cap_above, r)
 						  : push_rect(&below, &n_below, &cap_below, r);
 				if (rc != 0) goto done;
@@ -363,22 +384,32 @@ static int client_cmp(const void *pa, const void *pb) {
 	return 0;
 }
 
-static int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
+static bool client_ignored(struct json_object *c) {
+	if (gwm_snap_ignored(c, "class")) return true;
+	struct json_object *tags = NULL;
+	if (!json_object_object_get_ex(c, "tags", &tags) ||
+		json_object_get_type(tags) != json_type_array)
+		return false;
+	size_t n = json_object_array_length(tags);
+	for (size_t i = 0; i < n; i++) {
+		const char *t = json_object_get_string(json_object_array_get_idx(tags, i));
+		if (t && (strcmp(t, "grabit-ignore") == 0 || strcmp(t, "grabit-ignore*") == 0))
+			return true;
+	}
+	return false;
+}
+
+static int grabit_hyprland_clients(struct json_object *mons, struct rect **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
-	struct active_ws *active = NULL;
 	size_t n_active = 0;
-	if (collect_active_ws(&active, &n_active) != 0) return -1;
+	struct active_ws *active = collect_active_ws(mons, &n_active);
+	if (!active) return -1;
 
 	struct json_object *root = NULL;
-	if (query("j/clients", &root) != 0) {
+	if (query_typed("j/clients", json_type_array, &root) != 0) {
 		free(active);
-		return -1;
-	}
-	if (json_object_get_type(root) != json_type_array) {
-		free(active);
-		json_object_put(root);
 		return -1;
 	}
 
@@ -400,6 +431,7 @@ static int grabit_hyprland_clients(struct rect **out, size_t *n_out) {
 			json_object_get_boolean(o)) continue;
 		if (json_object_object_get_ex(c, "mapped", &o) &&
 			!json_object_get_boolean(o)) continue;
+		if (client_ignored(c)) continue;
 
 		bool is_pinned = false;
 		if (json_object_object_get_ex(c, "pinned", &o))
@@ -496,10 +528,17 @@ int grabit_hyprland_windows(struct rect **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
+	struct json_object *mons = NULL;
+	if (query_typed("j/monitors", json_type_array, &mons) != 0) return -1;
+
 	struct rect *clients = NULL, *below = NULL, *above = NULL;
 	size_t n_clients = 0, n_below = 0, n_above = 0;
-	if (grabit_hyprland_clients(&clients, &n_clients) != 0) return -1;
-	(void)grabit_hyprland_layers(&below, &n_below, &above, &n_above);
+	if (grabit_hyprland_clients(mons, &clients, &n_clients) != 0) {
+		json_object_put(mons);
+		return -1;
+	}
+	(void)grabit_hyprland_layers(mons, &below, &n_below, &above, &n_above);
+	json_object_put(mons);
 
 	size_t n = n_below + n_clients + n_above;
 	struct rect *arr = calloc(n + 1, sizeof *arr);

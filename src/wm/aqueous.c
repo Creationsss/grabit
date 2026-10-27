@@ -228,7 +228,8 @@ int grabit_aqueous_windows(struct rect **out, size_t *n_out) {
 		for (size_t i = 0; i < n; i++) {
 			struct json_object *e = json_object_array_get_idx(ents, i);
 			if (!is_kind(e, "window") || !flag(e, "visible") ||
-				flag(e, "minimized") || stack_rank(e) != rank)
+				flag(e, "minimized") || stack_rank(e) != rank ||
+				gwm_snap_ignored(e, "app_id") || gwm_snap_ignored(e, "class"))
 				continue;
 			if (box_of(e, "geometry", &rects[k])) k++;
 		}

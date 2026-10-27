@@ -169,6 +169,7 @@ int grabit_umbriel_windows(struct rect **out, size_t *n_out) {
 			if (!win || json_object_get_type(win) != json_type_object) continue;
 			if (flag(win, "floating") != (pass == 1)) continue;
 			if (!window_visible(win, wss)) continue;
+			if (gwm_snap_ignored(win, "app_id")) continue;
 			if (window_rect(win, &rects[k])) k++;
 		}
 	}

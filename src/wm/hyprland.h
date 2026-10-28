@@ -9,12 +9,13 @@
 #include <stdint.h>
 
 struct rect;
+struct wm_window;
 
 bool grabit_hyprland_present(void);
 int grabit_hyprland_active_window(char **class_out, char **title_out);
 int grabit_hyprland_active_window_rect(struct rect *out);
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out);
-int grabit_hyprland_windows(struct rect **out, size_t *n_out);
+int grabit_hyprland_windows(struct wm_window **out, size_t *n_out);
 int grabit_hyprland_window_radius(const struct rect *win);
 int grabit_hyprland_window_border(const struct rect *win);
 

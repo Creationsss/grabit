@@ -8,6 +8,7 @@
 #include "util/rect.h"
 #include "util/util.h"
 #include "wm/ipc.h"
+#include "wm/wm.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -285,21 +286,24 @@ static bool layer_rect(struct json_object *s, struct rect *out) {
 	return true;
 }
 
-static int push_rect(struct rect **arr, size_t *n, size_t *cap, struct rect r) {
+static int push_win(struct wm_window **arr, size_t *n, size_t *cap, struct wm_window w) {
 	if (*n == *cap) {
 		size_t grown_cap = *cap ? *cap * 2 : 8;
-		struct rect *grown = realloc(*arr, grown_cap * sizeof **arr);
-		if (!grown) return -1;
+		struct wm_window *grown = realloc(*arr, grown_cap * sizeof **arr);
+		if (!grown) {
+			grabit_wm_window_clear(&w);
+			return -1;
+		}
 		*arr = grown;
 		*cap = grown_cap;
 	}
-	(*arr)[(*n)++] = r;
+	(*arr)[(*n)++] = w;
 	return 0;
 }
 
-static int grabit_hyprland_layers(struct json_object *mons, struct rect **below_out,
+static int grabit_hyprland_layers(struct json_object *mons, struct wm_window **below_out,
 								  size_t *n_below_out,
-								  struct rect **above_out, size_t *n_above_out) {
+								  struct wm_window **above_out, size_t *n_above_out) {
 	*below_out = NULL;
 	*n_below_out = 0;
 	*above_out = NULL;
@@ -307,7 +311,7 @@ static int grabit_hyprland_layers(struct json_object *mons, struct rect **below_
 	struct json_object *root = NULL;
 	if (query_object("j/layers", &root) != 0) return -1;
 
-	struct rect *below = NULL, *above = NULL;
+	struct wm_window *below = NULL, *above = NULL;
 	size_t n_below = 0, cap_below = 0, n_above = 0, cap_above = 0;
 	int rc = 0;
 
@@ -322,11 +326,13 @@ static int grabit_hyprland_layers(struct json_object *mons, struct rect **below_
 			if (json_object_get_type(surfaces) != json_type_array) continue;
 			size_t n = json_object_array_length(surfaces);
 			for (size_t i = 0; i < n; i++) {
+				struct json_object *surface = json_object_array_get_idx(surfaces, i);
 				struct rect r;
-				if (!layer_rect(json_object_array_get_idx(surfaces, i), &r)) continue;
+				if (!layer_rect(surface, &r)) continue;
 				if (have_mon && rect_equal(rect_intersect(rect_inflate(r, 1), mon), mon)) continue;
-				rc = over ? push_rect(&above, &n_above, &cap_above, r)
-						  : push_rect(&below, &n_below, &cap_below, r);
+				struct wm_window w = {r, grabit_json_get_string(surface, "namespace"), NULL};
+				rc = over ? push_win(&above, &n_above, &cap_above, w)
+						  : push_win(&below, &n_below, &cap_below, w);
 				if (rc != 0) goto done;
 			}
 		}
@@ -335,8 +341,8 @@ static int grabit_hyprland_layers(struct json_object *mons, struct rect **below_
 done:
 	json_object_put(root);
 	if (rc != 0) {
-		free(below);
-		free(above);
+		grabit_wm_windows_free(below, n_below);
+		grabit_wm_windows_free(above, n_above);
 		return -1;
 	}
 	*below_out = below;
@@ -356,7 +362,7 @@ enum client_tier {
 };
 
 struct hypr_client_item {
-	struct rect r;
+	struct wm_window w;
 	enum client_tier tier;
 	int64_t focus_id;
 	uint64_t area;
@@ -399,7 +405,8 @@ static bool client_ignored(struct json_object *c) {
 	return false;
 }
 
-static int grabit_hyprland_clients(struct json_object *mons, struct rect **out, size_t *n_out) {
+static int grabit_hyprland_clients(struct json_object *mons, struct wm_window **out,
+								   size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -486,7 +493,7 @@ static int grabit_hyprland_clients(struct json_object *mons, struct rect **out, 
 			tier = TIER_TILED;
 
 		items[k++] = (struct hypr_client_item){
-			.r = r,
+			.w = {r, grabit_json_get_string(c, "class"), grabit_json_get_string(c, "title")},
 			.tier = tier,
 			.focus_id = focus_id,
 			.area = (uint64_t)r.w * (uint64_t)r.h,
@@ -500,38 +507,37 @@ static int grabit_hyprland_clients(struct json_object *mons, struct rect **out, 
 	if (k > 1)
 		qsort(items, k, sizeof *items, client_cmp);
 
-	struct rect *arr = calloc(k + 1, sizeof *arr);
+	struct wm_window *arr = calloc(k + 1, sizeof *arr);
 	if (!arr) {
+		for (size_t i = 0; i < k; i++)
+			grabit_wm_window_clear(&items[i].w);
 		free(items);
 		return -1;
 	}
-
 	size_t u = 0;
 	for (size_t i = 0; i < k; i++) {
 		bool dup = false;
-		for (size_t j = i + 1; j < k; j++) {
-			if (rect_equal(items[i].r, items[j].r)) {
-				dup = true;
-				break;
-			}
-		}
-		if (!dup) arr[u++] = items[i].r;
+		for (size_t j = i + 1; j < k && !dup; j++)
+			dup = rect_equal(items[i].w.r, items[j].w.r);
+		if (dup)
+			grabit_wm_window_clear(&items[i].w);
+		else
+			arr[u++] = items[i].w;
 	}
-
 	free(items);
 	*out = arr;
 	*n_out = u;
 	return 0;
 }
 
-int grabit_hyprland_windows(struct rect **out, size_t *n_out) {
+int grabit_hyprland_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
 	struct json_object *mons = NULL;
 	if (query_typed("j/monitors", json_type_array, &mons) != 0) return -1;
 
-	struct rect *clients = NULL, *below = NULL, *above = NULL;
+	struct wm_window *clients = NULL, *below = NULL, *above = NULL;
 	size_t n_clients = 0, n_below = 0, n_above = 0;
 	if (grabit_hyprland_clients(mons, &clients, &n_clients) != 0) {
 		json_object_put(mons);
@@ -541,23 +547,26 @@ int grabit_hyprland_windows(struct rect **out, size_t *n_out) {
 	json_object_put(mons);
 
 	size_t n = n_below + n_clients + n_above;
-	struct rect *arr = calloc(n + 1, sizeof *arr);
-	if (arr) {
-		struct rect *p = arr;
-		if (n_below) {
-			memcpy(p, below, n_below * sizeof *p);
-			p += n_below;
-		}
-		if (n_clients) {
-			memcpy(p, clients, n_clients * sizeof *p);
-			p += n_clients;
-		}
-		if (n_above) memcpy(p, above, n_above * sizeof *p);
+	struct wm_window *arr = calloc(n + 1, sizeof *arr);
+	if (!arr) {
+		grabit_wm_windows_free(below, n_below);
+		grabit_wm_windows_free(clients, n_clients);
+		grabit_wm_windows_free(above, n_above);
+		return -1;
 	}
+	struct wm_window *p = arr;
+	if (n_below) {
+		memcpy(p, below, n_below * sizeof *p);
+		p += n_below;
+	}
+	if (n_clients) {
+		memcpy(p, clients, n_clients * sizeof *p);
+		p += n_clients;
+	}
+	if (n_above) memcpy(p, above, n_above * sizeof *p);
 	free(below);
 	free(clients);
 	free(above);
-	if (!arr) return -1;
 
 	*out = arr;
 	*n_out = n;

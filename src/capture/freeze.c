@@ -13,9 +13,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
-						  const char *path,
+						  const struct freeze_dest *dest, char **out_path,
 						  const struct grabit_save_opts *save_opts,
 						  struct rect *out_rect, bool annotate, bool cursor,
 						  uint32_t *inout_color, int32_t *inout_width,
@@ -23,6 +24,7 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  bool *out_choices_dirty,
 						  const struct rect *forced_region,
 						  const struct rect *snap_rects, size_t n_snap_rects) {
+	*out_path = NULL;
 	struct image *frozen = calloc(s->n_outputs, sizeof *frozen);
 	if (!frozen) return -1;
 
@@ -30,6 +32,8 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	size_t captured = 0;
 	struct png_slice *slices = NULL;
 	struct annotation_list annos = {0};
+	struct region_snap snap = {0};
+	char *path = NULL;
 
 	struct rect r;
 	bool forced_only = forced_region && !annotate;
@@ -69,11 +73,10 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 			pixels_to_8bit(&frozen[i]);
 	}
 
-	bool snapped = false;
 	if (!forced_only) {
 		int sel = region_select(s, cfg, frozen, annotate, &r,
 								annotate ? &annos : NULL, inout_color, inout_width,
-								inout_tool, out_choices_dirty, &snapped, forced_region,
+								inout_tool, out_choices_dirty, &snap, forced_region,
 								snap_rects, n_snap_rects);
 		if (sel != 0) {
 			if (sel == REGION_SELECT_CANCELLED) {
@@ -150,13 +153,21 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	struct grabit_save_opts eff_opts = *save_opts;
 	if (forced_region && !forced_only && !rect_equal(r, *forced_region))
 		eff_opts.corner_radius = 0;
-	if (snapped && n_snap_rects == 0)
+	if (snap.snapped && n_snap_rects == 0)
 		eff_opts.corner_radius = region_window_outer_radius(cfg, &r);
+	path = dest->build(dest->ud, &snap);
+	if (!path) {
+		log_error("freeze: could not build the output path");
+		goto cleanup;
+	}
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices, &r,
 										 max_ratio, annos.n > 0 ? &annos : NULL,
 										 &eff_opts, path);
-
-	if (rc == 0 && out_rect) *out_rect = r;
+	if (rc == 0) {
+		*out_path = path;
+		path = NULL;
+		if (out_rect) *out_rect = r;
+	}
 
 cleanup:
 	free(want);
@@ -167,5 +178,10 @@ cleanup:
 		image_free(&frozen[i]);
 	free(frozen);
 	annotation_list_free(&annos);
+	region_snap_free(&snap);
+	if (path) {
+		unlink(path);
+		free(path);
+	}
 	return rc;
 }

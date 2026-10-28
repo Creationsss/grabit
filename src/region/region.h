@@ -122,13 +122,21 @@ void annotation_list_free(struct annotation_list *list);
 
 #define REGION_SELECT_CANCELLED (-2)
 
+struct region_snap {
+	bool snapped;
+	char *window_class;
+	char *title;
+};
+
+void region_snap_free(struct region_snap *snap);
+
 int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  const struct image *frozen_per_output,
 				  bool annotate_mode, struct rect *out,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
-				  bool *out_choices_dirty, bool *out_snapped,
+				  bool *out_choices_dirty, struct region_snap *out_snap,
 				  const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects);
 

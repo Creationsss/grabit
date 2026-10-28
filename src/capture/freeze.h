@@ -8,6 +8,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct region_snap;
+
+struct freeze_dest {
+	char *(*build)(void *ud, const struct region_snap *snap);
+	void *ud;
+};
 struct config;
 struct grabit_wl_state;
 struct rect;
@@ -16,7 +22,7 @@ struct grabit_save_opts;
 #define GRABIT_CAPTURE_CANCELLED (-2)
 
 int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
-						  const char *path,
+						  const struct freeze_dest *dest, char **out_path,
 						  const struct grabit_save_opts *save_opts,
 						  struct rect *out_rect, bool annotate, bool cursor,
 						  uint32_t *inout_color, int32_t *inout_width,

@@ -122,7 +122,19 @@ int grabit_wm_window_border(const struct rect *win) {
 	return 0;
 }
 
-int grabit_wm_windows(const char *ignore, struct rect **out, size_t *n_out) {
+void grabit_wm_window_clear(struct wm_window *w) {
+	free(w->window_class);
+	free(w->title);
+	w->window_class = w->title = NULL;
+}
+
+void grabit_wm_windows_free(struct wm_window *w, size_t n) {
+	for (size_t i = 0; w && i < n; i++)
+		grabit_wm_window_clear(&w[i]);
+	free(w);
+}
+
+int grabit_wm_windows(const char *ignore, struct wm_window **out, size_t *n_out) {
 	gwm_set_snap_ignore(ignore);
 	switch (grabit_wm_detect()) {
 	case WM_HYPRLAND:

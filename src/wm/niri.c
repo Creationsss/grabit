@@ -9,6 +9,7 @@
 #include "util/rect.h"
 #include "util/util.h"
 #include "wm/ipc.h"
+#include "wm/wm.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -249,7 +250,7 @@ int grabit_niri_active_window_rect(struct rect *out) {
 	return rc;
 }
 
-int grabit_niri_windows(struct rect **out, size_t *n_out) {
+int grabit_niri_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -263,8 +264,8 @@ int grabit_niri_windows(struct rect **out, size_t *n_out) {
 	}
 
 	size_t n = json_object_array_length(arr);
-	struct rect *rects = calloc(n + 1, sizeof *rects);
-	if (!rects) {
+	struct wm_window *wins = calloc(n + 1, sizeof *wins);
+	if (!wins) {
 		json_object_put(root);
 		layout_free(&l);
 		return -1;
@@ -277,9 +278,11 @@ int grabit_niri_windows(struct rect **out, size_t *n_out) {
 		if (gwm_snap_ignored(win, "app_id")) continue;
 		const struct niri_workspace *ws = ws_of(&l, win);
 		if (!ws || !ws->active) continue;
-		if (window_rect(win, &l, ws, &rects[k])) k++;
+		if (!window_rect(win, &l, ws, &wins[k].r)) continue;
+		wins[k].window_class = grabit_json_get_string(win, "app_id");
+		wins[k++].title = grabit_json_get_string(win, "title");
 	}
-	*out = rects;
+	*out = wins;
 	*n_out = k;
 
 	json_object_put(root);

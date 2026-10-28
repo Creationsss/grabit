@@ -9,6 +9,7 @@
 #include "util/rect.h"
 #include "util/util.h"
 #include "wm/ipc.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -149,7 +150,7 @@ static bool window_visible(struct json_object *win, struct json_object *wss) {
 	return str(win, "scratchpad")[0] && flag(win, "active");
 }
 
-int grabit_umbriel_windows(struct rect **out, size_t *n_out) {
+int grabit_umbriel_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -159,8 +160,8 @@ int grabit_umbriel_windows(struct rect **out, size_t *n_out) {
 	if (request("windows", &root, &arr) != 0) goto out;
 
 	size_t n = json_object_array_length(arr);
-	struct rect *rects = calloc(n + 1, sizeof *rects);
-	if (!rects) goto out;
+	struct wm_window *wins = calloc(n + 1, sizeof *wins);
+	if (!wins) goto out;
 
 	size_t k = 0;
 	for (int pass = 0; pass < 2; pass++) {
@@ -170,10 +171,12 @@ int grabit_umbriel_windows(struct rect **out, size_t *n_out) {
 			if (flag(win, "floating") != (pass == 1)) continue;
 			if (!window_visible(win, wss)) continue;
 			if (gwm_snap_ignored(win, "app_id")) continue;
-			if (window_rect(win, &rects[k])) k++;
+			if (!window_rect(win, &wins[k].r)) continue;
+			wins[k].window_class = grabit_json_get_string(win, "app_id");
+			wins[k++].title = grabit_json_get_string(win, "title");
 		}
 	}
-	*out = rects;
+	*out = wins;
 	*n_out = k;
 	rc = 0;
 

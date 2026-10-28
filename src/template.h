@@ -5,10 +5,12 @@
 #define GRABIT_TEMPLATE_H
 
 #include <stdbool.h>
+#include <time.h>
 
 struct template_ctx {
 	const char *window_class;
 	const char *window_title;
+	const struct timespec *now;
 };
 
 char *template_expand(const char *tpl, const struct template_ctx *ctx);

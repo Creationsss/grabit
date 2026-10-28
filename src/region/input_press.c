@@ -210,8 +210,8 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 				st->sel_w = st->sel_h = 0;
 			}
 			if (!st->has_selection) {
-				const struct rect *w = region_snap_window(
-					st, region_snap_hit(st, st->cursor_x, st->cursor_y));
+				st->snap_picked = region_snap_hit(st, st->cursor_x, st->cursor_y);
+				const struct rect *w = region_snap_window(st, st->snap_picked);
 				if (w) {
 					st->sel_x = w->x;
 					st->sel_y = w->y;

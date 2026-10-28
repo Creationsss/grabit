@@ -22,7 +22,7 @@ char *rec_record_path(struct config *cfg, const struct args *a,
 	enum paths_dest dest = keep_locally ? PATHS_DEST_VIDEOS : PATHS_DEST_TEMP;
 	char ext[16];
 	snprintf(ext, sizeof ext, ".%s", format);
-	return paths_build_output(cfg, a->filename_tpl, ext, dest);
+	return paths_build_output(cfg, a->filename_tpl, ext, dest, NULL);
 }
 
 void rec_fail_notify(const char *body) {
@@ -70,13 +70,14 @@ int rec_pick_region(struct grabit_wl_state *s, struct config *cfg,
 	struct rect *mon = NULL;
 	size_t n_mon = 0;
 	if (plan == REGION_PLAN_MONITOR_PICK) grabit_wl_monitor_rects(s, &mon, &n_mon);
-	bool snapped = false;
+	struct region_snap snap = {0};
 	int rc = region_select(s, cfg, frozen, false, out, NULL, NULL, NULL, NULL,
-						   NULL, &snapped, NULL, mon, n_mon);
+						   NULL, &snap, NULL, mon, n_mon);
 	if (out_radius)
-		*out_radius = (snapped && plan != REGION_PLAN_MONITOR_PICK)
+		*out_radius = (snap.snapped && plan != REGION_PLAN_MONITOR_PICK)
 						  ? region_window_outer_radius(cfg, out)
 						  : 0;
+	region_snap_free(&snap);
 	free(mon);
 	if (rc != 0 && rc != REGION_SELECT_CANCELLED)
 		rec_fail_notify("could not open the region selector");

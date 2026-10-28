@@ -102,7 +102,7 @@ bool region_set_hover(struct ro_state *st, int btn) {
 
 int region_snap_hit(const struct ro_state *st, int32_t x, int32_t y) {
 	for (size_t i = st->n_snap_windows; i > 0; i--) {
-		if (rect_contains(st->snap_windows[i - 1], x, y)) return (int)(i - 1);
+		if (rect_contains(st->snap_windows[i - 1].r, x, y)) return (int)(i - 1);
 	}
 	return -1;
 }

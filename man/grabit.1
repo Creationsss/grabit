@@ -621,6 +621,9 @@ strftime date/time fields.
 .B %s
 Unix timestamp.
 .TP
+.B %L
+Milliseconds, three digits.
+.TP
 .BR %r [ N ]
 Random alphanumeric,
 .I N
@@ -630,18 +633,19 @@ characters (default 12).
 UUID v4.
 .TP
 .B %w
-Active window class / app ID.
+Window class / app ID.
 .TP
 .B %t
-Active window title.
+Window title.
 .PP
 .RB ( %w
 and
 .B %t
-read the focused toplevel over
-.BR wlr\-foreign\-toplevel\-management\-unstable\-v1 ,
-so they work on Hyprland, sway, niri, and river, and resolve to empty where
-that protocol is missing.)
+name the window clicked when a region selection snaps to one; otherwise,
+including a manual drag, they name the window focused when the capture
+started, read over the compositor's IPC or
+.BR wlr\-foreign\-toplevel\-management\-unstable\-v1 .
+They resolve to empty where neither is available.)
 .TP
 .B %%
 Literal

@@ -12,6 +12,7 @@
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
+#include "wm/wm.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -32,7 +33,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  struct annotation_list *out_annos,
 				  uint32_t *inout_color, int32_t *inout_width,
 				  int32_t *inout_tool,
-				  bool *out_choices_dirty, bool *out_snapped,
+				  bool *out_choices_dirty, struct region_snap *out_snap,
 				  const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects) {
 	if (!s->layer_shell) {
@@ -77,6 +78,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	grabit_wl_outputs_bbox(s, &st.bounds);
 
 	st.snap_hover = -1;
+	st.snap_picked = -1;
 	region_keymap_init(&st.keys, cfg);
 	gregion_apply_config(&st, cfg, annotate_mode, s, snap_rects, n_snap_rects);
 
@@ -84,7 +86,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	if (!st.xkb_ctx) {
 		log_error("xkb_context_new failed");
 		free(st.outs);
-		free(st.snap_windows);
+		grabit_wm_windows_free(st.snap_windows, st.n_snap_windows);
 		return -1;
 	}
 
@@ -279,14 +281,14 @@ loop_done:;
 	if (inout_width) *inout_width = st.current_width;
 	if (inout_tool) *inout_tool = (int32_t)st.current_tool;
 	if (out_choices_dirty) *out_choices_dirty = st.edit_choices_dirty;
-	if (out_snapped) {
-		*out_snapped = false;
+	if (out_snap) {
+		*out_snap = (struct region_snap){0};
 		struct rect sel = {st.sel_x, st.sel_y, st.sel_w, st.sel_h};
-		for (size_t i = 0; i < st.n_snap_windows; i++) {
-			if (rect_equal(st.snap_windows[i], sel)) {
-				*out_snapped = true;
-				break;
-			}
+		const struct rect *picked = region_snap_window(&st, st.snap_picked);
+		if (picked && rect_equal(*picked, sel)) {
+			struct wm_window *w = &st.snap_windows[st.snap_picked];
+			*out_snap = (struct region_snap){true, w->window_class, w->title};
+			w->window_class = w->title = NULL;
 		}
 	}
 
@@ -305,4 +307,11 @@ loop_done:;
 	gregion_select_teardown(&st, s);
 
 	return rc;
+}
+
+void region_snap_free(struct region_snap *snap) {
+	if (!snap) return;
+	free(snap->window_class);
+	free(snap->title);
+	*snap = (struct region_snap){0};
 }

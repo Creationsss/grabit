@@ -54,7 +54,12 @@ char *template_expand(const char *tpl, const struct template_ctx *ctx) {
 	if (!tpl) return strdup("");
 
 	struct grabit_buf b = {0};
-	time_t now = time(NULL);
+	struct timespec ts;
+	if (ctx && ctx->now)
+		ts = *ctx->now;
+	else
+		clock_gettime(CLOCK_REALTIME, &ts);
+	time_t now = ts.tv_sec;
 	struct tm tm;
 	localtime_r(&now, &tm);
 
@@ -97,6 +102,10 @@ char *template_expand(const char *tpl, const struct template_ctx *ctx) {
 			break;
 		case 'S':
 			snprintf(tmp, sizeof tmp, "%02d", tm.tm_sec);
+			if (grabit_buf_puts(&b, tmp) != 0) goto oom;
+			break;
+		case 'L':
+			snprintf(tmp, sizeof tmp, "%03ld", ts.tv_nsec / 1000000);
 			if (grabit_buf_puts(&b, tmp) != 0) goto oom;
 			break;
 		case 's':

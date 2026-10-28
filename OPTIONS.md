@@ -568,10 +568,11 @@ last-picked color, width, and tool persist via:
 |---|---|
 | `%Y %m %d %H %M %S` | date/time fields |
 | `%s` | unix timestamp |
+| `%L` | milliseconds, 3 digits (`000`-`999`) |
 | `%r` | 12-char random alnum (`%r8` etc. picks length) |
 | `%u` | uuid v4 |
-| `%w` | active window class / app id |
-| `%t` | active window title |
+| `%w` | window class / app id (see below) |
+| `%t` | window title (see below) |
 | `%%` | literal `%` |
 
 presets via `filename_preset`:
@@ -580,7 +581,7 @@ presets via `filename_preset`:
 - `uuid`: `%u`
 - `timestamp`: `%s`
 
-`%w`/`%t` read the focused toplevel over `wlr-foreign-toplevel-management-unstable-v1`, so they work on hyprland, sway, niri, and river. they resolve to empty where that protocol is missing.
+`%w`/`%t` name the window you clicked when a region selection snaps to one (hyprland, sway, niri, umbriel and aqueous; a snapped layer surface such as a bar gives its namespace). otherwise, including a manual drag, they name the window focused when the capture started, read over the compositor's ipc or `wlr-foreign-toplevel-management-unstable-v1`, so they also work on river. they resolve to empty where neither is available. all time tokens, `%L` included, come from the moment the capture started.
 
 ## plugins
 

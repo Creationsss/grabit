@@ -7,6 +7,7 @@
 #include "util/json_path.h"
 #include "util/rect.h"
 #include "wm/ipc.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 
@@ -88,7 +89,7 @@ int grabit_sway_active_window_rect(struct rect *out) {
 }
 
 struct collect {
-	struct rect *arr;
+	struct wm_window *arr;
 	size_t n;
 };
 
@@ -104,12 +105,15 @@ static bool take_view(struct json_object *node, void *ctx) {
 	if (node_is_view(node) && node_flag(node, "visible") &&
 		!gwm_snap_ignored(node, "app_id") &&
 		!gwm_snap_ignored(json_object_object_get(node, "window_properties"), "class") &&
-		node_rect(node, &r))
-		c->arr[c->n++] = r;
+		node_rect(node, &r)) {
+		char *cls = grabit_json_path_string(node, "app_id");
+		if (!cls) cls = grabit_json_path_string(node, "window_properties.class");
+		c->arr[c->n++] = (struct wm_window){r, cls, grabit_json_get_string(node, "name")};
+	}
 	return false;
 }
 
-int grabit_sway_windows(struct rect **out, size_t *n_out) {
+int grabit_sway_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 

@@ -18,6 +18,7 @@
 #include "region/keybinds.h"
 #include "region/region.h"
 #include "util/util.h"
+#include "wm/wm.h"
 
 #define RCUR_CROSS 0
 #define RCUR_TEXT 1
@@ -31,6 +32,7 @@ struct grabit_output;
 struct image;
 struct wl_cursor_theme;
 struct wl_cursor;
+struct wm_window;
 struct wp_cursor_shape_device_v1;
 struct zwlr_layer_surface_v1;
 
@@ -158,9 +160,10 @@ struct ro_state {
 	int32_t sel_h;
 	struct rect bounds;
 
-	struct rect *snap_windows;
+	struct wm_window *snap_windows;
 	size_t n_snap_windows;
 	int snap_hover;
+	int snap_picked;
 	int snap_radius;
 	bool snap_anim;
 	struct rect snap_from;
@@ -284,7 +287,7 @@ struct ro_state {
 
 static inline const struct rect *region_snap_window(const struct ro_state *st, int idx) {
 	if (idx < 0 || (size_t)idx >= st->n_snap_windows) return NULL;
-	return &st->snap_windows[idx];
+	return &st->snap_windows[idx].r;
 }
 
 static inline bool region_editing(const struct ro_state *st) {

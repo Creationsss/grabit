@@ -8,12 +8,13 @@
 #include <stddef.h>
 
 struct rect;
+struct wm_window;
 
 bool grabit_aqueous_present(void);
 int grabit_aqueous_active_window(char **class_out, char **title_out);
 int grabit_aqueous_active_window_rect(struct rect *out);
 int grabit_aqueous_window_border(const struct rect *win);
-int grabit_aqueous_windows(struct rect **out, size_t *n_out);
+int grabit_aqueous_windows(struct wm_window **out, size_t *n_out);
 char *grabit_aqueous_focused_output(void);
 
 #endif

@@ -93,20 +93,24 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		}
 	}
 	if (snap_rects && n_snap_rects > 0) {
-		st->snap_windows = malloc(n_snap_rects * sizeof *st->snap_windows);
+		st->snap_windows = calloc(n_snap_rects, sizeof *st->snap_windows);
 		if (st->snap_windows) {
-			memcpy(st->snap_windows, snap_rects, n_snap_rects * sizeof *st->snap_windows);
+			for (size_t i = 0; i < n_snap_rects; i++)
+				st->snap_windows[i].r = snap_rects[i];
 			st->n_snap_windows = n_snap_rects;
 		}
 	} else if (snap_enabled) {
-		if (grabit_wm_windows(cfg ? config_get(cfg, "region.snap_ignore") : NULL,
-							  &st->snap_windows, &st->n_snap_windows) != 0) {
+		struct wm_window *wins = NULL;
+		size_t n = 0;
+		if (grabit_wm_windows(cfg ? config_get(cfg, "region.snap_ignore") : NULL, &wins,
+							  &n) != 0) {
 			log_debug("region: window snap disabled (no compositor window geometry)");
-		} else {
-			for (size_t i = 0; i < st->n_snap_windows; i++)
-				st->snap_windows[i] =
-					region_window_with_border(st->wls, cfg, st->snap_windows[i]);
+			return;
 		}
+		for (size_t i = 0; i < n; i++)
+			wins[i].r = region_window_with_border(st->wls, cfg, wins[i].r);
+		st->snap_windows = wins;
+		st->n_snap_windows = n;
 	}
 }
 
@@ -174,7 +178,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 		if (o->surface) wl_surface_destroy(o->surface);
 	}
 	free(st->outs);
-	free(st->snap_windows);
+	grabit_wm_windows_free(st->snap_windows, st->n_snap_windows);
 
 	region_color_picker_release_cache(st);
 

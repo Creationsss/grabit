@@ -4,9 +4,12 @@
 #ifndef GRABIT_PATHS_H
 #define GRABIT_PATHS_H
 
+#include <stdbool.h>
+
 #include <stddef.h>
 
 struct config;
+struct template_ctx;
 
 const char *paths_config_dir(void);
 const char *paths_config_file(void);
@@ -26,6 +29,8 @@ enum paths_dest {
 
 char *paths_output_at(const char *path);
 char *paths_build_output(struct config *cfg, const char *cli_template,
-						 const char *extension, enum paths_dest dest);
+						 const char *extension, enum paths_dest dest,
+						 const struct template_ctx *ctx);
+bool paths_uses_window(struct config *cfg, const char *cli_template);
 
 #endif

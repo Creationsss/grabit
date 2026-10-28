@@ -229,22 +229,28 @@ char *paths_temp_file(const char *name) {
 	return rc == 0 ? out : NULL;
 }
 
+static const char *effective_template(struct config *cfg, const char *cli_template) {
+	if (cli_template) return cli_template;
+	const char *tpl = config_get(cfg, "filename");
+	return tpl ? tpl : template_for_preset(config_get(cfg, "filename_preset"));
+}
+
+bool paths_uses_window(struct config *cfg, const char *cli_template) {
+	return template_uses_window(effective_template(cfg, cli_template));
+}
+
 char *paths_build_output(struct config *cfg, const char *cli_template,
-						 const char *extension, enum paths_dest dest) {
-	const char *tpl = cli_template;
-	if (!tpl) tpl = config_get(cfg, "filename");
-	if (!tpl) {
-		const char *preset = config_get(cfg, "filename_preset");
-		tpl = template_for_preset(preset);
-	}
+						 const char *extension, enum paths_dest dest,
+						 const struct template_ctx *given) {
+	const char *tpl = effective_template(cfg, cli_template);
 
 	char *win_class = NULL, *win_title = NULL;
-	if (template_uses_window(tpl))
+	struct template_ctx ctx = given ? *given : (struct template_ctx){0};
+	if (!given && template_uses_window(tpl)) {
 		(void)grabit_wm_active_window(&win_class, &win_title);
-	struct template_ctx ctx = {
-		.window_class = win_class,
-		.window_title = win_title,
-	};
+		ctx.window_class = win_class;
+		ctx.window_title = win_title;
+	}
 	char *raw = template_expand(tpl, &ctx);
 	free(win_class);
 	free(win_title);

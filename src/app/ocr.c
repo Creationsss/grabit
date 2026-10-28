@@ -142,7 +142,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	if (a->show) {
-		char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP);
+		char *png_path = paths_build_output(cfg, NULL, ".png", PATHS_DEST_TEMP, NULL);
 		if (!png_path || pin_text_card_render_png(text, png_path) != 0) {
 			log_error("ocr: text card render failed");
 			notify_send(&(struct notify_opts){

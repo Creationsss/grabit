@@ -9,6 +9,7 @@
 #include "util/rect.h"
 #include "util/util.h"
 #include "wm/ipc.h"
+#include "wm/wm.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -138,6 +139,10 @@ static struct json_object *fetch_focused(struct json_object **root_out) {
 	return NULL;
 }
 
+static char *class_of(struct json_object *win) {
+	return grabit_json_get_string(win, str(win, "app_id")[0] ? "app_id" : "class");
+}
+
 int grabit_aqueous_active_window(char **class_out, char **title_out) {
 	if (class_out) *class_out = NULL;
 	if (title_out) *title_out = NULL;
@@ -145,10 +150,7 @@ int grabit_aqueous_active_window(char **class_out, char **title_out) {
 	struct json_object *root = NULL;
 	struct json_object *win = fetch_focused(&root);
 	if (!win) return -1;
-	if (class_out) {
-		const char *app = str(win, "app_id");
-		*class_out = grabit_json_get_string(win, app[0] ? "app_id" : "class");
-	}
+	if (class_out) *class_out = class_of(win);
 	if (title_out) *title_out = grabit_json_get_string(win, "title");
 	json_object_put(root);
 	return 0;
@@ -208,7 +210,7 @@ static int stack_rank(struct json_object *win) {
 	return flag(win, "floating") ? 2 : 1;
 }
 
-int grabit_aqueous_windows(struct rect **out, size_t *n_out) {
+int grabit_aqueous_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
 
@@ -217,8 +219,8 @@ int grabit_aqueous_windows(struct rect **out, size_t *n_out) {
 	if (!ents) return -1;
 
 	size_t n = json_object_array_length(ents);
-	struct rect *rects = calloc(n + 1, sizeof *rects);
-	if (!rects) {
+	struct wm_window *wins = calloc(n + 1, sizeof *wins);
+	if (!wins) {
 		json_object_put(root);
 		return -1;
 	}
@@ -231,11 +233,13 @@ int grabit_aqueous_windows(struct rect **out, size_t *n_out) {
 				flag(e, "minimized") || stack_rank(e) != rank ||
 				gwm_snap_ignored(e, "app_id") || gwm_snap_ignored(e, "class"))
 				continue;
-			if (box_of(e, "geometry", &rects[k])) k++;
+			if (!box_of(e, "geometry", &wins[k].r)) continue;
+			wins[k].window_class = class_of(e);
+			wins[k++].title = grabit_json_get_string(e, "title");
 		}
 	}
 	json_object_put(root);
-	*out = rects;
+	*out = wins;
 	*n_out = k;
 	return 0;
 }

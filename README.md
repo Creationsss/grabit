@@ -24,6 +24,9 @@ see https://void.creations.works/
 nix run git+https://heliopolis.live/creations/grabit.git -- --help
 ```
 
+### Devario
+`grabit` in the [devario-core](https://repo.seafoam-labs.org/package/devario-core/x86_64/grabit) repository.
+
 ### from source
 
 ```sh

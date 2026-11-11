@@ -56,26 +56,20 @@ static int write_tray_pid(void) {
 }
 
 static void spawn_grabit(const char *const *args) {
-	pid_t pid = fork();
-	if (pid < 0) {
-		log_warn("tray: fork: %s", strerror(errno));
-		return;
-	}
-	if (pid == 0) {
-		grabit_double_fork_detach();
-		char self[1024];
-		bool have_self = grabit_self_exe(self, sizeof self) == 0;
-		char *argv[8];
-		size_t i = 0;
-		argv[i++] = have_self ? self : (char *)"grabit";
-		for (size_t j = 0; args[j] && i + 1 < sizeof argv / sizeof argv[0]; j++)
-			argv[i++] = (char *)args[j];
-		argv[i] = NULL;
-		execv(argv[0], argv);
-		execvp("grabit", argv);
-		_exit(127);
-	}
-	(void)grabit_waitpid_intr(pid, NULL);
+	int rc = grabit_fork_detached();
+	if (rc == -1) log_warn("tray: fork: %s", strerror(errno));
+	if (rc != 0) return;
+	char self[1024];
+	bool have_self = grabit_self_exe(self, sizeof self) == 0;
+	char *argv[8];
+	size_t i = 0;
+	argv[i++] = have_self ? self : (char *)"grabit";
+	for (size_t j = 0; args[j] && i + 1 < sizeof argv / sizeof argv[0]; j++)
+		argv[i++] = (char *)args[j];
+	argv[i] = NULL;
+	execv(argv[0], argv);
+	execvp("grabit", argv);
+	_exit(127);
 }
 
 static const char *const ARGS_SHOT_REGION[] = {NULL};
@@ -167,18 +161,16 @@ int tray_app_run(struct config *cfg) {
 			log_warn("tray: tray.icon is not valid UTF-8, using the default icon");
 	}
 
-	pid_t pid = fork();
-	if (pid < 0) {
+	int rc = grabit_fork_detached();
+	if (rc == -1) {
 		log_error("tray: fork: %s", strerror(errno));
 		return 1;
 	}
-	if (pid != 0) {
-		(void)grabit_waitpid_intr(pid, NULL);
+	if (rc != 0) {
 		log_info("tray: started; re-run `grabit --tray` to stop");
 		return 0;
 	}
 
-	grabit_double_fork_detach();
 	if (write_tray_pid() != 0) _exit(0);
 	grabit_redirect_stdio_devnull();
 	grabit_install_signal_handler(SIGTERM, app_stop_signal);

@@ -214,9 +214,18 @@ void grabit_ignore_signal(int sig) {
 	sigaction(sig, &sa, NULL);
 }
 
-void grabit_double_fork_detach(void) {
-	pid_t gp = fork();
-	if (gp < 0) _exit(2);
-	if (gp != 0) _exit(0);
-	setsid();
+int grabit_fork_detached(void) {
+	pid_t pid = fork();
+	if (pid < 0) return -1;
+	if (pid == 0) {
+		pid_t gp = fork();
+		if (gp < 0) _exit(2);
+		if (gp != 0) _exit(0);
+		setsid();
+		return 0;
+	}
+	int status = 0;
+	if (grabit_waitpid_intr(pid, &status) != 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		return -2;
+	return 1;
 }

@@ -211,14 +211,7 @@ out:
 	plugin_lock_release(lock_fd);
 	if (!should_spawn) return;
 
-	pid_t pid = fork();
-	if (pid < 0) return;
-	if (pid != 0) {
-		(void)grabit_waitpid_intr(pid, NULL);
-		return;
-	}
-
-	grabit_double_fork_detach();
+	if (grabit_fork_detached() != 0) return;
 	signal(SIGHUP, SIG_IGN);
 	alarm(300);
 

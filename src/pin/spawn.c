@@ -16,7 +16,6 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <cairo/cairo.h>
@@ -106,8 +105,8 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		sync_p[0] = sync_p[1] = -1;
 	}
 
-	pid_t pid = fork();
-	if (pid < 0) {
+	int rc = grabit_fork_detached();
+	if (rc == -1) {
 		log_error("pin: fork: %s", strerror(errno));
 		if (sync_p[0] >= 0) close(sync_p[0]);
 		if (sync_p[1] >= 0) close(sync_p[1]);
@@ -119,9 +118,8 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		});
 		return -1;
 	}
-	if (pid == 0) {
+	if (rc == 0) {
 		if (sync_p[0] >= 0) close(sync_p[0]);
-		grabit_double_fork_detach();
 		if (transient) {
 			write_show_pid_self();
 			if (sync_p[1] >= 0) {
@@ -143,8 +141,6 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		_exit(prc);
 	}
 	if (sync_p[1] >= 0) close(sync_p[1]);
-	int status = 0;
-	bool reaped = grabit_waitpid_intr(pid, &status) == 0;
 	if (sync_p[0] >= 0) {
 		char b;
 		ssize_t _r = read(sync_p[0], &b, 1);
@@ -152,7 +148,7 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		close(sync_p[0]);
 	}
 	cairo_surface_destroy(img);
-	if (!reaped || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+	if (rc != 1) {
 		log_error("pin: detach failed");
 		notify_send(&(struct notify_opts){
 			.summary = "Pin failed",

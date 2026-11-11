@@ -55,14 +55,9 @@ void grabit_sound_play(struct config *cfg) {
 		return;
 	}
 
-	pid_t pid = fork();
-	if (pid < 0) return;
-	if (pid == 0) {
-		grabit_double_fork_detach();
-		grabit_redirect_stdio_devnull();
-		char *argv[] = {(char *)player, (char *)file, NULL};
-		execvp(player, argv);
-		_exit(127);
-	}
-	(void)grabit_waitpid_intr(pid, NULL);
+	if (grabit_fork_detached() != 0) return;
+	grabit_redirect_stdio_devnull();
+	char *argv[] = {(char *)player, (char *)file, NULL};
+	execvp(player, argv);
+	_exit(127);
 }

@@ -111,6 +111,6 @@ int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes
 
 void grabit_install_signal_handler(int sig, void (*handler)(int));
 void grabit_ignore_signal(int sig);
-void grabit_double_fork_detach(void);
+int grabit_fork_detached(void);
 
 #endif

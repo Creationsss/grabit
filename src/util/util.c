@@ -296,18 +296,26 @@ size_t grabit_utf8_valid_prefix(const char *s, size_t n) {
 	while (i < n) {
 		unsigned char c = (unsigned char)s[i];
 		size_t need;
-		if (c < 0x80)
+		unsigned char lo = 0x80, hi = 0xBF;
+		if (c < 0x80) {
 			need = 0;
-		else if ((c & 0xE0) == 0xC0)
+		} else if (c >= 0xC2 && c <= 0xDF) {
 			need = 1;
-		else if ((c & 0xF0) == 0xE0)
+		} else if (c >= 0xE0 && c <= 0xEF) {
 			need = 2;
-		else if ((c & 0xF8) == 0xF0)
+			if (c == 0xE0) lo = 0xA0;
+			if (c == 0xED) hi = 0x9F;
+		} else if (c >= 0xF0 && c <= 0xF4) {
 			need = 3;
-		else
+			if (c == 0xF0) lo = 0x90;
+			if (c == 0xF4) hi = 0x8F;
+		} else {
 			return ok;
+		}
 		if (i + need >= n && need > 0) return ok;
-		for (size_t k = 1; k <= need; k++) {
+		if (need > 0 && ((unsigned char)s[i + 1] < lo || (unsigned char)s[i + 1] > hi))
+			return ok;
+		for (size_t k = 2; k <= need; k++) {
 			if (((unsigned char)s[i + k] & 0xC0) != 0x80) return ok;
 		}
 		i += need + 1;

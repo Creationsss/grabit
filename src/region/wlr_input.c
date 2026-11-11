@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include <math.h>
+
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
@@ -21,15 +23,25 @@
 
 #include "region/input_internal.h"
 
+bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_t *fx,
+					int32_t *fy) {
+	if (!o || !st->frozen) return false;
+	const struct image *img = &st->frozen[o->idx];
+	if (!img->bytes || img->stride <= 0 || o->pixel_width <= 0 || o->pixel_height <= 0)
+		return false;
+	int32_t scale = o->scale > 0 ? o->scale : 1;
+	*fx = (int32_t)floor((double)(st->cursor_x - o->go->x) * scale * img->width /
+						 o->pixel_width);
+	*fy = (int32_t)floor((double)(st->cursor_y - o->go->y) * scale * img->height /
+						 o->pixel_height);
+	return *fx >= 0 && *fy >= 0 && *fx < img->width && *fy < img->height;
+}
+
 bool ginp_eyedropper_sample(struct ro_state *st, uint32_t *out_color) {
-	if (!st->cursor_on || !st->frozen) return false;
-	struct ro_output *ro = st->cursor_on;
-	const struct image *img = &st->frozen[ro->idx];
-	if (!img->bytes || img->stride <= 0) return false;
-	int32_t scale = ro->go->scale > 0 ? ro->go->scale : 1;
-	int32_t px = (st->cursor_x - ro->go->x) * scale;
-	int32_t py = (st->cursor_y - ro->go->y) * scale;
-	if (px < 0 || py < 0 || px >= img->width || py >= img->height) return false;
+	if (!st->cursor_on) return false;
+	int32_t px, py;
+	if (!ginp_frozen_px(st, st->cursor_on, &px, &py)) return false;
+	const struct image *img = &st->frozen[st->cursor_on->idx];
 	const uint8_t *row = (const uint8_t *)img->bytes + (size_t)py * (size_t)img->stride;
 	uint32_t pixel = ((const uint32_t *)row)[px];
 	*out_color = pixel & 0xFFFFFFu;

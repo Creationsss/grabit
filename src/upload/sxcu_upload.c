@@ -107,7 +107,13 @@ static int build_body(CURL *c, const struct sxcu_uploader *u, const char *file_p
 	*binary_ct_out = NULL;
 	*body_file_out = NULL;
 
-	if (u->body_type == SXCU_BODY_NONE) return 0;
+	if (u->body_type == SXCU_BODY_NONE) {
+		if (u->method != SXCU_GET) {
+			curl_easy_setopt(c, CURLOPT_POSTFIELDS, "");
+			curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, 0L);
+		}
+		return 0;
+	}
 
 	if (u->method == SXCU_GET) {
 		log_error("sxcu: GET with Body=%s not supported", sxcu_body_str(u->body_type));

@@ -51,7 +51,7 @@ jobs:
             exit 1
           fi
           for f in grabit-x86_64-linux grabit-x86_64-linux.sha256; do
-            curl -sS -X POST \
+            curl --fail-with-body -sS -X POST \
               -H "Authorization: token $TOKEN" \
               -F "attachment=@$f" \
               "$SERVER/api/v1/repos/$REPO/releases/$RELEASE_ID/assets?name=$f"

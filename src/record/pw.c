@@ -78,10 +78,10 @@ static void on_param_changed(void *data, uint32_t id, const struct spa_pod *para
 		return;
 	}
 
-	size_t need = (size_t)info.size.width * 4u * (size_t)info.size.height;
-	if (c->pool && need > c->pool->buf_size) {
-		log_error("pipewire: stream renegotiated to %ux%u, larger than the "
-				  "frame pool allocated for %dx%d",
+	if (c->pool && ((int32_t)info.size.width != c->width ||
+					(int32_t)info.size.height != c->height)) {
+		log_error("pipewire: stream renegotiated to %ux%u, but the recording "
+				  "was started at %dx%d",
 				  info.size.width, info.size.height, c->width, c->height);
 		atomic_store(&c->failed, 1);
 		pw_thread_loop_signal(c->loop, false);

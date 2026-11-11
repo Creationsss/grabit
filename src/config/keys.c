@@ -86,7 +86,7 @@ static bool contains_ci(const char *hay, const char *needle) {
 
 bool cfg_key_is_secret(const char *key) {
 	static const char *const NEEDLES[] = {"auth", "secret", "token",
-										  "api_key", "password", "passwd",
+										  "key", "password", "passwd",
 										  "session", "cookie", "bearer", NULL};
 	if (!key) return false;
 	const char *dot = strrchr(key, '.');

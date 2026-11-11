@@ -83,13 +83,9 @@ int grabit_hyprland_active_window_rect(struct rect *out) {
 
 static bool client_is_fullscreen(struct json_object *c) {
 	struct json_object *fs = NULL;
-	if (json_object_object_get_ex(c, "fullscreen", &fs) &&
-		json_object_get_int(fs) != 0)
-		return true;
-	if (json_object_object_get_ex(c, "fullscreenClient", &fs) &&
-		json_object_get_int(fs) != 0)
-		return true;
-	return false;
+	if (!json_object_object_get_ex(c, "fullscreen", &fs)) return false;
+	if (json_object_get_type(fs) == json_type_boolean) return json_object_get_boolean(fs);
+	return (json_object_get_int64(fs) & 2) != 0;
 }
 
 struct client_state {
@@ -121,10 +117,11 @@ static void load_clients(void) {
 	json_object_put(root);
 }
 
-static bool target_is_fullscreen(const struct rect *win) {
+static bool target_is_decorated(const struct rect *win) {
+	if (!win) return true;
 	load_clients();
 	for (size_t i = 0; i < g_n_clients; i++)
-		if (rect_equal(g_clients[i].r, *win)) return g_clients[i].full;
+		if (rect_equal(g_clients[i].r, *win)) return !g_clients[i].full;
 	return false;
 }
 
@@ -143,7 +140,7 @@ int grabit_hyprland_window_radius(const struct rect *win) {
 	int radius = cached;
 	if (radius <= 0) return 0;
 
-	return (win && target_is_fullscreen(win)) ? 0 : radius;
+	return target_is_decorated(win) ? radius : 0;
 }
 
 int grabit_hyprland_window_border(const struct rect *win) {
@@ -161,7 +158,7 @@ int grabit_hyprland_window_border(const struct rect *win) {
 	int border = cached;
 	if (border <= 0) return 0;
 
-	return (win && target_is_fullscreen(win)) ? 0 : border;
+	return target_is_decorated(win) ? border : 0;
 }
 
 int grabit_hyprland_cursorpos(int32_t *x_out, int32_t *y_out) {

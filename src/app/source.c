@@ -185,8 +185,8 @@ static char *fail_with(int *status, int code) {
 	return NULL;
 }
 
-static char *discard_capture(char *path, const char *summary) {
-	if (path) unlink(path);
+static char *discard_capture(char *path, const char *summary, bool keep) {
+	if (path && !keep) unlink(path);
 	gapp_clear_tmpfile();
 	free(path);
 	if (summary)
@@ -308,10 +308,11 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 	if (plan == REGION_PLAN_NO_WINDOW) {
 		if (*is_temp) register_tmpfile(path);
 		grabit_wl_finish(&s);
+		bool existed = !*is_temp && access(path, F_OK) == 0;
 		if (capture_wm_window(cfg, cursor, &opts, path) != 0) {
 			log_error("--window: %s cannot capture the active window",
 					  grabit_wm_current_name());
-			return discard_capture(path, "Window capture failed");
+			return discard_capture(path, "Window capture failed", existed);
 		}
 		if (a->edit)
 			log_warn("--window: %s rendered the window itself, so it was captured "
@@ -353,9 +354,8 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 	if (rc != 0) {
 		(void)fail_with(status, rc == GRABIT_CAPTURE_CANCELLED ? GRABIT_EXIT_CANCELLED
 															   : GRABIT_EXIT_FAIL);
-		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
-										 ? NULL
-										 : "Capture failed");
+		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED ? NULL : "Capture failed",
+							   false);
 	}
 
 	log_debug("captured to %s", path);
@@ -400,6 +400,7 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 		int32_t edit_width, edit_tool;
 		load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
 		bool edit_dirty = false;
+		bool existed = !*is_temp && access(path, F_OK) == 0;
 		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, &edit_color,
 									  &edit_width, &edit_tool, &edit_dirty, out_rect);
 		struct edit_choices ec = {edit_color, edit_width, edit_tool};
@@ -413,9 +414,8 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 				free(path);
 				return NULL;
 			}
-			return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED
-											 ? NULL
-											 : "Edit failed");
+			return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED ? NULL : "Edit failed",
+								   existed);
 		}
 		if (status) *status = GRABIT_EXIT_OK;
 		return path;

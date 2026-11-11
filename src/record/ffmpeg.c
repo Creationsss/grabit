@@ -44,7 +44,7 @@ int spawn_ffmpeg(const char *ffmpeg_bin, const char *format, const char *preset,
 	const char *sync_flag = ffmpeg_has_fps_mode(ffmpeg_bin) ? "-fps_mode" : "-vsync";
 
 	int p[2];
-	if (pipe(p) != 0) {
+	if (pipe2(p, O_CLOEXEC) != 0) {
 		log_error("pipe: %s", strerror(errno));
 		return -1;
 	}

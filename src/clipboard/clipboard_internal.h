@@ -36,6 +36,18 @@ typedef int (*clip_serve_fn)(struct grabit_wl_state *s, const struct clip_payloa
 int clip_read_fd(int fd, char **out);
 int clip_rank_mime(const char *mime);
 
+struct clip_offer_pick {
+	const void *pending;
+	int pending_best;
+	char pending_mime[128];
+	int best;
+	char mime[128];
+};
+
+void clip_pick_offer(struct clip_offer_pick *p, const void *offer);
+void clip_pick_mime(struct clip_offer_pick *p, const void *offer, const char *mime);
+void clip_pick_select(struct clip_offer_pick *p, const void *offer);
+
 typedef int (*clip_recv_fn)(struct grabit_wl_state *s, char **out);
 
 int clip_ext_recv(struct grabit_wl_state *s, char **out);

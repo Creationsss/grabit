@@ -43,7 +43,20 @@ static bool line_is_section(const struct line *l, char *out, size_t cap) {
 	const char *p = l->p;
 	size_t len = l->len;
 	trim(&p, &len);
-	if (len < 2 || p[0] != '[' || p[len - 1] != ']') return false;
+	if (len < 2 || p[0] != '[') return false;
+	char quote = 0;
+	for (size_t i = 0; i < len; i++) {
+		if (quote) {
+			if (p[i] == quote) quote = 0;
+		} else if (p[i] == '"' || p[i] == '\'') {
+			quote = p[i];
+		} else if (p[i] == '#') {
+			len = i;
+			break;
+		}
+	}
+	trim(&p, &len);
+	if (len < 2 || p[len - 1] != ']') return false;
 	p++;
 	len -= 2;
 	trim(&p, &len);

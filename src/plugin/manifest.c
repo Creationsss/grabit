@@ -13,7 +13,6 @@
 #include <string.h>
 
 #define DEFAULT_UPDATE_HOURS 24
-#define DEFAULT_BRANCH "main"
 
 void plugin_manifest_free(struct plugin_manifest *m) {
 	if (!m) return;
@@ -114,7 +113,6 @@ int plugin_manifest_parse_file(const char *path, struct plugin_manifest *out) {
 		out->update_check_hours = take_int(update, "check_every_hours", DEFAULT_UPDATE_HOURS);
 		out->branch = take_string(update, "branch");
 	}
-	if (!out->branch) out->branch = strdup(DEFAULT_BRANCH);
 
 	toml_table_t *capture = toml_table_in(root, "capture");
 	if (capture) {

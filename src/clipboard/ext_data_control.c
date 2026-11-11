@@ -71,18 +71,12 @@ int clip_ext_serve(struct grabit_wl_state *s, const struct clip_payload *p,
 
 struct ext_recv {
 	struct ext_data_control_offer_v1 *offer;
-	int best;
-	char mime[128];
+	struct clip_offer_pick pick;
 	bool got_selection;
 };
 
 static void ext_offer_mime(void *data, struct ext_data_control_offer_v1 *offer, const char *mime) {
-	(void)offer;
-	struct ext_recv *r = data;
-	int rank = clip_rank_mime(mime);
-	if (rank <= r->best) return;
-	r->best = rank;
-	snprintf(r->mime, sizeof r->mime, "%s", mime);
+	clip_pick_mime(&((struct ext_recv *)data)->pick, offer, mime);
 }
 
 static const struct ext_data_control_offer_v1_listener ext_offer_listener_g = {
@@ -92,6 +86,7 @@ static const struct ext_data_control_offer_v1_listener ext_offer_listener_g = {
 static void ext_data_offer(void *data, struct ext_data_control_device_v1 *dev,
 						   struct ext_data_control_offer_v1 *offer) {
 	(void)dev;
+	clip_pick_offer(&((struct ext_recv *)data)->pick, offer);
 	ext_data_control_offer_v1_add_listener(offer, &ext_offer_listener_g, data);
 }
 
@@ -100,6 +95,7 @@ static void ext_selection(void *data, struct ext_data_control_device_v1 *dev,
 	(void)dev;
 	struct ext_recv *r = data;
 	r->offer = offer;
+	clip_pick_select(&r->pick, offer);
 	r->got_selection = true;
 }
 
@@ -128,7 +124,7 @@ int clip_ext_recv(struct grabit_wl_state *s, char **out) {
 	struct ext_recv r = {0};
 	ext_data_control_device_v1_add_listener(dev, &ext_recv_listener_g, &r);
 	if (wl_display_roundtrip(s->display) < 0 || !r.got_selection || !r.offer ||
-		r.best == 0) {
+		r.pick.best == 0) {
 		ext_data_control_device_v1_destroy(dev);
 		return -1;
 	}
@@ -138,7 +134,7 @@ int clip_ext_recv(struct grabit_wl_state *s, char **out) {
 		ext_data_control_device_v1_destroy(dev);
 		return -1;
 	}
-	ext_data_control_offer_v1_receive(r.offer, r.mime, fds[1]);
+	ext_data_control_offer_v1_receive(r.offer, r.pick.mime, fds[1]);
 	close(fds[1]);
 	wl_display_flush(s->display);
 

@@ -78,16 +78,17 @@ static int push_with_break(cairo_t *cr, const char *src, size_t start, size_t en
 		size_t lo = s + 1, hi = end, best = s + 1;
 		while (lo <= hi) {
 			size_t mid = (lo + hi) / 2;
-			if (measure(cr, src + s, mid - s) <= max_w) {
-				best = mid;
+			size_t cut = mid;
+			while (cut > s + 1 && cut < end && ((unsigned char)src[cut] & 0xC0) == 0x80)
+				cut--;
+			if (measure(cr, src + s, cut - s) <= max_w) {
+				best = cut;
 				lo = mid + 1;
 			} else {
 				if (mid == 0) break;
 				hi = mid - 1;
 			}
 		}
-		while (best > s + 1 && ((unsigned char)src[best] & 0xC0) == 0x80)
-			best--;
 		if (best < end && ((unsigned char)src[best] & 0xC0) == 0x80) {
 			best = s + 1;
 			while (best < end && ((unsigned char)src[best] & 0xC0) == 0x80)

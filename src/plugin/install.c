@@ -51,9 +51,31 @@ static char *plugin_name_from_url(const char *url) {
 	return out;
 }
 
-static int symlink_force(const char *target, const char *link_path) {
+char *plugin_build_binary_path(const char *plugin_dir, const struct plugin_manifest *m) {
+	if (!m->build_binary || !m->build_binary[0] || m->build_binary[0] == '/' ||
+		strstr(m->build_binary, "..")) {
+		log_error("plugin: manifest build.binary must be a relative path without ..");
+		return NULL;
+	}
+	char *path = NULL;
+	if (grabit_xasprintf(&path, "%s/%s", plugin_dir, m->build_binary) != 0) return NULL;
+	return path;
+}
+
+int plugin_link_binary(const char *binary_path, const char *name) {
+	if (access(binary_path, X_OK) != 0) {
+		log_error("plugin: build.binary %s is missing or not executable", binary_path);
+		return -1;
+	}
+	char *link_path = NULL;
+	if (grabit_xasprintf(&link_path, "%s/grabit-%s", plugin_bin_dir_path(), name) != 0)
+		return -1;
 	unlink(link_path);
-	return symlink(target, link_path);
+	int rc = symlink(binary_path, link_path);
+	if (rc != 0)
+		log_error("plugin: symlink %s -> %s: %s", link_path, binary_path, strerror(errno));
+	free(link_path);
+	return rc;
 }
 
 static int plugin_rm_rf(const char *path) {
@@ -191,13 +213,8 @@ int plugin_install_git(const char *url) {
 
 	char *binary_path = NULL;
 	if (m.kind == PLUGIN_KIND_BUILD) {
-		if (!m.build_binary || !m.build_binary[0] || m.build_binary[0] == '/' ||
-			strstr(m.build_binary, "..")) {
-			log_error("plugin: manifest build.binary must be a relative path without ..");
-			goto fail_manifest;
-		}
-		if (grabit_xasprintf(&binary_path, "%s/%s", plugin_dir, m.build_binary) != 0)
-			goto fail_manifest;
+		binary_path = plugin_build_binary_path(plugin_dir, &m);
+		if (!binary_path) goto fail_manifest;
 	} else {
 		if (grabit_xasprintf(&binary_path, "%s/%s", plugin_dir, m.name) != 0)
 			goto fail_manifest;
@@ -213,25 +230,9 @@ int plugin_install_git(const char *url) {
 		chmod(binary_path, 0755);
 	}
 
-	if (access(binary_path, X_OK) != 0) {
-		log_error("plugin: build.binary %s is missing or not executable", binary_path);
-		free(binary_path);
-		goto fail_manifest;
-	}
-
-	char *link_path = NULL;
-	if (grabit_xasprintf(&link_path, "%s/grabit-%s", bin, m.name) != 0) {
-		free(binary_path);
-		goto fail_manifest;
-	}
-	if (symlink_force(binary_path, link_path) != 0) {
-		log_error("plugin: symlink %s -> %s: %s", link_path, binary_path, strerror(errno));
-		free(binary_path);
-		free(link_path);
-		goto fail_manifest;
-	}
+	int link_rc = plugin_link_binary(binary_path, m.name);
 	free(binary_path);
-	free(link_path);
+	if (link_rc != 0) goto fail_manifest;
 
 	if (m.kind == PLUGIN_KIND_PREBUILT) {
 		plugin_state_write(plugin_dir, "prebuilt", m.prebuilt_url, m.prebuilt_sha256);

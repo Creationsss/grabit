@@ -46,6 +46,8 @@ bool plugin_name_is_reserved(const char *name);
 int plugin_resolve(const char *name, char *path_out, size_t cap);
 
 int plugin_install_git(const char *url);
+char *plugin_build_binary_path(const char *plugin_dir, const struct plugin_manifest *m);
+int plugin_link_binary(const char *binary_path, const char *name);
 int plugin_remove(const char *name);
 int plugin_update(const char *name);
 int plugin_update_all(void);

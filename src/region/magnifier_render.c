@@ -81,9 +81,8 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 }
 
 void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
-	if (!o->st->frozen) return;
-	const struct image *img = &o->st->frozen[o->idx];
-	if (!img->bytes || img->stride <= 0) return;
+	int32_t fx, fy;
+	if (!ginp_frozen_px(o->st, o, &fx, &fy)) return;
 
 	const int32_t S = o->scale;
 	const int32_t pw = o->pixel_width;
@@ -91,7 +90,6 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 
 	int32_t px = (o->st->cursor_x - o->go->x) * S;
 	int32_t py = (o->st->cursor_y - o->go->y) * S;
-	if (px < 0 || py < 0 || px >= img->width || py >= img->height) return;
 
 	const double cell = MAGNIFIER_CELL * S;
 	const double L = MAGNIFIER_CELLS * cell;
@@ -112,7 +110,7 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
 	cairo_translate(cr, lx + L / 2.0, ly + L / 2.0);
 	cairo_scale(cr, cell, cell);
-	cairo_translate(cr, -((double)px + 0.5), -((double)py + 0.5));
+	cairo_translate(cr, -((double)fx + 0.5), -((double)fy + 0.5));
 	cairo_set_source_surface(cr, o->cairo_frozen, 0, 0);
 	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
 	cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_PAD);

@@ -112,16 +112,30 @@ int plugin_update(const char *name) {
 	}
 
 	if (strcmp(source_kind, "git") == 0) {
-		log_debug("plugin: updating %s (branch %s)", name, m.branch);
+		char *branch = m.branch ? m.branch : "HEAD";
+		log_debug("plugin: updating %s (branch %s)", name, branch);
 		char *const fetch[] = {"git", "-C", plugin_dir, "fetch", "--quiet",
-							   "--depth", "1", "origin", m.branch, NULL};
+							   "--depth", "1", "origin", branch, NULL};
 		if (plugin_run_in(NULL, fetch) != 0) goto out;
 		char *const reset[] = {"git", "-C", plugin_dir, "reset", "--hard", "FETCH_HEAD", NULL};
 		if (plugin_run_in(NULL, reset) != 0) goto out;
-		if (m.kind == PLUGIN_KIND_BUILD) {
-			char *const sh[] = {"/bin/sh", "-c", m.build_cmd, NULL};
-			if (plugin_run_in(plugin_dir, sh) != 0) goto out;
+		plugin_manifest_free(&m);
+		if (plugin_manifest_parse_file(manifest_path, &m) != 0) goto out;
+		if (!m.name || strcmp(m.name, name) != 0) {
+			log_error("plugin: %s was renamed upstream to `%s`; reinstall it", name,
+					  m.name ? m.name : "");
+			goto out;
 		}
+		if (m.kind != PLUGIN_KIND_BUILD) {
+			log_error("plugin: %s no longer has a [build] section; reinstall it", name);
+			goto out;
+		}
+		char *const sh[] = {"/bin/sh", "-c", m.build_cmd, NULL};
+		if (plugin_run_in(plugin_dir, sh) != 0) goto out;
+		char *binary_path = plugin_build_binary_path(plugin_dir, &m);
+		int link_rc = binary_path ? plugin_link_binary(binary_path, name) : -1;
+		free(binary_path);
+		if (link_rc != 0) goto out;
 		log_info("plugin: %s updated", name);
 		rc = 0;
 	} else if (strcmp(source_kind, "prebuilt") == 0) {

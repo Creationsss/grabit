@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -44,6 +45,26 @@ int clip_rank_mime(const char *mime) {
 	if (strcmp(mime, "UTF8_STRING") == 0) return 2;
 	if (strcmp(mime, "STRING") == 0) return 1;
 	return 0;
+}
+
+void clip_pick_offer(struct clip_offer_pick *p, const void *offer) {
+	p->pending = offer;
+	p->pending_best = 0;
+	p->pending_mime[0] = '\0';
+}
+
+void clip_pick_mime(struct clip_offer_pick *p, const void *offer, const char *mime) {
+	if (offer != p->pending) return;
+	int rank = clip_rank_mime(mime);
+	if (rank <= p->pending_best) return;
+	p->pending_best = rank;
+	snprintf(p->pending_mime, sizeof p->pending_mime, "%s", mime);
+}
+
+void clip_pick_select(struct clip_offer_pick *p, const void *offer) {
+	bool match = offer && offer == p->pending;
+	p->best = match ? p->pending_best : 0;
+	snprintf(p->mime, sizeof p->mime, "%s", match ? p->pending_mime : "");
 }
 
 int clip_read_fd(int fd, char **out) {

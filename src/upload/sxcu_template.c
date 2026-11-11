@@ -104,7 +104,7 @@ static char *do_json(const char *arg, struct ctx *c) {
 	if (!c->json_root) return NULL;
 	const char *path = arg;
 	if (path[0] == '$' && path[1] == '.') path += 2;
-	return grabit_json_path_string(c->json_root, path);
+	return grabit_json_path_value(c->json_root, path);
 }
 
 static char *do_header(const char *arg, struct ctx *c) {

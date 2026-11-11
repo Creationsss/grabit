@@ -59,6 +59,17 @@ char *grabit_json_path_string(struct json_object *root, const char *path) {
 	return strdup(s);
 }
 
+char *grabit_json_path_value(struct json_object *root, const char *path) {
+	struct json_object *v = walk_path(root, path);
+	if (!v) return NULL;
+	enum json_type t = json_object_get_type(v);
+	const char *s = t == json_type_object || t == json_type_array
+						? json_object_to_json_string_ext(v, JSON_C_TO_STRING_PLAIN)
+						: json_object_get_string(v);
+	if (!s || !s[0]) return NULL;
+	return strdup(s);
+}
+
 char *grabit_json_get_string(struct json_object *obj, const char *key) {
 	struct json_object *v = NULL;
 	if (!json_object_object_get_ex(obj, key, &v)) return NULL;

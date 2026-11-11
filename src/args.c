@@ -360,7 +360,6 @@ int args_parse(int argc, char **argv, struct args *out) {
 					return -1;
 				}
 				out->service = name;
-				if (out->action == ACTION_NONE) out->action = ACTION_UPLOAD;
 				continue;
 			}
 			char suggest[64];
@@ -379,8 +378,9 @@ int args_parse(int argc, char **argv, struct args *out) {
 		return -1;
 	}
 
+	if (out->service && out->action == ACTION_NONE) out->action = ACTION_UPLOAD;
 	if (out->service && out->action != ACTION_UPLOAD &&
-		out->action != ACTION_RECORD && out->action != ACTION_NONE) {
+		out->action != ACTION_RECORD) {
 		log_error("--%s only makes sense with -u or --record", out->service);
 		return -1;
 	}

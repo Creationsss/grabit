@@ -96,17 +96,19 @@ static void draw_border(struct overlay_output *o) {
 		double pillx = rx + rw - pillw;
 		if (pillx < 0) pillx = 0;
 		double pilly = ry - bw - pillh - 2.0 * S;
-		if (pilly < 0) pilly = ry + bw + 2.0 * S;
+		if (pilly < 0) pilly = ry + rh + bw + 2.0 * S;
 
-		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
-		grabit_cairo_rect_r(cr, pillx, pilly, pillw, pillh,
-							grabit_ui_radius(GUI_R_TIP) * S);
-		cairo_fill(cr);
+		if (pilly + pillh <= o->pixel_height) {
+			cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
+			grabit_cairo_rect_r(cr, pillx, pilly, pillw, pillh,
+								grabit_ui_radius(GUI_R_TIP) * S);
+			cairo_fill(cr);
 
-		cairo_set_source_rgba(cr, 1, 1, 1, 1);
-		cairo_move_to(cr, pillx + pad - ext.x_bearing,
-					  pilly + pad - ext.y_bearing);
-		cairo_show_text(cr, dims);
+			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+			cairo_move_to(cr, pillx + pad - ext.x_bearing,
+						  pilly + pad - ext.y_bearing);
+			cairo_show_text(cr, dims);
+		}
 	}
 
 	cairo_destroy(cr);

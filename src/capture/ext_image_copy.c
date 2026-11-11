@@ -168,9 +168,10 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 	struct ec_state c;
 	int rc = -1;
 	if (do_capture(s, o, overlay_cursor, cache, &c) == 0) {
-		int32_t px, py, pw, ph;
+		int32_t px, py, px2, py2;
 		grabit_output_region_pixels(o, x, y, &px, &py);
-		grabit_output_region_pixels(o, w, h, &pw, &ph);
+		grabit_output_region_pixels(o, x + w, y + h, &px2, &py2);
+		int32_t pw = px2 - px, ph = py2 - py;
 		gcap_transform_map_rect(o->transform, c.sess->width, c.sess->height,
 								&px, &py, &pw, &ph);
 		int32_t stride = dst_stride > 0 ? dst_stride : pw * 4;

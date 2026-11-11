@@ -20,6 +20,7 @@ env:
     libwayland-dev libwayland-bin
     libcairo2-dev libxkbcommon-dev libmagic-dev
     libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+    libjpeg-dev libwebp-dev libpipewire-0.3-dev
 
 jobs:
   sanitize:

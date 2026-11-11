@@ -60,11 +60,15 @@ void region_drag_abort(struct ro_state *st) {
 	st->handle_dragging = HANDLE_NONE;
 	if (region_anno_dragging(st) && region_anno_selected(st)) {
 		if (st->anno_drag == ANNO_DRAG_MOVE) {
-			gist_undo_apply(st, &(struct undo_item){
-									.kind = UNDO_ANNO_MOVE,
-									.u.move = {.idx = (size_t)st->sel_anno,
-											   .dx = st->anno_last_x - st->anno_press_x,
-											   .dy = st->anno_last_y - st->anno_press_y}});
+			for (size_t i = 0; i < st->out_annos->n; i++) {
+				if (!st->out_annos->items[i].selected && i != (size_t)st->sel_anno)
+					continue;
+				gist_undo_apply(st, &(struct undo_item){
+										.kind = UNDO_ANNO_MOVE,
+										.u.move = {.idx = i,
+												   .dx = st->anno_last_x - st->anno_press_x,
+												   .dy = st->anno_last_y - st->anno_press_y}});
+			}
 		} else {
 			struct undo_item it = {.kind = UNDO_ANNO_GEOM,
 								   .u.geom = {.idx = (size_t)st->sel_anno}};

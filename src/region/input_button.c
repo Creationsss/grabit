@@ -19,6 +19,8 @@
 #include "region/input_internal.h"
 
 bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
+	if (state != WL_POINTER_BUTTON_STATE_PRESSED && st->undo_held)
+		region_undo_disarm(st);
 	if (!region_editing(st) || st->dragging) return false;
 	int32_t tx, ty, tw, th;
 	const struct grabit_output *to;
@@ -41,7 +43,6 @@ bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 	}
 
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
-		if (act == TB_UNDO) region_undo_disarm(st);
 		region_render_request_redraw_all(st);
 		return true;
 	}

@@ -60,6 +60,21 @@ done:
 	return rc;
 }
 
+static bool lang_has_line(const char *list, const char *lang, size_t lang_len) {
+	const char *p_line = list;
+	while (p_line && *p_line) {
+		const char *nl = strchr(p_line, '\n');
+		size_t len = nl ? (size_t)(nl - p_line) : strlen(p_line);
+		while (len > 0 && (p_line[len - 1] == '\r' || p_line[len - 1] == ' ' ||
+						   p_line[len - 1] == '\t'))
+			len--;
+		if (len == lang_len && strncmp(p_line, lang, lang_len) == 0) return true;
+		if (!nl) break;
+		p_line = nl + 1;
+	}
+	return false;
+}
+
 int grabit_ocr_has_lang(const char *bin, const char *lang) {
 	if (!bin || !bin[0] || !lang || !lang[0]) return -1;
 
@@ -75,21 +90,14 @@ int grabit_ocr_has_lang(const char *bin, const char *lang) {
 		return -1;
 	}
 
-	int found = -1;
-	size_t lang_len = strlen(lang);
-	char *p_line = buf.data;
-	while (p_line && *p_line) {
-		char *nl = strchr(p_line, '\n');
-		size_t len = nl ? (size_t)(nl - p_line) : strlen(p_line);
-		while (len > 0 && (p_line[len - 1] == '\r' || p_line[len - 1] == ' ' ||
-						   p_line[len - 1] == '\t'))
-			len--;
-		if (len == lang_len && strncmp(p_line, lang, lang_len) == 0) {
-			found = 0;
-			break;
-		}
-		if (!nl) break;
-		p_line = nl + 1;
+	int found = 0;
+	const char *comp = lang;
+	while (found == 0) {
+		const char *plus = strchr(comp, '+');
+		size_t lang_len = plus ? (size_t)(plus - comp) : strlen(comp);
+		if (lang_len > 0 && !lang_has_line(buf.data, comp, lang_len)) found = -1;
+		if (!plus) break;
+		comp = plus + 1;
 	}
 	grabit_buf_free(&buf);
 	return found;

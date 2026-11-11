@@ -271,7 +271,19 @@ int config_state_put(struct config *cfg, const char *const *keys,
 	for (size_t i = 0; i < n; i++) {
 		if (config_set(cfg, keys[i], vals[i]) != 0) return -1;
 	}
-	return state_write_from(cfg);
+	if (!state_enabled(cfg)) return 0;
+	struct config st;
+	int rd = state_read(&st);
+	if (rd < 0) return -1;
+	if (rd != 0) memset(&st, 0, sizeof st);
+	int rc = 0;
+	for (size_t i = 0; i < n && rc == 0; i++) {
+		const char *v = config_get(cfg, keys[i]);
+		if (v && cfg_kv_upsert(&st, keys[i], v) != 0) rc = -1;
+	}
+	if (rc == 0) rc = config_state_save(&st);
+	config_free(&st);
+	return rc;
 }
 
 int config_state_clear(struct config *cfg, const char *key) {

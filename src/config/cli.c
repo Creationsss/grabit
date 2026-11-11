@@ -280,14 +280,15 @@ int cmd_set(int argc, char **argv) {
 			log_error("usage: grabit set edit.swatches <n> <color>");
 			return 2;
 		}
+		struct config full;
+		if (config_load_full(&full) != 0) return 1;
+		char val[EDIT_SWATCHES_STR_MAX];
+		bool ok = edit_swatches_set_one(config_get(&full, "edit.swatches"), argv[1],
+										argv[2], val, sizeof val);
+		config_free(&full);
+		if (!ok) return 2;
 		struct config c;
 		if (config_load(&c) != 0) return 1;
-		char val[EDIT_SWATCHES_STR_MAX];
-		if (!edit_swatches_set_one(config_get(&c, "edit.swatches"), argv[1], argv[2],
-								   val, sizeof val)) {
-			config_free(&c);
-			return 2;
-		}
 		return cfg_store(&c, "edit.swatches", val);
 	}
 	if (argc != 2) {

@@ -199,8 +199,10 @@ static int expand_into(const char *tmpl, struct ctx *c, struct grabit_buf *out, 
 			free(replacement);
 		} else {
 			c->unresolved = true;
+			if (colon) *colon = ':';
 			put_rc = grabit_buf_putc(out, *p) != 0 ||
-					 grabit_buf_putn(out, p + 1, tok_len) != 0 ||
+					 (flat ? grabit_buf_putn(out, p + 1, tok_len)
+						   : grabit_buf_puts(out, body_str)) != 0 ||
 					 grabit_buf_putc(out, close) != 0;
 		}
 		free(raw);

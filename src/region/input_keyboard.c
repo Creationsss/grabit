@@ -170,10 +170,13 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	if (!st->xkb_state) return;
 	xkb_keysym_t sym = xkb_state_key_get_one_sym(st->xkb_state, key + 8);
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-		uint8_t rmods = region_xkb_mods(st->xkb_state);
-		if (region_key_action(&st->keys, KA_UNDO, sym, rmods))
+		if (region_action_matches_sym(&st->keys, KA_UNDO, sym))
 			region_undo_disarm(st);
-		uint32_t dir = ginp_region_nudge_for_key(st, sym, rmods);
+		uint32_t dir = 0;
+		if (region_action_matches_sym(&st->keys, KA_NUDGE_LEFT, sym)) dir |= NUDGE_LEFT;
+		if (region_action_matches_sym(&st->keys, KA_NUDGE_RIGHT, sym)) dir |= NUDGE_RIGHT;
+		if (region_action_matches_sym(&st->keys, KA_NUDGE_UP, sym)) dir |= NUDGE_UP;
+		if (region_action_matches_sym(&st->keys, KA_NUDGE_DOWN, sym)) dir |= NUDGE_DOWN;
 		if (dir) region_nudge_release(st, dir);
 		if (st->magnifier_held &&
 			region_action_matches_sym(&st->keys, KA_MAGNIFIER, sym)) {

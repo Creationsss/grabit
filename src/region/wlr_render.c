@@ -97,12 +97,37 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
 	o->anno_cache_spot = spot;
 }
 
-void gren_anno_cache_paint(cairo_t *cr, cairo_surface_t *cache) {
+static void anno_cache_paint(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
-	cairo_identity_matrix(cr);
-	cairo_set_source_surface(cr, cache, 0, 0);
+	cairo_translate(cr, o->go->x, o->go->y);
+	cairo_scale(cr, 1.0 / o->scale, 1.0 / o->scale);
+	cairo_set_source_surface(cr, o->anno_cache, 0, 0);
+	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
 	cairo_paint(cr);
 	cairo_restore(cr);
+}
+
+void gren_paint_annos(cairo_t *cr, const struct ro_output *o, const struct annotation *live) {
+	bool anno_drag = region_anno_dragging(o->st);
+	if (o->anno_cache && !live && !anno_drag) {
+		anno_cache_paint(cr, o);
+		return;
+	}
+	const struct annotation_list *annos = o->st->out_annos;
+	cairo_push_group(cr);
+	if (o->anno_cache) {
+		anno_cache_paint(cr, o);
+	} else {
+		for (size_t i = 0; i < annos->n; i++)
+			if (!(anno_drag && annos->items[i].selected))
+				annotation_paint(cr, &annos->items[i], 1.0);
+	}
+	if (anno_drag)
+		for (size_t i = 0; i < annos->n; i++)
+			if (annos->items[i].selected) annotation_paint(cr, &annos->items[i], 1.0);
+	if (live) annotation_paint(cr, live, 1.0);
+	cairo_pop_group_to_source(cr);
+	cairo_paint(cr);
 }
 
 static void hint_text_extents(cairo_t *cr, double S, const char *hint,

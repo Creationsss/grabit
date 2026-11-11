@@ -116,7 +116,8 @@ static const char *const G_REGION[] = {"region.window_snap", "region.window_radi
 									   "region.window_borders",
 									   "region.snap_animation", "region.snap_ignore",
 									   "region.confirm",
-									   "region.show_coords", "region.repeat_last",
+									   "region.show_coords", "region.magnifier_edits",
+									   "region.repeat_last",
 									   "region.last", NULL};
 static const char *const G_TRANSLATE[] = {
 	"translate.target",

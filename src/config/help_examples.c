@@ -142,6 +142,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "region.magnifier_edits") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
 	if (strcmp(key, "capture.delay_secs") == 0) {
 		*example_out = "0..3600 (seconds to wait before capturing)";
 		*def_out = "0";

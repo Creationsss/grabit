@@ -221,6 +221,7 @@ struct ro_state {
 	bool ctrl_held;
 	bool magnifier_held;
 	bool show_coords;
+	bool magnifier_edits;
 	struct region_keymap keys;
 	int handle_dragging;
 	bool moving_region;

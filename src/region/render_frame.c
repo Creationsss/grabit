@@ -111,12 +111,12 @@ void gren_output_redraw(struct ro_output *o) {
 		cairo_paint(cr);
 	}
 
+	struct annotation preview = {0};
+	const struct annotation *live = NULL;
 	if (region_editing(o->st)) {
-		bool anno_drag = region_anno_dragging(o->st);
 		cairo_save(cr);
 		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
 		cairo_scale(cr, S, S);
-		struct annotation preview = {0};
 		if (o->st->drawing) {
 			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
 			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
@@ -138,28 +138,8 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 		bool spot_preview = o->st->drawing && tool_is_layer(o->st->current_tool);
 		gren_anno_cache_ensure(o, dst, spot_preview ? &preview : NULL);
-		if (!o->anno_cache || o->st->drawing || anno_drag) {
-			cairo_push_group(cr);
-			if (o->anno_cache) {
-				gren_anno_cache_paint(cr, o->anno_cache);
-			} else {
-				for (size_t i = 0; i < o->st->out_annos->n; i++) {
-					if (anno_drag && o->st->out_annos->items[i].selected) continue;
-					annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
-				}
-			}
-			if (anno_drag) {
-				for (size_t i = 0; i < o->st->out_annos->n; i++)
-					if (o->st->out_annos->items[i].selected)
-						annotation_paint(cr, &o->st->out_annos->items[i], 1.0);
-			}
-			if (o->st->drawing && !spot_preview)
-				annotation_paint(cr, &preview, 1.0);
-			cairo_pop_group_to_source(cr);
-			cairo_paint(cr);
-		} else {
-			gren_anno_cache_paint(cr, o->anno_cache);
-		}
+		if (o->st->drawing && !spot_preview) live = &preview;
+		gren_paint_annos(cr, o, live);
 		if (o->st->anno_edit_mode) gren_paint_anno_selection(cr, o->st);
 		if (o->st->text_input_active) {
 			double font = o->st->current_font;
@@ -310,7 +290,7 @@ void gren_output_redraw(struct ro_output *o) {
 		region_toolbar_tooltip_render(cr, o);
 	}
 
-	if (region_magnifier_active(o)) region_magnifier_render(cr, o);
+	if (region_magnifier_active(o)) region_magnifier_render(cr, o, live);
 	if (region_coords_active(o)) region_coords_render(cr, o);
 
 	cairo_destroy(cr);

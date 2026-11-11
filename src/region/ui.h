@@ -12,6 +12,7 @@
 
 struct ro_state;
 struct ro_output;
+struct annotation;
 struct wl_surface;
 struct grabit_wl_state;
 struct config;
@@ -105,7 +106,8 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o);
 void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o);
 
 bool region_magnifier_active(const struct ro_output *o);
-void region_magnifier_render(cairo_t *cr, const struct ro_output *o);
+void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
+							 const struct annotation *live);
 bool region_coords_active(const struct ro_output *o);
 void region_coords_render(cairo_t *cr, const struct ro_output *o);
 

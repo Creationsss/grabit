@@ -28,6 +28,7 @@ static const char *BOOL_KEYS[] = {
 	"region.snap_animation",
 	"region.confirm",
 	"region.show_coords",
+	"region.magnifier_edits",
 	"region.repeat_last",
 	"services.zipline.chunked",
 	"edit.always",
@@ -229,7 +230,8 @@ static bool valid_region_key(const char *key) {
 		   strcmp(leaf, "window_borders") == 0 ||
 		   strcmp(leaf, "snap_animation") == 0 ||
 		   strcmp(leaf, "snap_ignore") == 0 ||
-		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "repeat_last") == 0 ||
+		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "magnifier_edits") == 0 ||
+		   strcmp(leaf, "repeat_last") == 0 ||
 		   strcmp(leaf, "last") == 0;
 }
 

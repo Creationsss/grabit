@@ -7,6 +7,7 @@
 #include "cairo_util.h"
 #include "capture/capture.h"
 #include "region/input_internal.h"
+#include "region/render_internal.h"
 #include "region/ui.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
@@ -80,7 +81,8 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_show_text(cr, info);
 }
 
-void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
+void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
+							 const struct annotation *live) {
 	int32_t fx, fy;
 	if (!ginp_frozen_px(o->st, o, &fx, &fy)) return;
 
@@ -115,6 +117,12 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
 	cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_PAD);
 	cairo_paint(cr);
+	if (o->st->magnifier_edits && region_editing(o->st)) {
+		const struct image *img = &o->st->frozen[o->idx];
+		cairo_scale(cr, (double)S * img->width / pw, (double)S * img->height / ph);
+		cairo_translate(cr, -o->go->x, -o->go->y);
+		gren_paint_annos(cr, o, live);
+	}
 	cairo_restore(cr);
 
 	cairo_set_line_width(cr, 1.0);

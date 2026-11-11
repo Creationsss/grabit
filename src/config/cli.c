@@ -76,7 +76,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 		return 1;
 	}
 	const char *canon = cfg_canonical_key(key);
-	bool is_state = cfg_is_state_key(canon);
+	bool is_state = cfg_is_state_key(canon) && cfg_state_enabled(c);
 	int rc;
 	const char *stored = NULL;
 	if (is_state) {
@@ -380,16 +380,13 @@ int cmd_unset(int argc, char **argv) {
 
 	int rc = 0;
 	bool found = cfg_kv_remove(&c, key, false) > 0;
-	if (strcmp(key, argv[0]) != 0) found |= cfg_kv_remove(&c, argv[0], false) > 0;
 	if (cfg_is_state_key(key)) {
 		(void)config_state_clear(&c, key);
 		found = true;
 	}
 	if (!found) {
 		log_info("%s was not set", key);
-	} else if (cfg_persist(&c, key, NULL, false) != 0 ||
-			   (strcmp(key, argv[0]) != 0 &&
-				cfg_persist(&c, argv[0], NULL, false) != 0)) {
+	} else if (cfg_persist(&c, key, NULL, false) != 0) {
 		log_error("could not save config");
 		rc = 1;
 	} else if (strcmp(key, argv[0]) != 0) {

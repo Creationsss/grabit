@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -64,7 +65,7 @@ int grabit_self_exe(char *out, size_t cap) {
 }
 
 void grabit_redirect_stdio_devnull(void) {
-	int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+	int fd = open("/dev/null", O_RDWR);
 	if (fd < 0) return;
 	dup2(fd, STDIN_FILENO);
 	dup2(fd, STDOUT_FILENO);
@@ -147,14 +148,28 @@ int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes
 	return 0;
 }
 
-int grabit_lock_acquire(const char *path) {
-	int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
-	if (fd < 0) return -1;
-	if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+static int lock_open_current(const char *path) {
+	for (int tries = 0; tries < 8; tries++) {
+		int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
+		if (fd < 0) return -1;
+		if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+			close(fd);
+			errno = EWOULDBLOCK;
+			return -1;
+		}
+		struct stat fs, ps;
+		if (fstat(fd, &fs) == 0 && stat(path, &ps) == 0 &&
+			fs.st_dev == ps.st_dev && fs.st_ino == ps.st_ino)
+			return fd;
 		close(fd);
-		errno = EWOULDBLOCK;
-		return -1;
 	}
+	errno = EAGAIN;
+	return -1;
+}
+
+int grabit_lock_acquire(const char *path) {
+	int fd = lock_open_current(path);
+	if (fd < 0) return -1;
 	char buf[32];
 	int n = snprintf(buf, sizeof buf, "%d\n", (int)getpid());
 	if (ftruncate(fd, 0) != 0 || grabit_write_all(fd, buf, (size_t)n) != 0) {
@@ -162,6 +177,12 @@ int grabit_lock_acquire(const char *path) {
 		return -1;
 	}
 	return fd;
+}
+
+void grabit_lock_release(int *fd, const char *path) {
+	if (path && path[0]) unlink(path);
+	if (*fd >= 0) close(*fd);
+	*fd = -1;
 }
 
 pid_t grabit_lock_owner(const char *path) {

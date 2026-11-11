@@ -96,6 +96,12 @@ void ring_destroy(struct ring *r) {
 
 void ring_push(struct ring *r, const struct frame *f) {
 	pthread_mutex_lock(&r->mu);
+	if (r->stopped) {
+		struct frame stale = *f;
+		frame_release(&stale);
+		pthread_mutex_unlock(&r->mu);
+		return;
+	}
 	size_t next = (r->head + 1) % RING_CAP;
 	if (next == r->tail) {
 		frame_release(&r->slots[r->tail]);

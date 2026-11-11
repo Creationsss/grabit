@@ -37,9 +37,9 @@ static void gcfg_emit_string(struct grabit_buf *out, const char *s) {
 		if (ch == '"' || ch == '\\') {
 			grabit_buf_putc(out, '\\');
 			grabit_buf_putc(out, (char)ch);
-		} else if (ch < 0x20) {
+		} else if (ch < 0x20 || ch == 0x7f) {
 			char esc[8];
-			snprintf(esc, sizeof esc, "\\u%04x", ch);
+			snprintf(esc, sizeof esc, "\\u%04X", ch);
 			grabit_buf_puts(out, esc);
 		} else {
 			grabit_buf_putc(out, (char)ch);

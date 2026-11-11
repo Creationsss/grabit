@@ -52,9 +52,8 @@ static void clear_show_pid_self(void) {
 	if (g_show_lock_fd < 0) return;
 	char path[1024];
 	if (show_pid_path(path, sizeof path) != 0) return;
-	if (grabit_lock_owner(path) == getpid()) unlink(path);
-	close(g_show_lock_fd);
-	g_show_lock_fd = -1;
+	grabit_lock_release(&g_show_lock_fd,
+						grabit_lock_owner(path) == getpid() ? path : NULL);
 }
 
 static int probe_layer_shell(void) {

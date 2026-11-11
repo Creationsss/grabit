@@ -55,13 +55,6 @@ static int write_tray_pid(void) {
 	return g_tray_lock_fd < 0 ? -1 : 0;
 }
 
-static void unlink_tray_pid(void) {
-	const char *p = tray_pid_path();
-	if (p) unlink(p);
-	if (g_tray_lock_fd >= 0) close(g_tray_lock_fd);
-	g_tray_lock_fd = -1;
-}
-
 static void spawn_grabit(const char *const *args) {
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -166,7 +159,13 @@ int tray_app_run(struct config *cfg) {
 	if (stop_running_tray() == 0) return 0;
 
 	const char *icon = config_get(cfg, "tray.icon");
-	if (icon && icon[0]) app_sni_cfg.icon_name = icon;
+	size_t icon_len = icon ? strlen(icon) : 0;
+	if (icon_len > 0) {
+		if (grabit_utf8_valid_prefix(icon, icon_len) == icon_len)
+			app_sni_cfg.icon_name = icon;
+		else
+			log_warn("tray: tray.icon is not valid UTF-8, using the default icon");
+	}
 
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -187,6 +186,6 @@ int tray_app_run(struct config *cfg) {
 	grabit_install_signal_handler(SIGHUP, app_stop_signal);
 	grabit_ignore_signal(SIGPIPE);
 	sni_run(&g_app_stop, NULL, &app_sni_cfg);
-	unlink_tray_pid();
+	grabit_lock_release(&g_tray_lock_fd, tray_pid_path());
 	_exit(0);
 }

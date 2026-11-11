@@ -26,7 +26,7 @@ static const char *socket_path(void) {
 
 bool grabit_aqueous_present(void) {
 	const char *path = socket_path();
-	return path && access(path, F_OK) == 0;
+	return gwm_sock_exists(path);
 }
 
 static struct json_object *member(struct json_object *obj, const char *key,

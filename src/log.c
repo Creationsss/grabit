@@ -116,6 +116,10 @@ static int log_file_fd(void) {
 
 static void log_file_cap(int fd) {
 	if (g_file_written <= LOG_FILE_MAX_BYTES) return;
+	struct stat st;
+	if (fstat(fd, &st) != 0) return;
+	g_file_written = st.st_size > 0 ? (size_t)st.st_size : 0;
+	if (g_file_written <= LOG_FILE_MAX_BYTES) return;
 	size_t keep = LOG_FILE_MAX_BYTES / 4;
 	char *tail = malloc(keep);
 	ssize_t got = -1;

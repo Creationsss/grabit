@@ -17,8 +17,7 @@
 #define SWAY_GET_TREE 4
 
 bool grabit_sway_present(void) {
-	const char *sock = getenv("SWAYSOCK");
-	return sock && sock[0];
+	return gwm_sock_exists(getenv("SWAYSOCK"));
 }
 
 static int query(uint32_t type, enum json_type want, struct json_object **root_out) {

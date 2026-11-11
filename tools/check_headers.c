@@ -80,6 +80,8 @@ static int prepend_header(const char *path) {
 		free(body);
 		return -1;
 	}
+	struct stat st;
+	if (stat(path, &st) == 0) (void)fchmod(fd, st.st_mode & 07777);
 
 	FILE *out = fdopen(fd, "wb");
 	if (!out) {

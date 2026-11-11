@@ -52,6 +52,7 @@ static void parse_actions(toml_table_t *root, struct plugin_manifest *out) {
 			}
 			free(out->actions);
 			out->actions = NULL;
+			out->n_actions = 0;
 			return;
 		}
 		if (t) {

@@ -213,7 +213,10 @@ out:
 
 	pid_t pid = fork();
 	if (pid < 0) return;
-	if (pid != 0) return;
+	if (pid != 0) {
+		(void)grabit_waitpid_intr(pid, NULL);
+		return;
+	}
 
 	grabit_double_fork_detach();
 	signal(SIGHUP, SIG_IGN);

@@ -34,6 +34,31 @@ static const struct ext_data_control_source_v1_listener source_listener_g = {
 	.cancelled = source_cancelled,
 };
 
+static void serve_data_offer(void *data, struct ext_data_control_device_v1 *dev,
+							 struct ext_data_control_offer_v1 *offer) {
+	(void)data;
+	(void)dev;
+	(void)offer;
+}
+
+static void ext_primary(void *data, struct ext_data_control_device_v1 *dev, struct ext_data_control_offer_v1 *offer) {
+	(void)data;
+	(void)dev;
+	if (offer) ext_data_control_offer_v1_destroy(offer);
+}
+
+static void serve_finished(void *data, struct ext_data_control_device_v1 *dev) {
+	(void)dev;
+	((struct clip_serve_state *)data)->cancelled = true;
+}
+
+static const struct ext_data_control_device_v1_listener serve_device_listener_g = {
+	.data_offer = serve_data_offer,
+	.selection = ext_primary,
+	.finished = serve_finished,
+	.primary_selection = ext_primary,
+};
+
 int clip_ext_serve(struct grabit_wl_state *s, const struct clip_payload *p,
 				   int *ready_fd) {
 	struct ext_data_control_device_v1 *dev =
@@ -47,6 +72,7 @@ int clip_ext_serve(struct grabit_wl_state *s, const struct clip_payload *p,
 
 	struct clip_serve_state c = {.pay = p};
 	ext_data_control_source_v1_add_listener(src, &source_listener_g, &c);
+	ext_data_control_device_v1_add_listener(dev, &serve_device_listener_g, &c);
 
 	for (size_t i = 0; i < p->n_mimes; i++)
 		ext_data_control_source_v1_offer(src, p->mimes[i]);
@@ -102,12 +128,6 @@ static void ext_selection(void *data, struct ext_data_control_device_v1 *dev,
 static void ext_finished(void *data, struct ext_data_control_device_v1 *dev) {
 	(void)dev;
 	((struct ext_recv *)data)->got_selection = true;
-}
-
-static void ext_primary(void *data, struct ext_data_control_device_v1 *dev, struct ext_data_control_offer_v1 *offer) {
-	(void)data;
-	(void)dev;
-	if (offer) ext_data_control_offer_v1_destroy(offer);
 }
 
 static const struct ext_data_control_device_v1_listener ext_recv_listener_g = {

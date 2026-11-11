@@ -23,8 +23,7 @@
 #define NIRI_SCREENSHOT_TIMEOUT_MS 8000
 
 bool grabit_niri_present(void) {
-	const char *sock = getenv("NIRI_SOCKET");
-	return sock && sock[0];
+	return gwm_sock_exists(getenv("NIRI_SOCKET"));
 }
 
 static struct json_object *unwrap(struct json_object *root, const char *variant) {
@@ -250,6 +249,36 @@ int grabit_niri_active_window_rect(struct rect *out) {
 	return rc;
 }
 
+static bool json_bool_field(struct json_object *o, const char *key) {
+	struct json_object *v = NULL;
+	return json_object_object_get_ex(o, key, &v) && json_object_get_boolean(v);
+}
+
+static double focus_time(struct json_object *win) {
+	struct json_object *ts = NULL, *v = NULL;
+	if (!json_object_object_get_ex(win, "focus_timestamp", &ts) ||
+		json_object_get_type(ts) != json_type_object)
+		return 0;
+	double t = 0;
+	if (json_object_object_get_ex(ts, "secs", &v)) t += json_object_get_double(v);
+	if (json_object_object_get_ex(ts, "nanos", &v)) t += json_object_get_double(v) / 1e9;
+	return t;
+}
+
+struct niri_item {
+	struct wm_window w;
+	int layer;
+	double focus;
+	size_t idx;
+};
+
+static int stack_cmp(const void *pa, const void *pb) {
+	const struct niri_item *a = pa, *b = pb;
+	if (a->layer != b->layer) return a->layer < b->layer ? -1 : 1;
+	if (a->focus != b->focus) return a->focus < b->focus ? -1 : 1;
+	return a->idx < b->idx ? -1 : a->idx > b->idx;
+}
+
 int grabit_niri_windows(struct wm_window **out, size_t *n_out) {
 	*out = NULL;
 	*n_out = 0;
@@ -265,7 +294,10 @@ int grabit_niri_windows(struct wm_window **out, size_t *n_out) {
 
 	size_t n = json_object_array_length(arr);
 	struct wm_window *wins = calloc(n + 1, sizeof *wins);
-	if (!wins) {
+	struct niri_item *items = calloc(n + 1, sizeof *items);
+	if (!wins || !items) {
+		free(wins);
+		free(items);
 		json_object_put(root);
 		layout_free(&l);
 		return -1;
@@ -278,10 +310,21 @@ int grabit_niri_windows(struct wm_window **out, size_t *n_out) {
 		if (gwm_snap_ignored(win, "app_id")) continue;
 		const struct niri_workspace *ws = ws_of(&l, win);
 		if (!ws || !ws->active) continue;
-		if (!window_rect(win, &l, ws, &wins[k].r)) continue;
-		wins[k].window_class = grabit_json_get_string(win, "app_id");
-		wins[k++].title = grabit_json_get_string(win, "title");
+		struct rect r;
+		if (!window_rect(win, &l, ws, &r)) continue;
+		items[k] = (struct niri_item){
+			.w = {r, grabit_json_get_string(win, "app_id"), grabit_json_get_string(win, "title")},
+			.layer = (json_bool_field(win, "is_floating") ? 2 : 0) +
+					 (json_bool_field(win, "is_focused") ? 1 : 0),
+			.focus = focus_time(win),
+			.idx = k,
+		};
+		k++;
 	}
+	qsort(items, k, sizeof *items, stack_cmp);
+	for (size_t i = 0; i < k; i++)
+		wins[i] = items[i].w;
+	free(items);
 	*out = wins;
 	*n_out = k;
 

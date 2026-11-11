@@ -196,6 +196,7 @@ static void pin_render_output_redraw(struct pin_output *o) {
 	cairo_surface_flush(dst);
 	cairo_surface_destroy(dst);
 
+	grabit_wl_callback_drop(&o->frame_cb);
 	o->frame_cb = wl_surface_frame(o->surface);
 	wl_callback_add_listener(o->frame_cb, &frame_listener_g, o);
 	if (frac) {

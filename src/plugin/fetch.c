@@ -7,7 +7,9 @@
 #include "log.h"
 #include "vendor/sha256/sha256.h"
 
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,21 +23,28 @@ static size_t curl_to_file(void *ptr, size_t sz, size_t nm, void *ud) {
 	return fwrite(ptr, sz, nm, f);
 }
 
+static bool ipv4_is_internal(const uint8_t *a) {
+	if (a[0] == 127 || a[0] == 0 || a[0] == 10) return true;
+	if (a[0] == 169 && a[1] == 254) return true;
+	if (a[0] == 172 && a[1] >= 16 && a[1] <= 31) return true;
+	if (a[0] == 192 && a[1] == 168) return true;
+	if (a[0] == 100 && a[1] >= 64 && a[1] <= 127) return true;
+	return false;
+}
+
 static bool ip_is_internal(const char *ip) {
 	if (!ip) return false;
-	if (strncasecmp(ip, "::ffff:", 7) == 0 && strchr(ip + 7, '.')) ip += 7;
-	unsigned a, b, c, d;
-	if (sscanf(ip, "%u.%u.%u.%u", &a, &b, &c, &d) == 4) {
-		if (a == 127 || a == 0 || a == 10) return true;
-		if (a == 169 && b == 254) return true;
-		if (a == 172 && b >= 16 && b <= 31) return true;
-		if (a == 192 && b == 168) return true;
-		if (a == 100 && b >= 64 && b <= 127) return true;
-		return false;
-	}
-	if (strcmp(ip, "::1") == 0 || strncmp(ip, "fe80:", 5) == 0 ||
-		strncmp(ip, "fc", 2) == 0 || strncmp(ip, "fd", 2) == 0)
+	uint8_t a[16];
+	if (inet_pton(AF_INET, ip, a) == 1) return ipv4_is_internal(a);
+	struct in6_addr v6;
+	if (inet_pton(AF_INET6, ip, &v6) != 1) return true;
+	const uint8_t *b = v6.s6_addr;
+	if (IN6_IS_ADDR_UNSPECIFIED(&v6) || IN6_IS_ADDR_LOOPBACK(&v6) ||
+		IN6_IS_ADDR_LINKLOCAL(&v6) || IN6_IS_ADDR_SITELOCAL(&v6) ||
+		IN6_IS_ADDR_MULTICAST(&v6) || (b[0] & 0xfe) == 0xfc)
 		return true;
+	if (IN6_IS_ADDR_V4MAPPED(&v6) || IN6_IS_ADDR_V4COMPAT(&v6))
+		return ipv4_is_internal(b + 12);
 	return false;
 }
 

@@ -283,6 +283,9 @@ int record_toggle(struct config *cfg, const struct args *a) {
 	overlay_stop(overlay);
 
 	seg_finish(&sc, NULL);
+	grabit_ignore_signal(SIGINT);
+	grabit_ignore_signal(SIGUSR1);
+	atomic_store(&grabit_rec_stop, 0);
 
 	bool ok = true;
 	if (aborted) {

@@ -143,7 +143,7 @@ char *grabit_translate_libre(const char *text, const char *target,
 		log_error("translate: libretranslate returned http %ld", http_code);
 		if (http_code == 403)
 			log_error("  this server wants an api key: grabit set translate.api_key <key>");
-		(void)parse_reply(resp.data);
+		free(parse_reply(resp.data));
 		goto done;
 	}
 	result = parse_reply(resp.data);

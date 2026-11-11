@@ -47,9 +47,10 @@ pid_t tray_get_pid(const struct tray_state *t) {
 	return t ? t->pid : 0;
 }
 
+static pid_t g_parent;
+
 static void signal_parent(int sig) {
-	pid_t parent = getppid();
-	if (parent > 1) kill(parent, sig);
+	if (getppid() == g_parent) kill(g_parent, sig);
 }
 
 static const char *pause_label(void) {
@@ -99,6 +100,7 @@ struct tray_state *tray_start(void) {
 	if (!t) return NULL;
 
 	grabit_ignore_signal(SIGUSR2);
+	g_parent = getpid();
 	pid_t pid = fork();
 	if (pid < 0) {
 		log_warn("tray: fork failed: %s", strerror(errno));
@@ -114,7 +116,7 @@ struct tray_state *tray_start(void) {
 	if (pid == 0) {
 		setpgid(0, 0);
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
-		if (getppid() == 1) _exit(0);
+		if (getppid() != g_parent) _exit(0);
 		install_signals();
 		sni_run(&g_tray_stop, &g_tray_layout_update, &rec_sni_cfg);
 		_exit(0);

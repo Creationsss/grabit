@@ -183,7 +183,8 @@ int grabit_ext_capture_region(struct grabit_wl_state *s, struct grabit_output *o
 					  pw, ph, stride, dst_size);
 		} else {
 			const uint8_t *src = (const uint8_t *)c.buf.map +
-								 (size_t)py * (size_t)c.sess->stride + (size_t)px * 4;
+								 (size_t)py * (size_t)c.sess->stride +
+								 (size_t)px * (size_t)pixels_conv_src_bpp(c.sess->fmt.conv);
 			pixels_copy(dst, stride, src, c.sess->stride, pw, ph,
 						c.sess->fmt.conv, false);
 			*out_w = pw;

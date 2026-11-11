@@ -188,7 +188,7 @@ int config_load(struct config *c) {
 	return 0;
 }
 
-static bool state_enabled(struct config *cfg) {
+bool cfg_state_enabled(struct config *cfg) {
 	const char *v = config_get(cfg, "save_state");
 	return !v || strcmp(v, "false") != 0;
 }
@@ -215,7 +215,7 @@ static int state_read(struct config *c) {
 }
 
 static int state_write_from(struct config *cfg) {
-	if (!state_enabled(cfg)) return 0;
+	if (!cfg_state_enabled(cfg)) return 0;
 	struct config st = {0};
 	for (size_t i = 0; i < cfg->n; i++) {
 		if (!cfg_is_state_key(cfg->kvs[i].key)) continue;
@@ -230,7 +230,7 @@ static int state_write_from(struct config *cfg) {
 }
 
 static void config_state_overlay(struct config *cfg) {
-	if (!state_enabled(cfg)) return;
+	if (!cfg_state_enabled(cfg)) return;
 	struct config st;
 	if (state_read(&st) != 0) return;
 	for (size_t i = 0; i < st.n; i++) {
@@ -251,7 +251,7 @@ int config_load_full(struct config *c) {
 }
 
 void config_state_migrate(struct config *cfg) {
-	if (!state_enabled(cfg)) return;
+	if (!cfg_state_enabled(cfg)) return;
 	struct config st;
 	int rc = state_read(&st);
 	if (rc == 0) config_free(&st);
@@ -271,7 +271,7 @@ int config_state_put(struct config *cfg, const char *const *keys,
 	for (size_t i = 0; i < n; i++) {
 		if (config_set(cfg, keys[i], vals[i]) != 0) return -1;
 	}
-	if (!state_enabled(cfg)) return 0;
+	if (!cfg_state_enabled(cfg)) return 0;
 	struct config st;
 	int rd = state_read(&st);
 	if (rd < 0) return -1;
@@ -287,7 +287,7 @@ int config_state_put(struct config *cfg, const char *const *keys,
 }
 
 int config_state_clear(struct config *cfg, const char *key) {
-	if (!state_enabled(cfg)) return 0;
+	if (!cfg_state_enabled(cfg)) return 0;
 	struct config st;
 	if (state_read(&st) != 0) return 0;
 	int rc = 0;

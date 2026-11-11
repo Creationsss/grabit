@@ -7,6 +7,7 @@
 #include "args.h"
 #include "log.h"
 #include "paths.h"
+#include "upload/internal.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -207,6 +208,13 @@ int sxcu_dir_add(const char *file_path, bool force) {
 	if (args_flag_name_taken(name)) {
 		log_error("sxcu: `%s` is a built-in grabit flag, so `--%s` could never "
 				  "select this uploader; rename it in the .sxcu file",
+				  name, name);
+		free(name);
+		return -1;
+	}
+	if (gup_find_service(name)) {
+		log_error("sxcu: `%s` is a built-in uploader, so `--%s` would never "
+				  "select this one; rename it in the .sxcu file",
 				  name, name);
 		free(name);
 		return -1;

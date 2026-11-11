@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "wm/wm.h"
 
+#include "util/util.h"
 #include "wl/toplevel.h"
 #include "wl/wl.h"
 #include "wm/aqueous.h"
@@ -24,21 +25,30 @@ enum wm_kind {
 	WM_AQUEOUS,
 };
 
+static enum wm_kind wm_from_desktop(void) {
+	if (grabit_desktop_is("niri") && grabit_niri_present()) return WM_NIRI;
+	if (grabit_desktop_is("sway") && grabit_sway_present()) return WM_SWAY;
+	if (grabit_desktop_is("Hyprland") && grabit_hyprland_present()) return WM_HYPRLAND;
+	return WM_NONE;
+}
+
+static enum wm_kind wm_probe(void) {
+	enum wm_kind k = wm_from_desktop();
+	if (k != WM_NONE) return k;
+	if (grabit_hyprland_present()) return WM_HYPRLAND;
+	if (grabit_niri_present()) return WM_NIRI;
+	if (grabit_sway_present()) return WM_SWAY;
+	if (grabit_umbriel_present()) return WM_UMBRIEL;
+	if (grabit_aqueous_present()) return WM_AQUEOUS;
+	return WM_NONE;
+}
+
 static enum wm_kind grabit_wm_detect(void) {
 	static enum wm_kind cached = WM_NONE;
 	static bool probed;
 	if (!probed) {
 		probed = true;
-		if (grabit_hyprland_present())
-			cached = WM_HYPRLAND;
-		else if (grabit_niri_present())
-			cached = WM_NIRI;
-		else if (grabit_sway_present())
-			cached = WM_SWAY;
-		else if (grabit_umbriel_present())
-			cached = WM_UMBRIEL;
-		else if (grabit_aqueous_present())
-			cached = WM_AQUEOUS;
+		cached = wm_probe();
 	}
 	return cached;
 }

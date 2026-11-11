@@ -30,7 +30,7 @@ static char *socket_path(void) {
 
 bool grabit_umbriel_present(void) {
 	char *path = socket_path();
-	bool ok = path && access(path, F_OK) == 0;
+	bool ok = gwm_sock_exists(path);
 	free(path);
 	return ok;
 }

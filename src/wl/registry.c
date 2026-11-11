@@ -89,9 +89,9 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 	}
 
 	if (strcmp(interface, zwlr_screencopy_manager_v1_interface.name) == 0) {
-		uint32_t v = version > 3 ? 3 : version;
+		if (version < 3) return;
 		s->screencopy_manager = wl_registry_bind(
-			reg, name, &zwlr_screencopy_manager_v1_interface, v);
+			reg, name, &zwlr_screencopy_manager_v1_interface, 3);
 		return;
 	}
 

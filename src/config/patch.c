@@ -198,7 +198,7 @@ static bool emit_kv(struct grabit_buf *out, const char *lhs, size_t lhs_len,
 
 static bool key_matches(const char *full, const char *target, bool prefix) {
 	return prefix ? strncmp(full, target, strlen(target)) == 0
-				  : strcmp(full, target) == 0;
+				  : strcmp(cfg_canonical_key(full), target) == 0;
 }
 
 static int split_lines(char *text, size_t len, struct line **out, size_t *n_out) {
@@ -255,6 +255,9 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 	bool found = false;
 	size_t insert_line = 0;
 	bool have_insert = (want_section[0] == '\0');
+	size_t want_len = strlen(want_section);
+	size_t dotted_line = 0;
+	const char *dotted_rel = NULL;
 	{
 		char section[256] = {0};
 		bool in_want = have_insert;
@@ -268,6 +271,12 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 			char full[512];
 			bool is_kv = line_key(&lines[i], section, full, sizeof full);
 			if (is_kv && key_matches(full, key, prefix)) found = true;
+			size_t sl = strlen(section);
+			if (is_kv && !in_want && want_len > 0 && sl < want_len &&
+				strncmp(full, want_section, want_len) == 0 && full[want_len] == '.') {
+				dotted_rel = sl > 0 ? key + sl + 1 : key;
+				dotted_line = i + 1;
+			}
 			if (in_want && (is_header || is_kv)) {
 				insert_line = i + 1;
 				have_insert = true;
@@ -276,21 +285,25 @@ int cfg_file_edit(const char *path, const char *key, const char *value, bool pre
 	}
 
 	bool need_new = value && !found;
-	if (need_new && !have_insert) insert_line = n_lines;
+	bool use_dotted = !have_insert && dotted_rel;
+	if (need_new && !have_insert) insert_line = use_dotted ? dotted_line : n_lines;
 
 	struct grabit_buf out = {0};
 	char section[256] = {0};
 
 	for (size_t i = 0; i <= n_lines; i++) {
 		if (need_new && i == insert_line) {
-			if (!have_insert) {
+			if (!have_insert && !use_dotted) {
 				if (out.len > 0 && out.data[out.len - 1] != '\n')
 					grabit_buf_putc(&out, '\n');
 				grabit_buf_putc(&out, '\n');
 				if (gcfg_emit_section(&out, want_section, strlen(want_section)) != 0)
 					goto oom;
 			}
-			if (!emit_kv(&out, NULL, 0, key, value, false, NULL, 0)) goto oom;
+			if (use_dotted && grabit_buf_puts(&out, dotted_rel) != 0) goto oom;
+			if (!emit_kv(&out, use_dotted ? " " : NULL, use_dotted, key, value,
+						 false, NULL, 0))
+				goto oom;
 		}
 		if (i == n_lines) break;
 

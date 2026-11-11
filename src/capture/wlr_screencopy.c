@@ -43,10 +43,11 @@ static void sc_buffer(void *data, struct zwlr_screencopy_frame_v1 *f,
 	log_debug("wlr-screencopy: buffer format=%s (0x%08x) %ux%u stride=%u",
 			  fname ? fname : "?", format, w, h, stride);
 
+	if (c->buf.buffer) return;
 	bool had_format = c->fmt.chosen;
 	pixels_fmt_offer(&c->fmt, format);
 
-	if (c->buf.buffer || had_format || !c->fmt.chosen) return;
+	if (had_format || !c->fmt.chosen) return;
 
 	uint32_t bpp = (uint32_t)pixels_conv_src_bpp(c->fmt.conv);
 	if (w == 0 || h == 0 || w > GRABIT_MAX_PIXEL_SIDE || h > GRABIT_MAX_PIXEL_SIDE ||

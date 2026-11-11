@@ -55,7 +55,7 @@ static int ipc_write(int fd, const void *buf, size_t len, int64_t deadline) {
 	const char *p = buf;
 	while (len > 0) {
 		if (wait_fd(fd, POLLOUT, deadline) != 0) return -1;
-		ssize_t w = write(fd, p, len);
+		ssize_t w = send(fd, p, len, MSG_NOSIGNAL);
 		if (w < 0) {
 			if (errno == EINTR || errno == EAGAIN) continue;
 			return -1;
@@ -211,4 +211,8 @@ int gwm_ipc_query_i3(const char *path, uint32_t type,
 	}
 	*root_out = root;
 	return 0;
+}
+
+bool gwm_sock_exists(const char *path) {
+	return path && path[0] && access(path, F_OK) == 0;
 }

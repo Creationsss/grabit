@@ -137,7 +137,12 @@ static void on_process(void *data) {
 	void *frame_buf = NULL;
 
 	if (c->ring && has_pixels && !atomic_load(&c->paused)) {
-		if ((size_t)c->stride * (size_t)c->height > c->pool->buf_size) {
+		int32_t src_stride = d->chunk->stride > 0 ? d->chunk->stride : c->stride;
+		size_t row = (size_t)c->width * (size_t)pixels_conv_src_bpp(c->conv);
+		size_t off = d->chunk->offset;
+		if ((size_t)c->stride * (size_t)c->height > c->pool->buf_size ||
+			(size_t)src_stride < row || off > d->maxsize ||
+			(size_t)src_stride * (size_t)(c->height - 1) + row > d->maxsize - off) {
 			ring_record_drop(c->ring);
 			pw_stream_queue_buffer(c->stream, pb);
 			return;
@@ -146,9 +151,7 @@ static void on_process(void *data) {
 		if (!frame_buf) {
 			ring_record_drop(c->ring);
 		} else {
-			int32_t src_stride = d->chunk->stride > 0 ? d->chunk->stride : c->stride;
-			pixels_copy(frame_buf, c->stride,
-						(const uint8_t *)d->data + d->chunk->offset, src_stride,
+			pixels_copy(frame_buf, c->stride, (const uint8_t *)d->data + off, src_stride,
 						c->width, c->height, c->conv, false);
 			rec_round_corners_buf(frame_buf, c->width, c->height, c->stride,
 								  c->corner_radius);

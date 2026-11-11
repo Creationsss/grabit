@@ -31,12 +31,7 @@ int write_pid_file(void) {
 }
 
 void unlink_pid_file(void) {
-	if (g_pid_fd >= 0) {
-		close(g_pid_fd);
-		g_pid_fd = -1;
-	}
-	const char *p = pid_file_path();
-	if (p) unlink(p);
+	grabit_lock_release(&g_pid_fd, pid_file_path());
 }
 
 static int signal_running_recording(int sig, const char *what) {

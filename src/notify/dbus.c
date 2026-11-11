@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <dbus/dbus.h>
 
@@ -122,17 +123,21 @@ static bool pack_notify_args(DBusMessage *msg, const struct notify_opts *o) {
 }
 
 static DBusConnection *g_bus;
+static pid_t g_bus_pid;
 
 void notify_finish(void) {
 	if (!g_bus) return;
-	dbus_connection_close(g_bus);
-	dbus_connection_unref(g_bus);
+	if (g_bus_pid == getpid()) {
+		dbus_connection_close(g_bus);
+		dbus_connection_unref(g_bus);
+	}
 	g_bus = NULL;
 }
 
 static DBusConnection *notify_bus(DBusError *err) {
-	if (g_bus) return g_bus;
+	if (g_bus && g_bus_pid == getpid()) return g_bus;
 	g_bus = dbus_bus_get_private(DBUS_BUS_SESSION, err);
+	g_bus_pid = getpid();
 	if (g_bus) dbus_connection_set_exit_on_disconnect(g_bus, FALSE);
 	return g_bus;
 }

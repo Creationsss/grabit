@@ -47,45 +47,45 @@ int pin_ipc_open(struct pin_state *st) {
 	char dir[200];
 	if (grabit_runtime_dir(dir, sizeof dir) != 0) return -1;
 
-	if (pin_path(st->ipc_path, sizeof st->ipc_path, dir, getpid(),
-				 PIN_SOCK_SUFFIX) != 0)
-		return -1;
-
-	unlink(st->ipc_path);
-
-	int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (fd < 0) {
-		log_debug("pin: socket: %s", strerror(errno));
-		return -1;
-	}
-	set_cloexec_nonblock(fd);
-
 	struct sockaddr_un addr = {0};
 	addr.sun_family = AF_UNIX;
-	if (strlen(st->ipc_path) >= sizeof addr.sun_path) {
-		close(fd);
+	if (pin_path(st->ipc_path, sizeof st->ipc_path, dir, getpid(),
+				 PIN_SOCK_SUFFIX) != 0 ||
+		strlen(st->ipc_path) >= sizeof addr.sun_path) {
+		st->ipc_path[0] = '\0';
 		return -1;
 	}
 	memcpy(addr.sun_path, st->ipc_path, strlen(st->ipc_path) + 1);
-
-	if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
-		log_error("pin: bind %s: %s", st->ipc_path, strerror(errno));
-		close(fd);
-		return -1;
-	}
-	chmod(st->ipc_path, 0600);
+	unlink(st->ipc_path);
 
 	if (pin_path(st->ipc_lock_path, sizeof st->ipc_lock_path, dir, getpid(),
 				 PIN_LOCK_SUFFIX) != 0 ||
 		(st->ipc_lock_fd = grabit_lock_acquire(st->ipc_lock_path)) < 0) {
-		close(fd);
-		unlink(st->ipc_path);
 		st->ipc_path[0] = '\0';
 		st->ipc_lock_path[0] = '\0';
 		return -1;
 	}
+
+	int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		log_debug("pin: socket: %s", strerror(errno));
+		goto fail;
+	}
+	set_cloexec_nonblock(fd);
+
+	if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+		log_error("pin: bind %s: %s", st->ipc_path, strerror(errno));
+		close(fd);
+		goto fail;
+	}
+	chmod(st->ipc_path, 0600);
 	st->ipc_fd = fd;
 	return 0;
+
+fail:
+	st->ipc_path[0] = '\0';
+	pin_ipc_close(st);
+	return -1;
 }
 
 void pin_ipc_close(struct pin_state *st) {
@@ -93,14 +93,8 @@ void pin_ipc_close(struct pin_state *st) {
 		close(st->ipc_fd);
 		st->ipc_fd = -1;
 	}
-	if (st->ipc_lock_fd >= 0) {
-		close(st->ipc_lock_fd);
-		st->ipc_lock_fd = -1;
-	}
-	if (st->ipc_lock_path[0]) {
-		unlink(st->ipc_lock_path);
-		st->ipc_lock_path[0] = '\0';
-	}
+	grabit_lock_release(&st->ipc_lock_fd, st->ipc_lock_path);
+	st->ipc_lock_path[0] = '\0';
 	if (st->ipc_path[0]) {
 		unlink(st->ipc_path);
 		st->ipc_path[0] = '\0';

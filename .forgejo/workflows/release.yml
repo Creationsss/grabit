@@ -11,35 +11,28 @@ env:
     libwayland-dev libwayland-bin
     libcairo2-dev libxkbcommon-dev libmagic-dev
     libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+  FULL_DEPS: libjpeg-dev libwebp-dev libpipewire-0.3-dev
 
 jobs:
-  package-linux-x86_64:
+  create-release:
     runs-on: ubuntu-latest
     container: debian:bookworm-slim
+    outputs:
+      id: ${{ steps.create.outputs.id }}
     steps:
       - name: install deps
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates git nodejs jq curl $APT_DEPS
-      - uses: actions/checkout@v4
-      - name: build stripped release
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: |
-          make clean
-          make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
-          ./build/grabit --version
-          mv build/grabit grabit-x86_64-linux
-          sha256sum grabit-x86_64-linux | tee grabit-x86_64-linux.sha256
-          ldd grabit-x86_64-linux
-      - name: create forgejo release + upload assets
+          apt-get install -qq -y --no-install-recommends ca-certificates jq curl
+      - name: create draft release
+        id: create
         env:
           TAG: ${{ github.ref_name }}
           TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
           SERVER: ${{ github.server_url }}
           REPO: ${{ github.repository }}
         run: |
-          set -euo pipefail
+          set -eu
           RESPONSE=$(curl -sS -X POST \
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
@@ -50,7 +43,76 @@ jobs:
             echo "release create failed: $RESPONSE" >&2
             exit 1
           fi
-          for f in grabit-x86_64-linux grabit-x86_64-linux.sha256; do
+          echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+  package-linux-x86_64:
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    container: ${{ matrix.image }}
+    strategy:
+      matrix:
+        include:
+          - image: debian:bookworm-slim
+            prefix: grabit
+            hdr: false
+          - image: debian:trixie-slim
+            prefix: grabit-hdr
+            hdr: true
+    steps:
+      - name: install deps
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends ca-certificates git nodejs curl $APT_DEPS
+      - uses: actions/checkout@v4
+      - name: build stripped releases
+        env:
+          VERSION: ${{ github.ref_name }}
+          PREFIX: ${{ matrix.prefix }}
+          HDR: ${{ matrix.hdr }}
+        run: |
+          set -eu
+          png_flags=$(pkg-config --cflags --libs libpng)
+          has_hdr=false
+          if cc tools/png_hdr_probe.c $png_flags -o /dev/null 2>/dev/null; then has_hdr=true; fi
+          if [ "$has_hdr" != "$HDR" ]; then
+            echo "libpng hdr support is $has_hdr here but this build expects $HDR" >&2
+            exit 1
+          fi
+          links() { readelf -d "$1" | grep NEEDED | grep -q "$2"; }
+          build() {
+            make clean
+            make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
+            ./build/grabit --version
+            mv build/grabit "$1"
+            sha256sum "$1" | tee "$1.sha256"
+            readelf -d "$1" | grep NEEDED
+          }
+          build "$PREFIX-x86_64-linux"
+          for lib in libjpeg libwebp libpipewire; do
+            if links "$PREFIX-x86_64-linux" "$lib"; then
+              echo "$PREFIX-x86_64-linux links $lib but should not" >&2
+              exit 1
+            fi
+          done
+          apt-get install -qq -y --no-install-recommends $FULL_DEPS
+          build "$PREFIX-full-x86_64-linux"
+          for lib in libjpeg libwebp libpipewire; do
+            if ! links "$PREFIX-full-x86_64-linux" "$lib"; then
+              echo "$PREFIX-full-x86_64-linux is missing $lib" >&2
+              exit 1
+            fi
+          done
+      - name: upload assets
+        env:
+          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.create-release.outputs.id }}
+          PREFIX: ${{ matrix.prefix }}
+        run: |
+          set -eu
+          for f in "$PREFIX-x86_64-linux" "$PREFIX-x86_64-linux.sha256" \
+                   "$PREFIX-full-x86_64-linux" "$PREFIX-full-x86_64-linux.sha256"; do
             curl --fail-with-body -sS -X POST \
               -H "Authorization: token $TOKEN" \
               -F "attachment=@$f" \

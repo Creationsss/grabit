@@ -27,6 +27,19 @@ nix run git+https://heliopolis.live/creations/grabit.git -- --help
 ### Devario
 `grabit` in the [devario-core](https://repo.seafoam-labs.org/package/devario-core/x86_64/grabit) repository.
 
+### prebuilt binary
+
+each release ships four x86_64 binaries:
+
+| file | adds | also needs |
+|---|---|---|
+| `grabit-x86_64-linux` | | glibc 2.36 |
+| `grabit-full-x86_64-linux` | jpeg/webp output, kde/gnome recording | glibc 2.36, `libjpeg`, `libwebp`, `libpipewire-0.3` |
+| `grabit-hdr-x86_64-linux` | hdr capture | glibc 2.41, `libpng` 1.6.45 |
+| `grabit-hdr-full-x86_64-linux` | both of the above | glibc 2.41, `libpng` 1.6.45, `libjpeg`, `libwebp`, `libpipewire-0.3` |
+
+all of them need the base libraries listed under build deps.
+
 ### from source
 
 ```sh

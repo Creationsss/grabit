@@ -14,33 +14,74 @@ env:
     libwayland-dev libwayland-bin
     libcairo2-dev libxkbcommon-dev libmagic-dev
     libcurl4-openssl-dev libjson-c-dev libdbus-1-dev
+  FULL_DEPS: libjpeg-dev libwebp-dev libpipewire-0.3-dev
 
 jobs:
   package-linux-x86_64:
     runs-on: ubuntu-latest
-    container: debian:bookworm-slim
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: debian:bookworm-slim
+            prefix: grabit
+            hdr: false
+          - image: debian:trixie-slim
+            prefix: grabit-hdr
+            hdr: true
     steps:
       - name: install deps
         run: |
           apt-get update -qq
           apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
       - uses: actions/checkout@v6
-      - name: build stripped release
+      - name: build stripped releases
         env:
           VERSION: ${{ github.ref_name }}
+          PREFIX: ${{ matrix.prefix }}
+          HDR: ${{ matrix.hdr }}
         run: |
-          make clean
-          make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
-          ./build/grabit --version
-          mv build/grabit grabit-x86_64-linux
-          sha256sum grabit-x86_64-linux | tee grabit-x86_64-linux.sha256
-          ldd grabit-x86_64-linux
+          set -eu
+          png_flags=$(pkg-config --cflags --libs libpng)
+          has_hdr=false
+          if cc tools/png_hdr_probe.c $png_flags -o /dev/null 2>/dev/null; then has_hdr=true; fi
+          if [ "$has_hdr" != "$HDR" ]; then
+            echo "libpng hdr support is $has_hdr here but this build expects $HDR" >&2
+            exit 1
+          fi
+          links() { readelf -d "$1" | grep NEEDED | grep -q "$2"; }
+          build() {
+            make clean
+            make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
+            ./build/grabit --version
+            mv build/grabit "$1"
+            sha256sum "$1" | tee "$1.sha256"
+            readelf -d "$1" | grep NEEDED
+          }
+          build "$PREFIX-x86_64-linux"
+          for lib in libjpeg libwebp libpipewire; do
+            if links "$PREFIX-x86_64-linux" "$lib"; then
+              echo "$PREFIX-x86_64-linux links $lib but should not" >&2
+              exit 1
+            fi
+          done
+          apt-get install -qq -y --no-install-recommends $FULL_DEPS
+          build "$PREFIX-full-x86_64-linux"
+          for lib in libjpeg libwebp libpipewire; do
+            if ! links "$PREFIX-full-x86_64-linux" "$lib"; then
+              echo "$PREFIX-full-x86_64-linux is missing $lib" >&2
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@v7
         with:
-          name: grabit-x86_64-linux
+          name: ${{ matrix.prefix }}-x86_64-linux
           path: |
-            grabit-x86_64-linux
-            grabit-x86_64-linux.sha256
+            ${{ matrix.prefix }}-x86_64-linux
+            ${{ matrix.prefix }}-x86_64-linux.sha256
+            ${{ matrix.prefix }}-full-x86_64-linux
+            ${{ matrix.prefix }}-full-x86_64-linux.sha256
           retention-days: 7
 
   publish:
@@ -49,12 +90,20 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: grabit-x86_64-linux
+          pattern: grabit*-x86_64-linux
+          merge-multiple: true
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           draft: true
+          fail_on_unmatched_files: true
           files: |
             grabit-x86_64-linux
             grabit-x86_64-linux.sha256
+            grabit-full-x86_64-linux
+            grabit-full-x86_64-linux.sha256
+            grabit-hdr-x86_64-linux
+            grabit-hdr-x86_64-linux.sha256
+            grabit-hdr-full-x86_64-linux
+            grabit-hdr-full-x86_64-linux.sha256

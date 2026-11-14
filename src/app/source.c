@@ -202,9 +202,10 @@ static void load_edit_choices(struct config *cfg, uint32_t *color, int32_t *widt
 }
 
 static char *build_capture_path(const struct args *a, struct config *cfg,
-								enum action eff, bool *is_temp,
+								enum action eff, bool *is_temp, bool *existed,
 								const struct grabit_save_opts *opts,
 								const struct template_ctx *name) {
+	*existed = false;
 	bool save;
 	if (eff == ACTION_OUTPUT) {
 		save = true;
@@ -217,6 +218,7 @@ static char *build_capture_path(const struct args *a, struct config *cfg,
 	char *path;
 	if (a->out_path) {
 		path = paths_output_at(a->out_path);
+		*existed = !*is_temp && path && access(path, F_OK) == 0;
 	} else {
 		enum paths_dest dest = save ? PATHS_DEST_PICTURES : PATHS_DEST_TEMP;
 		const char *ext = grabit_format_extension(opts->format);
@@ -233,16 +235,17 @@ struct path_builder {
 	bool *is_temp;
 	const struct grabit_save_opts *opts;
 	const struct template_ctx *name;
+	bool existed;
 };
 
 static char *build_selected_path(void *ud, const struct region_snap *snap) {
-	const struct path_builder *b = ud;
+	struct path_builder *b = ud;
 	struct template_ctx ctx = *b->name;
 	if (snap->snapped) {
 		ctx.window_class = snap->window_class;
 		ctx.window_title = snap->title;
 	}
-	return build_capture_path(b->a, b->cfg, b->eff, b->is_temp, b->opts, &ctx);
+	return build_capture_path(b->a, b->cfg, b->eff, b->is_temp, &b->existed, b->opts, &ctx);
 }
 
 static char *capture_to_file(const struct args *a, struct config *cfg, enum action eff,
@@ -300,7 +303,8 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 
 	if (plan == REGION_PLAN_NO_WINDOW) {
 		grabit_wl_finish(&s);
-		char *path = build_capture_path(a, cfg, eff, is_temp, &opts, name);
+		bool existed;
+		char *path = build_capture_path(a, cfg, eff, is_temp, &existed, &opts, name);
 		if (!path) {
 			notify_send(&(struct notify_opts){
 				.summary = "Capture failed",
@@ -309,7 +313,6 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 			});
 			return NULL;
 		}
-		bool existed = !*is_temp && a->out_path && access(path, F_OK) == 0;
 		if (capture_wm_window(cfg, cursor, &opts, path) != 0) {
 			log_error("--window: %s cannot capture the active window",
 					  grabit_wm_current_name());
@@ -335,7 +338,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 
 	struct rect got = {0};
 	char *path = NULL;
-	struct path_builder pb = {a, cfg, eff, is_temp, &opts, name};
+	struct path_builder pb = {a, cfg, eff, is_temp, &opts, name, false};
 	struct freeze_dest dest = {build_selected_path, &pb};
 	int rc = grabit_freeze_capture(&s, cfg, &dest, &path, &opts, &got, a->edit, cursor,
 								   a->edit ? &edit_color : NULL,
@@ -355,7 +358,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 		(void)fail_with(status, rc == GRABIT_CAPTURE_CANCELLED ? GRABIT_EXIT_CANCELLED
 															   : GRABIT_EXIT_FAIL);
 		return discard_capture(path, rc == GRABIT_CAPTURE_CANCELLED ? NULL : "Capture failed",
-							   false);
+							   pb.existed);
 	}
 
 	log_debug("captured to %s", path);
@@ -392,14 +395,14 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 		}
 		struct grabit_save_opts opts;
 		if (gapp_resolve_save_opts(a, cfg, &opts) != 0) return NULL;
-		char *path = build_capture_path(a, cfg, eff, is_temp, &opts, NULL);
+		bool existed;
+		char *path = build_capture_path(a, cfg, eff, is_temp, &existed, &opts, NULL);
 		if (!path) return NULL;
 
 		uint32_t edit_color;
 		int32_t edit_width, edit_tool;
 		load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
 		bool edit_dirty = false;
-		bool existed = !*is_temp && a->out_path && access(path, F_OK) == 0;
 		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, &edit_color,
 									  &edit_width, &edit_tool, &edit_dirty, out_rect);
 		struct edit_choices ec = {edit_color, edit_width, edit_tool};

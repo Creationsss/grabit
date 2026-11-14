@@ -6,11 +6,10 @@
 
 #include "log.h"
 #include "ui_theme.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
-#include <errno.h>
 #include <math.h>
-#include <string.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
@@ -129,11 +128,10 @@ static void press_event(struct pin_state *st) {
 
 	if (st->clickable) {
 		if (st->click_open && st->click_open[0]) {
-			pid_t cpid = fork();
-			if (cpid < 0) {
-				log_warn("pin: fork for xdg-open failed (%s)", strerror(errno));
-			} else if (cpid == 0) {
-				setsid();
+			int rc = grabit_fork_detached();
+			if (rc < 0) {
+				log_warn("pin: could not start xdg-open");
+			} else if (rc == 0) {
 				execlp("xdg-open", "xdg-open", st->click_open, (char *)NULL);
 				_exit(127);
 			}

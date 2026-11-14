@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #define CLIP_WRITE_STALL_MS 10000
@@ -167,9 +166,6 @@ static void clip_close_inherited_fds(int keep_fd) {
 
 __attribute__((noreturn)) static void clip_child(const struct clip_payload *pay,
 												 int ready_fd) {
-	setsid();
-	pid_t gc = fork();
-	if (gc != 0) _exit(gc < 0 ? 1 : 0);
 	log_file_close();
 	clip_close_inherited_fds(ready_fd);
 
@@ -264,21 +260,19 @@ int clipboard_send_bytes(const void *bytes, size_t size,
 		.n_mimes = n_mimes,
 	};
 
-	pid_t pid = fork();
-	if (pid < 0) {
-		log_error("fork: %s", strerror(errno));
+	int rc = grabit_fork_detached();
+	if (rc < 0) {
+		log_error("clipboard: could not start the clipboard server");
 		if (have_pipe) {
 			close(ready[0]);
 			close(ready[1]);
 		}
 		return -1;
 	}
-	if (pid == 0) {
+	if (rc == 0) {
 		if (have_pipe) close(ready[0]);
 		clip_child(&pay, have_pipe ? ready[1] : -1);
 	}
-
-	grabit_waitpid_intr(pid, NULL);
 
 	if (!have_pipe) return 0;
 

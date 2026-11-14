@@ -13,7 +13,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 						  const struct freeze_dest *dest, char **out_path,
@@ -33,7 +32,6 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 	struct png_slice *slices = NULL;
 	struct annotation_list annos = {0};
 	struct region_snap snap = {0};
-	char *path = NULL;
 
 	struct rect r;
 	bool forced_only = forced_region && !annotate;
@@ -155,19 +153,15 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 		eff_opts.corner_radius = 0;
 	if (snap.snapped && n_snap_rects == 0)
 		eff_opts.corner_radius = region_window_outer_radius(cfg, &r);
-	path = dest->build(dest->ud, &snap);
-	if (!path) {
+	*out_path = dest->build(dest->ud, &snap);
+	if (!*out_path) {
 		log_error("freeze: could not build the output path");
 		goto cleanup;
 	}
 	rc = grabit_save_composite_annotated(dst_w, dst_h, slices, n_slices, &r,
 										 max_ratio, annos.n > 0 ? &annos : NULL,
-										 &eff_opts, path);
-	if (rc == 0) {
-		*out_path = path;
-		path = NULL;
-		if (out_rect) *out_rect = r;
-	}
+										 &eff_opts, *out_path);
+	if (rc == 0 && out_rect) *out_rect = r;
 
 cleanup:
 	free(want);
@@ -179,9 +173,5 @@ cleanup:
 	free(frozen);
 	annotation_list_free(&annos);
 	region_snap_free(&snap);
-	if (path) {
-		unlink(path);
-		free(path);
-	}
 	return rc;
 }

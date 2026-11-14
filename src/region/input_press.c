@@ -188,7 +188,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 	if (region_editing(st) && st->eyedropper_mode &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		uint32_t picked = 0;
-		if (ginp_eyedropper_sample(st, &picked))
+		if (ginp_sample_color(st->cursor_on, st->eyedropper_edits, &picked))
 			region_apply_color(st, picked, true);
 		st->eyedropper_mode = false;
 		ginp_refresh_cursor(st);

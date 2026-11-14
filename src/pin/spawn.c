@@ -106,18 +106,6 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 	}
 
 	int rc = grabit_fork_detached();
-	if (rc == -1) {
-		log_error("pin: fork: %s", strerror(errno));
-		if (sync_p[0] >= 0) close(sync_p[0]);
-		if (sync_p[1] >= 0) close(sync_p[1]);
-		cairo_surface_destroy(img);
-		notify_send(&(struct notify_opts){
-			.summary = "Pin failed",
-			.body = "could not fork pin process",
-			.force = true,
-		});
-		return -1;
-	}
 	if (rc == 0) {
 		if (sync_p[0] >= 0) close(sync_p[0]);
 		if (transient) {
@@ -148,11 +136,11 @@ static int pin_spawn_common(const char *path, const struct rect *r,
 		close(sync_p[0]);
 	}
 	cairo_surface_destroy(img);
-	if (rc != 1) {
-		log_error("pin: detach failed");
+	if (rc < 0) {
+		log_error("pin: could not start the pin process");
 		notify_send(&(struct notify_opts){
 			.summary = "Pin failed",
-			.body = "could not detach pin process",
+			.body = "could not start the pin process",
 			.force = true,
 		});
 		return -1;

@@ -30,6 +30,8 @@ static const struct example TOP_EXAMPLES[] = {
 	{"filename_preset", "date|random|uuid|timestamp", "date"},
 	{"service", "zipline|nest|fakecrime|ez|guns|pixelvault", NULL},
 	{"format", "png|jpeg|webp", "png"},
+	{"region.magnifier_edits", "true|false", "true"},
+	{"edit.eyedropper_edits", "true|false", "true"},
 };
 static const size_t TOP_EXAMPLES_N = sizeof TOP_EXAMPLES / sizeof TOP_EXAMPLES[0];
 
@@ -140,11 +142,6 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	if (strcmp(key, "region.show_coords") == 0) {
 		*example_out = "true|false";
 		*def_out = "false";
-		return 0;
-	}
-	if (strcmp(key, "region.magnifier_edits") == 0) {
-		*example_out = "true|false";
-		*def_out = "true";
 		return 0;
 	}
 	if (strcmp(key, "capture.delay_secs") == 0) {

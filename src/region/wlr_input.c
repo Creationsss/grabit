@@ -37,17 +37,6 @@ bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_
 	return *fx >= 0 && *fy >= 0 && *fx < img->width && *fy < img->height;
 }
 
-bool ginp_eyedropper_sample(struct ro_state *st, uint32_t *out_color) {
-	if (!st->cursor_on) return false;
-	int32_t px, py;
-	if (!ginp_frozen_px(st, st->cursor_on, &px, &py)) return false;
-	const struct image *img = &st->frozen[st->cursor_on->idx];
-	const uint8_t *row = (const uint8_t *)img->bytes + (size_t)py * (size_t)img->stride;
-	uint32_t pixel = ((const uint32_t *)row)[px];
-	*out_color = pixel & 0xFFFFFFu;
-	return true;
-}
-
 int ginp_anno_hit_index(const struct ro_state *st, int32_t x, int32_t y) {
 	if (!st->out_annos) return -1;
 	for (size_t i = st->out_annos->n; i > 0; i--) {

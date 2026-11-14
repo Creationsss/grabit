@@ -57,7 +57,7 @@ static int write_tray_pid(void) {
 
 static void spawn_grabit(const char *const *args) {
 	int rc = grabit_fork_detached();
-	if (rc == -1) log_warn("tray: fork: %s", strerror(errno));
+	if (rc < 0) log_warn("tray: could not start grabit");
 	if (rc != 0) return;
 	char self[1024];
 	bool have_self = grabit_self_exe(self, sizeof self) == 0;
@@ -162,8 +162,8 @@ int tray_app_run(struct config *cfg) {
 	}
 
 	int rc = grabit_fork_detached();
-	if (rc == -1) {
-		log_error("tray: fork: %s", strerror(errno));
+	if (rc < 0) {
+		log_error("tray: could not start the tray process");
 		return 1;
 	}
 	if (rc != 0) {

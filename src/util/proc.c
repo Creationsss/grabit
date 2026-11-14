@@ -226,6 +226,6 @@ int grabit_fork_detached(void) {
 	}
 	int status = 0;
 	if (grabit_waitpid_intr(pid, &status) != 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
-		return -2;
+		return -1;
 	return 1;
 }

@@ -291,27 +291,31 @@ char *paths_build_output(struct config *cfg, const char *cli_template,
 	}
 
 	char *path = NULL;
-	if (grabit_xasprintf(&path, "%s/%s%s", dir, clean, extension) != 0) {
-		free(dir);
-		free(clean);
-		return NULL;
-	}
-	if (access(path, F_OK) == 0) {
-		for (int n = 1; n < 10000; n++) {
-			char *candidate = NULL;
-			if (grabit_xasprintf(&candidate, "%s/%s-%d%s",
-								 dir, clean, n, extension) != 0) {
-				break;
-			}
-			if (access(candidate, F_OK) != 0) {
-				free(path);
-				path = candidate;
-				break;
-			}
-			free(candidate);
+	for (int n = 0; n < 10000; n++) {
+		char sfx[16] = "";
+		if (n) snprintf(sfx, sizeof sfx, "-%d", n);
+		char *candidate = NULL;
+		if (grabit_xasprintf(&candidate, "%s/%s%s%s", dir, clean, sfx, extension) != 0) break;
+		int fd = open(candidate, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
+		if (fd >= 0) {
+			close(fd);
+			path = candidate;
+			break;
 		}
+		if (errno != EEXIST) {
+			log_error("create %s: %s", candidate, strerror(errno));
+			free(candidate);
+			break;
+		}
+		free(candidate);
 	}
 	free(dir);
 	free(clean);
 	return path;
+}
+
+void paths_release_reserved(const char *path) {
+	struct stat st;
+	if (path && lstat(path, &st) == 0 && S_ISREG(st.st_mode) && st.st_size == 0)
+		(void)unlink(path);
 }

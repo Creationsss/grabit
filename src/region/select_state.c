@@ -48,6 +48,8 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 		if (v && strcmp(v, "true") == 0) st->show_coords = true;
 		v = config_get(cfg, "region.magnifier_edits");
 		st->magnifier_edits = !(v && strcmp(v, "false") == 0);
+		v = config_get(cfg, "edit.eyedropper_edits");
+		st->eyedropper_edits = !(v && strcmp(v, "false") == 0);
 		st->current_style =
 			(enum stroke_style)edit_line_style_from_str(config_get(cfg, "edit.line_style"));
 		v = config_get(cfg, "edit.smooth");

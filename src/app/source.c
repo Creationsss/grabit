@@ -214,10 +214,16 @@ static char *build_capture_path(const struct args *a, struct config *cfg,
 		save = config_also_save(cfg);
 	}
 	*is_temp = !save;
-	if (a->out_path) return paths_output_at(a->out_path);
-	enum paths_dest dest = save ? PATHS_DEST_PICTURES : PATHS_DEST_TEMP;
-	const char *ext = grabit_format_extension(opts->format);
-	return paths_build_output(cfg, a->filename_tpl, ext, dest, name);
+	char *path;
+	if (a->out_path) {
+		path = paths_output_at(a->out_path);
+	} else {
+		enum paths_dest dest = save ? PATHS_DEST_PICTURES : PATHS_DEST_TEMP;
+		const char *ext = grabit_format_extension(opts->format);
+		path = paths_build_output(cfg, a->filename_tpl, ext, dest, name);
+	}
+	if (path && *is_temp) register_tmpfile(path);
+	return path;
 }
 
 struct path_builder {
@@ -236,9 +242,7 @@ static char *build_selected_path(void *ud, const struct region_snap *snap) {
 		ctx.window_class = snap->window_class;
 		ctx.window_title = snap->title;
 	}
-	char *path = build_capture_path(b->a, b->cfg, b->eff, b->is_temp, b->opts, &ctx);
-	if (path && *b->is_temp) register_tmpfile(path);
-	return path;
+	return build_capture_path(b->a, b->cfg, b->eff, b->is_temp, b->opts, &ctx);
 }
 
 static char *capture_to_file(const struct args *a, struct config *cfg, enum action eff,
@@ -290,25 +294,22 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 	}
 	if (plan == REGION_PLAN_FIXED) forced = &forced_rect;
 
-	char *path = build_capture_path(a, cfg, eff, is_temp, &opts, name);
-	if (!path) {
-		grabit_wl_finish(&s);
-		notify_send(&(struct notify_opts){
-			.summary = "Capture failed",
-			.body = "could not build output path",
-			.force = true,
-		});
-		return NULL;
-	}
-
 	const char *cursor_cfg = config_get(cfg, "capture.cursor");
 	bool cursor = a->cursor || !cursor_cfg || strcmp(cursor_cfg, "false") != 0;
 	grabit_sleep_secs(a->delay_secs);
 
 	if (plan == REGION_PLAN_NO_WINDOW) {
-		if (*is_temp) register_tmpfile(path);
 		grabit_wl_finish(&s);
-		bool existed = !*is_temp && access(path, F_OK) == 0;
+		char *path = build_capture_path(a, cfg, eff, is_temp, &opts, name);
+		if (!path) {
+			notify_send(&(struct notify_opts){
+				.summary = "Capture failed",
+				.body = "could not build output path",
+				.force = true,
+			});
+			return NULL;
+		}
+		bool existed = !*is_temp && a->out_path && access(path, F_OK) == 0;
 		if (capture_wm_window(cfg, cursor, &opts, path) != 0) {
 			log_error("--window: %s cannot capture the active window",
 					  grabit_wm_current_name());
@@ -333,8 +334,7 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 	bool edit_dirty = false;
 
 	struct rect got = {0};
-	free(path);
-	path = NULL;
+	char *path = NULL;
 	struct path_builder pb = {a, cfg, eff, is_temp, &opts, name};
 	struct freeze_dest dest = {build_selected_path, &pb};
 	int rc = grabit_freeze_capture(&s, cfg, &dest, &path, &opts, &got, a->edit, cursor,
@@ -394,13 +394,12 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 		if (gapp_resolve_save_opts(a, cfg, &opts) != 0) return NULL;
 		char *path = build_capture_path(a, cfg, eff, is_temp, &opts, NULL);
 		if (!path) return NULL;
-		if (*is_temp) register_tmpfile(path);
 
 		uint32_t edit_color;
 		int32_t edit_width, edit_tool;
 		load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
 		bool edit_dirty = false;
-		bool existed = !*is_temp && access(path, F_OK) == 0;
+		bool existed = !*is_temp && a->out_path && access(path, F_OK) == 0;
 		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, &edit_color,
 									  &edit_width, &edit_tool, &edit_dirty, out_rect);
 		struct edit_choices ec = {edit_color, edit_width, edit_tool};

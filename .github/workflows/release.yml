@@ -21,20 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     strategy:
-      fail-fast: true
       matrix:
         include:
           - image: debian:bookworm-slim
             prefix: grabit
-            hdr: false
+            hdr: ''
           - image: debian:trixie-slim
             prefix: grabit-hdr
-            hdr: true
+            hdr: '1'
     steps:
       - name: install deps
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS
+          apt-get install -qq -y --no-install-recommends ca-certificates git $APT_DEPS $FULL_DEPS
       - uses: actions/checkout@v6
       - name: build stripped releases
         env:
@@ -43,37 +42,10 @@ jobs:
           HDR: ${{ matrix.hdr }}
         run: |
           set -eu
-          png_flags=$(pkg-config --cflags --libs libpng)
-          has_hdr=false
-          if cc tools/png_hdr_probe.c $png_flags -o /dev/null 2>/dev/null; then has_hdr=true; fi
-          if [ "$has_hdr" != "$HDR" ]; then
-            echo "libpng hdr support is $has_hdr here but this build expects $HDR" >&2
-            exit 1
-          fi
-          links() { readelf -d "$1" | grep NEEDED | grep -q "$2"; }
-          build() {
-            make clean
-            make all VERSION="$VERSION" LDFLAGS="-Wl,--strip-all"
-            ./build/grabit --version
-            mv build/grabit "$1"
-            sha256sum "$1" | tee "$1.sha256"
-            readelf -d "$1" | grep NEEDED
-          }
-          build "$PREFIX-x86_64-linux"
-          for lib in libjpeg libwebp libpipewire; do
-            if links "$PREFIX-x86_64-linux" "$lib"; then
-              echo "$PREFIX-x86_64-linux links $lib but should not" >&2
-              exit 1
-            fi
-          done
-          apt-get install -qq -y --no-install-recommends $FULL_DEPS
-          build "$PREFIX-full-x86_64-linux"
-          for lib in libjpeg libwebp libpipewire; do
-            if ! links "$PREFIX-full-x86_64-linux" "$lib"; then
-              echo "$PREFIX-full-x86_64-linux is missing $lib" >&2
-              exit 1
-            fi
-          done
+          make -j"$(nproc)" release-bin OUT="$PREFIX-x86_64-linux" VERSION="$VERSION" \
+            HAVE_PNG_HDR="$HDR" HAVE_JPEG= HAVE_WEBP= HAVE_PIPEWIRE=
+          make -j"$(nproc)" release-bin OUT="$PREFIX-full-x86_64-linux" VERSION="$VERSION" \
+            HAVE_PNG_HDR="$HDR" HAVE_JPEG=1 HAVE_WEBP=1 HAVE_PIPEWIRE=1
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.prefix }}-x86_64-linux

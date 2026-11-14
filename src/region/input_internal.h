@@ -13,7 +13,7 @@
 #include "region/region.h"
 #include "region/wlr_state.h"
 
-bool ginp_eyedropper_sample(struct ro_state *st, uint32_t *out_color);
+bool ginp_sample_color(const struct ro_output *o, bool edits, uint32_t *out);
 bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_t *fx,
 					int32_t *fy);
 bool ginp_region_abort_active(struct ro_state *st);

@@ -288,6 +288,15 @@ $(GRABIT_BIN): $(GRABIT_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
+.PHONY: release-bin
+release-bin:
+	@test -n "$(OUT)" || { echo "release-bin: set OUT=<file>" >&2; exit 1; }
+	$(MAKE) clean
+	$(MAKE) all LDFLAGS="-Wl,--strip-all"
+	$(GRABIT_BIN) --version
+	mv $(GRABIT_BIN) $(OUT)
+	sha256sum $(OUT) | tee $(OUT).sha256
+
 $(CHECK_BIN): $(CHECK_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^

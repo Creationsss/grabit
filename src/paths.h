@@ -31,6 +31,7 @@ char *paths_output_at(const char *path);
 char *paths_build_output(struct config *cfg, const char *cli_template,
 						 const char *extension, enum paths_dest dest,
 						 const struct template_ctx *ctx);
+void paths_release_reserved(const char *path);
 bool paths_uses_window(struct config *cfg, const char *cli_template);
 
 #endif

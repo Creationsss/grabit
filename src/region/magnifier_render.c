@@ -81,16 +81,13 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	cairo_show_text(cr, info);
 }
 
-static bool magnifier_shows_edits(const struct ro_output *o) {
-	return o->st->magnifier_edits && region_editing(o->st);
-}
-
-static void paint_view(cairo_t *cr, const struct ro_output *o, const struct annotation *live) {
+static void paint_view(cairo_t *cr, const struct ro_output *o, bool edits,
+					   const struct annotation *live) {
 	cairo_set_source_surface(cr, o->cairo_frozen, 0, 0);
 	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
 	cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_PAD);
 	cairo_paint(cr);
-	if (!magnifier_shows_edits(o)) return;
+	if (!edits || !region_editing(o->st)) return;
 	const struct image *img = &o->st->frozen[o->idx];
 	cairo_scale(cr, (double)o->scale * img->width / o->pixel_width,
 				(double)o->scale * img->height / o->pixel_height);
@@ -98,8 +95,18 @@ static void paint_view(cairo_t *cr, const struct ro_output *o, const struct anno
 	gren_paint_annos(cr, o, live);
 }
 
-static bool sample_view(const struct ro_output *o, int32_t fx, int32_t fy,
-						const struct annotation *live, uint32_t *out) {
+static uint32_t rgb_at(const void *data, int stride, int x, int y) {
+	const uint8_t *row = (const uint8_t *)data + (size_t)y * (size_t)stride;
+	return ((const uint32_t *)row)[x] & 0xFFFFFFu;
+}
+
+static uint32_t surface_rgb_at(cairo_surface_t *s, int x, int y) {
+	cairo_surface_flush(s);
+	return rgb_at(cairo_image_surface_get_data(s), cairo_image_surface_get_stride(s), x, y);
+}
+
+static bool sample_view(const struct ro_output *o, int32_t fx, int32_t fy, uint32_t *out) {
+	if (!o->cairo_frozen) return false;
 	cairo_surface_t *px = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
 	if (cairo_surface_status(px) != CAIRO_STATUS_SUCCESS) {
 		cairo_surface_destroy(px);
@@ -107,11 +114,19 @@ static bool sample_view(const struct ro_output *o, int32_t fx, int32_t fy,
 	}
 	cairo_t *pc = cairo_create(px);
 	cairo_translate(pc, -fx, -fy);
-	paint_view(pc, o, live);
+	paint_view(pc, o, true, NULL);
 	cairo_destroy(pc);
-	cairo_surface_flush(px);
-	*out = *(const uint32_t *)cairo_image_surface_get_data(px) & 0xFFFFFFu;
+	*out = surface_rgb_at(px, 0, 0);
 	cairo_surface_destroy(px);
+	return true;
+}
+
+bool ginp_sample_color(const struct ro_output *o, bool edits, uint32_t *out) {
+	int32_t fx, fy;
+	if (!o || !ginp_frozen_px(o->st, o, &fx, &fy)) return false;
+	if (edits && sample_view(o, fx, fy, out)) return true;
+	const struct image *img = &o->st->frozen[o->idx];
+	*out = rgb_at(img->bytes, img->stride, fx, fy);
 	return true;
 }
 
@@ -147,8 +162,9 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	cairo_translate(cr, lx + L / 2.0, ly + L / 2.0);
 	cairo_scale(cr, cell, cell);
 	cairo_translate(cr, -((double)fx + 0.5), -((double)fy + 0.5));
-	paint_view(cr, o, live);
+	paint_view(cr, o, o->st->magnifier_edits, live);
 	cairo_restore(cr);
+	uint32_t c = surface_rgb_at(cairo_get_target(cr), (int)(lx + L / 2.0), (int)(ly + L / 2.0));
 
 	cairo_set_line_width(cr, 1.0);
 	cairo_set_source_rgba(cr, 0, 0, 0, 0.20);
@@ -178,9 +194,6 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	grabit_cairo_rect_r(cr, lx, ly, L, L, lr);
 	cairo_stroke(cr);
 
-	uint32_t c = 0;
-	if (!magnifier_shows_edits(o) || !sample_view(o, fx, fy, live, &c))
-		ginp_eyedropper_sample(o->st, &c);
 	char info[48];
 	snprintf(info, sizeof info, "#%06X  %d, %d", c, o->st->cursor_x, o->st->cursor_y);
 

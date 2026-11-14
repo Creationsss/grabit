@@ -12,6 +12,7 @@
 #include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
+#include "paths.h"
 #include "record/compose.h"
 #include "record/controls.h"
 #include "record/loop.h"
@@ -294,6 +295,7 @@ int record_toggle(struct config *cfg, const struct args *a) {
 		}
 		seg_reap_all(&sc);
 		seg_unlink_all(&sc);
+		paths_release_reserved(output_path);
 		log_debug("recording aborted; output discarded");
 		notify_send(&(struct notify_opts){
 			.summary = "Recording aborted",
@@ -360,6 +362,7 @@ out_pipeline:
 	seg_ctx_free(&sc);
 	unlink_pid_file();
 err_path:
+	if (ret != 0) paths_release_reserved(output_path);
 	free(output_path);
 err_source:
 	pw_capture_close(cap);

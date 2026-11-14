@@ -100,6 +100,7 @@ static const char *const G_EDIT[] = {
 	"edit.multi_select",
 	"edit.line_style",
 	"edit.smooth",
+	"edit.eyedropper_edits",
 	"edit.swatches",
 	"edit.toolbar_placement",
 	"edit.toolbar_output",

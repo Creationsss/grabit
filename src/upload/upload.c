@@ -41,7 +41,7 @@ static int upload_xfer_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
 	(void)dlnow;
 	if (ultotal <= 0 || log_is_silent() || !isatty(STDERR_FILENO)) return 0;
 
-	int64_t now = grabit_now_ns() / 1000000;
+	int64_t now = grabit_now_ms();
 	bool done = ulnow >= ultotal;
 	if (ulnow == g_progress_bytes) return 0;
 	if (!done && g_progress_ms && now - g_progress_ms < 100) return 0;

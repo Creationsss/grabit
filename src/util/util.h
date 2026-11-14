@@ -18,8 +18,10 @@ bool grabit_in_path(const char *bin);
 int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
+int64_t grabit_now_ms(void);
 struct pollfd;
 int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms);
+int grabit_read_fd_all(int fd, size_t cap, int timeout_ms, char **out);
 void grabit_sleep_secs(int secs);
 
 const char *grabit_basename(const char *path);
@@ -43,6 +45,9 @@ size_t grabit_edit_distance(const char *a, const char *b);
 size_t grabit_rstrip(char *s, size_t len);
 void grabit_redact_url(const char *url, char *out, size_t cap);
 size_t grabit_utf8_valid_prefix(const char *s, size_t n);
+size_t grabit_utf8_prev(const char *s, size_t at);
+size_t grabit_utf8_next(const char *s, size_t len, size_t at);
+size_t grabit_text_one_line(char *s, size_t max);
 const char *grabit_join_names(const char *const *names);
 bool grabit_confirm(bool assume_yes, const char *action);
 char *grabit_url_with_path(const char *base, const char *path,

@@ -37,8 +37,8 @@ static void strip_ansi(char *s) {
 }
 
 static int reap_with_grace(pid_t pid, int *status) {
-	int64_t deadline = grabit_now_ns() / 1000000 + 2000;
-	while (grabit_now_ns() / 1000000 < deadline) {
+	int64_t deadline = grabit_now_ms() + 2000;
+	while (grabit_now_ms() < deadline) {
 		pid_t r = waitpid(pid, status, WNOHANG);
 		if (r == pid) return 0;
 		if (r < 0 && errno != EINTR) return -1;
@@ -106,7 +106,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 	close(in_p[0]);
 	close(out_p[1]);
 
-	int64_t deadline = grabit_now_ns() / 1000000 + TRANSLATE_TIMEOUT_MS;
+	int64_t deadline = grabit_now_ms() + TRANSLATE_TIMEOUT_MS;
 	bool timed_out = false;
 
 	int flags = fcntl(in_p[1], F_GETFL, 0);

@@ -144,6 +144,7 @@ GRABIT_SRCS := \
 	src/wm/aqueous.c \
 	src/mime.c \
 	src/wl/wl.c \
+	src/wl/xkb.c \
 	src/wl/toplevel.c \
 	src/wl/color.c \
 	src/wl/output.c \

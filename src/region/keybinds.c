@@ -101,11 +101,8 @@ void region_keymap_init(struct region_keymap *km, struct config *cfg) {
 
 	for (int a = 0; a < KA_COUNT; a++)
 		set_a[a] = load(cfg, ACTION_KEYS[a], ACTION_DEFAULTS[a], &km->actions[a]);
-	for (int t = 0; t < TOOL_COUNT; t++) {
-		char key[64];
-		snprintf(key, sizeof key, "keys.tool.%s", grabit_tool_names[t]);
-		set_t[t] = load(cfg, key, TOOL_DEFAULTS[t], &km->tools[t]);
-	}
+	for (int t = 0; t < TOOL_COUNT; t++)
+		set_t[t] = load(cfg, region_keybind_tool_key(t), TOOL_DEFAULTS[t], &km->tools[t]);
 
 	for (int a = 0; a < KA_COUNT; a++) {
 		if (!set_a[a]) continue;
@@ -203,6 +200,14 @@ bool region_keybind_validate(const char *value) {
 	return count > 0;
 }
 
+const char *region_keybind_tool_key(int tool) {
+	static char keys[TOOL_COUNT][48];
+	if (tool < 0 || tool >= TOOL_COUNT) return NULL;
+	if (!keys[tool][0])
+		snprintf(keys[tool], sizeof keys[tool], "keys.tool.%s", grabit_tool_names[tool]);
+	return keys[tool];
+}
+
 const char *region_keybind_action_key(enum region_action act) {
 	return act < KA_COUNT ? ACTION_KEYS[act] : NULL;
 }
@@ -217,47 +222,6 @@ const char *region_keybind_default(const char *key) {
 		}
 	}
 	return NULL;
-}
-
-bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
-							   struct xkb_keymap **km, struct xkb_state **state) {
-	void *map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-	close(fd);
-	if (map == MAP_FAILED) return false;
-	struct xkb_keymap *nk = xkb_keymap_new_from_buffer(ctx, map, size > 0 ? size - 1 : 0,
-													   XKB_KEYMAP_FORMAT_TEXT_V1,
-													   XKB_KEYMAP_COMPILE_NO_FLAGS);
-	munmap(map, size);
-	if (!nk) return false;
-	struct xkb_state *ns = xkb_state_new(nk);
-	if (!ns) {
-		xkb_keymap_unref(nk);
-		return false;
-	}
-	if (*state) xkb_state_unref(*state);
-	if (*km) xkb_keymap_unref(*km);
-	*km = nk;
-	*state = ns;
-	return true;
-}
-
-uint8_t region_xkb_mods(struct xkb_state *state) {
-	static const struct {
-		const char *name;
-		uint8_t bit;
-	} mods[] = {
-		{XKB_MOD_NAME_CTRL, KB_MOD_CTRL},
-		{XKB_MOD_NAME_SHIFT, KB_MOD_SHIFT},
-		{XKB_MOD_NAME_ALT, KB_MOD_ALT},
-		{XKB_MOD_NAME_LOGO, KB_MOD_SUPER},
-	};
-	if (!state) return 0;
-	uint8_t out = 0;
-	for (size_t i = 0; i < sizeof mods / sizeof mods[0]; i++) {
-		if (xkb_state_mod_name_is_active(state, mods[i].name, XKB_STATE_MODS_EFFECTIVE) > 0)
-			out |= mods[i].bit;
-	}
-	return out;
 }
 
 void region_keybind_format(const struct keybind *b, char *out, size_t n) {

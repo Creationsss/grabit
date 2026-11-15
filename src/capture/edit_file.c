@@ -10,6 +10,7 @@
 #include "log.h"
 #include "region/annotate.h"
 #include "region/region.h"
+#include "ui_colors.h"
 #include "util/util.h"
 #include "wl/wl.h"
 
@@ -49,7 +50,7 @@ static int fill_output_canvas(struct image *dst, const struct grabit_output *o,
 
 	double ratio = grabit_output_pixel_ratio(o);
 	cairo_t *cr = cairo_create(canvas);
-	cairo_set_source_rgb(cr, 0.09, 0.09, 0.11);
+	cairo_set_source_rgb(cr, GUI_C_CANVAS);
 	cairo_paint(cr);
 	cairo_set_source_surface(cr, img, (img_x - o->x) * ratio, (img_y - o->y) * ratio);
 	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);

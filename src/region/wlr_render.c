@@ -20,6 +20,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #include "region/render_internal.h"
+#include "ui_colors.h"
 
 static uint64_t spotlight_mix(uint64_t h, const struct annotation *a) {
 	if (!a || !tool_is_layer(a->tool)) return h;
@@ -169,7 +170,7 @@ void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char 
 void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 	if (!st->out_annos) return;
 	double sel_dash[2] = {4.0, 4.0};
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.9);
 	cairo_set_line_width(cr, 1.2);
 	cairo_set_dash(cr, sel_dash, 2, 0);
 	for (size_t i = 0; i < st->out_annos->n; i++) {
@@ -189,9 +190,9 @@ void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 		double hx = annotation_corner_x(a, c);
 		double hy = annotation_corner_y(a, c);
 		grabit_cairo_rect_r(cr, hx - 4, hy - 4, 8, 8, hr);
-		cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+		cairo_set_source_rgba(cr, GUI_C_INK, 0.95);
 		cairo_fill_preserve(cr);
-		cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
+		cairo_set_source_rgba(cr, GUI_C_SHADE, 0.85);
 		cairo_set_line_width(cr, 1.0);
 		cairo_stroke(cr);
 	}

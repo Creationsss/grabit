@@ -4,7 +4,6 @@
 #define _XOPEN_SOURCE 700
 #include "region/toolbar_internal.h"
 
-#include "cairo_util.h"
 #include "region/keybinds.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
@@ -23,13 +22,10 @@ static const char *plain_label(enum tb_action act, enum region_action *out_actio
 		*out_action = KA_EDIT_MODE;
 		return "Move/resize annotations";
 	case TB_TOOL_TEXT:
-		return "Text";
 	case TB_TOOL_COUNTER:
-		return "Counter";
 	case TB_TOOL_CALLOUT:
-		return "Callout";
 	case TB_TOOL_ERASER:
-		return "Eraser";
+		return region_tool_label(toolbar_standalone_tool(act));
 	case TB_COLOR_CURRENT:
 		return "Current color";
 	case TB_WIDTH_SLIDER:
@@ -99,58 +95,5 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	double btn_top = by0 + (double)by_local * S;
 	double btn_bot = btn_top + (double)bh_local * S;
 
-	cairo_save(cr);
-	cairo_select_font_face(cr, "sans-serif",
-						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	cairo_set_font_size(cr, 13.0 * S);
-	cairo_text_extents_t ext;
-	cairo_text_extents(cr, text, &ext);
-
-	double pad_x = 9.0 * S, pad_y = 6.0 * S;
-	double tip_w = ext.width + pad_x * 2;
-	double tip_h = ext.height + pad_y * 2;
-	double gap = 8.0 * S;
-
-	double tip_x = btn_cx - tip_w / 2.0;
-	double tip_y = btn_top - gap - tip_h;
-	bool below = false;
-	if (tip_y < (double)S * 4.0) {
-		tip_y = btn_bot + gap;
-		below = true;
-	}
-	double pw = (double)o->pixel_width;
-	if (tip_x < (double)S * 4.0) tip_x = (double)S * 4.0;
-	if (tip_x + tip_w > pw - (double)S * 4.0) tip_x = pw - tip_w - (double)S * 4.0;
-
-	double r = grabit_cairo_clamp_r(tip_w, tip_h, grabit_ui_radius(GUI_R_TOOLTIP) * S);
-	grabit_cairo_rect_r(cr, tip_x, tip_y, tip_w, tip_h, r);
-	cairo_set_source_rgba(cr, 0.04, 0.04, 0.04, 0.94);
-	cairo_fill_preserve(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.18);
-	cairo_set_line_width(cr, (double)S);
-	cairo_stroke(cr);
-
-	double arrow_h = 5.0 * S;
-	double arrow_w = 9.0 * S;
-	double ax = btn_cx;
-	if (ax < tip_x + r + arrow_w / 2.0) ax = tip_x + r + arrow_w / 2.0;
-	if (ax > tip_x + tip_w - r - arrow_w / 2.0) ax = tip_x + tip_w - r - arrow_w / 2.0;
-	cairo_set_source_rgba(cr, 0.04, 0.04, 0.04, 0.94);
-	if (below) {
-		cairo_move_to(cr, ax - arrow_w / 2.0, tip_y);
-		cairo_line_to(cr, ax + arrow_w / 2.0, tip_y);
-		cairo_line_to(cr, ax, tip_y - arrow_h);
-	} else {
-		cairo_move_to(cr, ax - arrow_w / 2.0, tip_y + tip_h);
-		cairo_line_to(cr, ax + arrow_w / 2.0, tip_y + tip_h);
-		cairo_line_to(cr, ax, tip_y + tip_h + arrow_h);
-	}
-	cairo_close_path(cr);
-	cairo_fill(cr);
-
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
-	cairo_move_to(cr, tip_x + pad_x - ext.x_bearing,
-				  tip_y + pad_y - ext.y_bearing);
-	cairo_show_text(cr, text);
-	cairo_restore(cr);
+	grabit_ui_tooltip(cr, (double)S, text, btn_cx, btn_top, btn_bot, (double)o->pixel_width);
 }

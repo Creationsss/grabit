@@ -5,6 +5,7 @@
 #include "region/keycapture_internal.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
@@ -18,7 +19,7 @@
 
 void gkc_draw(cairo_t *cr, struct kc_state *s) {
 	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr, 0, 0, 0, KC_DIM_A);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, KC_DIM_A);
 	cairo_paint(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 

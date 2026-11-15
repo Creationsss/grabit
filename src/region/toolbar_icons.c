@@ -5,6 +5,7 @@
 #include "region/toolbar_internal.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 
 #include <math.h>
 
@@ -68,7 +69,10 @@ static void toolbar_icon_pen(cairo_t *cr, double cx, double cy, double s) {
 }
 
 static void icon_source(cairo_t *cr, double *r, double *g, double *b, double *a) {
-	*r = *g = *b = 0.92;
+	static const double TEXT[] = {GUI_C_TEXT};
+	*r = TEXT[0];
+	*g = TEXT[1];
+	*b = TEXT[2];
 	*a = 1.0;
 	cairo_pattern_get_rgba(cairo_get_source(cr), r, g, b, a);
 }
@@ -169,9 +173,9 @@ static void toolbar_icon_spotlight(cairo_t *cr, double cx, double cy, double s) 
 static void toolbar_icon_blur(cairo_t *cr, double cx, double cy, double s) {
 	double r = s * 0.42;
 	cairo_pattern_t *p = cairo_pattern_create_radial(cx, cy, 0, cx, cy, r);
-	cairo_pattern_add_color_stop_rgba(p, 0.0, 0.85, 0.85, 0.85, 1.0);
-	cairo_pattern_add_color_stop_rgba(p, 0.55, 0.6, 0.6, 0.6, 0.85);
-	cairo_pattern_add_color_stop_rgba(p, 1.0, 0.5, 0.5, 0.5, 0.0);
+	cairo_pattern_add_color_stop_rgba(p, 0.0, GUI_C_ICON_HI, 1.0);
+	cairo_pattern_add_color_stop_rgba(p, 0.55, GUI_C_ICON_MID, 0.85);
+	cairo_pattern_add_color_stop_rgba(p, 1.0, GUI_C_ICON_LO, 0.0);
 	cairo_set_source(cr, p);
 	cairo_new_sub_path(cr);
 	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
@@ -237,13 +241,13 @@ void toolbar_icon_eraser(cairo_t *cr, double cx, double cy, double s) {
 	cairo_rotate(cr, -0.4);
 	double hw = s * 0.42;
 	double hh = s * 0.18;
-	cairo_set_source_rgba(cr, 1.0, 0.65, 0.78, 1);
+	cairo_set_source_rgba(cr, GUI_C_ICON_MARKER, 1);
 	cairo_rectangle(cr, -hw, -hh, hw * 2, hh * 2);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 0.75, 0.75, 0.75, 1);
+	cairo_set_source_rgba(cr, GUI_C_ICON_METAL, 1);
 	cairo_rectangle(cr, -hw, hh - hh * 0.4, hw * 2, hh * 0.4);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 0, 0, 0, 1);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 1);
 	cairo_rectangle(cr, -hw, -hh, hw * 2, hh * 2);
 	cairo_stroke(cr);
 	cairo_restore(cr);
@@ -416,7 +420,10 @@ void toolbar_color_swatch(cairo_t *cr, double cx, double cy, double s,
 	grabit_cairo_set_source_argb(cr, color, 1);
 	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, active ? 1.0 : 0.0, active ? 1.0 : 0.0, active ? 1.0 : 0.0, active ? 1.0 : 0.45);
+	if (active)
+		cairo_set_source_rgba(cr, GUI_C_INK, 1.0);
+	else
+		cairo_set_source_rgba(cr, GUI_C_SHADE, 0.45);
 	cairo_set_line_width(cr, active ? 2.2 * (s / 24.0) : 1.2 * (s / 24.0));
 	cairo_arc(cr, cx, cy, r, 0, 2.0 * M_PI);
 	cairo_stroke(cr);
@@ -437,10 +444,10 @@ void toolbar_color_current(cairo_t *cr, double cx, double cy, double s,
 	cairo_fill_preserve(cr);
 
 	if (active) {
-		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
+		cairo_set_source_rgba(cr, GUI_C_ACCENT, 1);
 		cairo_set_line_width(cr, 2.4 * (s / 24.0));
 	} else {
-		cairo_set_source_rgba(cr, 1, 1, 1, 0.85);
+		cairo_set_source_rgba(cr, GUI_C_INK, 0.85);
 		cairo_set_line_width(cr, 1.8 * (s / 24.0));
 	}
 	cairo_stroke(cr);

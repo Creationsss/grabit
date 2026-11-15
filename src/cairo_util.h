@@ -36,6 +36,17 @@ static inline cairo_surface_t *grabit_cairo_image_argb(void *data, int32_t w, in
 	return grabit_cairo_image(data, CAIRO_FORMAT_ARGB32, w, h, stride);
 }
 
+static inline void grabit_cairo_cross(cairo_t *cr, double cx, double cy, double half,
+									  double lw) {
+	cairo_set_line_width(cr, lw);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_move_to(cr, cx - half, cy - half);
+	cairo_line_to(cr, cx + half, cy + half);
+	cairo_move_to(cr, cx + half, cy - half);
+	cairo_line_to(cr, cx - half, cy + half);
+	cairo_stroke(cr);
+}
+
 static inline void grabit_cairo_rounded_rect(cairo_t *cr, double x, double y,
 											 double w, double h, double r) {
 	cairo_new_sub_path(cr);

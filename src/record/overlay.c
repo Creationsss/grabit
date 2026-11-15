@@ -5,6 +5,7 @@
 #include "record/overlay.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "util/rect.h"
 #include "util/util.h"
@@ -62,7 +63,7 @@ static void draw_border(struct overlay_output *o) {
 	cairo_t *cr = cairo_create(surf);
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr, 0, 0, 0, 0);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0);
 	cairo_paint(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
@@ -73,7 +74,7 @@ static void draw_border(struct overlay_output *o) {
 	double rh = o->st->r.h * S;
 	double bw = BORDER_LOGICAL * S;
 
-	cairo_set_source_rgba(cr, 1.0, 0.2, 0.2, 0.95);
+	cairo_set_source_rgba(cr, GUI_C_ALERT, 0.95);
 	cairo_set_line_width(cr, bw);
 	double dashes[2] = {4.0 * S, 4.0 * S};
 	cairo_set_dash(cr, dashes, 2, 0);
@@ -99,12 +100,12 @@ static void draw_border(struct overlay_output *o) {
 		if (pilly < 0) pilly = ry + rh + bw + 2.0 * S;
 
 		if (pilly + pillh <= o->pixel_height) {
-			cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 0.9);
+			cairo_set_source_rgba(cr, GUI_C_RECORD, 0.9);
 			grabit_cairo_rect_r(cr, pillx, pilly, pillw, pillh,
 								grabit_ui_radius(GUI_R_TIP) * S);
 			cairo_fill(cr);
 
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+			cairo_set_source_rgba(cr, GUI_C_INK, 1);
 			cairo_move_to(cr, pillx + pad - ext.x_bearing,
 						  pilly + pad - ext.y_bearing);
 			cairo_show_text(cr, dims);

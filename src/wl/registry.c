@@ -25,6 +25,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+#include "xdg-shell-client-protocol.h"
 #include "zkde-screencast-unstable-v1-client-protocol.h"
 
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t caps) {
@@ -44,6 +45,15 @@ static const struct wl_seat_listener seat_listener_g = {
 	.name = seat_name,
 };
 
+static void wm_base_ping(void *data, struct xdg_wm_base *base, uint32_t serial) {
+	(void)data;
+	xdg_wm_base_pong(base, serial);
+}
+
+static const struct xdg_wm_base_listener wm_base_listener_g = {
+	.ping = wm_base_ping,
+};
+
 static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 							const char *interface, uint32_t version) {
 	struct grabit_wl_state *s = data;
@@ -56,6 +66,19 @@ static void registry_global(void *data, struct wl_registry *reg, uint32_t name,
 	if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		uint32_t v = version > 4 ? 4 : version;
 		s->compositor = wl_registry_bind(reg, name, &wl_compositor_interface, v);
+		return;
+	}
+
+	if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+		uint32_t v = version > 3 ? 3 : version;
+		s->wm_base = wl_registry_bind(reg, name, &xdg_wm_base_interface, v);
+		xdg_wm_base_add_listener(s->wm_base, &wm_base_listener_g, s);
+		return;
+	}
+
+	if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+		uint32_t v = version > 3 ? 3 : version;
+		s->data_device_manager = wl_registry_bind(reg, name, &wl_data_device_manager_interface, v);
 		return;
 	}
 

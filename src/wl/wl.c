@@ -31,6 +31,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+#include "xdg-shell-client-protocol.h"
 
 int grabit_wl_init(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);
@@ -120,6 +121,8 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	if (s->color_manager) wp_color_manager_v1_destroy(s->color_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
+	if (s->wm_base) xdg_wm_base_destroy(s->wm_base);
+	if (s->data_device_manager) wl_data_device_manager_destroy(s->data_device_manager);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);
 	if (s->ext_data_control_manager) ext_data_control_manager_v1_destroy(s->ext_data_control_manager);
 	if (s->screencopy_manager) zwlr_screencopy_manager_v1_destroy(s->screencopy_manager);
@@ -188,6 +191,7 @@ int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
 		if (wl_display_read_events(s->display) < 0) return -1;
 	} else {
 		wl_display_cancel_read(s->display);
+		if (pr > 0 && (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))) return -1;
 	}
 	return wl_display_dispatch_pending(s->display) < 0 ? -1 : 0;
 }

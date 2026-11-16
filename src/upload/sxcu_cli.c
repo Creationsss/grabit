@@ -111,7 +111,7 @@ int cmd_sxcu(int argc, char **argv) {
 				return usage();
 		}
 		if (!file) return usage();
-		if (sxcu_dir_add(file, force) != 0) return 1;
+		if (sxcu_dir_add(file, force, NULL) != 0) return 1;
 		log_info("sxcu: added to %s", sxcu_dir_path());
 		return 0;
 	}

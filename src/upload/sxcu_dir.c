@@ -184,7 +184,8 @@ static char *sanitize(const char *src) {
 	return out;
 }
 
-int sxcu_dir_add(const char *file_path, bool force) {
+int sxcu_dir_add(const char *file_path, bool force, bool *replaced) {
+	if (replaced) *replaced = false;
 	if (!file_path) return -1;
 
 	struct sxcu_uploader probe = {0};
@@ -226,7 +227,8 @@ int sxcu_dir_add(const char *file_path, bool force) {
 		free(name);
 		return -1;
 	}
-	if (!force && access(dst, F_OK) == 0) {
+	bool exists = access(dst, F_OK) == 0;
+	if (!force && exists) {
 		log_error("sxcu: `%s` already exists; `grabit sxcu add %s --force` replaces "
 				  "it, or remove it first",
 				  name, file_path);
@@ -239,6 +241,7 @@ int sxcu_dir_add(const char *file_path, bool force) {
 		log_error("sxcu: copy %s -> %s failed", file_path, dst);
 		return -1;
 	}
+	if (replaced) *replaced = exists;
 	return 0;
 }
 

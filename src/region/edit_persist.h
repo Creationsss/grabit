@@ -33,6 +33,7 @@ _Static_assert(EDIT_MAX_WIDTH >= WIDTH_MAX,
 bool edit_color_try(const char *s, uint32_t *out);
 uint32_t edit_color_from_str(const char *s);
 void edit_swatches_default(uint32_t *out);
+const char *edit_swatches_default_text(void);
 uint32_t edit_swatch_default(size_t i);
 bool edit_swatches_parse(const char *s, uint32_t *out);
 bool edit_swatches_set_one(const char *cur, const char *nstr, const char *color,

@@ -28,6 +28,8 @@ static bool g_file_on = true;
 static bool g_file_locked;
 static bool g_no_color;
 static size_t g_file_written;
+static char *g_capture;
+static size_t g_capture_size;
 
 static const char *C_RED = "";
 static const char *C_YELLOW = "";
@@ -201,8 +203,19 @@ void log_warn(const char *fmt, ...) {
 	va_end(ap);
 }
 
+void log_capture_errors(char *buf, size_t size) {
+	g_capture = size ? buf : NULL;
+	g_capture_size = size;
+	if (g_capture) g_capture[0] = '\0';
+}
+
 void log_error(const char *fmt, ...) {
 	va_list ap;
+	if (g_capture && !g_capture[0]) {
+		va_start(ap, fmt);
+		vsnprintf(g_capture, g_capture_size, fmt, ap);
+		va_end(ap);
+	}
 	va_start(ap, fmt);
 	emit("[error]", C_RED, false, fmt, ap);
 	va_end(ap);

@@ -5,6 +5,7 @@
 #define GRABIT_LOG_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 void log_init(bool silent, bool debug);
 bool log_is_silent(void);
@@ -14,6 +15,7 @@ const char *log_file_path(void);
 void log_color_disable(void);
 void log_file_close(void);
 void log_file_disable(void);
+void log_capture_errors(char *buf, size_t size);
 
 void log_debug(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void log_info(const char *fmt, ...) __attribute__((format(printf, 1, 2)));

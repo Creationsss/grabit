@@ -50,6 +50,8 @@ static const char *STATE_KEYS[] = {
 	NULL,
 };
 
+static const char *const INTERNAL_KEYS[] = {"region.last", "edit.toolbar_pos", NULL};
+
 static const char *KNOWN_TOP[] = {
 	"default_action",
 	"notifications",
@@ -65,7 +67,7 @@ static const char *KNOWN_TOP[] = {
 	NULL,
 };
 
-static const char *KNOWN_SERVICES[] = {
+static const char *const KNOWN_SERVICES[] = {
 	"zipline",
 	"nest",
 	"fakecrime",
@@ -74,6 +76,10 @@ static const char *KNOWN_SERVICES[] = {
 	"pixelvault",
 	NULL,
 };
+
+const char *const *cfg_builtin_services(void) {
+	return KNOWN_SERVICES;
+}
 
 static bool contains_ci(const char *hay, const char *needle) {
 	size_t nl = strlen(needle);
@@ -107,6 +113,10 @@ bool cfg_in_list(const char *needle, const char *const *list) {
 
 bool cfg_is_bool_key(const char *key) {
 	return cfg_in_list(key, BOOL_KEYS);
+}
+
+bool cfg_is_internal_key(const char *key) {
+	return cfg_in_list(key, INTERNAL_KEYS);
 }
 
 bool cfg_is_state_key(const char *key) {

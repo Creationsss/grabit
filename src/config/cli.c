@@ -146,11 +146,8 @@ static int cmd_set_keys_list(void) {
 	puts("keybinds (see `grabit help set` to change them):");
 	for (int a = 0; a < KA_COUNT; a++)
 		print_keys_row(&c, region_keybind_action_key(a));
-	for (int t = 0; t < TOOL_COUNT; t++) {
-		char key[64];
-		snprintf(key, sizeof key, "keys.tool.%s", grabit_tool_names[t]);
-		print_keys_row(&c, key);
-	}
+	for (int t = 0; t < TOOL_COUNT; t++)
+		print_keys_row(&c, region_keybind_tool_key(t));
 	config_free(&c);
 	return 0;
 }
@@ -356,21 +353,7 @@ int cmd_get(int argc, char **argv) {
 	return rc;
 }
 
-int cmd_unset(int argc, char **argv) {
-	if (wants_help(argc, argv)) {
-		puts("usage: grabit unset <key>");
-		return 0;
-	}
-	if (argc != 1) {
-		log_error("usage: grabit unset <key>");
-		return 2;
-	}
-	const char *key = cfg_canonical_key(argv[0]);
-	if (!cfg_key_is_known(key)) {
-		cfg_help_report_unknown_key(argv[0]);
-		return 2;
-	}
-
+static int cfg_unset_key(const char *key, const char *given) {
 	struct config c;
 	if (config_load(&c) != 0) return 1;
 	if (!cfg_writable(&c)) {
@@ -389,11 +372,40 @@ int cmd_unset(int argc, char **argv) {
 	} else if (cfg_persist(&c, key, NULL, false) != 0) {
 		log_error("could not save config");
 		rc = 1;
-	} else if (strcmp(key, argv[0]) != 0) {
-		log_info("unset %s (%s)", argv[0], key);
+	} else if (strcmp(key, given) != 0) {
+		log_info("unset %s (%s)", given, key);
 	} else {
 		log_info("unset %s", key);
 	}
 	config_free(&c);
 	return rc;
+}
+
+int cmd_unset(int argc, char **argv) {
+	if (wants_help(argc, argv)) {
+		puts("usage: grabit unset <key>");
+		return 0;
+	}
+	if (argc != 1) {
+		log_error("usage: grabit unset <key>");
+		return 2;
+	}
+	const char *key = cfg_canonical_key(argv[0]);
+	if (!cfg_key_is_known(key)) {
+		cfg_help_report_unknown_key(argv[0]);
+		return 2;
+	}
+	return cfg_unset_key(key, argv[0]);
+}
+
+int config_write_key(const char *key, const char *value) {
+	const char *canon = cfg_canonical_key(key);
+	if (!cfg_key_is_known(canon)) {
+		cfg_help_report_unknown_key(key);
+		return -1;
+	}
+	if (!value) return cfg_unset_key(canon, key) == 0 ? 0 : -1;
+	struct config c;
+	if (config_load(&c) != 0) return -1;
+	return cfg_store(&c, canon, value) == 0 ? 0 : -1;
 }

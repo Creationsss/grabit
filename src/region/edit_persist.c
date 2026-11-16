@@ -67,6 +67,17 @@ void edit_swatches_default(uint32_t *out) {
 		out[i] = EDIT_COLORS[i].hex;
 }
 
+const char *edit_swatches_default_text(void) {
+	static char buf[EDIT_SWATCH_COUNT * 8 + 1];
+	if (!buf[0]) {
+		size_t off = 0;
+		for (size_t i = 0; i < EDIT_SWATCH_COUNT; i++)
+			off += (size_t)snprintf(buf + off, sizeof buf - off, "%s#%06x", i ? "," : "",
+									EDIT_COLORS[i].hex & 0xFFFFFFu);
+	}
+	return buf;
+}
+
 bool edit_swatches_parse(const char *s, uint32_t *out) {
 	if (!s) return false;
 	char tok[32];

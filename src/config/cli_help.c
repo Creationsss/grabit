@@ -178,6 +178,12 @@ static const char *const *const KEY_GROUPS[] = {
 	NULL,
 };
 
+void config_each_key(void (*fn)(const char *key, void *data), void *data) {
+	for (size_t g = 0; KEY_GROUPS[g]; g++)
+		for (size_t i = 0; KEY_GROUPS[g][i]; i++)
+			fn(KEY_GROUPS[g][i], data);
+}
+
 static bool key_namespace_exists(const char *input) {
 	size_t n = strlen(input);
 	if (n == 0) return false;
@@ -243,8 +249,7 @@ const char *cfg_help_suggest_key(const char *input) {
 		}
 	}
 	for (int t = 0; t < TOOL_COUNT; t++) {
-		char k[64];
-		snprintf(k, sizeof k, "keys.tool.%s", grabit_tool_names[t]);
+		const char *k = region_keybind_tool_key(t);
 		size_t d = grabit_edit_distance(input, k);
 		if (d < best_dist) {
 			best_dist = d;

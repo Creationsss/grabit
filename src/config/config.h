@@ -36,6 +36,49 @@ int config_set(struct config *c, const char *key, const char *value);
 int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int hi);
 bool config_also_save(struct config *c);
 
+enum config_kind {
+	CFG_KIND_TEXT,
+	CFG_KIND_BOOL,
+	CFG_KIND_ENUM,
+	CFG_KIND_INT,
+	CFG_KIND_KEYBIND,
+};
+
+enum config_values_src {
+	CFG_VALUES_FIXED,
+	CFG_VALUES_OUTPUTS,
+	CFG_VALUES_UPLOADERS,
+	CFG_VALUES_ICONS,
+};
+
+struct config_alias {
+	const char *from;
+	const char *to;
+};
+
+struct config_key_info {
+	enum config_kind kind;
+	enum config_values_src values_src;
+	const char *const *values;
+	const struct config_alias *aliases;
+	bool allow_empty;
+	bool open_values;
+	long lo;
+	long hi;
+	bool allow_auto;
+	bool secret;
+	bool state;
+	bool internal;
+	const char *def;
+	const char *example;
+};
+
+int config_key_info(const char *key, struct config_key_info *out);
+const char *config_alias_target(const struct config_key_info *info, const char *value);
+bool cfg_in_list(const char *needle, const char *const *list);
+int config_write_key(const char *key, const char *value);
+void config_each_key(void (*fn)(const char *key, void *data), void *data);
+
 int cmd_set(int argc, char **argv);
 int cmd_get(int argc, char **argv);
 int cmd_unset(int argc, char **argv);

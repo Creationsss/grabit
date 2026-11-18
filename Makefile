@@ -135,6 +135,13 @@ GRABIT_SRCS := \
 	src/template.c \
 	src/cairo_util.c \
 	src/ui_theme.c \
+	src/ui/window.c \
+	src/ui/frame.c \
+	src/ui/scroll.c \
+	src/ui/input.c \
+	src/ui/dnd.c \
+	src/ui/text.c \
+	src/ui/widgets.c \
 	src/wm/wm.c \
 	src/wm/ipc.c \
 	src/wm/hyprland.c \

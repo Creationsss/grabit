@@ -177,7 +177,7 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 				upload_log_response_body(resp.data);
 				goto done;
 			}
-			if (start == 0) {
+			if (start == 0 && !last) {
 				identifier = grabit_json_path_string(root, "partialIdentifier");
 				if (!identifier) {
 					log_error("zipline: server did not return a partial identifier "

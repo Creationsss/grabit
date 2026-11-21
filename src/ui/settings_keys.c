@@ -68,7 +68,7 @@ static const struct set_def REGION[] = {
 };
 
 static const struct set_def EDITOR[] = {
-	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches and region between runs"},
+	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches, region and settings window size between runs"},
 	{"edit.always", "Always open the editor", "same as passing -e on every capture"},
 	{"edit.instant_capture", "Capture on select", "selecting a region captures it right away"},
 	{"edit.start_with_tool", "Start with the last tool", "open in drawing mode instead of region-select"},

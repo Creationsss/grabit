@@ -280,6 +280,14 @@ int cfg_validate_value(const char *key, const char *value) {
 			return -1;
 		}
 	}
+	if (strcmp(key, "gui.settings_size") == 0) {
+		int w = 0, h = 0;
+		char end = 0;
+		if (sscanf(value, "%dx%d%c", &w, &h, &end) != 2 || w < 1 || h < 1) {
+			log_error("gui.settings_size must be <width>x<height>");
+			return -1;
+		}
+	}
 	if (strcmp(key, "region.last") == 0) {
 		struct rect tmp;
 		if (!last_region_parse(value, &tmp)) {

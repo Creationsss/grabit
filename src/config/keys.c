@@ -48,10 +48,12 @@ static const char *STATE_KEYS[] = {
 	"edit.toolbar_pos",
 	"edit.swatches",
 	"region.last",
+	"gui.settings_size",
 	NULL,
 };
 
-static const char *const INTERNAL_KEYS[] = {"region.last", "edit.toolbar_pos", NULL};
+static const char *const INTERNAL_KEYS[] = {"region.last", "edit.toolbar_pos",
+											"gui.settings_size", NULL};
 
 static const char *KNOWN_TOP[] = {
 	"default_action",
@@ -232,7 +234,7 @@ static bool valid_capture_key(const char *key) {
 
 static bool valid_gui_key(const char *key) {
 	if (strncmp(key, "gui.", 4) != 0) return false;
-	return strcmp(key + 4, "radius") == 0;
+	return strcmp(key + 4, "radius") == 0 || strcmp(key + 4, "settings_size") == 0;
 }
 
 static bool valid_region_key(const char *key) {

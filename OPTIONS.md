@@ -77,7 +77,7 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
 
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor color swatches (`edit.swatches`), the editor toolbar position (`edit.toolbar_pos`), and the last captured region (`region.last`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
+anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor color swatches (`edit.swatches`), the editor toolbar position (`edit.toolbar_pos`), the last captured region (`region.last`), and the size of the settings window (`gui.settings_size`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
 
 ### auth tokens
 
@@ -210,6 +210,7 @@ in any selector, `ctrl+a` selects the whole monitor under the cursor: with `regi
 | key | default | notes |
 |---|---|---|
 | `gui.radius` | `0` | round the corners of grabit's own ui: the region selector and editor, the recording control bar, and the preview and ocr cards. `0` is square, `auto` matches hyprland's `decoration:rounding`, or set a radius in logical pixels (`8` is a good start). one value scales everything; nothing changes size or position. it never affects the captured image (that is `region.window_radius`) |
+| `gui.settings_size` | | the settings window size as `<width>x<height>`; written automatically when the window closes while it is not maximized, fullscreen or tiled (state, not config) |
 
 ### keybinds
 

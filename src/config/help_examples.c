@@ -159,6 +159,10 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "false";
 		return 0;
 	}
+	if (strcmp(key, "gui.settings_size") == 0) {
+		*example_out = "<width>x<height> (written automatically when the settings window closes)";
+		return 0;
+	}
 	if (strcmp(key, "region.last") == 0) {
 		*example_out = "<x>,<y>,<w>,<h> (written automatically after each region capture)";
 		return 0;

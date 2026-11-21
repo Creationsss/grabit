@@ -487,6 +487,27 @@ static void open_at(struct settings_state *st, const char *what) {
 	st->area = AREA_SEARCH;
 }
 
+#define SIZE_KEY "gui.settings_size"
+
+static void saved_size(struct config *cfg, int32_t *w, int32_t *h) {
+	const char *v = config_get(cfg, SIZE_KEY);
+	int sw = 0, sh = 0;
+	char end = 0;
+	if (!v || sscanf(v, "%dx%d%c", &sw, &sh, &end) != 2 || sw < 1 || sh < 1) return;
+	*w = sw;
+	*h = sh;
+}
+
+static void save_size(struct config *cfg, const struct ui_window *win) {
+	if (ui_window_snapped(win) || win->width < 1 || win->height < 1) return;
+	char v[32];
+	snprintf(v, sizeof v, "%dx%d", win->width, win->height);
+	const char *cur = config_get(cfg, SIZE_KEY);
+	if (cur && strcmp(cur, v) == 0) return;
+	const char *keys[] = {SIZE_KEY}, *vals[] = {v};
+	(void)config_state_put(cfg, keys, vals, 1);
+}
+
 int grabit_settings_main(const char *what) {
 	struct settings_state st = {
 		.side_hover = SET_NONE,
@@ -534,9 +555,12 @@ int grabit_settings_main(const char *what) {
 	set_arm_timer(&st);
 
 	int rc = 1;
-	if (ui_window_open(&win, &wls, "grabit settings", 980, 680) == 0) {
+	int32_t w = 980, h = 680;
+	saved_size(&st.cfg, &w, &h);
+	if (ui_window_open(&win, &wls, "grabit settings", w, h) == 0) {
 		rc = ui_window_run(&win) == 0 ? 0 : 1;
 		set_commit_edit(&st);
+		save_size(&st.cfg, &win);
 	}
 	ui_window_finish(&win);
 	wl_display_roundtrip(wls.display);

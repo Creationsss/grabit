@@ -5,6 +5,7 @@
 #define GRABIT_REGION_KEYBINDS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <xkbcommon/xkbcommon.h>
@@ -45,9 +46,20 @@ struct keybind_list {
 	uint8_t n;
 };
 
+#define REGION_KEYBIND_STR 32
+#define KB_DROPS_MAX 32
+
+struct keybind_drop {
+	uint8_t from;
+	uint8_t to;
+	struct keybind bind;
+};
+
 struct region_keymap {
 	struct keybind_list actions[KA_COUNT];
 	struct keybind_list tools[TOOL_COUNT];
+	struct keybind_drop drops[KB_DROPS_MAX];
+	uint8_t n_drops;
 };
 
 void region_keymap_init(struct region_keymap *km, struct config *cfg);
@@ -60,7 +72,15 @@ bool region_button_action(const struct region_keymap *km, enum region_action act
 						  uint32_t button);
 int32_t region_key_tool(const struct region_keymap *km, xkb_keysym_t sym, uint8_t mods);
 
+struct region_keybind_clash {
+	const char *a;
+	const char *b;
+	char bind[REGION_KEYBIND_STR];
+	bool taken;
+};
+
 bool region_keybind_validate(const char *value);
+size_t region_keymap_clashes(struct config *cfg, struct region_keybind_clash *out, size_t max);
 const char *region_keybind_action_key(enum region_action act);
 const char *region_keybind_tool_key(int tool);
 const char *region_tool_label(int tool);

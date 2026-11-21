@@ -86,12 +86,15 @@ static bool bind_eq(const struct keybind *a, const struct keybind *b) {
 	return a->sym == b->sym && a->mods == b->mods;
 }
 
-static void list_drop(struct keybind_list *list, const struct keybind *b) {
+static void list_drop(struct region_keymap *km, struct keybind_list *list, int from, int to,
+					  const struct keybind *b) {
 	uint8_t w = 0;
 	for (uint8_t i = 0; i < list->n; i++) {
 		if (bind_eq(&list->items[i], b)) continue;
 		list->items[w++] = list->items[i];
 	}
+	if (w != list->n && km->n_drops < KB_DROPS_MAX)
+		km->drops[km->n_drops++] = (struct keybind_drop){(uint8_t)from, (uint8_t)to, *b};
 	list->n = w;
 }
 
@@ -104,16 +107,54 @@ void region_keymap_init(struct region_keymap *km, struct config *cfg) {
 	for (int t = 0; t < TOOL_COUNT; t++)
 		set_t[t] = load(cfg, region_keybind_tool_key(t), TOOL_DEFAULTS[t], &km->tools[t]);
 
+	km->n_drops = 0;
 	for (int a = 0; a < KA_COUNT; a++) {
 		if (!set_a[a]) continue;
 		for (uint8_t i = 0; i < km->actions[a].n; i++) {
 			const struct keybind b = km->actions[a].items[i];
 			for (int o = 0; o < KA_COUNT; o++)
-				if (o != a && !set_a[o]) list_drop(&km->actions[o], &b);
+				if (o != a && !set_a[o]) list_drop(km, &km->actions[o], a, o, &b);
 			for (int o = 0; o < TOOL_COUNT; o++)
-				if (!set_t[o]) list_drop(&km->tools[o], &b);
+				if (!set_t[o]) list_drop(km, &km->tools[o], a, KA_COUNT + o, &b);
 		}
 	}
+}
+
+#define KB_SLOTS (KA_COUNT + TOOL_COUNT)
+
+static const char *slot_key(int i) {
+	return i < KA_COUNT ? region_keybind_action_key(i) : region_keybind_tool_key(i - KA_COUNT);
+}
+
+static const struct keybind_list *slot_list(const struct region_keymap *km, int i) {
+	return i < KA_COUNT ? &km->actions[i] : &km->tools[i - KA_COUNT];
+}
+
+static size_t add_clash(struct region_keybind_clash *out, size_t n, size_t max, int a, int b,
+						const struct keybind *bind, bool taken) {
+	if (n >= max) return n;
+	out[n] = (struct region_keybind_clash){.a = slot_key(a), .b = slot_key(b), .taken = taken};
+	region_keybind_format(bind, out[n].bind, sizeof out[n].bind);
+	return n + 1;
+}
+
+size_t region_keymap_clashes(struct config *cfg, struct region_keybind_clash *out, size_t max) {
+	struct region_keymap km;
+	region_keymap_init(&km, cfg);
+	size_t n = 0;
+	for (uint8_t d = 0; d < km.n_drops; d++)
+		n = add_clash(out, n, max, km.drops[d].from, km.drops[d].to, &km.drops[d].bind, true);
+	for (int i = 0; i < KB_SLOTS; i++) {
+		const struct keybind_list *li = slot_list(&km, i);
+		for (int j = i + 1; j < KB_SLOTS; j++) {
+			const struct keybind_list *lj = slot_list(&km, j);
+			for (uint8_t x = 0; x < li->n; x++)
+				for (uint8_t y = 0; y < lj->n; y++)
+					if (bind_eq(&li->items[x], &lj->items[y]))
+						n = add_clash(out, n, max, i, j, &li->items[x], false);
+		}
+	}
+	return n;
 }
 
 static bool list_has_key(const struct keybind_list *list, xkb_keysym_t sym,

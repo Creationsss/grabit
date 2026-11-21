@@ -327,6 +327,48 @@ void set_refresh_uploaders(struct settings_state *st) {
 	}
 }
 
+static void add_note(struct settings_state *st, const char *key, const char *text) {
+	struct set_row *r = find_row(st, key);
+	if (!r) return;
+	if (r->note[0])
+		r->note_more++;
+	else
+		snprintf(r->note, sizeof r->note, "%s", text);
+}
+
+static const char *label_of(struct settings_state *st, const char *key) {
+	struct set_row *r = find_row(st, key);
+	return r ? r->label : key;
+}
+
+void set_refresh_notes(struct settings_state *st) {
+	for (size_t i = 0; i < st->all.n; i++) {
+		st->all.rows[i]->note[0] = '\0';
+		st->all.rows[i]->note_more = 0;
+	}
+	struct region_keybind_clash c[64];
+	size_t n = region_keymap_clashes(&st->cfg, c, 64);
+	for (size_t i = 0; i < n; i++) {
+		const char *la = label_of(st, c[i].a), *lb = label_of(st, c[i].b);
+		char ta[160], tb[160];
+		if (c[i].taken) {
+			snprintf(ta, sizeof ta, "Takes %s from %s", c[i].bind, lb);
+			snprintf(tb, sizeof tb, "%s taken by %s", c[i].bind, la);
+		} else {
+			snprintf(ta, sizeof ta, "Also used by %s (%s)", lb, c[i].bind);
+			snprintf(tb, sizeof tb, "Also used by %s (%s)", la, c[i].bind);
+		}
+		add_note(st, c[i].a, ta);
+		add_note(st, c[i].b, tb);
+	}
+	for (size_t i = 0; i < st->all.n; i++) {
+		struct set_row *r = st->all.rows[i];
+		size_t len = strlen(r->note);
+		if (r->note_more && len < sizeof r->note)
+			snprintf(r->note + len, sizeof r->note - len, " and %zu more", r->note_more);
+	}
+}
+
 struct leftover_ctx {
 	struct settings_state *st;
 	struct set_page *page;
@@ -419,6 +461,7 @@ int settings_build(struct settings_state *st) {
 		for (size_t j = 0; j < st->pages[i].n; j++)
 			if (!st->pages[i].rows[j]->page) st->pages[i].rows[j]->page = st->pages[i].title;
 	st->results.title = "Search";
+	set_refresh_notes(st);
 	return 0;
 }
 

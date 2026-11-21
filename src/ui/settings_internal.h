@@ -113,6 +113,8 @@ struct set_row {
 	bool sxcu_add;
 	bool icons_loaded;
 	char error[256];
+	char note[160];
+	size_t note_more;
 	double y;
 	double h;
 };
@@ -293,6 +295,7 @@ struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
 void set_refresh_uploaders(struct settings_state *st);
+void set_refresh_notes(struct settings_state *st);
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 void set_on_drag(struct ui_window *w, bool over);
 void set_on_drop(struct ui_window *w, const char *uri_list);

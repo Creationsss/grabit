@@ -138,6 +138,7 @@ void set_layout(struct settings_state *st) {
 		if (r->section_head) y += SET_SECTION_H;
 		double h = SET_ROW_PAD + LABEL_LINE + KEY_LINE;
 		const char *why = set_inactive_reason(st, r);
+		h += (double)wrap(cr, r->note, tw, SET_HINT_SIZE, lines, 2) * SET_HINT_LINE;
 		h += (double)wrap(cr, why, tw, SET_HINT_SIZE, lines, 2) * SET_HINT_LINE;
 		h += (double)wrap(cr, r->hint, tw, SET_HINT_SIZE, lines, SET_HINT_MAX_LINES) *
 			 SET_HINT_LINE;
@@ -748,7 +749,11 @@ static void draw_row(struct settings_state *st, cairo_t *cr, size_t i, struct se
 
 	char lines[SET_HINT_MAX_LINES + 2][160];
 	double y = ty + LABEL_LINE + KEY_LINE + 1;
-	size_t n = wrap(cr, why, tw, SET_HINT_SIZE, lines, 2);
+	size_t n = wrap(cr, r->note, tw, SET_HINT_SIZE, lines, 2);
+	for (size_t k = 0; k < n; k++, y += SET_HINT_LINE)
+		ui_draw_text_fit_rgba(cr, SET_BODY_PAD, y, tw + 4, lines[k], SET_HINT_SIZE,
+							  CAIRO_FONT_WEIGHT_NORMAL, GUI_C_ACCENT, 0.95);
+	n = wrap(cr, why, tw, SET_HINT_SIZE, lines, 2);
 	for (size_t k = 0; k < n; k++, y += SET_HINT_LINE)
 		ui_draw_text_fit(cr, SET_BODY_PAD, y, tw + 4, lines[k], SET_HINT_SIZE,
 						 CAIRO_FONT_WEIGHT_NORMAL, 0.72);

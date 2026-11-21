@@ -49,6 +49,7 @@ static int reload(struct settings_state *st) {
 	st->state_stamp = state;
 	grabit_ui_theme_init(&st->cfg);
 	update_banner(st);
+	set_refresh_notes(st);
 	return 0;
 }
 

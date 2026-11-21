@@ -15,6 +15,7 @@
 #include <cairo/cairo.h>
 
 #include "config/config.h"
+#include "region/keybinds.h"
 #include "ui/icons.h"
 #include "ui/scroll.h"
 #include "ui/text.h"
@@ -291,6 +292,10 @@ struct settings_state {
 	struct set_plugin_jobs plugin_jobs;
 	struct set_upload_test *upload_test;
 	struct set_dialog dialog;
+	struct {
+		struct set_row *row;
+		struct keybind_list binds;
+	} capture;
 	struct set_rect page_reset_btn;
 	bool page_reset_hover;
 
@@ -412,5 +417,10 @@ bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 void set_on_drag(struct ui_window *w, bool over);
 void set_on_drop(struct ui_window *w, const char *uri_list);
 void set_commit_edit(struct settings_state *st);
+
+void set_capture_start(struct settings_state *st, struct set_row *r);
+void set_capture_end(struct settings_state *st, bool save);
+bool set_capture_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods);
+bool set_capture_button(struct settings_state *st, uint32_t button, bool pressed);
 
 #endif

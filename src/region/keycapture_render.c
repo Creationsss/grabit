@@ -5,7 +5,7 @@
 #include "region/keycapture_internal.h"
 
 #include "cairo_util.h"
-#include "ui_colors.h"
+#include "ui/widgets.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
@@ -14,28 +14,27 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
-#define KC_DIM_A 0.45
-#define KC_LINE 38.0
-
 void gkc_draw(cairo_t *cr, struct kc_state *s) {
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr, GUI_C_SHADE, KC_DIM_A);
-	cairo_paint(cr);
-	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+	grabit_ui_window_panel(cr, s->w, s->h, 1.0, grabit_ui_radius(GUI_R_PANEL));
+	double tw = s->w - KC_PAD * 2;
 
 	char asking[160];
-	snprintf(asking, sizeof asking, "press the keys for %s",
+	snprintf(asking, sizeof asking, "Press the keys for %s",
 			 s->action_key ? s->action_key : "this binding");
-	char caps[512];
-	gkc_join(s, caps, sizeof caps);
+	ui_draw_text_fit(cr, KC_PAD, KC_PAD, tw, asking, 15, CAIRO_FONT_WEIGHT_BOLD, 0.95);
 
-	double cx = s->w / 2.0;
-	double mid = s->h / 2.0;
-	grabit_ui_hint_pill(cr, 1.0, asking, cx, caps[0] ? mid - KC_LINE : mid, s->w);
-	if (caps[0]) grabit_ui_hint_pill(cr, 1.0, caps, cx, mid, s->w);
-	grabit_ui_hint_pill(cr, 1.0,
-						"enter saves, esc cancels, backspace removes the last", cx,
-						s->h - 24.0, s->w);
+	char caps[512];
+	region_keybind_list_join(&s->caps, caps, sizeof caps);
+	if (caps[0])
+		ui_draw_text_fit(cr, KC_PAD, KC_KEYS_Y, tw, caps, 16, CAIRO_FONT_WEIGHT_NORMAL, 0.95);
+	else
+		ui_draw_text_fit(cr, KC_PAD, KC_KEYS_Y, tw, "waiting for keys", 14,
+						 CAIRO_FONT_WEIGHT_NORMAL, 0.45);
+
+	ui_draw_text_fit(cr, KC_PAD, KC_PAD + KC_FOOT_Y, tw,
+					 "Enter saves, Esc cancels, Backspace removes the last; click here to add "
+					 "a mouse button",
+					 KC_FOOT_SIZE, CAIRO_FONT_WEIGHT_NORMAL, 0.55);
 }
 
 void gkc_render(struct kc_state *s) {

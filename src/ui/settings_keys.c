@@ -727,7 +727,7 @@ static int push_bind(struct settings_state *st, struct set_page *p, const char *
 
 static int build_keybinds(struct settings_state *st, struct set_page *p) {
 	p->title = "Keybinds";
-	p->note = "comma-separated, e.g. \"Return, Ctrl+s\" or \"mouse:right\"; the record button captures them live";
+	p->note = "comma-separated, e.g. \"Enter, Ctrl+s\" or \"mouse:right\"; the record button captures them live";
 	bool done[KA_COUNT] = {0};
 	for (size_t i = 0; i < sizeof ACTIONS / sizeof *ACTIONS; i++) {
 		done[ACTIONS[i].act] = true;

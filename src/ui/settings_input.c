@@ -5,8 +5,6 @@
 #include "ui/settings_internal.h"
 
 #include "clipboard/clipboard.h"
-#include "log.h"
-#include "region/keybinds.h"
 #include "ui/window.h"
 #include "util/util.h"
 #include "wl/xkb.h"
@@ -165,16 +163,9 @@ static void toggle(struct settings_state *st, struct set_row *r) {
 }
 
 static void record_binding(struct settings_state *st, struct set_row *r) {
-	char out[256];
-	char err[sizeof r->error];
-	log_capture_errors(err, sizeof err);
-	int rc = region_keybind_watch(st->wls, r->key, out, sizeof out);
-	log_capture_errors(NULL, 0);
-	if (rc == 0)
-		set_apply(st, r, out);
-	else if (rc < 0)
-		snprintf(r->error, sizeof r->error, "%s", err[0] ? err : "could not capture keys");
-	ui_window_damage(st->win);
+	close_popup(st);
+	if (!leave_edit(st)) return;
+	set_capture_start(st, r);
 }
 
 static bool clicks(const struct set_row *r) {
@@ -225,6 +216,7 @@ static void select_page(struct settings_state *st, size_t i) {
 	if (i == st->page && !searching) return;
 	if (!leave_edit(st)) return;
 	close_popup(st);
+	set_capture_end(st, false);
 	if (searching) ui_text_set(&st->search, "");
 	st->page = i;
 	st->focus = 0;
@@ -374,6 +366,7 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 void set_on_button(struct ui_window *w, double x, double y, uint32_t button, bool pressed) {
 	struct settings_state *st = w->user;
 	hide_tip(st);
+	if (set_capture_button(st, button, pressed)) return;
 	if (set_dialog_press(st, x, y, button, pressed)) return;
 	if (!pressed) {
 		st->text_drag = false;
@@ -780,6 +773,7 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 	hide_tip(st);
 	if (!st->focus_visible) ui_window_damage(w);
 	st->focus_visible = true;
+	if (set_capture_key(st, sym, mods)) return true;
 	if (set_dialog_key(st, sym, mods)) return true;
 	bool ctrl = (mods & KB_MOD_CTRL) != 0;
 	xkb_keysym_t lower = xkb_keysym_to_lower(sym);
@@ -826,6 +820,7 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 void set_on_focus_lost(struct ui_window *w) {
 	struct settings_state *st = w->user;
 	hide_tip(st);
+	set_capture_end(st, false);
 	close_popup(st);
 }
 
@@ -858,6 +853,7 @@ void set_on_drop(struct ui_window *w, const char *uri_list) {
 	st->drag_over = false;
 	if (!leave_edit(st)) cancel_edit(st);
 	close_popup(st);
+	set_capture_end(st, false);
 	show_sxcu_row(st);
 	struct set_row *r = set_sxcu_row(st);
 	if (!r) return;

@@ -10,7 +10,13 @@
 #include "region/keybinds.h"
 #include "util/util.h"
 
-#define KC_MAX_CAPS 12
+#define KC_PANEL_W 560
+#define KC_MARGIN 16
+#define KC_PAD 20
+#define KC_KEYS_Y 54
+#define KC_FOOT_Y 64
+#define KC_FOOT_SIZE 12
+#define KC_PANEL_H (KC_FOOT_Y + KC_FOOT_SIZE + 2 + KC_PAD * 2)
 
 struct kc_state {
 	struct grabit_wl_state *wls;
@@ -34,8 +40,7 @@ struct kc_state {
 	struct xkb_keymap *xkb_keymap;
 	struct xkb_state *xkb_state;
 
-	struct keybind caps[KC_MAX_CAPS];
-	size_t n_caps;
+	struct keybind_list caps;
 	bool done;
 	bool cancelled;
 };
@@ -44,7 +49,6 @@ extern const struct zwlr_layer_surface_v1_listener gkc_layer_listener;
 extern const struct wl_keyboard_listener gkc_kb_listener;
 extern const struct wl_pointer_listener gkc_ptr_listener;
 
-void gkc_join(struct kc_state *s, char *out, size_t n);
 struct _cairo;
 void gkc_draw(struct _cairo *cr, struct kc_state *s);
 void gkc_render(struct kc_state *s);

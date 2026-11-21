@@ -43,9 +43,11 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 	if (!st.xkb_ctx) return -1;
 
 	st.surface = wl_compositor_create_surface(s->compositor);
-	st.layer = grabit_wl_layer_fullscreen(
-		s, st.surface, st.go->wl_output, "grabit-keycapture",
-		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE, &gkc_layer_listener, &st);
+	int32_t room = st.go->logical_width - 2 * KC_MARGIN;
+	uint32_t width = room > 0 && room < KC_PANEL_W ? (uint32_t)room : KC_PANEL_W;
+	st.layer = grabit_wl_layer(s, st.surface, st.go->wl_output, "grabit-keycapture", 0, width,
+							   KC_PANEL_H, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE,
+							   &gkc_layer_listener, &st);
 	if (!st.layer) {
 		wl_surface_destroy(st.surface);
 		xkb_context_unref(st.xkb_ctx);
@@ -81,10 +83,10 @@ int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 		;
 
 	int rc;
-	if (st.cancelled || st.n_caps == 0) {
+	if (st.cancelled || st.caps.n == 0) {
 		rc = 1;
 	} else {
-		gkc_join(&st, out, out_size);
+		region_keybind_list_join(&st.caps, out, out_size);
 		rc = 0;
 	}
 

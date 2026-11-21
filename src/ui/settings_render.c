@@ -123,6 +123,16 @@ static double rows_top(struct settings_state *st) {
 	return title_y(st) + TITLE_H + (set_current_page(st)->note ? NOTE_H : 0) + 8;
 }
 
+static bool capturing(const struct settings_state *st, const struct set_row *r) {
+	return st->capture.row == r;
+}
+
+static const char *row_hint(const struct settings_state *st, const struct set_row *r) {
+	return capturing(st, r) ? "press keys or right, middle or side mouse buttons; Enter saves, "
+							  "Esc cancels, Backspace removes the last"
+							: r->hint;
+}
+
 void set_layout(struct settings_state *st) {
 	cairo_t *cr = ui_measure_cr();
 	struct set_page *p = set_current_page(st);
@@ -140,7 +150,7 @@ void set_layout(struct settings_state *st) {
 		const char *why = set_inactive_reason(st, r);
 		h += (double)wrap(cr, r->note, tw, SET_HINT_SIZE, lines, 2) * SET_HINT_LINE;
 		h += (double)wrap(cr, why, tw, SET_HINT_SIZE, lines, 2) * SET_HINT_LINE;
-		h += (double)wrap(cr, r->hint, tw, SET_HINT_SIZE, lines, SET_HINT_MAX_LINES) *
+		h += (double)wrap(cr, row_hint(st, r), tw, SET_HINT_SIZE, lines, SET_HINT_MAX_LINES) *
 			 SET_HINT_LINE;
 		if (r->error[0])
 			h += 4 + (double)wrap(cr, r->error, error_w(st), SET_HINT_SIZE, lines, 3) *
@@ -619,19 +629,30 @@ static const char *placeholder(const struct set_row *r) {
 	return ex;
 }
 
-static void focus_ring(cairo_t *cr, const struct set_rect *c) {
-	grabit_ui_accent(cr, 0.6);
-	cairo_set_line_width(cr, 1.0);
-	grabit_cairo_rect_r_inset(cr, c->x, c->y, c->w, c->h, grabit_ui_radius(GUI_R_BTN), 1.0);
+static void ring(cairo_t *cr, const struct set_rect *c, double alpha, double width) {
+	grabit_ui_accent(cr, alpha);
+	cairo_set_line_width(cr, width);
+	grabit_cairo_rect_r_inset(cr, c->x, c->y, c->w, c->h, grabit_ui_radius(GUI_R_BTN), width);
 	cairo_stroke(cr);
+}
+
+static void focus_ring(cairo_t *cr, const struct set_rect *c) {
+	ring(cr, c, 0.6, 1.0);
 }
 
 static void draw_field(struct settings_state *st, cairo_t *cr, const struct set_row *r,
 					   const struct set_rect *c, bool focused) {
-	bool editing = st->editing && focused;
+	bool capture = capturing(st, r);
+	bool editing = st->editing && focused && !capture;
+	char keys[256] = "";
+	if (capture) region_keybind_list_join(&st->capture.binds, keys, sizeof keys);
 	ui_text_draw(cr, editing ? &st->edit : NULL, c->x, c->y, c->w, c->h, 0,
-				 set_masked(r), set_effective(st, r), placeholder(r));
-	if (!editing && focused && st->focus_visible) focus_ring(cr, c);
+				 !capture && set_masked(r), capture ? keys : set_effective(st, r),
+				 capture ? "press keys" : placeholder(r));
+	if (capture)
+		ring(cr, c, 0.9, 1.5);
+	else if (!editing && focused && st->focus_visible)
+		focus_ring(cr, c);
 }
 
 static void draw_aux(struct settings_state *st, cairo_t *cr, size_t i,
@@ -779,7 +800,7 @@ static void draw_row(struct settings_state *st, cairo_t *cr, size_t i, struct se
 	for (size_t k = 0; k < n; k++, y += SET_HINT_LINE)
 		ui_draw_text_fit(cr, SET_BODY_PAD, y, tw + 4, lines[k], SET_HINT_SIZE,
 						 CAIRO_FONT_WEIGHT_NORMAL, 0.72);
-	n = wrap(cr, r->hint, tw, SET_HINT_SIZE, lines, SET_HINT_MAX_LINES);
+	n = wrap(cr, row_hint(st, r), tw, SET_HINT_SIZE, lines, SET_HINT_MAX_LINES);
 	for (size_t k = 0; k < n; k++, y += SET_HINT_LINE)
 		ui_draw_text_fit(cr, SET_BODY_PAD, y, tw + 4, lines[k], SET_HINT_SIZE,
 						 CAIRO_FONT_WEIGHT_NORMAL, why ? 0.36 : 0.48);

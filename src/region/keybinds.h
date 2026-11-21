@@ -95,6 +95,18 @@ void region_keybind_first_tool(const struct region_keymap *km, int tool, char *o
 uint8_t gkb_mod_from_name(const char *name);
 
 struct grabit_wl_state;
+enum region_capture {
+	REGION_CAPTURE_IGNORED,
+	REGION_CAPTURE_CHANGED,
+	REGION_CAPTURE_SAVE,
+	REGION_CAPTURE_CANCEL,
+};
+
+bool region_keybind_eq(const struct keybind *a, const struct keybind *b);
+bool region_keybind_list_add(struct keybind_list *list, const struct keybind *b);
+void region_keybind_list_join(const struct keybind_list *list, char *out, size_t n);
+enum region_capture region_capture_key(struct keybind_list *list, xkb_keysym_t sym, uint8_t mods);
+
 int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 						 char *out, size_t out_size);
 

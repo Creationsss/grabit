@@ -5,6 +5,8 @@
 #include "region/keybinds.h"
 
 #include "config/config.h"
+#include "util/util.h"
+#include "wl/xkb.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -80,17 +82,48 @@ static bool load(struct config *cfg, const char *key, const char *def,
 	return explicit_bind;
 }
 
-static bool bind_eq(const struct keybind *a, const struct keybind *b) {
+bool region_keybind_eq(const struct keybind *a, const struct keybind *b) {
 	if (a->is_button != b->is_button) return false;
 	if (a->is_button) return a->button == b->button;
 	return a->sym == b->sym && a->mods == b->mods;
+}
+
+bool region_keybind_list_add(struct keybind_list *list, const struct keybind *b) {
+	for (uint8_t i = 0; i < list->n; i++)
+		if (region_keybind_eq(&list->items[i], b)) return false;
+	if (list->n >= KB_MAX_BINDS) return false;
+	list->items[list->n++] = *b;
+	return true;
+}
+
+void region_keybind_list_join(const struct keybind_list *list, char *out, size_t n) {
+	out[0] = '\0';
+	size_t used = 0;
+	for (uint8_t i = 0; i < list->n; i++) {
+		char one[REGION_KEYBIND_STR * 2];
+		region_keybind_format(&list->items[i], one, sizeof one);
+		if (!grabit_join_appendf(out, n, &used, ", ", "%s", one)) break;
+	}
+}
+
+enum region_capture region_capture_key(struct keybind_list *list, xkb_keysym_t sym, uint8_t mods) {
+	if (sym == XKB_KEY_Escape) return REGION_CAPTURE_CANCEL;
+	if (sym == XKB_KEY_Return) return REGION_CAPTURE_SAVE;
+	if (sym == XKB_KEY_BackSpace) {
+		if (list->n == 0) return REGION_CAPTURE_IGNORED;
+		list->n--;
+		return REGION_CAPTURE_CHANGED;
+	}
+	if (sym == XKB_KEY_NoSymbol || grabit_xkb_is_modifier(sym)) return REGION_CAPTURE_IGNORED;
+	struct keybind b = {.sym = gkb_norm_sym(sym), .mods = mods};
+	return region_keybind_list_add(list, &b) ? REGION_CAPTURE_CHANGED : REGION_CAPTURE_IGNORED;
 }
 
 static void list_drop(struct region_keymap *km, struct keybind_list *list, int from, int to,
 					  const struct keybind *b) {
 	uint8_t w = 0;
 	for (uint8_t i = 0; i < list->n; i++) {
-		if (bind_eq(&list->items[i], b)) continue;
+		if (region_keybind_eq(&list->items[i], b)) continue;
 		list->items[w++] = list->items[i];
 	}
 	if (w != list->n && km->n_drops < KB_DROPS_MAX)
@@ -150,7 +183,7 @@ size_t region_keymap_clashes(struct config *cfg, struct region_keybind_clash *ou
 			const struct keybind_list *lj = slot_list(&km, j);
 			for (uint8_t x = 0; x < li->n; x++)
 				for (uint8_t y = 0; y < lj->n; y++)
-					if (bind_eq(&li->items[x], &lj->items[y]))
+					if (region_keybind_eq(&li->items[x], &lj->items[y]))
 						n = add_clash(out, n, max, i, j, &li->items[x], false);
 		}
 	}

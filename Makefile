@@ -150,6 +150,7 @@ GRABIT_SRCS := \
 	src/ui/settings_plugins.c \
 	src/ui/settings_dialog.c \
 	src/ui/settings_tests.c \
+	src/ui/settings_capture.c \
 	src/wm/wm.c \
 	src/wm/ipc.c \
 	src/wm/hyprland.c \

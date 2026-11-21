@@ -157,23 +157,30 @@ void grabit_wl_callback_drop(struct wl_callback **cb) {
 	*cb = NULL;
 }
 
+struct zwlr_layer_surface_v1 *grabit_wl_layer(
+	struct grabit_wl_state *s, struct wl_surface *surface, struct wl_output *output,
+	const char *ns, uint32_t anchor, uint32_t w, uint32_t h, uint32_t kb_interactivity,
+	const struct zwlr_layer_surface_v1_listener *listener, void *data) {
+	struct zwlr_layer_surface_v1 *ls = zwlr_layer_shell_v1_get_layer_surface(
+		s->layer_shell, surface, output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ns);
+	if (!ls) return NULL;
+	if (listener) zwlr_layer_surface_v1_add_listener(ls, listener, data);
+	zwlr_layer_surface_v1_set_anchor(ls, anchor);
+	zwlr_layer_surface_v1_set_size(ls, w, h);
+	zwlr_layer_surface_v1_set_keyboard_interactivity(ls, kb_interactivity);
+	return ls;
+}
+
 struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
 	struct grabit_wl_state *s, struct wl_surface *surface,
 	struct wl_output *output, const char *ns, uint32_t kb_interactivity,
 	const struct zwlr_layer_surface_v1_listener *listener, void *data) {
-	struct zwlr_layer_surface_v1 *ls = zwlr_layer_shell_v1_get_layer_surface(
-		s->layer_shell, surface, output,
-		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ns);
-	if (!ls) return NULL;
-	if (listener) zwlr_layer_surface_v1_add_listener(ls, listener, data);
-	zwlr_layer_surface_v1_set_anchor(ls,
-									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-	zwlr_layer_surface_v1_set_size(ls, 0, 0);
-	zwlr_layer_surface_v1_set_exclusive_zone(ls, -1);
-	zwlr_layer_surface_v1_set_keyboard_interactivity(ls, kb_interactivity);
+	struct zwlr_layer_surface_v1 *ls = grabit_wl_layer(
+		s, surface, output, ns,
+		ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
+		0, 0, kb_interactivity, listener, data);
+	if (ls) zwlr_layer_surface_v1_set_exclusive_zone(ls, -1);
 	return ls;
 }
 

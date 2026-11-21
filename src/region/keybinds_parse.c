@@ -165,11 +165,7 @@ void gkb_parse_list(const char *value, struct keybind_list *list) {
 	while (gkb_tok_next(&p, &tok, &len)) {
 		struct keybind kb;
 		if (gkb_parse_bind(tok, len, &kb)) {
-			bool dup = false;
-			for (uint8_t i = 0; i < list->n && !dup; i++)
-				dup = list->items[i].is_button == kb.is_button && list->items[i].sym == kb.sym &&
-					  list->items[i].button == kb.button && list->items[i].mods == kb.mods;
-			if (!dup && list->n < KB_MAX_BINDS) list->items[list->n++] = kb;
+			region_keybind_list_add(list, &kb);
 		} else if (!gkb_tok_blank(tok, len)) {
 			log_warn("keys: ignoring invalid binding `%.*s`", (int)len, tok);
 		}

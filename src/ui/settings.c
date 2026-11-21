@@ -86,6 +86,7 @@ void set_toast(struct settings_state *st, const char *fmt, ...) {
 	vsnprintf(st->toast, sizeof st->toast, fmt, ap);
 	va_end(ap);
 	st->toast_until = grabit_now_ms() + SET_TOAST_MS;
+	st->toast_undo = false;
 	set_arm_timer(st);
 	ui_window_damage(st->win);
 }
@@ -142,6 +143,61 @@ bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
 	return true;
 }
 
+static void free_change(struct set_change *c) {
+	free(c->before);
+	free(c->after);
+	*c = (struct set_change){0};
+}
+
+void set_history_free(struct settings_state *st) {
+	for (size_t i = 0; i < st->history_n; i++)
+		free_change(&st->history[i]);
+	st->history_n = st->history_pos = 0;
+}
+
+static void record_change(struct settings_state *st, struct set_row *r, char *before,
+						  const char *after) {
+	while (st->history_n > st->history_pos)
+		free_change(&st->history[--st->history_n]);
+	if (st->history_n == SET_HISTORY) {
+		free_change(&st->history[0]);
+		memmove(st->history, st->history + 1, (SET_HISTORY - 1) * sizeof *st->history);
+		st->history_n--;
+	}
+	struct set_change *c = &st->history[st->history_n++];
+	*c = (struct set_change){r, before, after ? strdup(after) : NULL};
+	st->history_pos = st->history_n;
+}
+
+static bool write_value(struct settings_state *st, struct set_row *r, const char *value) {
+	if (stamps_changed(st)) reload(st);
+	if (st->cfg.unparsed) {
+		snprintf(r->error, sizeof r->error, "%s", st->banner);
+		ui_window_damage(st->win);
+		return false;
+	}
+	const char *cur = set_value(st, r);
+	const char *same = cur ? cur : r->info.def;
+	if (value ? same && strcmp(value, same) == 0 : !cur) {
+		r->error[0] = '\0';
+		return false;
+	}
+	char err[sizeof r->error];
+	log_capture_errors(err, sizeof err);
+	int rc = config_write_key(r->key, value);
+	log_capture_errors(NULL, 0);
+	if (rc != 0) {
+		snprintf(r->error, sizeof r->error, "%s", err[0] ? err : "could not save this setting");
+		ui_window_damage(st->win);
+		return false;
+	}
+	r->error[0] = '\0';
+	reload(st);
+	toast_change(st, r, value == NULL);
+	ui_window_damage(st->win);
+	return true;
+}
+
 void set_apply(struct settings_state *st, struct set_row *r, const char *value) {
 	if (value && !value[0]) value = NULL;
 	if (r->sxcu_add) {
@@ -150,29 +206,40 @@ void set_apply(struct settings_state *st, struct set_row *r, const char *value) 
 		return;
 	}
 	if (stamps_changed(st)) reload(st);
-	if (st->cfg.unparsed) {
-		snprintf(r->error, sizeof r->error, "%s", st->banner);
-		ui_window_damage(st->win);
-		return;
-	}
 	const char *cur = set_value(st, r);
-	const char *same = cur ? cur : r->info.def;
-	if (value ? same && strcmp(value, same) == 0 : !cur) {
-		r->error[0] = '\0';
+	char *before = cur ? strdup(cur) : NULL;
+	if (!write_value(st, r, value)) {
+		free(before);
 		return;
 	}
-	char err[sizeof r->error];
-	log_capture_errors(err, sizeof err);
-	int rc = config_write_key(r->key, value);
-	log_capture_errors(NULL, 0);
-	if (rc != 0) {
-		snprintf(r->error, sizeof r->error, "%s", err[0] ? err : "could not save this setting");
-	} else {
-		r->error[0] = '\0';
-		reload(st);
-		toast_change(st, r, value == NULL);
+	record_change(st, r, before, value);
+	st->toast_undo = true;
+	st->toast_until = grabit_now_ms() + SET_UNDO_TOAST_MS;
+	set_arm_timer(st);
+}
+
+static void replay(struct settings_state *st, bool undo) {
+	bool can = undo ? st->history_pos > 0 : st->history_pos < st->history_n;
+	if (!can) {
+		set_toast(st, undo ? "Nothing to undo" : "Nothing to redo");
+		return;
 	}
-	ui_window_damage(st->win);
+	struct set_change *c = &st->history[undo ? st->history_pos - 1 : st->history_pos];
+	bool ok = write_value(st, c->row, undo ? c->before : c->after);
+	if (!ok && c->row->error[0]) return;
+	st->history_pos = undo ? st->history_pos - 1 : st->history_pos + 1;
+	if (!ok) return;
+	char msg[sizeof st->toast + 16];
+	snprintf(msg, sizeof msg, "%s: %s", undo ? "Undone" : "Redone", st->toast);
+	set_toast(st, "%s", msg);
+}
+
+void set_undo(struct settings_state *st) {
+	replay(st, true);
+}
+
+void set_redo(struct settings_state *st) {
+	replay(st, false);
 }
 
 void set_commit_edit(struct settings_state *st) {
@@ -270,6 +337,7 @@ int grabit_settings_main(const char *what) {
 	wl_display_roundtrip(wls.display);
 
 	set_icons_free(&st);
+	set_history_free(&st);
 	settings_free_rows(&st);
 	grabit_wl_finish(&wls);
 	config_free(&st.cfg);

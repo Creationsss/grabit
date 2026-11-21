@@ -371,6 +371,10 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 	}
 	if (st->focus_visible) ui_window_damage(w);
 	st->focus_visible = false;
+	if (button == BTN_LEFT && st->toast_until && set_rect_contains(&st->toast_btn, x, y)) {
+		set_undo(st);
+		return;
+	}
 	if (x < set_sidebar_w(st->view_w)) {
 		close_popup(st);
 		if (button == BTN_LEFT) sidebar_press(st, x, y);
@@ -472,6 +476,8 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 			}
 		}
 	}
+	if (st->toast_until && set_rect_contains(&st->toast_btn, x, y))
+		cur = GCUR_HAND;
 	w->content_cursor = cur;
 	update_tip(st, side == SET_SIDE_CLEAR ? side : row, part);
 	if (side != st->side_hover || row != st->hover_row || part != st->hover_part ||
@@ -743,7 +749,22 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 	if (!st->focus_visible) ui_window_damage(w);
 	st->focus_visible = true;
 	bool ctrl = (mods & KB_MOD_CTRL) != 0;
-	if (ctrl && xkb_keysym_to_lower(sym) == XKB_KEY_f) {
+	xkb_keysym_t lower = xkb_keysym_to_lower(sym);
+	bool typing = st->area == AREA_SEARCH || set_popup_filtered(st);
+	if (ctrl && !typing && (lower == XKB_KEY_z || lower == XKB_KEY_y)) {
+		bool redo = lower == XKB_KEY_y || (mods & KB_MOD_SHIFT);
+		if (st->editing) {
+			if (!redo) cancel_edit(st);
+			return true;
+		}
+		close_popup(st);
+		if (redo)
+			set_redo(st);
+		else
+			set_undo(st);
+		return true;
+	}
+	if (ctrl && lower == XKB_KEY_f) {
 		if (!leave_edit(st)) return true;
 		close_popup(st);
 		st->area = AREA_SEARCH;

@@ -55,6 +55,8 @@ struct set_dep;
 #define SET_TIP_DELAY_MS 600
 #define SET_DOUBLE_CLICK_MS 400
 #define SET_TOAST_MS 2500
+#define SET_UNDO_TOAST_MS 5000
+#define SET_HISTORY 50
 #define SET_RESET_W 26
 
 enum set_part {
@@ -142,6 +144,12 @@ struct set_icon_slot {
 	cairo_surface_t *surface;
 };
 
+struct set_change {
+	struct set_row *row;
+	char *before;
+	char *after;
+};
+
 struct settings_state {
 	struct ui_window *win;
 	struct grabit_wl_state *wls;
@@ -200,6 +208,12 @@ struct settings_state {
 
 	char toast[192];
 	int64_t toast_until;
+	bool toast_undo;
+	struct set_rect toast_btn;
+
+	struct set_change history[SET_HISTORY];
+	size_t history_n;
+	size_t history_pos;
 	bool drag_over;
 
 	char banner[256];
@@ -271,6 +285,9 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods);
 void set_on_focus_lost(struct ui_window *w);
 
 void set_apply(struct settings_state *st, struct set_row *r, const char *value);
+void set_undo(struct settings_state *st);
+void set_redo(struct settings_state *st);
+void set_history_free(struct settings_state *st);
 struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));

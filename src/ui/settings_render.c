@@ -900,6 +900,33 @@ static void draw_body(struct settings_state *st, cairo_t *cr) {
 	cairo_restore(cr);
 }
 
+static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
+	st->toast_btn = (struct set_rect){0};
+	if (!st->toast_until) return;
+	const char *undo = "Undo";
+	double size = 12, pad = 10, gap = 14, h = 30;
+	double tw = ui_text_width(cr, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL);
+	double uw = st->toast_undo ? ui_text_width(cr, undo, size, CAIRO_FONT_WEIGHT_BOLD) : 0;
+	double max_w = set_body_w(st) - SET_BODY_PAD * 2;
+	double w = pad * 2 + tw + (st->toast_undo ? gap + uw : 0);
+	if (w > max_w) {
+		tw -= w - max_w;
+		w = max_w;
+	}
+	double x = set_body_x(st) + (set_body_w(st) - w) / 2.0, y = height - 18 - h;
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
+	grabit_cairo_rect_r(cr, x, y, w, h, grabit_ui_radius(GUI_R_TIP));
+	cairo_fill(cr);
+	double ty = y + (h - 16) / 2.0;
+	ui_draw_text_fit(cr, x + pad, ty, tw, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL, 1.0);
+	if (!st->toast_undo) return;
+	double ux = x + pad + tw + gap;
+	ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, undo, size, CAIRO_FONT_WEIGHT_BOLD, GUI_C_ACCENT,
+						  1.0);
+	double hit_x = ux - gap / 2;
+	st->toast_btn = (struct set_rect){hit_x, y, x + w - hit_x, h};
+}
+
 static void draw_drop_overlay(cairo_t *cr, double w, double h) {
 	cairo_set_source_rgba(cr, GUI_C_PANEL, 0.86);
 	cairo_rectangle(cr, 0, 0, w, h);
@@ -933,9 +960,7 @@ void set_draw(struct ui_window *w, cairo_t *cr, double width, double height) {
 	ui_scroll_set(&st->side, legend_y(st, height) + legend_h(), height);
 	draw_sidebar(st, cr, sw, height);
 	draw_body(st, cr);
-	if (st->toast_until)
-		grabit_ui_hint_pill(cr, 1.0, st->toast, set_body_x(st) + set_body_w(st) / 2.0,
-							height - 26, width);
+	draw_toast(st, cr, height);
 	draw_tip(st, cr);
 	if (st->drag_over) draw_drop_overlay(cr, width, height);
 }

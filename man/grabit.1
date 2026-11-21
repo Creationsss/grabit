@@ -26,6 +26,10 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .RI [ arg ]
 .br
 .B grabit
+.B upload test
+.RI [ service ]
+.br
+.B grabit
 .B plugin
 .RB { install | list | show | update | remove }
 .RI [ arg ]
@@ -553,6 +557,7 @@ Print help for a topic:
 .BR get ,
 .BR unset ,
 .BR sxcu ,
+.BR upload ,
 .BR plugin ,
 .BR filename ,
 .BR env ,
@@ -586,6 +591,20 @@ is given.
 .BI "sxcu remove " name
 Remove an uploader (alias:
 .BR rm ).
+.SS Testing uploads
+.TP
+.BI "upload test " [service]
+Upload a small generated image to
+.I service
+(default: the
+.B service
+setting), print its link, then delete it again.
+Deleting works on zipline v4 and on
+.B .sxcu
+uploaders with a
+.BR DeletionURL ;
+other services keep the image.
+Exits 0 when the upload works.
 .SS Plugins
 .TP
 .BI "plugin install " git\-url

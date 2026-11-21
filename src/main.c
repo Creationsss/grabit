@@ -130,6 +130,7 @@ static int help_topic(const char *sub) {
 	if (strcmp(sub, "get") == 0) return cmd_get(1, help_argv);
 	if (strcmp(sub, "unset") == 0) return cmd_unset(1, help_argv);
 	if (strcmp(sub, "sxcu") == 0) return cmd_sxcu(1, help_argv);
+	if (strcmp(sub, "upload") == 0) return cmd_upload(1, help_argv);
 	if (strcmp(sub, "plugin") == 0) return cmd_plugin(1, help_argv);
 	log_error("no help topic for `%s`", sub);
 	gapp_print_help_topics();
@@ -154,6 +155,7 @@ int main(int argc, char **argv) {
 		if (strcmp(first, "get") == 0) return cmd_get(argc - 2, argv + 2);
 		if (strcmp(first, "unset") == 0) return cmd_unset(argc - 2, argv + 2);
 		if (strcmp(first, "sxcu") == 0) return cmd_sxcu(argc - 2, argv + 2);
+		if (strcmp(first, "upload") == 0) return cmd_upload(argc - 2, argv + 2);
 		if (strcmp(first, "plugin") == 0) return cmd_plugin(argc - 2, argv + 2);
 		if (strcmp(first, "-p") == 0) {
 			if (argc < 3) {

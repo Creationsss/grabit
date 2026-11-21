@@ -41,7 +41,7 @@ int gapp_print_version(void) {
 int gapp_print_help(void) {
 	fputs(
 		"Usage: grabit [options]\n"
-		"       grabit <settings|set|get|unset|sxcu|plugin> ...\n"
+		"       grabit <settings|set|get|unset|sxcu|upload|plugin> ...\n"
 		"       grabit help <topic>\n"
 		"\n"
 		"Actions:\n"
@@ -85,10 +85,11 @@ int gapp_print_help(void) {
 		"  settings [<page>]   open the settings ui\n"
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
+		"  upload test [<svc>] upload a test image, then delete it where the service allows\n"
 		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
-		"Topics: grabit help <settings|set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
+		"Topics: grabit help <settings|set|get|unset|sxcu|upload|plugin|filename|env|examples|ocr>\n"
 		"Full documentation: man grabit\n",
 		stdout);
 	return 0;
@@ -101,6 +102,7 @@ int gapp_print_help_topics(void) {
 		"  settings          the settings ui\n"
 		"  set, get, unset   configuration commands\n"
 		"  sxcu              ShareX (.sxcu) uploaders\n"
+		"  upload            test the upload service\n"
 		"  plugin            plugin management\n"
 		"  filename          filename template tokens\n"
 		"  env               environment variables\n"

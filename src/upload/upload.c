@@ -159,7 +159,7 @@ const char *upload_missing_setting(struct config *cfg, const char *service) {
 	const struct service *svc = gup_find_service(service);
 	if (!svc) return NULL;
 	if (!svc->url && !config_get(cfg, "services.zipline.domain")) return "services.zipline.domain";
-	if (gup_resolve_auth(cfg, svc->name)) return NULL;
+	if (gup_lookup_auth(cfg, svc->name)) return NULL;
 	static _Thread_local char key[64];
 	snprintf(key, sizeof key, "services.%s.auth", svc->name);
 	return key;

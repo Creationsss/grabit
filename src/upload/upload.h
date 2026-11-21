@@ -48,6 +48,30 @@ void upload_log_http_failure(long code, const char *body);
 void upload_log_curl_failure(int code);
 void upload_log_response_body(const char *body);
 
+enum upload_test_status {
+	UPLOAD_TEST_READY,
+	UPLOAD_TEST_NO_SERVICE,
+	UPLOAD_TEST_UNKNOWN,
+	UPLOAD_TEST_MISSING,
+};
+
+enum upload_test_delete {
+	UPLOAD_TEST_DELETED,
+	UPLOAD_TEST_KEPT,
+	UPLOAD_TEST_DELETE_FAILED,
+};
+
+struct upload_test_result {
+	enum upload_test_delete deleted;
+	char url[1024];
+	char error[256];
+};
+
+enum upload_test_status upload_test_check(struct config *cfg, const char *service,
+										  const char **missing);
+int upload_test_run(const char *service, struct config *cfg, struct upload_test_result *out);
+
 int cmd_sxcu(int argc, char **argv);
+int cmd_upload(int argc, char **argv);
 
 #endif

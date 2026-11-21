@@ -17,6 +17,7 @@ struct service {
 };
 
 const struct service *gup_find_service(const char *name);
+const char *gup_lookup_auth(struct config *cfg, const char *service);
 const char *gup_resolve_auth(struct config *cfg, const char *service);
 
 #endif

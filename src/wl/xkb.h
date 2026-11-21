@@ -19,6 +19,7 @@ enum kb_mod {
 bool grabit_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
 							   struct xkb_keymap **km, struct xkb_state **state);
 uint8_t grabit_xkb_mods(struct xkb_state *state);
+xkb_keysym_t grabit_xkb_unkeypad(xkb_keysym_t sym);
 bool grabit_xkb_is_modifier(xkb_keysym_t sym);
 
 #endif

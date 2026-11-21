@@ -34,7 +34,7 @@ static const char *const ACTION_KEYS[KA_COUNT] = {
 };
 
 static const char *const ACTION_DEFAULTS[KA_COUNT] = {
-	[KA_CONFIRM] = "Return, KP_Enter, Ctrl+s",
+	[KA_CONFIRM] = "Enter, Ctrl+s",
 	[KA_CANCEL] = "Escape, Ctrl+w, Ctrl+q, mouse:right",
 	[KA_SELECT_ALL] = "Ctrl+a",
 	[KA_UNDO] = "u, Ctrl+z",
@@ -42,29 +42,29 @@ static const char *const ACTION_DEFAULTS[KA_COUNT] = {
 	[KA_DELETE] = "Delete, BackSpace",
 	[KA_EDIT_MODE] = "s",
 	[KA_REGION_MODE] = "q",
-	[KA_NUDGE_LEFT] = "Left, KP_Left",
-	[KA_NUDGE_RIGHT] = "Right, KP_Right",
-	[KA_NUDGE_UP] = "Up, KP_Up",
-	[KA_NUDGE_DOWN] = "Down, KP_Down",
+	[KA_NUDGE_LEFT] = "Left",
+	[KA_NUDGE_RIGHT] = "Right",
+	[KA_NUDGE_UP] = "Up",
+	[KA_NUDGE_DOWN] = "Down",
 	[KA_MAGNIFIER] = "Alt_L, Alt_R",
 };
 
 static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
-	[TOOL_PEN] = "p, 1, KP_1",
-	[TOOL_MARKER] = "m, 2, KP_2",
-	[TOOL_LINE] = "l, 3, KP_3",
-	[TOOL_RECT] = "r, 4, KP_4",
+	[TOOL_PEN] = "p, 1",
+	[TOOL_MARKER] = "m, 2",
+	[TOOL_LINE] = "l, 3",
+	[TOOL_RECT] = "r, 4",
 	[TOOL_RRECT] = "",
-	[TOOL_ELLIPSE] = "o, 5, KP_5",
-	[TOOL_ARROW] = "a, 6, KP_6",
+	[TOOL_ELLIPSE] = "o, 5",
+	[TOOL_ARROW] = "a, 6",
 	[TOOL_ARROW_PEN] = "",
-	[TOOL_BLUR] = "b, 7, KP_7",
-	[TOOL_PIXELATE] = "x, 0, KP_0",
+	[TOOL_BLUR] = "b, 7",
+	[TOOL_PIXELATE] = "x, 0",
 	[TOOL_SPOTLIGHT] = "h",
-	[TOOL_TEXT] = "t, 8, KP_8",
+	[TOOL_TEXT] = "t, 8",
 	[TOOL_COUNTER] = "c",
 	[TOOL_CALLOUT] = "k",
-	[TOOL_ERASER] = "e, 9, KP_9",
+	[TOOL_ERASER] = "e, 9",
 };
 
 static bool load(struct config *cfg, const char *key, const char *def,
@@ -281,7 +281,11 @@ void region_keybind_format(const struct keybind *b, char *out, size_t n) {
 		return;
 	}
 	char keyname[64];
-	if (xkb_keysym_get_name(b->sym, keyname, sizeof keyname) < 0) keyname[0] = '\0';
+	const char *alias = gkb_alias_name(b->sym);
+	if (alias)
+		snprintf(keyname, sizeof keyname, "%s", alias);
+	else if (xkb_keysym_get_name(b->sym, keyname, sizeof keyname) < 0)
+		keyname[0] = '\0';
 	snprintf(out, n, "%s%s%s%s%s", (b->mods & KB_MOD_CTRL) ? "Ctrl+" : "",
 			 (b->mods & KB_MOD_ALT) ? "Alt+" : "",
 			 (b->mods & KB_MOD_SUPER) ? "Super+" : "",

@@ -12,6 +12,7 @@
 #include "region/wlr_input_state.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wl/xkb.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -96,28 +97,28 @@ static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t ke
 		text_erase(st, grabit_utf8_prev(st->text_buf, st->text_caret), st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Delete || sym == XKB_KEY_KP_Delete) {
+	if (sym == XKB_KEY_Delete) {
 		text_erase(st, st->text_caret,
 				   grabit_utf8_next(st->text_buf, st->text_len, st->text_caret));
 		return;
 	}
-	if (sym == XKB_KEY_Left || sym == XKB_KEY_KP_Left) {
+	if (sym == XKB_KEY_Left) {
 		st->text_caret = grabit_utf8_prev(st->text_buf, st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Right || sym == XKB_KEY_KP_Right) {
+	if (sym == XKB_KEY_Right) {
 		st->text_caret = grabit_utf8_next(st->text_buf, st->text_len, st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Home || sym == XKB_KEY_KP_Home) {
+	if (sym == XKB_KEY_Home) {
 		st->text_caret = 0;
 		return;
 	}
-	if (sym == XKB_KEY_End || sym == XKB_KEY_KP_End) {
+	if (sym == XKB_KEY_End) {
 		st->text_caret = st->text_len;
 		return;
 	}
-	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+	if (sym == XKB_KEY_Return) {
 		region_commit_text(st);
 		return;
 	}
@@ -142,7 +143,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	struct ro_state *st = data;
 	if (st->cleanup) return;
 	if (!st->xkb_state) return;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(st->xkb_state, key + 8);
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(st->xkb_state, key + 8));
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
 		if (region_action_matches_sym(&st->keys, KA_UNDO, sym))
 			region_undo_disarm(st);
@@ -172,7 +173,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		if (sym == XKB_KEY_Escape) {
 			st->color_input_active = false;
 			st->color_input_len = 0;
-		} else if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+		} else if (sym == XKB_KEY_Return) {
 			uint32_t parsed = 0;
 			if (grabit_parse_hex_color(st->color_input_buf, &parsed))
 				region_apply_color(st, parsed, true);

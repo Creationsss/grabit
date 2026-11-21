@@ -214,13 +214,13 @@ in any selector, `ctrl+a` selects the whole monitor under the cursor: with `regi
 
 ### keybinds
 
-every key and mouse action in the selector/editor is rebindable under the `keys.*` namespace. each value is a comma-separated list of bindings, and an action fires when any of its bindings match. a binding is either a key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` modifiers (key names are xkb keysyms, e.g. `Return`, `Escape`, `KP_Enter`, `Left`, `space`, `a`, `F1`), or a mouse button. letters match case-insensitively; the left mouse button is always the draw/select button and cannot be rebound.
+every key and mouse action in the selector/editor is rebindable under the `keys.*` namespace. each value is a comma-separated list of bindings, and an action fires when any of its bindings match. a binding is either a key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` modifiers (key names are xkb keysyms, e.g. `Enter`, `Escape`, `Left`, `space`, `a`, `F1`; keypad keys count as their main-keyboard twin, so `Enter` also matches the keypad Enter and `1` the keypad 1), or a mouse button. letters match case-insensitively; the left mouse button is always the draw/select button and cannot be rebound.
 
 mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, `right`, `middle`, `back`, `forward`, `side`, `extra`) or a raw evdev button code (`mouse:272` = left, `273` = right, `274` = middle, same numbering as hyprland/sway). the names `back`/`forward`/`side`/`extra` are device-dependent: most mice report the two thumb buttons as `side` (physical back) and `extra` (physical forward), not `back`/`forward`. if a named binding does not fire, find the real code with `wev` or `libinput debug-events` and bind that number.
 
 | key | default | action |
 |---|---|---|
-| `keys.confirm` | `Return, KP_Enter, Ctrl+s` | capture/save the selection (copy/upload path chosen elsewhere) |
+| `keys.confirm` | `Enter, Ctrl+s` | capture/save the selection (copy/upload path chosen elsewhere) |
 | `keys.cancel` | `Escape, Ctrl+w, Ctrl+q, mouse:right` | cancel; while dragging/typing it aborts that instead |
 | `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
 | `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
@@ -229,13 +229,13 @@ mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, 
 | `keys.magnifier` | `Alt_L, Alt_R` | hold for a pixel loupe with the color under the cursor |
 | `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
 | `keys.region_mode` | `q` | switch back to region-select |
-| `keys.nudge_left` / `keys.nudge_right` / `keys.nudge_up` / `keys.nudge_down` | `Left, KP_Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1, KP_1` ... `e, 9, KP_9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `p`, `r`, `a` or `b` again to cycle that group and reach them) |
+| `keys.nudge_left` / `keys.nudge_right` / `keys.nudge_up` / `keys.nudge_down` | `Left` etc. | move a locked selection by one pixel (hold to accelerate) |
+| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `p`, `r`, `a` or `b` again to cycle that group and reach them) |
 
 example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
 
 ```sh
-grabit set keys.confirm "Return, KP_Enter, mouse:right, Ctrl+s"
+grabit set keys.confirm "Enter, mouse:right, Ctrl+s"
 grabit set keys.cancel "Escape"
 ```
 

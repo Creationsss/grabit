@@ -118,13 +118,13 @@ static void kb_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	(void)time;
 	struct kc_state *s = data;
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED || !s->xkb_state) return;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(s->xkb_state, key + 8);
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(s->xkb_state, key + 8));
 	if (sym == XKB_KEY_Escape) {
 		s->cancelled = true;
 		s->done = true;
 		return;
 	}
-	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+	if (sym == XKB_KEY_Return) {
 		s->done = true;
 		return;
 	}

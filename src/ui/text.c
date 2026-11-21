@@ -162,7 +162,6 @@ enum ui_text_result ui_text_key(struct ui_text *t, xkb_keysym_t sym, uint8_t mod
 	bool shift = (mods & KB_MOD_SHIFT) != 0;
 	switch (sym) {
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 		return UI_TEXT_COMMIT;
 	case XKB_KEY_Escape:
 		return UI_TEXT_CANCEL;
@@ -174,22 +173,17 @@ enum ui_text_result ui_text_key(struct ui_text *t, xkb_keysym_t sym, uint8_t mod
 	case XKB_KEY_Page_Down:
 		return UI_TEXT_IGNORED;
 	case XKB_KEY_Left:
-	case XKB_KEY_KP_Left:
 	case XKB_KEY_Right:
-	case XKB_KEY_KP_Right:
-		arrow(t, sym == XKB_KEY_Left || sym == XKB_KEY_KP_Left, ctrl, shift);
+		arrow(t, sym == XKB_KEY_Left, ctrl, shift);
 		return UI_TEXT_HANDLED;
 	case XKB_KEY_Home:
-	case XKB_KEY_KP_Home:
 		move_caret(t, 0, shift);
 		return UI_TEXT_HANDLED;
 	case XKB_KEY_End:
-	case XKB_KEY_KP_End:
 		move_caret(t, t->len, shift);
 		return UI_TEXT_HANDLED;
 	case XKB_KEY_BackSpace:
 	case XKB_KEY_Delete:
-	case XKB_KEY_KP_Delete:
 		if (!erase_selection(t)) {
 			size_t to = step(t, sym == XKB_KEY_BackSpace, ctrl);
 			if (to < t->caret)

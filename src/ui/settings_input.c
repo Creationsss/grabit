@@ -572,7 +572,6 @@ static bool popup_filter_key(struct settings_state *st, xkb_keysym_t sym, uint8_
 	case XKB_KEY_Page_Up:
 	case XKB_KEY_Page_Down:
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 	case XKB_KEY_Tab:
 		return false;
 	case XKB_KEY_Escape:
@@ -606,7 +605,6 @@ static bool popup_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods)
 		close_popup(st);
 		return true;
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 	case XKB_KEY_space:
 		popup_choose(st, st->popup_hover);
 		return true;
@@ -655,7 +653,7 @@ static bool search_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods
 }
 
 static bool sidebar_key(struct settings_state *st, xkb_keysym_t sym) {
-	if (sym == XKB_KEY_Right || sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter ||
+	if (sym == XKB_KEY_Right || sym == XKB_KEY_Return ||
 		sym == XKB_KEY_Tab) {
 		if (set_current_page(st)->n == 0) return true;
 		st->area = AREA_BODY;
@@ -766,7 +764,6 @@ static bool body_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) 
 		return true;
 	}
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 	case XKB_KEY_space:
 		activate(st, st->focus);
 		return true;

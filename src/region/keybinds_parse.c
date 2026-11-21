@@ -5,6 +5,7 @@
 #include "region/keybinds.h"
 
 #include "log.h"
+#include "wl/xkb.h"
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -18,8 +19,26 @@
 #include "region/keybinds_internal.h"
 
 xkb_keysym_t gkb_norm_sym(xkb_keysym_t s) {
-	if (s >= XKB_KEY_A && s <= XKB_KEY_Z) s += XKB_KEY_a - XKB_KEY_A;
+	s = grabit_xkb_unkeypad(s);
+	if (s >= XKB_KEY_A && s <= XKB_KEY_Z) return s + (XKB_KEY_a - XKB_KEY_A);
 	return s;
+}
+
+static const struct {
+	const char *name;
+	xkb_keysym_t sym;
+} ALIASES[] = {{"Enter", XKB_KEY_Return}};
+
+const char *gkb_alias_name(xkb_keysym_t sym) {
+	for (size_t i = 0; i < sizeof ALIASES / sizeof *ALIASES; i++)
+		if (ALIASES[i].sym == sym) return ALIASES[i].name;
+	return NULL;
+}
+
+static xkb_keysym_t alias_sym(const char *name) {
+	for (size_t i = 0; i < sizeof ALIASES / sizeof *ALIASES; i++)
+		if (strcasecmp(ALIASES[i].name, name) == 0) return ALIASES[i].sym;
+	return XKB_KEY_NoSymbol;
 }
 
 bool gkb_mods_match(uint8_t want, uint8_t have) {
@@ -115,7 +134,8 @@ bool gkb_parse_bind(const char *tok, size_t len, struct keybind *out) {
 	while (eat_mod(&p, &out->mods))
 		;
 	if (!*p) return false;
-	xkb_keysym_t sym = xkb_keysym_from_name(p, XKB_KEYSYM_NO_FLAGS);
+	xkb_keysym_t sym = alias_sym(p);
+	if (sym == XKB_KEY_NoSymbol) sym = xkb_keysym_from_name(p, XKB_KEYSYM_NO_FLAGS);
 	if (sym == XKB_KEY_NoSymbol)
 		sym = xkb_keysym_from_name(p, XKB_KEYSYM_CASE_INSENSITIVE);
 	if (sym == XKB_KEY_NoSymbol) return false;
@@ -145,7 +165,11 @@ void gkb_parse_list(const char *value, struct keybind_list *list) {
 	while (gkb_tok_next(&p, &tok, &len)) {
 		struct keybind kb;
 		if (gkb_parse_bind(tok, len, &kb)) {
-			if (list->n < KB_MAX_BINDS) list->items[list->n++] = kb;
+			bool dup = false;
+			for (uint8_t i = 0; i < list->n && !dup; i++)
+				dup = list->items[i].is_button == kb.is_button && list->items[i].sym == kb.sym &&
+					  list->items[i].button == kb.button && list->items[i].mods == kb.mods;
+			if (!dup && list->n < KB_MAX_BINDS) list->items[list->n++] = kb;
 		} else if (!gkb_tok_blank(tok, len)) {
 			log_warn("keys: ignoring invalid binding `%.*s`", (int)len, tok);
 		}

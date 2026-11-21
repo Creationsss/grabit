@@ -121,7 +121,6 @@ bool set_dialog_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
 		ui_window_damage(st->win);
 		return true;
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 	case XKB_KEY_space:
 		choose(st, d->focus);
 		return true;

@@ -201,7 +201,6 @@ static bool repeatable(xkb_keysym_t sym) {
 	switch (sym) {
 	case XKB_KEY_Escape:
 	case XKB_KEY_Return:
-	case XKB_KEY_KP_Enter:
 	case XKB_KEY_space:
 	case XKB_KEY_Menu:
 		return false;
@@ -217,7 +216,7 @@ static bool inert(xkb_keysym_t sym) {
 }
 
 static void dispatch_key(struct ui_window *w, uint32_t key) {
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(w->xkb_state, key + 8);
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(w->xkb_state, key + 8));
 	if (inert(sym)) return;
 	if (w->on_key && w->on_key(w, sym, grabit_xkb_mods(w->xkb_state))) return;
 	if (sym == XKB_KEY_Escape) w->closed = true;
@@ -236,7 +235,7 @@ static void kb_key(void *data, struct wl_keyboard *kb, uint32_t serial, uint32_t
 	}
 	if (!w->xkb_state) return;
 	w->repeat_key = 0;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(w->xkb_state, key + 8);
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(w->xkb_state, key + 8));
 	if (w->repeat_rate > 0 && repeatable(sym) && !inert(sym) &&
 		xkb_keymap_key_repeats(w->keymap, key + 8)) {
 		w->repeat_key = key;

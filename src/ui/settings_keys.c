@@ -32,8 +32,8 @@ static const struct set_def GENERAL[] = {
 	{"notifications", "Notifications", "desktop notifications on success; failures are always shown"},
 	{"also_save", "Also save a copy", "keep a file in the save folder when copying or uploading"},
 	{"save_dir", "Save folder", "absolute path or ~/...; empty uses XDG_PICTURES_DIR / XDG_VIDEOS_DIR"},
-	{"filename", "Filename template", "strftime-style template; see `grabit help filename`"},
 	{"filename_preset", "Filename preset", "used when no template is set"},
+	{"filename", "Filename template", "strftime-style template; see `grabit help filename`"},
 	{"log.enabled", "Log file", "mirror every log line to $XDG_RUNTIME_DIR/grabit.log"},
 	{"sound.enabled", "Shutter sound", NULL},
 	{"sound.player", "Sound player", "empty auto-detects pw-play, paplay, play or aplay"},
@@ -144,6 +144,7 @@ static const struct set_def APPEARANCE[] = {
 };
 
 static const struct set_dep DEPS[] = {
+	{"filename_preset", "filename", "", "Not used while a filename template is set"},
 	{"recording.crf", "recording.format", "mp4,webm", "Only used for mp4 and webm recordings"},
 	{"recording.preset", "recording.format", "mp4", "Only used for mp4 recordings"},
 	{"recording.tune", "recording.format", "mp4", "Only used for mp4 recordings"},
@@ -871,14 +872,13 @@ bool set_step_enabled(struct settings_state *st, const struct set_row *r, int di
 
 static bool in_list(const char *list, const char *v) {
 	size_t n = strlen(v);
-	for (const char *p = list; *p;) {
+	for (const char *p = list;;) {
 		const char *e = strchr(p, ',');
 		size_t len = e ? (size_t)(e - p) : strlen(p);
 		if (len == n && strncmp(p, v, n) == 0) return true;
-		if (!e) break;
+		if (!e) return false;
 		p = e + 1;
 	}
-	return false;
 }
 
 const char *set_inactive_reason(struct settings_state *st, const struct set_row *r) {

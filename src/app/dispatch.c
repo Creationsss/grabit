@@ -22,6 +22,7 @@
 #include "record/record.h"
 #include "region/edit_persist.h"
 #include "sound/sound.h"
+#include "ui/ui.h"
 #include "upload/upload.h"
 #include "util/util.h"
 
@@ -83,6 +84,29 @@ char *gapp_plugin_capture(const char *name, int argc, char **argv) {
 	if (!captured) exit(1);
 	log_debug("plugin: captured %s for %s", captured, name);
 	return captured;
+}
+
+static const struct {
+	const char *name;
+	gapp_command_fn run;
+} COMMANDS[] = {
+	{"settings", cmd_settings},
+	{"set", cmd_set},
+	{"get", cmd_get},
+	{"unset", cmd_unset},
+	{"sxcu", cmd_sxcu},
+	{"upload", cmd_upload},
+	{"plugin", cmd_plugin},
+};
+
+gapp_command_fn gapp_find_command(const char *name) {
+	for (size_t i = 0; i < sizeof COMMANDS / sizeof *COMMANDS; i++)
+		if (strcmp(COMMANDS[i].name, name) == 0) return COMMANDS[i].run;
+	return NULL;
+}
+
+bool gapp_name_is_reserved(const char *name) {
+	return name && (strcmp(name, "help") == 0 || gapp_find_command(name));
 }
 
 int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {

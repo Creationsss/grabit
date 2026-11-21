@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "plugin/plugin.h"
 
+#include "app/app.h"
 #include "log.h"
 #include "paths.h"
 #include "plugin/fetch.h"
@@ -172,7 +173,7 @@ int plugin_install_git(const char *url) {
 		log_error("plugin: invalid manifest name `%s` (must be [a-z0-9_-]+)", m.name);
 		goto fail_manifest;
 	}
-	if (plugin_name_is_reserved(m.name)) {
+	if (gapp_name_is_reserved(m.name)) {
 		log_error("plugin: `%s` is a built-in grabit command, so the plugin could "
 				  "never be run; rename it in manifest.toml",
 				  m.name);

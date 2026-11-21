@@ -325,6 +325,16 @@ int config_key_info(const char *key, struct config_key_info *out) {
 	return 0;
 }
 
+int cfg_upsert_normalized(struct config *c, const char *key, const char *value) {
+	if (!value[0] || strcmp(cfg_canonical_key(key), "services.zipline.domain") != 0)
+		return cfg_kv_upsert(c, key, value);
+	char *normalized = gcfg_normalize_zipline_domain(value);
+	if (!normalized) return -1;
+	int rc = cfg_kv_upsert(c, key, normalized);
+	free(normalized);
+	return rc;
+}
+
 int config_set(struct config *c, const char *key, const char *value) {
 	key = cfg_canonical_key(key);
 	if (!cfg_key_is_known(key)) {
@@ -333,18 +343,7 @@ int config_set(struct config *c, const char *key, const char *value) {
 	}
 	if (cfg_validate_value(key, value) != 0) return -1;
 
-	char *normalized = NULL;
-	if (strcmp(key, "services.zipline.domain") == 0) {
-		normalized = gcfg_normalize_zipline_domain(value);
-		if (!normalized) {
-			log_error("out of memory");
-			return -1;
-		}
-		value = normalized;
-	}
-
-	int rc = cfg_kv_upsert(c, key, value);
-	free(normalized);
+	int rc = cfg_upsert_normalized(c, key, value);
 	if (rc != 0) {
 		log_error("out of memory");
 		return -1;

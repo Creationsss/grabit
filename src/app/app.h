@@ -38,6 +38,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a);
 int gapp_run_pin(struct config *cfg, const struct args *a);
 
 int gapp_try_dispatch_plugin(const char *name, int argc, char **argv);
+typedef int (*gapp_command_fn)(int argc, char **argv);
+gapp_command_fn gapp_find_command(const char *name);
+bool gapp_name_is_reserved(const char *name);
 char *gapp_plugin_capture(const char *name, int argc, char **argv);
 
 #endif

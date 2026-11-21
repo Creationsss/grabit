@@ -44,7 +44,6 @@ int plugin_list(char ***names_out, size_t *n_out);
 int plugin_check_installed(const char *name);
 
 bool plugin_name_is_valid(const char *name);
-bool plugin_name_is_reserved(const char *name);
 int plugin_resolve(const char *name, char *path_out, size_t cap);
 bool plugin_is_disabled(const char *name);
 void plugin_log_disabled(const char *name);

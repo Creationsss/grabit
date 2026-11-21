@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include <ctype.h>
 #include <ftw.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,10 +23,13 @@ static const char *g_name;
 static char g_options[1 << 20];
 static char g_readme[1 << 16];
 
-static void note(const char *fmt, const char *a, const char *b) {
+__attribute__((format(printf, 1, 2))) static void note(const char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
 	fprintf(stderr, "  ");
-	fprintf(stderr, fmt, a, b);
+	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
+	va_end(ap);
 	g_missing++;
 }
 
@@ -131,15 +135,14 @@ static void check_keys(void) {
 	collect_cli(&keys, "set", 0);
 	collect_cli(&keys, "set keys", 1);
 	if (keys.n == 0) {
-		note("could not enumerate config keys from %s%s", g_bin, "");
+		note("could not enumerate config keys from %s", g_bin);
 		return;
 	}
 	for (size_t i = 0; i < keys.n; i++) {
 		if (!token_at(g_options, keys.items[i]))
-			note("undocumented key: %s%s", keys.items[i], "");
+			note("undocumented key: %s", keys.items[i]);
 		if (!key_has_example(keys.items[i]))
-			note("key has no example or default in help_examples.c: %s%s",
-				 keys.items[i], "");
+			note("key has no example or default in help_examples.c: %s", keys.items[i]);
 	}
 
 	for (const char *p = g_options; (p = strstr(p, "\n| `")); p += 4) {
@@ -154,7 +157,7 @@ static void check_keys(void) {
 		memcpy(buf, k, n);
 		buf[n] = '\0';
 		if (set_has(&keys, buf) || key_exists(buf)) continue;
-		note("documented key does not exist: %s%s", buf, "");
+		note("documented key does not exist: %s", buf);
 	}
 	set_free(&keys);
 }
@@ -211,7 +214,7 @@ static void check_protocols(const char *const *docs, size_t n_docs) {
 		nftw(roots[i], proto_visit, 16, FTW_PHYS);
 	for (size_t i = 0; i < g_proto.n; i++)
 		if (!set_has(&g_proto_found, g_proto.items[i]))
-			note("docs name an unknown protocol: %s%s", g_proto.items[i], "");
+			note("docs name an unknown protocol: %s", g_proto.items[i]);
 	set_free(&g_proto);
 	set_free(&g_proto_found);
 }
@@ -257,7 +260,7 @@ static void check_deps(int argc, char **argv, int first) {
 				break;
 			}
 		}
-		if (!readme_names(base)) note("README build deps missing: %s%s", argv[i], "");
+		if (!readme_names(base)) note("README build deps missing: %s", argv[i]);
 	}
 }
 

@@ -158,7 +158,7 @@ struct curl_slist *upload_header_append(struct curl_slist *list, const char *nam
 const char *upload_missing_setting(struct config *cfg, const char *service) {
 	const struct service *svc = gup_find_service(service);
 	if (!svc) return NULL;
-	if (!svc->url && !config_get(cfg, "services.zipline.domain")) return "services.zipline.domain";
+	if (!svc->url && !gup_zipline_domain(cfg)) return "services.zipline.domain";
 	if (gup_lookup_auth(cfg, svc->name)) return NULL;
 	static _Thread_local char key[64];
 	snprintf(key, sizeof key, "services.%s.auth", svc->name);
@@ -197,7 +197,7 @@ int upload_delete(const char *service_name, struct config *cfg, const struct upl
 	if (!svc) return r->del_url && r->del_url[0] ? send_delete(r->del_url, "GET", NULL) : 1;
 	if (strcmp(svc->name, "zipline") != 0) return 1;
 	const char *auth = gup_resolve_auth(cfg, svc->name);
-	const char *domain = config_get(cfg, "services.zipline.domain");
+	const char *domain = gup_zipline_domain(cfg);
 	if (!auth || !domain) return -1;
 	char *url = zipline_delete_url(domain, r->body);
 	if (!url) return 1;
@@ -227,7 +227,7 @@ int upload_perform(const char *service_name, const char *file_path,
 
 	const char *url = svc->url;
 	if (!url) {
-		url = config_get(cfg, "services.zipline.domain");
+		url = gup_zipline_domain(cfg);
 		if (!url) {
 			log_debug("zipline requires services.zipline.domain");
 			return -1;

@@ -37,15 +37,6 @@ static void init_paths(void) {
 	g_init = true;
 }
 
-bool plugin_name_is_reserved(const char *name) {
-	static const char *const RESERVED[] = {"set", "get", "unset", "sxcu", "upload",
-										   "plugin", "settings", "help", NULL};
-	if (!name) return false;
-	for (size_t i = 0; RESERVED[i]; i++)
-		if (strcmp(name, RESERVED[i]) == 0) return true;
-	return false;
-}
-
 bool plugin_name_is_valid(const char *name) {
 	if (!name || !*name) return false;
 	for (const char *p = name; *p; p++) {

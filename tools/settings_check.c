@@ -2,6 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
+#include "app/app.h"
 #include "config/config.h"
 #include "log.h"
 #include "paths.h"
@@ -10,7 +11,6 @@
 #include "upload/upload.h"
 #include "wl/wl.h"
 
-#include <fcntl.h>
 #include <ftw.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 static int g_failed;
 static int g_passed;
@@ -164,14 +163,20 @@ static void check_format_deps(void) {
 	settings_state_close(&st);
 }
 
+static void check_filename(void) {
+	open_settings("");
+	check(active("filename_preset"), "filename_preset inactive without a template");
+	set_apply(&st, set_find_row(&st, "filename"), "%Y-%m-%d");
+	check(!active("filename_preset"), "filename_preset active while a template is set");
+	set_apply(&st, set_find_row(&st, "filename"), NULL);
+	check(active("filename_preset"), "filename_preset inactive after clearing the template");
+	settings_state_close(&st);
+}
+
 static void check_unknown_keys(void) {
-	int saved = dup(STDERR_FILENO);
-	int null = open("/dev/null", O_WRONLY | O_CLOEXEC);
-	if (null >= 0) dup2(null, STDERR_FILENO);
+	log_mute(true);
 	open_settings("bogus_key = 1\n");
-	if (saved >= 0) dup2(saved, STDERR_FILENO);
-	if (null >= 0) close(null);
-	if (saved >= 0) close(saved);
+	log_mute(false);
 	const char *p = page_of("bogus_key");
 	check(p && strcmp(p, "General") == 0, "unknown key not listed on General (got %s)",
 		  p ? p : "no page");
@@ -210,13 +215,21 @@ static void check_upload_test(void) {
 	}
 }
 
+static void check_reserved(void) {
+	check(gapp_name_is_reserved("help"), "plugin name help is not reserved");
+	check(gapp_name_is_reserved("settings"), "plugin name settings is not reserved");
+	check(!gapp_name_is_reserved("my-plugin"), "an ordinary plugin name is reserved");
+}
+
 int main(void) {
 	setup_env();
 	log_init(true, false);
 	check_pages();
 	check_format_deps();
+	check_filename();
 	check_unknown_keys();
 	check_upload_test();
+	check_reserved();
 	nftw(g_root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
 	if (g_failed) {
 		fprintf(stderr, "settings checks: %d failed, %d passed\n", g_failed, g_passed);

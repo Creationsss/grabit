@@ -21,7 +21,22 @@
 
 #include "vendor/tomlc99/toml.h"
 
+static char *g_noticed[64];
+static size_t g_n_noticed;
+
+static bool noticed(const char *key, const char *val, bool add) {
+	if (!add && !g_n_noticed) return false;
+	char buf[512];
+	snprintf(buf, sizeof buf, "%s=%s", key, val ? val : "");
+	for (size_t i = 0; i < g_n_noticed; i++)
+		if (strcmp(g_noticed[i], buf) == 0) return true;
+	char *copy = add && g_n_noticed < sizeof g_noticed / sizeof *g_noticed ? strdup(buf) : NULL;
+	if (copy) g_noticed[g_n_noticed++] = copy;
+	return false;
+}
+
 static void note_unknown(const char *full) {
+	if (noticed(full, NULL, true)) return;
 	const char *hint = cfg_help_suggest_key(full);
 	if (hint)
 		log_warn("config: unknown key `%s`; did you mean `%s`?", full, hint);
@@ -35,8 +50,15 @@ static bool accept_value(const char *full, const char *val) {
 		note_unknown(full);
 		return true;
 	}
-	if (cfg_validate_value(full, val) == 0) return true;
-	log_warn("config: ignoring %s = %s; using the default", full, val);
+	bool repeat = noticed(full, val, false);
+	if (repeat) log_mute(true);
+	int rc = cfg_validate_value(full, val);
+	if (repeat) log_mute(false);
+	if (rc == 0) return true;
+	if (!repeat) {
+		noticed(full, val, true);
+		log_warn("config: ignoring %s = %s; using the default", full, val);
+	}
 	return false;
 }
 
@@ -55,7 +77,7 @@ static int flatten_table(toml_table_t *t, const char *prefix, struct config *c) 
 
 		toml_datum_t s = toml_string_in(t, k);
 		if (s.ok) {
-			int rc = accept_value(full, s.u.s) ? cfg_kv_upsert(c, full, s.u.s) : 0;
+			int rc = accept_value(full, s.u.s) ? cfg_upsert_normalized(c, full, s.u.s) : 0;
 			free(s.u.s);
 			free(full);
 			if (rc != 0) return -1;

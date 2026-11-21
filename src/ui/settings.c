@@ -87,7 +87,10 @@ void set_toast(struct settings_state *st, const char *fmt, ...) {
 	vsnprintf(st->toast, sizeof st->toast, fmt, ap);
 	va_end(ap);
 	st->toast_until = grabit_now_ms() + SET_TOAST_MS;
-	st->toast_btn_kind = TOAST_NONE;
+	st->toast_label = NULL;
+	st->toast_fn = NULL;
+	free(st->toast_arg);
+	st->toast_arg = NULL;
 	set_arm_timer(st);
 	ui_window_damage(st->win);
 }
@@ -152,10 +155,24 @@ static void record_change(struct settings_state *st, struct set_row *r, char *be
 	*push_change(st) = (struct set_change){.row = r, .before = before, .after = after ? strdup(after) : NULL};
 }
 
-static void toast_button(struct settings_state *st, enum set_toast_btn kind) {
-	st->toast_btn_kind = kind;
+static void toast_action(struct settings_state *st, const char *label, bool danger,
+						 set_toast_action fn, char *arg) {
+	free(st->toast_arg);
+	st->toast_label = label;
+	st->toast_danger = danger;
+	st->toast_fn = fn;
+	st->toast_arg = arg;
 	st->toast_until = grabit_now_ms() + SET_UNDO_TOAST_MS;
 	set_arm_timer(st);
+}
+
+static void undo_action(struct settings_state *st, const char *arg) {
+	(void)arg;
+	set_undo(st);
+}
+
+static void undo_toast(struct settings_state *st) {
+	toast_action(st, "Undo", false, undo_action, NULL);
 }
 
 static bool row_failed(struct settings_state *st, struct set_row *r, const char *err,
@@ -205,10 +222,11 @@ void set_apply(struct settings_state *st, struct set_row *r, const char *value) 
 		return;
 	}
 	record_change(st, r, before, value);
-	toast_button(st, TOAST_UNDO);
+	undo_toast(st);
 }
 
 static const char *sxcu_what(const struct set_change *c) {
+	if (!c->after) return "Uploader removed";
 	return c->before ? "Uploader replaced" : "Uploader added";
 }
 
@@ -253,8 +271,37 @@ bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
 	*c = (struct set_change){.row = r, .before = before, .after = after, .sxcu = name};
 	set_refresh_uploaders(st);
 	set_toast(st, "%s", sxcu_what(c));
-	toast_button(st, TOAST_UNDO);
+	undo_toast(st);
 	return true;
+}
+
+static void remove_uploader(struct settings_state *st, const char *name) {
+	struct set_row *add = set_sxcu_row(st);
+	char *copy = strdup(name), *before = NULL;
+	size_t len = 0;
+	char err[sizeof add->error];
+	log_capture_errors(err, sizeof err);
+	int rc = copy && sxcu_dir_read(name, &before, &len) == 0 ? sxcu_dir_remove(name) : -1;
+	log_capture_errors(NULL, 0);
+	if (rc != 0 || !add) {
+		free(copy);
+		free(before);
+		set_toast(st, "%s", err[0] ? err : "could not remove this uploader");
+		return;
+	}
+	*push_change(st) = (struct set_change){.row = add, .before = before, .sxcu = copy};
+	set_refresh_uploaders(st);
+	set_toast(st, "Uploader %s removed", name);
+	undo_toast(st);
+}
+
+void set_remove_uploader_ask(struct settings_state *st, struct set_row *r) {
+	char *name = strndup(r->key, strlen(r->key) - strlen(".sxcu"));
+	if (!name) return;
+	const char *svc = config_get(&st->cfg, "service");
+	bool in_use = svc && strcmp(svc, name) == 0;
+	set_toast(st, "Remove uploader %s?%s", name, in_use ? " It is the current upload service" : "");
+	toast_action(st, "Remove", true, remove_uploader, name);
 }
 
 static void replay(struct settings_state *st, bool undo) {
@@ -304,19 +351,11 @@ size_t set_page_resettable(struct settings_state *st, const struct set_page *p) 
 	return n;
 }
 
-void set_reset_page_ask(struct settings_state *st) {
-	if (st->page >= st->n_pages) return;
-	struct set_page *p = &st->pages[st->page];
-	size_t n = set_page_resettable(st, p);
-	if (!n) return;
-	st->reset_page = st->page;
-	set_toast(st, "Reset %zu setting%s on %s?", n, n == 1 ? "" : "s", p->title);
-	toast_button(st, TOAST_RESET);
-}
-
-void set_reset_page(struct settings_state *st) {
-	if (st->reset_page >= st->n_pages) return;
-	struct set_page *p = &st->pages[st->reset_page];
+static void reset_page(struct settings_state *st, const char *title) {
+	struct set_page *p = NULL;
+	for (size_t i = 0; i < st->n_pages && !p; i++)
+		if (strcmp(st->pages[i].title, title) == 0) p = &st->pages[i];
+	if (!p) return;
 	if (stamps_changed(st)) reload(st);
 	size_t done = 0;
 	for (size_t i = 0; i < p->n; i++) {
@@ -334,11 +373,29 @@ void set_reset_page(struct settings_state *st) {
 		done++;
 	}
 	if (done == 1) {
-		toast_button(st, TOAST_UNDO);
+		undo_toast(st);
 	} else if (done > 1) {
 		set_toast(st, "Reset %zu settings on %s", done, p->title);
-		toast_button(st, TOAST_UNDO);
+		undo_toast(st);
 	}
+}
+
+void set_reset_page_ask(struct settings_state *st) {
+	if (st->page >= st->n_pages) return;
+	struct set_page *p = &st->pages[st->page];
+	size_t n = set_page_resettable(st, p);
+	if (!n) return;
+	set_toast(st, "Reset %zu setting%s on %s?", n, n == 1 ? "" : "s", p->title);
+	toast_action(st, "Reset", true, reset_page, strdup(p->title));
+}
+
+void set_toast_run(struct settings_state *st) {
+	set_toast_action fn = st->toast_fn;
+	char *arg = st->toast_arg;
+	st->toast_fn = NULL;
+	st->toast_arg = NULL;
+	if (fn) fn(st, arg);
+	free(arg);
 }
 
 void set_commit_edit(struct settings_state *st) {
@@ -437,6 +494,7 @@ int grabit_settings_main(const char *what) {
 
 	set_icons_free(&st);
 	set_history_free(&st);
+	free(st.toast_arg);
 	settings_free_rows(&st);
 	grabit_wl_finish(&wls);
 	config_free(&st.cfg);

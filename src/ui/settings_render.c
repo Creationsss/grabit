@@ -253,6 +253,11 @@ bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_
 		*out = (struct set_rect){cx + cw - SET_BTN_W, y, SET_BTN_W, SET_CTRL_H};
 		return true;
 	case SP_CONTROL:
+		if (r->button) {
+			double w = 84;
+			*out = (struct set_rect){right - w, y, w, SET_CTRL_H};
+			return true;
+		}
 		switch (r->info.kind) {
 		case CFG_KIND_BOOL:
 			*out = (struct set_rect){right - UI_TOGGLE_W, y + (SET_CTRL_H - UI_TOGGLE_H) / 2.0,
@@ -609,17 +614,19 @@ static const char *placeholder(const struct set_row *r) {
 	return ex;
 }
 
+static void focus_ring(cairo_t *cr, const struct set_rect *c) {
+	grabit_ui_accent(cr, 0.6);
+	cairo_set_line_width(cr, 1.0);
+	grabit_cairo_rect_r_inset(cr, c->x, c->y, c->w, c->h, grabit_ui_radius(GUI_R_BTN), 1.0);
+	cairo_stroke(cr);
+}
+
 static void draw_field(struct settings_state *st, cairo_t *cr, const struct set_row *r,
 					   const struct set_rect *c, bool focused) {
 	bool editing = st->editing && focused;
 	ui_text_draw(cr, editing ? &st->edit : NULL, c->x, c->y, c->w, c->h, 0,
 				 set_masked(r), set_effective(st, r), placeholder(r));
-	if (!editing && focused && st->focus_visible) {
-		grabit_ui_accent(cr, 0.6);
-		cairo_set_line_width(cr, 1.0);
-		grabit_cairo_rect_r_inset(cr, c->x, c->y, c->w, c->h, grabit_ui_radius(GUI_R_BTN), 1.0);
-		cairo_stroke(cr);
-	}
+	if (!editing && focused && st->focus_visible) focus_ring(cr, c);
 }
 
 static void draw_aux(struct settings_state *st, cairo_t *cr, size_t i,
@@ -677,6 +684,12 @@ static void draw_controls(struct settings_state *st, cairo_t *cr, size_t i,
 						  struct set_row *r, bool active, bool focused) {
 	struct set_rect c;
 	set_part_rect(st, r, SP_CONTROL, &c);
+	if (r->button) {
+		ui_button_draw(cr, c.x, c.y, c.w, c.h, r->button, hovered(st, i, SP_CONTROL),
+					   pressed(st, i, SP_CONTROL));
+		if (focused) focus_ring(cr, &c);
+		return;
+	}
 	switch (r->info.kind) {
 	case CFG_KIND_BOOL:
 		ui_toggle_draw(cr, c.x, c.y, strcmp(set_effective(st, r), "true") == 0,
@@ -917,8 +930,7 @@ static void draw_body(struct settings_state *st, cairo_t *cr) {
 static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	st->toast_btn = (struct set_rect){0};
 	if (!st->toast_until) return;
-	static const char *const LABELS[] = {[TOAST_UNDO] = "Undo", [TOAST_RESET] = "Reset"};
-	const char *btn = LABELS[st->toast_btn_kind];
+	const char *btn = st->toast_label;
 	double size = 12, pad = 10, gap = 14, h = 30;
 	double tw = ui_text_width(cr, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL);
 	double uw = btn ? ui_text_width(cr, btn, size, CAIRO_FONT_WEIGHT_BOLD) : 0;
@@ -936,7 +948,7 @@ static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	ui_draw_text_fit(cr, x + pad, ty, tw, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL, 1.0);
 	if (!btn) return;
 	double ux = x + pad + tw + gap;
-	if (st->toast_btn_kind == TOAST_RESET)
+	if (st->toast_danger)
 		ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, btn, size, CAIRO_FONT_WEIGHT_BOLD,
 							  GUI_C_ERROR, 1.0);
 	else

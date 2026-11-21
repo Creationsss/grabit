@@ -89,17 +89,17 @@ enum set_menu_item {
 	MENU_COUNT,
 };
 
-enum set_toast_btn {
-	TOAST_NONE,
-	TOAST_UNDO,
-	TOAST_RESET,
-};
-
 enum set_area {
 	AREA_SIDEBAR,
 	AREA_SEARCH,
 	AREA_BODY,
 };
+
+struct settings_state;
+struct set_row;
+
+typedef void (*set_row_action)(struct settings_state *st, struct set_row *r);
+typedef void (*set_toast_action)(struct settings_state *st, const char *arg);
 
 struct set_row {
 	const char *key;
@@ -117,6 +117,10 @@ struct set_row {
 	enum set_aux aux;
 	bool reveal;
 	bool sxcu_add;
+	const char *button;
+	set_row_action action;
+	char *owned_key;
+	char *owned_hint;
 	bool icons_loaded;
 	char error[256];
 	char note[160];
@@ -218,9 +222,12 @@ struct settings_state {
 
 	char toast[192];
 	int64_t toast_until;
-	enum set_toast_btn toast_btn_kind;
+	const char *toast_label;
+	bool toast_danger;
+	set_toast_action toast_fn;
+	char *toast_arg;
 	struct set_rect toast_btn;
-	size_t reset_page;
+	size_t uploads_page;
 	struct set_rect page_reset_btn;
 	bool page_reset_hover;
 
@@ -302,12 +309,13 @@ void set_undo(struct settings_state *st);
 void set_redo(struct settings_state *st);
 size_t set_page_resettable(struct settings_state *st, const struct set_page *p);
 void set_reset_page_ask(struct settings_state *st);
-void set_reset_page(struct settings_state *st);
+void set_toast_run(struct settings_state *st);
 void set_history_free(struct settings_state *st);
 struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
 void set_refresh_uploaders(struct settings_state *st);
+void set_remove_uploader_ask(struct settings_state *st, struct set_row *r);
 void set_refresh_notes(struct settings_state *st);
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 void set_on_drag(struct ui_window *w, bool over);

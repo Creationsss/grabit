@@ -173,8 +173,16 @@ static void record_binding(struct settings_state *st, struct set_row *r) {
 	ui_window_damage(st->win);
 }
 
+static bool clicks(const struct set_row *r) {
+	return r->button || r->info.kind == CFG_KIND_BOOL || r->info.kind == CFG_KIND_ENUM;
+}
+
 static void activate(struct settings_state *st, size_t row) {
 	struct set_row *r = set_current_page(st)->rows[row];
+	if (r->action) {
+		r->action(st, r);
+		return;
+	}
 	if (set_inactive_reason(st, r)) return;
 	switch (r->info.kind) {
 	case CFG_KIND_BOOL:
@@ -341,14 +349,14 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 		}
 		break;
 	case SP_CONTROL:
-		if (r->info.kind == CFG_KIND_BOOL || r->info.kind == CFG_KIND_ENUM)
+		if (clicks(r))
 			activate(st, row);
 		else
 			field_press(st, r, row, bx, same_field);
 		break;
 	case SP_ROW:
 	case SP_LABEL:
-		activate(st, row);
+		if (!r->button) activate(st, row);
 		break;
 	case SP_NONE:
 		break;
@@ -372,10 +380,7 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 	if (st->focus_visible) ui_window_damage(w);
 	st->focus_visible = false;
 	if (button == BTN_LEFT && st->toast_until && set_rect_contains(&st->toast_btn, x, y)) {
-		if (st->toast_btn_kind == TOAST_RESET)
-			set_reset_page(st);
-		else
-			set_undo(st);
+		set_toast_run(st);
 		return;
 	}
 	if (button == BTN_LEFT && set_rect_contains(&st->page_reset_btn, x, y)) {
@@ -404,10 +409,10 @@ static enum grabit_cursor_kind cursor_for(struct settings_state *st, const struc
 	case SP_AUX:
 		return r->aux == AUX_SWATCH ? GCUR_DEFAULT : GCUR_HAND;
 	case SP_CONTROL:
-		if (r->info.kind == CFG_KIND_BOOL || r->info.kind == CFG_KIND_ENUM) return GCUR_HAND;
-		return GCUR_TEXT;
+		return clicks(r) ? GCUR_HAND : GCUR_TEXT;
 	case SP_ROW:
 	case SP_LABEL:
+		if (r->button) return GCUR_DEFAULT;
 		return r->info.kind == CFG_KIND_BOOL || r->info.kind == CFG_KIND_ENUM ? GCUR_HAND
 																			  : GCUR_DEFAULT;
 	case SP_RESET:

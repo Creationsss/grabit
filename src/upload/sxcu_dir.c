@@ -73,6 +73,10 @@ static bool ends_with_sxcu(const char *name) {
 	return sxcu_stem_len(name) != strlen(name);
 }
 
+static int cmp_name(const void *a, const void *b) {
+	return strcmp(*(char *const *)a, *(char *const *)b);
+}
+
 int sxcu_dir_list(char ***names_out, size_t *n_out) {
 	*names_out = NULL;
 	*n_out = 0;
@@ -110,6 +114,7 @@ int sxcu_dir_list(char ***names_out, size_t *n_out) {
 		n++;
 	}
 	closedir(d);
+	if (n > 1) qsort(arr, n, sizeof *arr, cmp_name);
 	*names_out = arr;
 	*n_out = n;
 	return 0;

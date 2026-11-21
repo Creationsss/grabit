@@ -7,6 +7,7 @@
 #include "region/keybinds.h"
 #include "region/region.h"
 #include "upload/sxcu.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <ctype.h>
@@ -318,6 +319,96 @@ struct set_row *set_sxcu_row(struct settings_state *st) {
 	return NULL;
 }
 
+static void free_row(struct set_row *r) {
+	clear_choices(r);
+	free(r->choices);
+	free(r->owned_key);
+	free(r->owned_hint);
+	free(r);
+}
+
+static bool is_uploader(const struct set_row *r) {
+	return r->action == set_remove_uploader_ask;
+}
+
+static bool uploader_is(const struct set_row *r, const char *name) {
+	size_t n = strlen(name);
+	return strncmp(r->key, name, n) == 0 && strcmp(r->key + n, ".sxcu") == 0;
+}
+
+static struct set_row *uploader_row(const char *name, const char *page) {
+	struct set_row *r = calloc(1, sizeof *r);
+	if (!r) return NULL;
+	if (grabit_xasprintf(&r->owned_key, "%s.sxcu", name) != 0) {
+		free(r);
+		return NULL;
+	}
+	struct sxcu_uploader u = {0};
+	if (sxcu_dir_lookup(name, &u) == 0) {
+		if (u.request_url) grabit_xasprintf(&r->owned_hint, "uploads to %s", u.request_url);
+		sxcu_free(&u);
+	}
+	r->key = r->owned_key;
+	r->hint = r->owned_hint ? r->owned_hint : "could not read this uploader";
+	snprintf(r->label, sizeof r->label, "%s", name);
+	r->info.kind = CFG_KIND_TEXT;
+	r->section = "Installed uploaders";
+	r->page = page;
+	r->button = "Remove";
+	r->action = set_remove_uploader_ask;
+	return r;
+}
+
+static void drop_from_all(struct settings_state *st, const struct set_row *r) {
+	size_t w = 0;
+	for (size_t i = 0; i < st->all.n; i++)
+		if (st->all.rows[i] != r) st->all.rows[w++] = st->all.rows[i];
+	st->all.n = w;
+}
+
+static size_t index_of(const struct set_page *p, const struct set_row *r) {
+	for (size_t i = 0; r && i < p->n; i++)
+		if (p->rows[i] == r) return i;
+	return SET_NONE;
+}
+
+static void sync_uploader_rows(struct settings_state *st, struct set_page *p, char **names,
+							   size_t n, struct set_row **keep[2]) {
+	size_t start = 0;
+	while (start < p->n && !is_uploader(p->rows[start]))
+		start++;
+	struct set_row **fresh = calloc(n ? n : 1, sizeof *fresh);
+	if (!fresh) return;
+	for (size_t i = 0; i < n; i++) {
+		for (size_t j = start; j < p->n && !fresh[i]; j++)
+			if (p->rows[j] && uploader_is(p->rows[j], names[i])) {
+				fresh[i] = p->rows[j];
+				p->rows[j] = NULL;
+			}
+		if (fresh[i]) continue;
+		fresh[i] = uploader_row(names[i], p->title);
+		if (fresh[i] && page_push(&st->all, fresh[i]) != 0) {
+			free_row(fresh[i]);
+			fresh[i] = NULL;
+		}
+	}
+	for (size_t j = start; j < p->n; j++) {
+		struct set_row *gone = p->rows[j];
+		if (!gone) continue;
+		for (size_t k = 0; k < 2; k++)
+			if (*keep[k] == gone) *keep[k] = NULL;
+		drop_from_all(st, gone);
+		free_row(gone);
+	}
+	p->n = start;
+	for (size_t i = 0; i < n; i++) {
+		if (!fresh[i] || page_push(p, fresh[i]) == 0) continue;
+		drop_from_all(st, fresh[i]);
+		free_row(fresh[i]);
+	}
+	free(fresh);
+}
+
 void set_refresh_uploaders(struct settings_state *st) {
 	for (size_t i = 0; i < st->all.n; i++) {
 		struct set_row *r = st->all.rows[i];
@@ -325,6 +416,32 @@ void set_refresh_uploaders(struct settings_state *st) {
 		clear_choices(r);
 		fill_choices(st, r);
 	}
+	char **names = NULL;
+	size_t n = 0;
+	if (st->uploads_page >= st->n_pages || sxcu_dir_list(&names, &n) != 0) return;
+	struct set_page *cur = set_current_page(st);
+	struct set_row *focus = st->focus < cur->n ? cur->rows[st->focus] : NULL;
+	struct set_row *popup = st->popup != POPUP_NONE && st->popup_row < cur->n
+								? cur->rows[st->popup_row]
+								: NULL;
+	bool had_popup = popup != NULL;
+	sync_uploader_rows(st, &st->pages[st->uploads_page], names, n,
+					   (struct set_row * *[2]){&focus, &popup});
+	for (size_t i = 0; i < n; i++)
+		free(names[i]);
+	free(names);
+	if (st->search.len > 0) settings_filter(st);
+	cur = set_current_page(st);
+	size_t f = index_of(cur, focus);
+	if (f != SET_NONE)
+		st->focus = f;
+	else if (st->focus >= cur->n)
+		st->focus = cur->n ? cur->n - 1 : 0;
+	if (had_popup) {
+		st->popup_row = index_of(cur, popup);
+		if (st->popup_row == SET_NONE) st->popup = POPUP_NONE;
+	}
+	st->hover_row = st->press_row = st->tip_row = SET_NONE;
 }
 
 static void add_note(struct settings_state *st, const char *key, const char *text) {
@@ -448,6 +565,7 @@ int settings_build(struct settings_state *st) {
 			struct set_row *r = new_row(st, d->key, d->label, d->hint);
 			if (r && page_push(p, r) != 0) return -1;
 		}
+		if (PAGES[i].defs == UPLOADS) st->uploads_page = st->n_pages - 1;
 	}
 	if (build_keybinds(st, &st->pages[st->n_pages++]) != 0) return -1;
 
@@ -461,16 +579,14 @@ int settings_build(struct settings_state *st) {
 		for (size_t j = 0; j < st->pages[i].n; j++)
 			if (!st->pages[i].rows[j]->page) st->pages[i].rows[j]->page = st->pages[i].title;
 	st->results.title = "Search";
+	set_refresh_uploaders(st);
 	set_refresh_notes(st);
 	return 0;
 }
 
 void settings_free_rows(struct settings_state *st) {
 	for (size_t i = 0; i < st->all.n; i++) {
-		struct set_row *r = st->all.rows[i];
-		clear_choices(r);
-		free(r->choices);
-		free(r);
+		free_row(st->all.rows[i]);
 	}
 	free(st->all.rows);
 	for (size_t i = 0; i < st->n_pages; i++)

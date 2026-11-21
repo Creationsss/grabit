@@ -143,13 +143,6 @@ static const struct set_def APPEARANCE[] = {
 	{NULL, NULL, NULL},
 };
 
-struct set_dep {
-	const char *key;
-	const char *needs;
-	const char *values;
-	const char *reason;
-};
-
 static const struct set_dep DEPS[] = {
 	{"recording.crf", "recording.format", "mp4,webm", "Only used for mp4 and webm recordings"},
 	{"recording.preset", "recording.format", "mp4", "Only used for mp4 recordings"},

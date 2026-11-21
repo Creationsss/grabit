@@ -21,7 +21,6 @@
 
 struct ui_window;
 struct grabit_wl_state;
-struct set_dep;
 struct set_upload_test;
 
 #define SET_NONE ((size_t)-1)
@@ -135,6 +134,13 @@ struct set_row {
 	size_t note_more;
 	double y;
 	double h;
+};
+
+struct set_dep {
+	const char *key;
+	const char *needs;
+	const char *values;
+	const char *reason;
 };
 
 struct set_page {
@@ -302,6 +308,8 @@ static inline bool set_masked(const struct set_row *r) {
 	return r->info.secret && !r->reveal;
 }
 
+int settings_state_open(struct settings_state *st, struct grabit_wl_state *wls);
+void settings_state_close(struct settings_state *st);
 int settings_build(struct settings_state *st);
 struct set_row *set_find_row(struct settings_state *st, const char *key);
 void settings_free_rows(struct settings_state *st);

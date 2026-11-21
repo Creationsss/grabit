@@ -508,29 +508,40 @@ static void save_size(struct config *cfg, const struct ui_window *win) {
 	(void)config_state_put(cfg, keys, vals, 1);
 }
 
-int grabit_settings_main(const char *what) {
-	struct settings_state st = {
+int settings_state_open(struct settings_state *st, struct grabit_wl_state *wls) {
+	*st = (struct settings_state){
 		.side_hover = SET_NONE,
 		.hover_row = SET_NONE,
 		.press_row = SET_NONE,
 		.tip_row = SET_NONE,
 		.last_click_row = SET_NONE,
 		.area = AREA_SIDEBAR,
+		.wls = wls,
 	};
-	if (reload(&st) != 0) return 1;
+	if (reload(st) != 0) return -1;
+	if (settings_build(st) == 0) return 0;
+	log_error("settings: out of memory");
+	settings_state_close(st);
+	return -1;
+}
 
+void settings_state_close(struct settings_state *st) {
+	set_icons_free(st);
+	set_history_free(st);
+	free(st->toast_arg);
+	free(st->dialog.arg);
+	set_jobs_free(st);
+	set_tests_free(st);
+	settings_free_rows(st);
+	config_free(&st->cfg);
+}
+
+int grabit_settings_main(const char *what) {
 	struct grabit_wl_state wls;
-	if (grabit_wl_init(&wls) != 0) {
-		config_free(&st.cfg);
-		return 1;
-	}
-	st.wls = &wls;
-
-	if (settings_build(&st) != 0) {
-		log_error("settings: out of memory");
-		settings_free_rows(&st);
+	if (grabit_wl_init(&wls) != 0) return 1;
+	struct settings_state st;
+	if (settings_state_open(&st, &wls) != 0) {
 		grabit_wl_finish(&wls);
-		config_free(&st.cfg);
 		return 1;
 	}
 
@@ -565,15 +576,8 @@ int grabit_settings_main(const char *what) {
 	ui_window_finish(&win);
 	wl_display_roundtrip(wls.display);
 
-	set_icons_free(&st);
-	set_history_free(&st);
-	free(st.toast_arg);
-	free(st.dialog.arg);
-	set_jobs_free(&st);
-	set_tests_free(&st);
-	settings_free_rows(&st);
+	settings_state_close(&st);
 	grabit_wl_finish(&wls);
-	config_free(&st.cfg);
 	return rc;
 }
 

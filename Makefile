@@ -295,8 +295,11 @@ CHECK_OBJS  := $(CHECK_SRCS:%.c=$(BUILDDIR)/%.o)
 CHECK_BIN   := $(BUILDDIR)/check_headers
 DOCS_OBJS   := $(DOCS_SRCS:%.c=$(BUILDDIR)/%.o)
 DOCS_BIN    := $(BUILDDIR)/check_docs
+SETCHK_SRCS := tools/settings_check.c
+SETCHK_OBJS := $(SETCHK_SRCS:%.c=$(BUILDDIR)/%.o)
+SETCHK_BIN  := $(BUILDDIR)/settings_check
 
-OBJS := $(GRABIT_OBJS) $(CHECK_OBJS) $(DOCS_OBJS)
+OBJS := $(GRABIT_OBJS) $(CHECK_OBJS) $(DOCS_OBJS) $(SETCHK_OBJS)
 DEPS := $(OBJS:.o=.d)
 
 .PHONY: all
@@ -323,11 +326,15 @@ $(DOCS_BIN): $(DOCS_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+$(SETCHK_BIN): $(SETCHK_OBJS) $(filter-out $(BUILDDIR)/src/main.o,$(GRABIT_OBJS))
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
 $(BUILDDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(GRABIT_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
+$(GRABIT_OBJS) $(SETCHK_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 
 $(WL_PROTO_DIR)/%.o: $(WL_PROTO_DIR)/%.c
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes,$(CFLAGS)) -c -o $@ $<
@@ -342,6 +349,10 @@ $(BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 check-docs: $(GRABIT_BIN) $(DOCS_BIN)
 	@$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE)
 
+.PHONY: check-settings
+check-settings: $(SETCHK_BIN)
+	@$(SETCHK_BIN)
+
 .PHONY: test
 .PHONY: check-headers-standalone
 check-headers-standalone: | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
@@ -353,14 +364,15 @@ check-headers-standalone: | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 	[ $$fail -eq 0 ] || { echo "a header does not compile on its own"; exit 1; }; \
 	echo "headers self-contained"
 
-test: $(CHECK_BIN) check-docs check-headers-standalone
+test: $(CHECK_BIN) check-docs check-headers-standalone check-settings
 	$(CHECK_BIN) --check src
 
 .PHONY: apply-headers
 apply-headers: $(CHECK_BIN)
 	$(CHECK_BIN) --apply src
 
-FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c tools/check_docs.c
+FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c tools/check_docs.c \
+            tools/settings_check.c
 
 .PHONY: fmt
 fmt:

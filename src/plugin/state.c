@@ -61,8 +61,12 @@ int plugin_state_read(const char *plugin_dir,
 }
 
 int plugin_touch_check(const char *plugin_dir) {
+	return plugin_touch(plugin_dir, ".last_check");
+}
+
+int plugin_touch(const char *plugin_dir, const char *file) {
 	char *path = NULL;
-	if (grabit_xasprintf(&path, "%s/.last_check", plugin_dir) != 0) return -1;
+	if (grabit_xasprintf(&path, "%s/%s", plugin_dir, file) != 0) return -1;
 	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644);
 	free(path);
 	if (fd < 0) return -1;

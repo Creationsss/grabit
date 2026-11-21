@@ -41,6 +41,10 @@ void set_arm_timer(struct settings_state *st) {
 		int64_t poll = grabit_now_ms() + 50;
 		if (!due || poll < due) due = poll;
 	}
+	if (st->plugin_jobs.pid > 0) {
+		int64_t poll = grabit_now_ms() + SET_JOB_POLL_MS;
+		if (!due || poll < due) due = poll;
+	}
 	if (!due) {
 		ui_window_set_timer(st->win, -1);
 		return;
@@ -348,6 +352,9 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 			st->press_row = SET_NONE;
 		}
 		break;
+	case SP_ALT:
+		r->alt_action(st, r);
+		break;
 	case SP_CONTROL:
 		if (clicks(r))
 			activate(st, row);
@@ -367,6 +374,7 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 void set_on_button(struct ui_window *w, double x, double y, uint32_t button, bool pressed) {
 	struct settings_state *st = w->user;
 	hide_tip(st);
+	if (set_dialog_press(st, x, y, button, pressed)) return;
 	if (!pressed) {
 		st->text_drag = false;
 		ui_scroll_release(w, &st->side);
@@ -408,6 +416,8 @@ static enum grabit_cursor_kind cursor_for(struct settings_state *st, const struc
 		return set_step_enabled(st, r, 1) ? GCUR_HAND : GCUR_DEFAULT;
 	case SP_AUX:
 		return r->aux == AUX_SWATCH ? GCUR_DEFAULT : GCUR_HAND;
+	case SP_ALT:
+		return GCUR_HAND;
 	case SP_CONTROL:
 		return clicks(r) ? GCUR_HAND : GCUR_TEXT;
 	case SP_ROW:
@@ -437,6 +447,7 @@ void set_on_timer(struct ui_window *w) {
 	int64_t now = grabit_now_ms();
 	if (st->tip_at && now >= st->tip_at) ui_window_damage(w);
 	if (st->icons_state == ICONS_SCANNING && set_icons_poll(st)) ui_window_damage(w);
+	if (set_jobs_poll(st)) ui_window_damage(w);
 	if (st->toast_until && now >= st->toast_until) {
 		st->toast_until = 0;
 		ui_window_damage(w);
@@ -461,6 +472,7 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 	enum set_part part = SP_NONE;
 	enum grabit_cursor_kind cur = GCUR_DEFAULT;
 
+	if (set_dialog_motion(st, x, y)) return;
 	if (drag_text(st, x)) return;
 	if (st->body.drag) {
 		ui_scroll_motion(w, &st->body, set_body_w(st), x - set_body_x(st), y);
@@ -518,6 +530,7 @@ void set_on_leave(struct ui_window *w) {
 	st->press_row = SET_NONE;
 	st->press_part = SP_NONE;
 	st->page_reset_hover = false;
+	st->dialog.hover = SET_NONE;
 	update_tip(st, SET_NONE, SP_NONE);
 	st->side_hover = SET_NONE;
 	st->hover_row = SET_NONE;
@@ -528,6 +541,7 @@ void set_on_leave(struct ui_window *w) {
 void set_on_scroll(struct ui_window *w, double x, double y, double units) {
 	struct settings_state *st = w->user;
 	hide_tip(st);
+	if (st->dialog.open) return;
 	if (x < set_sidebar_w(st->view_w)) {
 		ui_scroll_wheel(w, &st->side, units, SET_SIDE_ROW_H * 3.0);
 		return;
@@ -768,6 +782,7 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 	hide_tip(st);
 	if (!st->focus_visible) ui_window_damage(w);
 	st->focus_visible = true;
+	if (set_dialog_key(st, sym, mods)) return true;
 	bool ctrl = (mods & KB_MOD_CTRL) != 0;
 	xkb_keysym_t lower = xkb_keysym_to_lower(sym);
 	bool typing = st->area == AREA_SEARCH || set_popup_filtered(st);

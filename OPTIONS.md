@@ -597,6 +597,8 @@ grabit plugin list                # installed plugins (alias: ls)
 grabit plugin show <name>         # parsed manifest
 grabit plugin update [<name>]     # update one, or all
 grabit plugin remove <name> [--yes]  # uninstall (alias: rm); asks first on a terminal
+grabit plugin disable <name>      # keep it installed but stop `grabit <name>` running it
+grabit plugin enable <name>       # undo disable
 ```
 
 run one by name - a non-flag first argument resolving to an installed plugin execs `grabit-<name>`:
@@ -607,6 +609,10 @@ grabit <name> --pin [args]        # run it and pin its last stdout line as a fil
 ```
 
 plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
+
+| key | default | notes |
+|---|---|---|
+| `plugins.confirm_remove` | `true` | in `grabit settings`, ask before removing a plugin. disabling never asks |
 
 ## environment
 

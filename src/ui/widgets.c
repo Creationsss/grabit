@@ -65,9 +65,14 @@ void ui_field_bg(cairo_t *cr, double x, double y, double w, double h, bool focus
 
 void ui_button_draw(cairo_t *cr, double x, double y, double w, double h,
 					const char *label, bool hover, bool pressed) {
-	double r = grabit_ui_radius(GUI_R_BTN);
 	static const double RAISED[] = {GUI_C_RAISED};
-	grabit_ui_button_source(cr, RAISED, 0.94, hover, pressed);
+	ui_button_draw_color(cr, x, y, w, h, label, RAISED, hover, pressed);
+}
+
+void ui_button_draw_color(cairo_t *cr, double x, double y, double w, double h,
+						  const char *label, const double rgb[3], bool hover, bool pressed) {
+	double r = grabit_ui_radius(GUI_R_BTN);
+	grabit_ui_button_source(cr, rgb, 0.94, hover, pressed);
 	grabit_cairo_rect_r(cr, x, y, w, h, r);
 	cairo_fill(cr);
 	if (!label) return;

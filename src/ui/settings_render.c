@@ -252,10 +252,14 @@ bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_
 		if (r->aux == AUX_NONE) return false;
 		*out = (struct set_rect){cx + cw - SET_BTN_W, y, SET_BTN_W, SET_CTRL_H};
 		return true;
+	case SP_ALT:
+		if (!r->alt_button) return false;
+		*out = (struct set_rect){right - 2 * SET_ROW_BTN_W - SET_GAP * 2, y, SET_ROW_BTN_W,
+								 SET_CTRL_H};
+		return true;
 	case SP_CONTROL:
 		if (r->button) {
-			double w = 84;
-			*out = (struct set_rect){right - w, y, w, SET_CTRL_H};
+			*out = (struct set_rect){right - SET_ROW_BTN_W, y, SET_ROW_BTN_W, SET_CTRL_H};
 			return true;
 		}
 		switch (r->info.kind) {
@@ -291,8 +295,8 @@ size_t set_row_at(struct settings_state *st, double y) {
 
 enum set_part set_part_at(struct settings_state *st, const struct set_row *r, double x,
 						  double y) {
-	static const enum set_part ORDER[] = {SP_RESET, SP_MINUS, SP_PLUS,
-										  SP_AUX, SP_CONTROL, SP_LABEL};
+	static const enum set_part ORDER[] = {SP_RESET, SP_MINUS, SP_PLUS, SP_AUX,
+										  SP_ALT, SP_CONTROL, SP_LABEL};
 	struct set_rect rc;
 	for (size_t i = 0; i < sizeof ORDER / sizeof *ORDER; i++)
 		if (set_part_rect(st, r, ORDER[i], &rc) && set_rect_contains(&rc, x, y)) return ORDER[i];
@@ -455,6 +459,7 @@ const char *set_tip_text(struct settings_state *st, size_t row, enum set_part pa
 	case SP_NONE:
 	case SP_ROW:
 	case SP_CONTROL:
+	case SP_ALT:
 		break;
 	}
 	return NULL;
@@ -684,6 +689,10 @@ static void draw_controls(struct settings_state *st, cairo_t *cr, size_t i,
 						  struct set_row *r, bool active, bool focused) {
 	struct set_rect c;
 	set_part_rect(st, r, SP_CONTROL, &c);
+	struct set_rect alt;
+	if (set_part_rect(st, r, SP_ALT, &alt))
+		ui_button_draw(cr, alt.x, alt.y, alt.w, alt.h, r->alt_button, hovered(st, i, SP_ALT),
+					   pressed(st, i, SP_ALT));
 	if (r->button) {
 		ui_button_draw(cr, c.x, c.y, c.w, c.h, r->button, hovered(st, i, SP_CONTROL),
 					   pressed(st, i, SP_CONTROL));
@@ -931,23 +940,28 @@ static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	st->toast_btn = (struct set_rect){0};
 	if (!st->toast_until) return;
 	const char *btn = st->toast_label;
-	double size = 12, pad = 10, gap = 14, h = 30;
-	double tw = ui_text_width(cr, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL);
+	double size = 12, pad = 10, gap = 14, line = 16;
 	double uw = btn ? ui_text_width(cr, btn, size, CAIRO_FONT_WEIGHT_BOLD) : 0;
-	double max_w = set_body_w(st) - SET_BODY_PAD * 2;
-	double w = pad * 2 + tw + (btn ? gap + uw : 0);
-	if (w > max_w) {
-		tw -= w - max_w;
-		w = max_w;
+	double extra = pad * 2 + (btn ? gap + uw : 0);
+	double room = set_body_w(st) - SET_BODY_PAD * 2 - extra;
+	char lines[3][160];
+	size_t n = wrap(cr, st->toast, room, size, lines, 3);
+	double tw = 0;
+	for (size_t i = 0; i < n; i++) {
+		double lw = ui_text_width(cr, lines[i], size, CAIRO_FONT_WEIGHT_NORMAL);
+		if (lw > tw) tw = lw;
 	}
+	if (tw > room) tw = room;
+	double w = tw + extra, h = 14 + line * (double)(n ? n : 1);
 	double x = set_body_x(st) + (set_body_w(st) - w) / 2.0, y = height - 18 - h;
 	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
 	grabit_cairo_rect_r(cr, x, y, w, h, grabit_ui_radius(GUI_R_TIP));
 	cairo_fill(cr);
-	double ty = y + (h - 16) / 2.0;
-	ui_draw_text_fit(cr, x + pad, ty, tw, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL, 1.0);
+	for (size_t i = 0; i < n; i++)
+		ui_draw_text_fit(cr, x + pad, y + 7 + line * (double)i, tw, lines[i], size,
+						 CAIRO_FONT_WEIGHT_NORMAL, 1.0);
 	if (!btn) return;
-	double ux = x + pad + tw + gap;
+	double ux = x + pad + tw + gap, ty = y + (h - line) / 2.0;
 	if (st->toast_danger)
 		ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, btn, size, CAIRO_FONT_WEIGHT_BOLD,
 							  GUI_C_ERROR, 1.0);
@@ -981,6 +995,80 @@ static void draw_drop_overlay(cairo_t *cr, double w, double h) {
 					 CAIRO_FONT_WEIGHT_NORMAL, 0.6);
 }
 
+static void draw_check(cairo_t *cr, double x, double y, double s, bool on, bool hover) {
+	double r = grabit_ui_radius(GUI_R_GLYPH);
+	if (on) {
+		grabit_ui_accent(cr, hover ? 1.0 : 0.88);
+		grabit_cairo_rect_r(cr, x, y, s, s, r);
+		cairo_fill(cr);
+		cairo_set_source_rgba(cr, GUI_C_SHADE, 0.9);
+		cairo_set_line_width(cr, 2.0);
+		cairo_move_to(cr, x + s * 0.24, y + s * 0.52);
+		cairo_line_to(cr, x + s * 0.43, y + s * 0.72);
+		cairo_line_to(cr, x + s * 0.78, y + s * 0.30);
+		cairo_stroke(cr);
+		return;
+	}
+	cairo_set_source_rgba(cr, GUI_C_INK, hover ? 0.6 : 0.4);
+	cairo_set_line_width(cr, 1.5);
+	grabit_cairo_rect_r_inset(cr, x, y, s, s, r, 0.75);
+	cairo_stroke(cr);
+}
+
+void set_dialog_draw(struct settings_state *st, cairo_t *cr, double width, double height) {
+	struct set_dialog *d = &st->dialog;
+	if (!d->open) return;
+	double pad = 20, line = 18, btn_h = 30, gap = 8, check = 16;
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.55);
+	cairo_rectangle(cr, 0, 0, width, height);
+	cairo_fill(cr);
+	double w = fmin(440, width - 32);
+	char lines[4][160];
+	size_t n = wrap(cr, d->text, w - pad * 2, 13, lines, 4);
+	double h = pad + 22 + 6 + line * (double)n + (d->check_label ? 14 + check : 0) + 20 +
+			   btn_h + pad;
+	double x = floor((width - w) / 2), y = floor((height - h) / 2);
+	cairo_set_source_rgba(cr, GUI_C_POPOVER, 0.98);
+	grabit_cairo_rect_r(cr, x, y, w, h, grabit_ui_radius(GUI_R_PANEL));
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.12);
+	cairo_set_line_width(cr, 1.0);
+	cairo_stroke(cr);
+	double cy = y + pad;
+	ui_draw_text_fit(cr, x + pad, cy, w - pad * 2, d->title, 15, CAIRO_FONT_WEIGHT_BOLD, 1.0);
+	cy += 28;
+	for (size_t i = 0; i < n; i++, cy += line)
+		ui_draw_text_fit(cr, x + pad, cy, w - pad * 2, lines[i], 13, CAIRO_FONT_WEIGHT_NORMAL,
+						 0.75);
+	d->check_rect = (struct set_rect){0};
+	if (d->check_label) {
+		cy += 14;
+		double lw = ui_text_width(cr, d->check_label, 13, CAIRO_FONT_WEIGHT_NORMAL);
+		d->check_rect = (struct set_rect){x + pad - 4, cy - 4, check + 8 + lw + 8, check + 8};
+		bool hot = d->hover == d->n_btn;
+		draw_check(cr, x + pad, cy, check, d->check_on, hot);
+		ui_draw_text_fit(cr, x + pad + check + 8, cy - 1, lw + 1, d->check_label, 13,
+						 CAIRO_FONT_WEIGHT_NORMAL, 0.9);
+		if (st->focus_visible && d->focus == d->n_btn) focus_ring(cr, &d->check_rect);
+		cy += check;
+	}
+	double bx = x + w - pad, by = y + h - pad - btn_h;
+	static const double DANGER[] = {GUI_C_DESTRUCTIVE};
+	for (size_t i = d->n_btn; i-- > 0;) {
+		struct set_dialog_btn *b = &d->btn[i];
+		double bw = fmax(84, ui_text_width(cr, b->label, 13, CAIRO_FONT_WEIGHT_NORMAL) + 28);
+		bx -= bw;
+		b->rect = (struct set_rect){bx, by, bw, btn_h};
+		bool hot = d->hover == i, down = hot && d->press == i;
+		if (b->danger)
+			ui_button_draw_color(cr, bx, by, bw, btn_h, b->label, DANGER, hot, down);
+		else
+			ui_button_draw(cr, bx, by, bw, btn_h, b->label, hot, down);
+		if (st->focus_visible && d->focus == i) focus_ring(cr, &b->rect);
+		bx -= gap;
+	}
+}
+
 void set_draw(struct ui_window *w, cairo_t *cr, double width, double height) {
 	struct settings_state *st = w->user;
 	st->view_w = width;
@@ -993,5 +1081,6 @@ void set_draw(struct ui_window *w, cairo_t *cr, double width, double height) {
 	draw_body(st, cr);
 	draw_toast(st, cr, height);
 	draw_tip(st, cr);
+	set_dialog_draw(st, cr, width, height);
 	if (st->drag_over) draw_drop_overlay(cr, width, height);
 }

@@ -11,6 +11,7 @@
 #include "wl/wl.h"
 
 #include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -160,22 +161,41 @@ static const struct set_dep DEPS[] = {
 	{"translate.api_key", "translate.backend", "libretranslate,deepl", "Not used by trans"},
 };
 
+static const struct set_def PLUGINS[] = {
+	{"plugins.confirm_remove", "Ask before removing", "show a dialog before removing a plugin"},
+	{0},
+};
+
 struct page_def {
 	const char *title;
 	const struct set_def *defs;
 	const char *note;
+	int (*extra)(struct settings_state *st, struct set_page *p);
+	size_t index_at;
 };
 
+static int add_sxcu_row(struct settings_state *st, struct set_page *p);
+static int add_update_row(struct settings_state *st, struct set_page *p);
+
 static const struct page_def PAGES[] = {
-	{"General", GENERAL, NULL},
-	{"Capture", CAPTURE, NULL},
-	{"Region selector", REGION, NULL},
-	{"Editor", EDITOR, "color, width, tool and swatches are remembered from your last edit"},
-	{"Recording", RECORDING, NULL},
-	{"Uploads", UPLOADS, "drop a .sxcu file anywhere on this window to add it as an uploader"},
-	{"OCR and translate", OCR, NULL},
-	{"Cards", CARDS, NULL},
-	{"Appearance", APPEARANCE, NULL},
+	{.title = "General", .defs = GENERAL},
+	{.title = "Capture", .defs = CAPTURE},
+	{.title = "Region selector", .defs = REGION},
+	{.title = "Editor", .defs = EDITOR, .note = "color, width, tool and swatches are remembered from your last edit"},
+	{.title = "Recording", .defs = RECORDING},
+	{.title = "Uploads",
+	 .defs = UPLOADS,
+	 .note = "drop a .sxcu file anywhere on this window to add it as an uploader",
+	 .extra = add_sxcu_row,
+	 .index_at = offsetof(struct settings_state, uploads_page)},
+	{.title = "Plugins",
+	 .defs = PLUGINS,
+	 .note = "install a plugin with grabit plugin add <git-url>",
+	 .extra = add_update_row,
+	 .index_at = offsetof(struct settings_state, plugins_page)},
+	{.title = "OCR and translate", .defs = OCR},
+	{.title = "Cards", .defs = CARDS},
+	{.title = "Appearance", .defs = APPEARANCE},
 };
 
 static void humanize(const char *key, char *out, size_t n) {
@@ -199,7 +219,7 @@ static int page_push(struct set_page *p, struct set_row *r) {
 	return 0;
 }
 
-static struct set_row *find_row(struct settings_state *st, const char *key) {
+struct set_row *set_find_row(struct settings_state *st, const char *key) {
 	for (size_t i = 0; i < st->all.n; i++)
 		if (strcmp(st->all.rows[i]->key, key) == 0) return st->all.rows[i];
 	return NULL;
@@ -270,7 +290,7 @@ static void fill_choices(struct settings_state *st, struct set_row *r) {
 
 static struct set_row *new_row(struct settings_state *st, const char *key,
 							   const char *label, const char *hint) {
-	struct set_row *existing = find_row(st, key);
+	struct set_row *existing = set_find_row(st, key);
 	if (existing) return existing;
 	struct set_row *r = calloc(1, sizeof *r);
 	if (!r) return NULL;
@@ -297,20 +317,37 @@ static struct set_row *new_row(struct settings_state *st, const char *key,
 	return r;
 }
 
-static int add_sxcu_row(struct settings_state *st, struct set_page *p) {
+static struct set_row *extra_row(struct settings_state *st, struct set_page *p, const char *key,
+								 const char *label, const char *hint) {
 	struct set_row *r = calloc(1, sizeof *r);
-	if (!r) return -1;
-	r->key = "grabit sxcu add";
-	r->sxcu_add = true;
-	snprintf(r->label, sizeof r->label, "Add uploader");
-	r->hint = "path to a ShareX .sxcu file; it is copied into grabit's uploaders and can then be picked as the upload service";
+	if (!r) return NULL;
+	r->key = key;
+	snprintf(r->label, sizeof r->label, "%s", label);
+	r->hint = hint;
 	r->info.kind = CFG_KIND_TEXT;
-	r->info.example = "~/Downloads/uploader.sxcu";
 	if (page_push(&st->all, r) != 0) {
 		free(r);
-		return -1;
+		return NULL;
 	}
-	return page_push(p, r);
+	return page_push(p, r) == 0 ? r : NULL;
+}
+
+static int add_sxcu_row(struct settings_state *st, struct set_page *p) {
+	struct set_row *r = extra_row(st, p, "grabit sxcu add", "Add uploader",
+								  "path to a ShareX .sxcu file; it is copied into grabit's uploaders and can then be picked as the upload service");
+	if (!r) return -1;
+	r->sxcu_add = true;
+	r->info.example = "~/Downloads/uploader.sxcu";
+	return 0;
+}
+
+static int add_update_row(struct settings_state *st, struct set_page *p) {
+	struct set_row *r = extra_row(st, p, "grabit plugin update", "Update plugins",
+								  "pulls and rebuilds each plugin, or fetches its new release; this can take a while");
+	if (!r) return -1;
+	r->button = "Update all";
+	r->action = set_update_plugins;
+	return 0;
 }
 
 struct set_row *set_sxcu_row(struct settings_state *st) {
@@ -327,35 +364,35 @@ static void free_row(struct set_row *r) {
 	free(r);
 }
 
-static bool is_uploader(const struct set_row *r) {
-	return r->action == set_remove_uploader_ask;
+static bool list_has(const struct set_row *r, const struct set_list *l, const char *name) {
+	size_t pre = strlen(l->prefix), n = strlen(name);
+	return strncmp(r->key, l->prefix, pre) == 0 && strncmp(r->key + pre, name, n) == 0 &&
+		   strcmp(r->key + pre + n, l->suffix) == 0;
 }
 
-static bool uploader_is(const struct set_row *r, const char *name) {
-	size_t n = strlen(name);
-	return strncmp(r->key, name, n) == 0 && strcmp(r->key + n, ".sxcu") == 0;
+static void describe_row(const struct set_list *l, struct set_row *r, const char *name) {
+	free(r->owned_hint);
+	r->owned_hint = NULL;
+	r->button = l->button;
+	l->describe(r, name);
+	r->hint = r->owned_hint ? r->owned_hint : l->unreadable;
 }
 
-static struct set_row *uploader_row(const char *name, const char *page) {
+static struct set_row *list_row(const struct set_list *l, const char *name, const char *page) {
 	struct set_row *r = calloc(1, sizeof *r);
 	if (!r) return NULL;
-	if (grabit_xasprintf(&r->owned_key, "%s.sxcu", name) != 0) {
+	if (grabit_xasprintf(&r->owned_key, "%s%s%s", l->prefix, name, l->suffix) != 0) {
 		free(r);
 		return NULL;
 	}
-	struct sxcu_uploader u = {0};
-	if (sxcu_dir_lookup(name, &u) == 0) {
-		if (u.request_url) grabit_xasprintf(&r->owned_hint, "uploads to %s", u.request_url);
-		sxcu_free(&u);
-	}
 	r->key = r->owned_key;
-	r->hint = r->owned_hint ? r->owned_hint : "could not read this uploader";
 	snprintf(r->label, sizeof r->label, "%s", name);
 	r->info.kind = CFG_KIND_TEXT;
-	r->section = "Installed uploaders";
+	r->section = l->section;
 	r->page = page;
-	r->button = "Remove";
-	r->action = set_remove_uploader_ask;
+	r->action = l->action;
+	r->alt_action = l->alt_action;
+	describe_row(l, r, name);
 	return r;
 }
 
@@ -372,21 +409,22 @@ static size_t index_of(const struct set_page *p, const struct set_row *r) {
 	return SET_NONE;
 }
 
-static void sync_uploader_rows(struct settings_state *st, struct set_page *p, char **names,
-							   size_t n, struct set_row **keep[2]) {
+static void sync_rows(struct settings_state *st, struct set_page *p, const struct set_list *l,
+					  char **names, size_t n, struct set_row **keep[2]) {
 	size_t start = 0;
-	while (start < p->n && !is_uploader(p->rows[start]))
+	while (start < p->n && p->rows[start]->action != l->action)
 		start++;
 	struct set_row **fresh = calloc(n ? n : 1, sizeof *fresh);
 	if (!fresh) return;
 	for (size_t i = 0; i < n; i++) {
 		for (size_t j = start; j < p->n && !fresh[i]; j++)
-			if (p->rows[j] && uploader_is(p->rows[j], names[i])) {
+			if (p->rows[j] && list_has(p->rows[j], l, names[i])) {
 				fresh[i] = p->rows[j];
 				p->rows[j] = NULL;
+				describe_row(l, fresh[i], names[i]);
 			}
 		if (fresh[i]) continue;
-		fresh[i] = uploader_row(names[i], p->title);
+		fresh[i] = list_row(l, names[i], p->title);
 		if (fresh[i] && page_push(&st->all, fresh[i]) != 0) {
 			free_row(fresh[i]);
 			fresh[i] = NULL;
@@ -409,27 +447,16 @@ static void sync_uploader_rows(struct settings_state *st, struct set_page *p, ch
 	free(fresh);
 }
 
-void set_refresh_uploaders(struct settings_state *st) {
-	for (size_t i = 0; i < st->all.n; i++) {
-		struct set_row *r = st->all.rows[i];
-		if (r->info.values_src != CFG_VALUES_UPLOADERS) continue;
-		clear_choices(r);
-		fill_choices(st, r);
-	}
-	char **names = NULL;
-	size_t n = 0;
-	if (st->uploads_page >= st->n_pages || sxcu_dir_list(&names, &n) != 0) return;
+void set_sync_list(struct settings_state *st, size_t page, const struct set_list *l,
+				   char **names, size_t n) {
+	if (page >= st->n_pages) return;
 	struct set_page *cur = set_current_page(st);
 	struct set_row *focus = st->focus < cur->n ? cur->rows[st->focus] : NULL;
 	struct set_row *popup = st->popup != POPUP_NONE && st->popup_row < cur->n
 								? cur->rows[st->popup_row]
 								: NULL;
 	bool had_popup = popup != NULL;
-	sync_uploader_rows(st, &st->pages[st->uploads_page], names, n,
-					   (struct set_row * *[2]){&focus, &popup});
-	for (size_t i = 0; i < n; i++)
-		free(names[i]);
-	free(names);
+	sync_rows(st, &st->pages[page], l, names, n, (struct set_row * *[2]){&focus, &popup});
 	if (st->search.len > 0) settings_filter(st);
 	cur = set_current_page(st);
 	size_t f = index_of(cur, focus);
@@ -444,8 +471,39 @@ void set_refresh_uploaders(struct settings_state *st) {
 	st->hover_row = st->press_row = st->tip_row = SET_NONE;
 }
 
+static void describe_uploader(struct set_row *r, const char *name) {
+	struct sxcu_uploader u = {0};
+	if (sxcu_dir_lookup(name, &u) != 0) return;
+	if (u.request_url) grabit_xasprintf(&r->owned_hint, "uploads to %s", u.request_url);
+	sxcu_free(&u);
+}
+
+static const struct set_list UPLOADER_LIST = {
+	.action = set_remove_uploader_ask,
+	.prefix = "",
+	.suffix = ".sxcu",
+	.section = "Installed uploaders",
+	.button = "Remove",
+	.unreadable = "could not read this uploader",
+	.describe = describe_uploader,
+};
+
+void set_refresh_uploaders(struct settings_state *st) {
+	for (size_t i = 0; i < st->all.n; i++) {
+		struct set_row *r = st->all.rows[i];
+		if (r->info.values_src != CFG_VALUES_UPLOADERS) continue;
+		clear_choices(r);
+		fill_choices(st, r);
+	}
+	char **names = NULL;
+	size_t n = 0;
+	if (sxcu_dir_list(&names, &n) != 0) return;
+	set_sync_list(st, st->uploads_page, &UPLOADER_LIST, names, n);
+	grabit_strv_free(names, n);
+}
+
 static void add_note(struct settings_state *st, const char *key, const char *text) {
-	struct set_row *r = find_row(st, key);
+	struct set_row *r = set_find_row(st, key);
 	if (!r) return;
 	if (r->note[0])
 		r->note_more++;
@@ -454,7 +512,7 @@ static void add_note(struct settings_state *st, const char *key, const char *tex
 }
 
 static const char *label_of(struct settings_state *st, const char *key) {
-	struct set_row *r = find_row(st, key);
+	struct set_row *r = set_find_row(st, key);
 	return r ? r->label : key;
 }
 
@@ -494,7 +552,7 @@ struct leftover_ctx {
 
 static void add_leftover(const char *key, void *data) {
 	struct leftover_ctx *c = data;
-	if (c->rc != 0 || find_row(c->st, key)) return;
+	if (c->rc != 0 || set_find_row(c->st, key)) return;
 	struct config_key_info info;
 	if (config_key_info(key, &info) != 0 || info.internal) return;
 	struct set_row *r = new_row(c->st, key, NULL, NULL);
@@ -560,12 +618,12 @@ int settings_build(struct settings_state *st) {
 		struct set_page *p = &st->pages[st->n_pages++];
 		p->title = PAGES[i].title;
 		p->note = PAGES[i].note;
-		if (PAGES[i].defs == UPLOADS && add_sxcu_row(st, p) != 0) return -1;
+		if (PAGES[i].extra && PAGES[i].extra(st, p) != 0) return -1;
+		if (PAGES[i].index_at) *(size_t *)((char *)st + PAGES[i].index_at) = st->n_pages - 1;
 		for (const struct set_def *d = PAGES[i].defs; d->key; d++) {
 			struct set_row *r = new_row(st, d->key, d->label, d->hint);
 			if (r && page_push(p, r) != 0) return -1;
 		}
-		if (PAGES[i].defs == UPLOADS) st->uploads_page = st->n_pages - 1;
 	}
 	if (build_keybinds(st, &st->pages[st->n_pages++]) != 0) return -1;
 
@@ -580,6 +638,7 @@ int settings_build(struct settings_state *st) {
 			if (!st->pages[i].rows[j]->page) st->pages[i].rows[j]->page = st->pages[i].title;
 	st->results.title = "Search";
 	set_refresh_uploaders(st);
+	set_refresh_plugins(st);
 	set_refresh_notes(st);
 	return 0;
 }
@@ -690,7 +749,7 @@ static bool in_list(const char *list, const char *v) {
 
 const char *set_inactive_reason(struct settings_state *st, const struct set_row *r) {
 	if (!r->dep) return NULL;
-	struct set_row *other = find_row(st, r->dep->needs);
+	struct set_row *other = set_find_row(st, r->dep->needs);
 	if (!other || in_list(r->dep->values, set_effective(st, other))) return NULL;
 	return r->dep->reason;
 }

@@ -104,6 +104,11 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "plugins.confirm_remove") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
 	if (strcmp(key, "gui.radius") == 0) {
 		*example_out = "auto|0..100";
 		*def_out = "0";

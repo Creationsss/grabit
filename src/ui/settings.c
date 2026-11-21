@@ -155,8 +155,8 @@ static void record_change(struct settings_state *st, struct set_row *r, char *be
 	*push_change(st) = (struct set_change){.row = r, .before = before, .after = after ? strdup(after) : NULL};
 }
 
-static void toast_action(struct settings_state *st, const char *label, bool danger,
-						 set_toast_action fn, char *arg) {
+static void ask(struct settings_state *st, const char *label, bool danger, set_toast_action fn,
+				char *arg) {
 	free(st->toast_arg);
 	st->toast_label = label;
 	st->toast_danger = danger;
@@ -172,7 +172,7 @@ static void undo_action(struct settings_state *st, const char *arg) {
 }
 
 static void undo_toast(struct settings_state *st) {
-	toast_action(st, "Undo", false, undo_action, NULL);
+	ask(st, "Undo", false, undo_action, NULL);
 }
 
 static bool row_failed(struct settings_state *st, struct set_row *r, const char *err,
@@ -301,7 +301,7 @@ void set_remove_uploader_ask(struct settings_state *st, struct set_row *r) {
 	const char *svc = config_get(&st->cfg, "service");
 	bool in_use = svc && strcmp(svc, name) == 0;
 	set_toast(st, "Remove uploader %s?%s", name, in_use ? " It is the current upload service" : "");
-	toast_action(st, "Remove", true, remove_uploader, name);
+	ask(st, "Remove", true, remove_uploader, name);
 }
 
 static void replay(struct settings_state *st, bool undo) {
@@ -386,7 +386,7 @@ void set_reset_page_ask(struct settings_state *st) {
 	size_t n = set_page_resettable(st, p);
 	if (!n) return;
 	set_toast(st, "Reset %zu setting%s on %s?", n, n == 1 ? "" : "s", p->title);
-	toast_action(st, "Reset", true, reset_page, strdup(p->title));
+	ask(st, "Reset", true, reset_page, strdup(p->title));
 }
 
 void set_toast_run(struct settings_state *st) {
@@ -495,6 +495,8 @@ int grabit_settings_main(const char *what) {
 	set_icons_free(&st);
 	set_history_free(&st);
 	free(st.toast_arg);
+	free(st.dialog.arg);
+	set_jobs_free(&st);
 	settings_free_rows(&st);
 	grabit_wl_finish(&wls);
 	config_free(&st.cfg);
@@ -508,7 +510,8 @@ int cmd_settings(int argc, char **argv) {
 		puts("Opens the settings ui.");
 		puts("");
 		puts("<page> opens that page (general, capture, region, editor, recording,");
-		puts("uploads, ocr, cards, appearance, keybinds); anything else is searched.");
+		puts("uploads, plugins, ocr, cards, appearance, keybinds); anything else is");
+		puts("searched.");
 		return 0;
 	}
 	if (argc > 1) {

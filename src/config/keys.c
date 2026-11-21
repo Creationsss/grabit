@@ -37,6 +37,7 @@ static const char *BOOL_KEYS[] = {
 	"edit.eyedropper_edits",
 	"edit.start_with_tool",
 	"preview.enabled",
+	"plugins.confirm_remove",
 	NULL,
 };
 
@@ -247,6 +248,10 @@ static bool valid_region_key(const char *key) {
 		   strcmp(leaf, "last") == 0;
 }
 
+static bool valid_plugins_key(const char *key) {
+	return strcmp(key, "plugins.confirm_remove") == 0;
+}
+
 static bool valid_tray_key(const char *key) {
 	if (strncmp(key, "tray.", 5) != 0) return false;
 	return strcmp(key + 5, "icon") == 0;
@@ -275,6 +280,6 @@ bool cfg_key_is_known(const char *key) {
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_gui_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key) || valid_tray_key(key) ||
+		   valid_preview_key(key) || valid_tray_key(key) || valid_plugins_key(key) ||
 		   valid_keys_key(key);
 }

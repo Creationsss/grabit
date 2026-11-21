@@ -10,6 +10,7 @@
 
 #include <pthread.h>
 #include <stdatomic.h>
+#include <sys/types.h>
 
 #include <cairo/cairo.h>
 
@@ -58,6 +59,8 @@ struct set_dep;
 #define SET_UNDO_TOAST_MS 5000
 #define SET_HISTORY 50
 #define SET_RESET_W 26
+#define SET_JOB_POLL_MS 200
+#define SET_ROW_BTN_W 84
 
 enum set_part {
 	SP_NONE,
@@ -68,6 +71,7 @@ enum set_part {
 	SP_PLUS,
 	SP_AUX,
 	SP_RESET,
+	SP_ALT,
 };
 
 enum set_aux {
@@ -119,6 +123,8 @@ struct set_row {
 	bool sxcu_add;
 	const char *button;
 	set_row_action action;
+	const char *alt_button;
+	set_row_action alt_action;
 	char *owned_key;
 	char *owned_hint;
 	bool icons_loaded;
@@ -154,6 +160,51 @@ struct set_icon_slot {
 	const char *name;
 	int px;
 	cairo_surface_t *surface;
+};
+
+struct set_list {
+	set_row_action action;
+	set_row_action alt_action;
+	const char *prefix;
+	const char *suffix;
+	const char *section;
+	const char *button;
+	const char *unreadable;
+	void (*describe)(struct set_row *r, const char *name);
+};
+
+struct set_plugin_jobs {
+	pid_t pid;
+	char **names;
+	size_t n;
+	size_t next;
+	size_t failed;
+	const char *failed_name;
+};
+
+#define SET_DIALOG_BTNS 2
+
+struct set_dialog_btn {
+	const char *label;
+	bool danger;
+	set_toast_action fn;
+	struct set_rect rect;
+};
+
+struct set_dialog {
+	bool open;
+	char title[96];
+	char text[256];
+	char *arg;
+	struct set_dialog_btn btn[SET_DIALOG_BTNS];
+	size_t n_btn;
+	const char *check_label;
+	bool check_on;
+	const char *check_key;
+	struct set_rect check_rect;
+	size_t hover;
+	size_t press;
+	size_t focus;
 };
 
 struct set_change {
@@ -228,6 +279,9 @@ struct settings_state {
 	char *toast_arg;
 	struct set_rect toast_btn;
 	size_t uploads_page;
+	size_t plugins_page;
+	struct set_plugin_jobs plugin_jobs;
+	struct set_dialog dialog;
 	struct set_rect page_reset_btn;
 	bool page_reset_hover;
 
@@ -246,6 +300,7 @@ static inline bool set_masked(const struct set_row *r) {
 }
 
 int settings_build(struct settings_state *st);
+struct set_row *set_find_row(struct settings_state *st, const char *key);
 void settings_free_rows(struct settings_state *st);
 void settings_filter(struct settings_state *st);
 
@@ -316,6 +371,23 @@ void set_toast(struct settings_state *st, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
 void set_refresh_uploaders(struct settings_state *st);
 void set_remove_uploader_ask(struct settings_state *st, struct set_row *r);
+void set_sync_list(struct settings_state *st, size_t page, const struct set_list *l,
+				   char **names, size_t n);
+void set_refresh_plugins(struct settings_state *st);
+void set_dialog_open(struct settings_state *st, const char *title, const char *text, char *arg);
+void set_dialog_button(struct settings_state *st, const char *label, bool danger,
+					   set_toast_action fn);
+void set_dialog_check(struct settings_state *st, const char *label, const char *key);
+void set_dialog_close(struct settings_state *st);
+void set_dialog_draw(struct settings_state *st, cairo_t *cr, double width, double height);
+bool set_dialog_press(struct settings_state *st, double x, double y, uint32_t button,
+					  bool pressed);
+bool set_dialog_motion(struct settings_state *st, double x, double y);
+bool set_dialog_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods);
+void set_remove_plugin_ask(struct settings_state *st, struct set_row *r);
+void set_update_plugins(struct settings_state *st, struct set_row *r);
+bool set_jobs_poll(struct settings_state *st);
+void set_jobs_free(struct settings_state *st);
 void set_refresh_notes(struct settings_state *st);
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 void set_on_drag(struct ui_window *w, bool over);

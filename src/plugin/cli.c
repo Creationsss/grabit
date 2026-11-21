@@ -18,6 +18,8 @@ static const struct subcmd SUBCMDS[] = {
 	{"show", NULL, "<name>", "print parsed manifest"},
 	{"update", NULL, "[<name>]", "update one plugin, or all if omitted"},
 	{"remove", "rm", "<name> [-y]", "uninstall a plugin"},
+	{"disable", NULL, "<name>", "keep a plugin installed but stop it from running"},
+	{"enable", NULL, "<name>", "let a disabled plugin run again"},
 };
 #define N_SUBCMDS (sizeof SUBCMDS / sizeof SUBCMDS[0])
 
@@ -35,7 +37,7 @@ static bool is_sub(const char *name, const char *sub) {
 
 static int list_one_cb(const char *name, void *ud) {
 	int *n = ud;
-	puts(name);
+	printf("%s%s\n", name, plugin_is_disabled(name) ? " (disabled)" : "");
 	(*n)++;
 	return 0;
 }
@@ -110,6 +112,10 @@ int cmd_plugin(int argc, char **argv) {
 		if (argc == 1) return plugin_update_all() == 0 ? 0 : 1;
 		if (argc == 2) return plugin_update(argv[1]) == 0 ? 0 : 1;
 		return usage();
+	}
+	if (is_sub("disable", sub) || is_sub("enable", sub)) {
+		if (argc != 2) return usage();
+		return plugin_set_disabled(argv[1], is_sub("disable", sub)) == 0 ? 0 : 1;
 	}
 	if (is_sub("remove", sub)) {
 		bool yes = false;

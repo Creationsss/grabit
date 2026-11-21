@@ -12,6 +12,7 @@ plugins are standalone binaries grabit dispatches when you run `grabit <name> [a
 | `~/.config/grabit/plugins/.lock` | flock for install/remove/update |
 | `<plugin-dir>/.source` | state file: kind / url / sha256 (one per line) |
 | `<plugin-dir>/.last_check` | mtime drives auto-update scheduling |
+| `<plugin-dir>/.disabled` | present while the plugin is disabled; dispatch skips it and `plugin list` marks it |
 | `<plugin-dir>/.update.log` | last auto-update's stdout+stderr (truncated each run) |
 
 plugin names must match `[a-z0-9_-]+`.
@@ -24,6 +25,8 @@ grabit plugin list                       # alias: ls
 grabit plugin show <name>                # parsed manifest
 grabit plugin update [<name>]            # update one - or every plugin if omitted
 grabit plugin remove <name>              # alias: rm
+grabit plugin disable <name>             # keep installed, stop dispatching it
+grabit plugin enable <name>              # undo disable
 ```
 
 `grabit plugin show <name>` prints: `name`, `description`, `homepage`, `kind` (`build`/`prebuilt`), build cmd + binary or prebuilt url + sha256, `auto-update: every <n>h` or `auto-update: off`, `branch`, `capture: yes/no`, plus each declared action.

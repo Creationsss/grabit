@@ -229,10 +229,14 @@ out:
 		if (devnull > STDERR_FILENO) close(devnull);
 	}
 
-	char self[1024];
-	if (grabit_self_exe(self, sizeof self) != 0) _exit(127);
+	plugin_exec_update(name);
+}
 
-	char *const argv[] = {self, "plugin", "update", (char *)name, NULL};
-	execv(self, argv);
+void plugin_exec_update(const char *name) {
+	char self[1024];
+	if (grabit_self_exe(self, sizeof self) == 0) {
+		char *const argv[] = {self, "plugin", "update", (char *)name, NULL};
+		execv(self, argv);
+	}
 	_exit(127);
 }

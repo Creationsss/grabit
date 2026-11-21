@@ -43,6 +43,8 @@ int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
 size_t grabit_edit_distance(const char *a, const char *b);
 
 size_t grabit_rstrip(char *s, size_t len);
+int grabit_cmp_str(const void *a, const void *b);
+void grabit_strv_free(char **v, size_t n);
 void grabit_redact_url(const char *url, char *out, size_t cap);
 size_t grabit_utf8_valid_prefix(const char *s, size_t n);
 size_t grabit_utf8_prev(const char *s, size_t at);

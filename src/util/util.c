@@ -222,6 +222,16 @@ size_t grabit_edit_distance(const char *a, const char *b) {
 	return prev[lb];
 }
 
+int grabit_cmp_str(const void *a, const void *b) {
+	return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+void grabit_strv_free(char **v, size_t n) {
+	for (size_t i = 0; i < n; i++)
+		free(v[i]);
+	free(v);
+}
+
 size_t grabit_rstrip(char *s, size_t len) {
 	while (len > 0 && (s[len - 1] == ' ' || s[len - 1] == '\t' ||
 					   s[len - 1] == '\r' || s[len - 1] == '\n'))

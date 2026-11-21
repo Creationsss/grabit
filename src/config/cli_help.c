@@ -133,6 +133,7 @@ static const char *const G_TEXT_CARD[] = {
 	"text_card.output",
 	NULL,
 };
+static const char *const G_PLUGINS[] = {"plugins.confirm_remove", NULL};
 static const char *const G_TRAY[] = {
 	"tray.icon",
 	NULL,
@@ -174,6 +175,7 @@ static const char *const *const KEY_GROUPS[] = {
 	G_TEXT_CARD,
 	G_PREVIEW,
 	G_TRAY,
+	G_PLUGINS,
 	G_SERVICES,
 	NULL,
 };

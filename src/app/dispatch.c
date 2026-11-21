@@ -88,7 +88,9 @@ char *gapp_plugin_capture(const char *name, int argc, char **argv) {
 int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
 	if (!plugin_name_is_valid(name)) return -1;
 	char path[1024];
-	if (plugin_resolve(name, path, sizeof path) != 0) return -1;
+	int found = plugin_resolve(name, path, sizeof path);
+	if (found == -2) plugin_log_disabled(name);
+	if (found != 0) return found == -2 ? 1 : -1;
 
 	plugin_maybe_auto_update(name);
 	plugin_dispatch_set_env(name);

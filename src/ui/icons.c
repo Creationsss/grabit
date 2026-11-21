@@ -314,16 +314,12 @@ const char *ui_icons_path(const struct ui_icons *ix, const char *name) {
 	return slot && *slot ? ix->v[*slot - 1].path : NULL;
 }
 
-static int cmp_name(const void *a, const void *b) {
-	return strcmp(*(const char *const *)a, *(const char *const *)b);
-}
-
 int ui_icons_sorted_names(const struct ui_icons *ix, const char ***out) {
 	const char **names = malloc((ix->n ? ix->n : 1) * sizeof *names);
 	if (!names) return -1;
 	for (size_t i = 0; i < ix->n; i++)
 		names[i] = ix->v[i].name;
-	qsort(names, ix->n, sizeof *names, cmp_name);
+	qsort(names, ix->n, sizeof *names, grabit_cmp_str);
 	*out = names;
 	return 0;
 }

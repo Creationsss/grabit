@@ -18,6 +18,8 @@ void ui_set_font(cairo_t *cr, double size, cairo_font_weight_t weight);
 void ui_field_bg(cairo_t *cr, double x, double y, double w, double h, bool focused);
 void ui_button_draw(cairo_t *cr, double x, double y, double w, double h,
 					const char *label, bool hover, bool pressed);
+void ui_button_draw_color(cairo_t *cr, double x, double y, double w, double h,
+						  const char *label, const double rgb[3], bool hover, bool pressed);
 void ui_toggle_draw(cairo_t *cr, double x, double y, bool on, bool hover, bool focused);
 void ui_chevron_draw(cairo_t *cr, double cx, double cy, double size, bool up);
 void ui_record_icon_draw(cairo_t *cr, double cx, double cy, double size, double alpha);

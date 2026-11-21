@@ -32,22 +32,21 @@ static inline const char *rec_cfg_format(struct config *cfg) {
 
 static inline const char *rec_cfg_ffmpeg(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.ffmpeg");
-	return (v && v[0]) ? v : "ffmpeg";
+	return v ? v : "ffmpeg";
 }
 
 static inline const char *rec_cfg_preset(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.preset");
-	return (v && v[0]) ? v : "fast";
+	return v ? v : "fast";
 }
 
 static inline const char *rec_cfg_tune(struct config *cfg) {
-	const char *v = config_get(cfg, "recording.tune");
-	return (v && v[0]) ? v : NULL;
+	return config_get(cfg, "recording.tune");
 }
 
 static inline const char *rec_cfg_pix_fmt(struct config *cfg) {
 	const char *v = config_get(cfg, "recording.pix_fmt");
-	return (v && v[0]) ? v : "yuv420p";
+	return v ? v : "yuv420p";
 }
 
 #endif

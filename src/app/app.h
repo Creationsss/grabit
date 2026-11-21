@@ -13,6 +13,7 @@
 int gapp_print_version(void);
 int gapp_print_help(void);
 int gapp_print_help_topics(void);
+int gapp_help_topic(const char *name);
 int gapp_print_help_filename(void);
 int gapp_print_help_env(void);
 int gapp_print_help_ocr(void);
@@ -41,6 +42,7 @@ int gapp_try_dispatch_plugin(const char *name, int argc, char **argv);
 typedef int (*gapp_command_fn)(int argc, char **argv);
 gapp_command_fn gapp_find_command(const char *name);
 bool gapp_name_is_reserved(const char *name);
+void gapp_print_command_names(void);
 char *gapp_plugin_capture(const char *name, int argc, char **argv);
 
 #endif

@@ -14,7 +14,7 @@
 
 static bool radius_is_auto(struct config *cfg) {
 	const char *v = config_get(cfg, "region.window_radius");
-	return !v || !v[0] || strcmp(v, "auto") == 0;
+	return !v || strcmp(v, "auto") == 0;
 }
 
 int region_window_radius(struct config *cfg, const struct rect *win) {

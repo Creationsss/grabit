@@ -48,9 +48,9 @@ static void print_key_line(const char *key, const char *note) {
 
 static void print_key_with_default(const char *key, const char *def,
 								   const char *cur) {
-	if (cur && cur[0] && def && strcmp(cur, def) != 0)
+	if (cur && def && strcmp(cur, def) != 0)
 		printf("  %-28s = %s  (default: %s)\n", key, cur, def);
-	else if (cur && cur[0])
+	else if (cur)
 		printf("  %-28s = %s\n", key, cur);
 	else
 		printf("  %s\n", key);

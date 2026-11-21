@@ -12,6 +12,7 @@
 #include "util/util.h"
 
 #include <errno.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,14 +26,19 @@ static char *g_noticed[64];
 static size_t g_n_noticed;
 
 static bool noticed(const char *key, const char *val, bool add) {
-	if (!add && !g_n_noticed) return false;
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 	char buf[512];
 	snprintf(buf, sizeof buf, "%s=%s", key, val ? val : "");
-	for (size_t i = 0; i < g_n_noticed; i++)
-		if (strcmp(g_noticed[i], buf) == 0) return true;
-	char *copy = add && g_n_noticed < sizeof g_noticed / sizeof *g_noticed ? strdup(buf) : NULL;
-	if (copy) g_noticed[g_n_noticed++] = copy;
-	return false;
+	bool seen = false;
+	pthread_mutex_lock(&lock);
+	for (size_t i = 0; i < g_n_noticed && !seen; i++)
+		seen = strcmp(g_noticed[i], buf) == 0;
+	if (!seen && add && g_n_noticed < sizeof g_noticed / sizeof *g_noticed) {
+		char *copy = strdup(buf);
+		if (copy) g_noticed[g_n_noticed++] = copy;
+	}
+	pthread_mutex_unlock(&lock);
+	return seen;
 }
 
 static void note_unknown(const char *full) {
@@ -131,7 +137,7 @@ static void config_apply_runtime(struct config *c) {
 	if (v && strcmp(v, "false") == 0) log_file_disable();
 
 	v = config_get(c, "capture.backend");
-	if (v && v[0] && !getenv("GRABIT_CAPTURE_BACKEND"))
+	if (v && !getenv("GRABIT_CAPTURE_BACKEND"))
 		setenv("GRABIT_CAPTURE_BACKEND", v, 1);
 
 	grabit_ui_theme_init(c);

@@ -80,7 +80,7 @@ void gapp_maybe_show_preview(struct config *cfg, const char *image_path,
 
 	int width = preview_width(cfg);
 	const char *pos = config_get(cfg, "preview.position");
-	if (!pos || !pos[0]) pos = "bottom-right";
+	if (!pos) pos = "bottom-right";
 
 	if (prerendered || capture_preview_png(image_path, width, png_path) == 0) {
 		struct pin_show_opts opts = {

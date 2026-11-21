@@ -171,6 +171,10 @@ static void check_filename(void) {
 	set_apply(&st, set_find_row(&st, "filename"), NULL);
 	check(active("filename_preset"), "filename_preset inactive after clearing the template");
 	settings_state_close(&st);
+
+	open_settings("filename = \"\"\n");
+	check(active("filename_preset"), "an empty filename in config.toml should count as unset");
+	settings_state_close(&st);
 }
 
 static void check_unknown_keys(void) {

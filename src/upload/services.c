@@ -36,17 +36,11 @@ static void build_auth_keys(const char *service, char *env_key, size_t env_cap,
 	snprintf(cfg_key, cfg_cap, "services.%s.auth", service);
 }
 
-const char *gup_zipline_domain(struct config *cfg) {
-	const char *domain = config_get(cfg, "services.zipline.domain");
-	return domain && domain[0] ? domain : NULL;
-}
-
 const char *gup_lookup_auth(struct config *cfg, const char *service) {
 	char env_key[64], cfg_key[64];
 	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
 	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
-	return auth && auth[0] ? auth : NULL;
+	return auth && auth[0] ? auth : config_get(cfg, cfg_key);
 }
 
 const char *gup_resolve_auth(struct config *cfg, const char *service) {
@@ -150,7 +144,7 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 	}
 
 	if (strcmp(service, "zipline") == 0) {
-		if (!gup_zipline_domain(cfg)) {
+		if (!config_get(cfg, "services.zipline.domain")) {
 			log_error("zipline needs a domain: grabit set services.zipline.domain "
 					  "https://<host>/api/upload");
 			notify_send(&(struct notify_opts){

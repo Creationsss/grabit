@@ -199,7 +199,7 @@ static char *resolve_dir(struct config *cfg, enum paths_dest dest) {
 	}
 
 	const char *d = config_get(cfg, "save_dir");
-	if (d && d[0]) return paths_expand_tilde(d);
+	if (d) return paths_expand_tilde(d);
 
 	bool videos = dest == PATHS_DEST_VIDEOS;
 	const char *xdg = getenv(videos ? "XDG_VIDEOS_DIR" : "XDG_PICTURES_DIR");

@@ -70,7 +70,7 @@ static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
 static bool load(struct config *cfg, const char *key, const char *def,
 				 struct keybind_list *list) {
 	const char *v = cfg ? config_get(cfg, key) : NULL;
-	bool explicit_bind = v && *v;
+	bool explicit_bind = v != NULL;
 	if (!explicit_bind) v = def;
 	gkb_parse_list(v, list);
 	if (list->n == 0) {

@@ -156,7 +156,7 @@ int tray_app_run(struct config *cfg) {
 
 	const char *icon = config_get(cfg, "tray.icon");
 	size_t icon_len = icon ? strlen(icon) : 0;
-	if (icon_len > 0) {
+	if (icon) {
 		if (grabit_utf8_valid_prefix(icon, icon_len) == icon_len)
 			app_sni_cfg.icon_name = icon;
 		else

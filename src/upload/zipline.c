@@ -61,7 +61,7 @@ char *zipline_delete_url(const char *upload_url, const char *body) {
 static long long zipline_chunk_bytes(struct config *cfg) {
 	const char *v = config_get(cfg, "services.zipline.chunk_size");
 	long long mb = 25;
-	if (v && v[0]) {
+	if (v) {
 		char *end = NULL;
 		long n = strtol(v, &end, 10);
 		if (end && *end == '\0' && n >= 1 && n <= 95) mb = n;

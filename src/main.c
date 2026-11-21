@@ -115,20 +115,6 @@ static int run(const struct args *a) {
 	return rc;
 }
 
-static int help_topic(const char *sub) {
-	if (strcmp(sub, "filename") == 0) return gapp_print_help_filename();
-	if (strcmp(sub, "env") == 0) return gapp_print_help_env();
-	if (strcmp(sub, "examples") == 0) return gapp_print_help_examples();
-	if (strcmp(sub, "ocr") == 0 || strcmp(sub, "tesseract") == 0)
-		return gapp_print_help_ocr();
-	static char *help_argv[] = {(char *)"--help", NULL};
-	gapp_command_fn cmd = gapp_find_command(sub);
-	if (cmd) return cmd(1, help_argv);
-	log_error("no help topic for `%s`", sub);
-	gapp_print_help_topics();
-	return GRABIT_EXIT_USAGE;
-}
-
 int main(int argc, char **argv) {
 	bool pre_silent = false, pre_debug = false;
 	args_pre_scan(argc, argv, &pre_silent, &pre_debug);
@@ -139,9 +125,9 @@ int main(int argc, char **argv) {
 		const char *first = argv[1];
 		if (strcmp(first, "--version") == 0 || strcmp(first, "-V") == 0) return gapp_print_version();
 		if (strcmp(first, "--help") == 0 || strcmp(first, "-h") == 0)
-			return argc < 3 ? gapp_print_help() : help_topic(argv[2]);
+			return argc < 3 ? gapp_print_help() : gapp_help_topic(argv[2]);
 		if (strcmp(first, "help") == 0)
-			return argc < 3 ? gapp_print_help_topics() : help_topic(argv[2]);
+			return argc < 3 ? gapp_print_help_topics() : gapp_help_topic(argv[2]);
 		gapp_command_fn cmd = gapp_find_command(first);
 		if (cmd) return cmd(argc - 2, argv + 2);
 		if (strcmp(first, "-p") == 0) {

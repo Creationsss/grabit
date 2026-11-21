@@ -853,9 +853,7 @@ const char *set_effective(struct settings_state *st, const struct set_row *r) {
 
 bool set_is_custom(struct settings_state *st, const struct set_row *r) {
 	const char *v = set_value(st, r);
-	if (!v) return false;
-	if (r->info.def) return strcmp(v, r->info.def) != 0;
-	return v[0] != '\0';
+	return v && (!r->info.def || strcmp(v, r->info.def) != 0);
 }
 
 bool set_can_reset(struct settings_state *st, const struct set_row *r) {

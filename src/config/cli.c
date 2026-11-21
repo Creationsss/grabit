@@ -134,7 +134,7 @@ static int cmd_set_watch(const char *key) {
 static void print_keys_row(struct config *c, const char *key) {
 	const char *cur = config_get(c, key);
 	const char *def = region_keybind_default(key);
-	if (cur && *cur)
+	if (cur)
 		printf("  %-28s %s  (custom)\n", key, cur);
 	else
 		printf("  %-28s %s\n", key, def && def[0] ? def : "-");
@@ -332,6 +332,7 @@ int cmd_get(int argc, char **argv) {
 		if (c.n > 1) qsort(c.kvs, c.n, sizeof *c.kvs, gcfg_cmp_kv);
 		bool hid = false;
 		for (size_t i = 0; i < c.n; i++) {
+			if (!c.kvs[i].val[0]) continue;
 			bool hide = !reveal && cfg_key_is_secret(c.kvs[i].key);
 			hid |= hide;
 			printf("%s = %s\n", c.kvs[i].key, hide ? "<hidden>" : c.kvs[i].val);

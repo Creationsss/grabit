@@ -98,9 +98,15 @@ static const struct {
 	{"upload", cmd_upload},
 	{"plugin", cmd_plugin},
 };
+#define N_COMMANDS (sizeof COMMANDS / sizeof *COMMANDS)
+
+void gapp_print_command_names(void) {
+	for (size_t i = 0; i < N_COMMANDS; i++)
+		printf("%s%s", i ? "|" : "", COMMANDS[i].name);
+}
 
 gapp_command_fn gapp_find_command(const char *name) {
-	for (size_t i = 0; i < sizeof COMMANDS / sizeof *COMMANDS; i++)
+	for (size_t i = 0; i < N_COMMANDS; i++)
 		if (strcmp(COMMANDS[i].name, name) == 0) return COMMANDS[i].run;
 	return NULL;
 }

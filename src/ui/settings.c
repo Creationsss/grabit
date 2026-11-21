@@ -256,8 +256,8 @@ void set_rename_unknown(struct settings_state *st, struct set_row *r) {
 	const char *hint = config_suggest_key(r->key);
 	struct set_row *dst = hint ? set_find_row(st, hint) : NULL;
 	const char *v = config_get(&st->cfg, r->key);
-	if (!dst || !v) return;
-	char *key = strdup(r->key), *value = strdup(v), *to = strdup(hint);
+	if (!dst) return;
+	char *key = strdup(r->key), *value = strdup(v ? v : ""), *to = strdup(hint);
 	if (key && value && to) {
 		set_apply(st, dst, value);
 		if (dst->error[0]) {

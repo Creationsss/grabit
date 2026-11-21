@@ -110,7 +110,7 @@ void config_free(struct config *c) {
 
 int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int hi) {
 	const char *v = config_get(c, key);
-	if (!v || !v[0]) return def;
+	if (!v) return def;
 	char *end = NULL;
 	long n = strtol(v, &end, 10);
 	if (!end || *end != '\0') return def;
@@ -121,7 +121,7 @@ int config_get_int_clamp(struct config *c, const char *key, int def, int lo, int
 
 const char *config_get(struct config *c, const char *key) {
 	struct kv *e = kv_find(c, cfg_canonical_key(key));
-	return e ? e->val : NULL;
+	return e && e->val[0] ? e->val : NULL;
 }
 
 bool config_also_save(struct config *c) {

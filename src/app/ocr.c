@@ -30,10 +30,10 @@
 
 int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	const char *lang = config_get(cfg, "ocr.lang");
-	if (!lang || !lang[0]) lang = "eng";
+	if (!lang) lang = "eng";
 
 	const char *bin = config_get(cfg, "ocr.tesseract");
-	if (bin && bin[0] && grabit_ocr_check(bin) != 0) {
+	if (bin && grabit_ocr_check(bin) != 0) {
 		log_error("ocr: configured ocr.tesseract `%s` not found; "
 				  "unset with: grabit unset ocr.tesseract",
 				  bin);
@@ -106,9 +106,9 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	if (a->translate) {
 		const char *target = a->translate_to;
 		if (!target || !target[0]) target = config_get(cfg, "translate.target");
-		if (!target || !target[0]) target = "en";
+		if (!target) target = "en";
 		const char *backend = config_get(cfg, "translate.backend");
-		if (!backend || !backend[0]) backend = "trans";
+		if (!backend) backend = "trans";
 		const char *api_key = getenv("GRABIT_TRANSLATE_KEY");
 		if (!api_key || !api_key[0]) api_key = config_get(cfg, "translate.api_key");
 		struct grabit_translate_opts topts = {

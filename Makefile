@@ -142,6 +142,11 @@ GRABIT_SRCS := \
 	src/ui/dnd.c \
 	src/ui/text.c \
 	src/ui/widgets.c \
+	src/ui/icons.c \
+	src/ui/settings.c \
+	src/ui/settings_keys.c \
+	src/ui/settings_render.c \
+	src/ui/settings_input.c \
 	src/wm/wm.c \
 	src/wm/ipc.c \
 	src/wm/hyprland.c \
@@ -272,7 +277,8 @@ GRABIT_SRCS := \
 
 GRABIT_VENDOR_SRCS := \
 	src/vendor/tomlc99/toml.c \
-	src/vendor/sha256/sha256.c
+	src/vendor/sha256/sha256.c \
+	src/vendor/nanosvg/nanosvg.c
 
 GRABIT_OBJS := $(GRABIT_SRCS:%.c=$(BUILDDIR)/%.o) \
                $(GRABIT_VENDOR_SRCS:%.c=$(BUILDDIR)/%.o) \
@@ -322,9 +328,11 @@ $(GRABIT_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 $(WL_PROTO_DIR)/%.o: $(WL_PROTO_DIR)/%.c
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes,$(CFLAGS)) -c -o $@ $<
 
+VENDOR_WARN_OFF := -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference
+
 $(BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
-	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(CFLAGS)) -c -o $@ $<
+	$(CC) $(filter-out $(VENDOR_WARN_OFF),$(CFLAGS)) -Wno-sign-compare -c -o $@ $<
 
 .PHONY: check-docs
 check-docs: $(GRABIT_BIN) $(DOCS_BIN)
@@ -403,7 +411,7 @@ $(SAN_BUILDDIR)/src/%.o: src/%.c
 
 $(SAN_BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
-	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(SAN_CFLAGS)) $(SAN_FLAGS) -c -o $@ $<
+	$(CC) $(filter-out $(VENDOR_WARN_OFF),$(SAN_CFLAGS)) -Wno-sign-compare $(SAN_FLAGS) -c -o $@ $<
 
 $(SAN_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 

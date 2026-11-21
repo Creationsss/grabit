@@ -6,6 +6,11 @@ Comment=Screenshot, screen recording, OCR, and uploader for Wayland
 Exec=@BINDIR@/grabit
 Terminal=false
 Categories=Graphics;
-Keywords=screenshot;capture;record;ocr;screen;
+Keywords=screenshot;capture;record;ocr;screen;settings;
+Actions=settings;
 X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
 X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1
+
+[Desktop Action settings]
+Name=Settings
+Exec=@BINDIR@/grabit settings

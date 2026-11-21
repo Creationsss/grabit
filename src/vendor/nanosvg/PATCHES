@@ -1,0 +1,16 @@
+Upstream: https://github.com/memononen/nanosvg
+Commit: 239e102ec2c691f2902e20ace2ed36ee4a35cfe6
+
+Local changes (marked as altered per the zlib license):
+
+- nanosvg.h, nsvg__parseStyle: right-trim each style entry with an exclusive
+  end and skip empty entries. Upstream starts the trim at the terminator and
+  then steps one byte past it, so the last entry of a style string (or an
+  empty one) makes nsvg__parseNameValue read past the end of the buffer.
+  Found by AddressSanitizer on stock Papirus icons.
+
+- nanosvgrast.h, nsvg__addActive and nsvg__curveDivs: clamp float-to-int
+  conversions. Nearly horizontal edges make NSVG__FIX*dxdy exceed INT_MAX, and
+  converting that is undefined behavior (seen on 46 stock Papirus and Breeze
+  icons under -fsanitize=float-cast-overflow); absurd stroke sizes overflow the
+  curve division count the same way.

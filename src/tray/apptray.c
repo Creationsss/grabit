@@ -87,6 +87,7 @@ static const char *const ARGS_PIN_NEW[] = {"--pin", NULL};
 static const char *const ARGS_PIN_GRAB[] = {"--grab", NULL};
 static const char *const ARGS_PIN_RELEASE[] = {"--release", NULL};
 static const char *const ARGS_PIN_CLOSE[] = {"--close-all", NULL};
+static const char *const ARGS_SETTINGS[] = {"settings", NULL};
 
 static void click_spawn(const struct tray_menu_item *it) {
 	spawn_grabit(it->user);
@@ -133,6 +134,7 @@ static const struct tray_menu_item app_items[] = {
 	{.id = 2, .label = "Record", .children = rec_items, .n_children = sizeof rec_items / sizeof rec_items[0]},
 	{.id = 3, .label = "OCR", .children = ocr_items, .n_children = sizeof ocr_items / sizeof ocr_items[0]},
 	{.id = 4, .label = "Pin", .children = pin_items, .n_children = sizeof pin_items / sizeof pin_items[0]},
+	{.id = 6, .label = "Settings…", .on_click = click_spawn, .user = ARGS_SETTINGS},
 	{.id = 5, .label = "Quit", .on_click = click_quit},
 };
 

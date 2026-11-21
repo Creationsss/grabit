@@ -41,7 +41,7 @@ int gapp_print_version(void) {
 int gapp_print_help(void) {
 	fputs(
 		"Usage: grabit [options]\n"
-		"       grabit <set|get|unset|sxcu|plugin> ...\n"
+		"       grabit <settings|set|get|unset|sxcu|plugin> ...\n"
 		"       grabit help <topic>\n"
 		"\n"
 		"Actions:\n"
@@ -82,12 +82,13 @@ int gapp_print_help(void) {
 		"  -h, --help          print this help\n"
 		"\n"
 		"Subcommands:\n"
+		"  settings [<page>]   open the settings window\n"
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
 		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
-		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
+		"Topics: grabit help <settings|set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
 		"Full documentation: man grabit\n",
 		stdout);
 	return 0;
@@ -97,6 +98,7 @@ int gapp_print_help_topics(void) {
 	fputs(
 		"Usage: grabit help <topic>\n"
 		"\n"
+		"  settings          the settings window\n"
 		"  set, get, unset   configuration commands\n"
 		"  sxcu              ShareX (.sxcu) uploaders\n"
 		"  plugin            plugin management\n"

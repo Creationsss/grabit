@@ -8,6 +8,7 @@
 #include "log.h"
 #include "paths.h"
 #include "upload/internal.h"
+#include "util/util.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -20,10 +21,8 @@
 
 #define SXCU_EXT ".sxcu"
 #define SXCU_EXT_LEN (sizeof(SXCU_EXT) - 1)
-#define SXCU_PATH_MAX 1024
 #define SXCU_DIR_MODE 0700
 #define SXCU_FILE_MODE 0600
-#define SXCU_COPY_CHUNK 8192
 #define SXCU_DIR_RECURSION_MAX 32
 
 static char g_dir[SXCU_PATH_MAX];
@@ -116,45 +115,34 @@ int sxcu_dir_list(char ***names_out, size_t *n_out) {
 	return 0;
 }
 
-static int copy_file(const char *src, const char *dst) {
-	FILE *in = fopen(src, "rb");
-	if (!in) return -1;
+static int write_file(const char *dst, const void *buf, size_t len) {
 	char tmpl[SXCU_PATH_MAX];
 	int n = snprintf(tmpl, sizeof tmpl, "%s.XXXXXX", dst);
-	if (n <= 0 || (size_t)n >= sizeof tmpl) {
-		fclose(in);
-		return -1;
-	}
+	if (n <= 0 || (size_t)n >= sizeof tmpl) return -1;
 	int fd = mkstemp(tmpl);
-	if (fd < 0) {
-		fclose(in);
-		return -1;
-	}
+	if (fd < 0) return -1;
 	FILE *out = fdopen(fd, "wb");
 	if (!out) {
 		close(fd);
 		unlink(tmpl);
-		fclose(in);
 		return -1;
 	}
-	char buf[SXCU_COPY_CHUNK];
-	size_t got;
-	while ((got = fread(buf, 1, sizeof buf, in)) > 0) {
-		if (fwrite(buf, 1, got, out) != got) {
-			fclose(in);
-			fclose(out);
-			unlink(tmpl);
-			return -1;
-		}
-	}
-	int rc = ferror(in) ? -1 : 0;
-	fclose(in);
+	int rc = len && fwrite(buf, 1, len, out) != len ? -1 : 0;
 	if (fclose(out) != 0) rc = -1;
 	if (rc == 0) {
 		(void)chmod(tmpl, SXCU_FILE_MODE);
 		if (rename(tmpl, dst) != 0) rc = -1;
 	}
 	if (rc != 0) unlink(tmpl);
+	return rc;
+}
+
+static int copy_file(const char *src, const char *dst) {
+	char *buf = NULL;
+	size_t len = 0;
+	if (grabit_read_file(src, SXCU_FILE_MAX, &buf, &len) != 0) return -1;
+	int rc = write_file(dst, buf, len);
+	free(buf);
 	return rc;
 }
 
@@ -184,19 +172,12 @@ static char *sanitize(const char *src) {
 	return out;
 }
 
-int sxcu_dir_add(const char *file_path, bool force, bool *replaced) {
-	if (replaced) *replaced = false;
+int sxcu_dir_name(const char *file_path, char **name_out) {
+	*name_out = NULL;
 	if (!file_path) return -1;
 
 	struct sxcu_uploader probe = {0};
 	if (sxcu_parse_file(file_path, &probe) != 0) return -1;
-
-	const char *dir = sxcu_dir_path();
-	if (!dir[0] || ensure_dir(dir) != 0) {
-		log_error("sxcu: cannot create %s", dir);
-		sxcu_free(&probe);
-		return -1;
-	}
 
 	const char *fallback = strrchr(file_path, '/');
 	fallback = fallback ? fallback + 1 : file_path;
@@ -220,28 +201,52 @@ int sxcu_dir_add(const char *file_path, bool force, bool *replaced) {
 		free(name);
 		return -1;
 	}
+	*name_out = name;
+	return 0;
+}
 
-	char dst[SXCU_PATH_MAX];
-	int rc = sxcu_path_for(name, dst, sizeof dst);
-	if (rc != 0) {
-		free(name);
+static int dest_for(const char *name, char *dst, size_t cap) {
+	const char *dir = sxcu_dir_path();
+	if (!dir[0] || ensure_dir(dir) != 0) {
+		log_error("sxcu: cannot create %s", dir);
 		return -1;
 	}
-	bool exists = access(dst, F_OK) == 0;
-	if (!force && exists) {
+	return sxcu_path_for(name, dst, cap);
+}
+
+int sxcu_dir_read(const char *name, char **out, size_t *len) {
+	char path[SXCU_PATH_MAX];
+	if (sxcu_path_for(name, path, sizeof path) != 0) return -1;
+	return grabit_read_file(path, SXCU_FILE_MAX, out, len);
+}
+
+int sxcu_dir_write(const char *name, const void *buf, size_t len) {
+	char dst[SXCU_PATH_MAX];
+	if (dest_for(name, dst, sizeof dst) != 0) return -1;
+	if (write_file(dst, buf, len) != 0) {
+		log_error("sxcu: write %s failed", dst);
+		return -1;
+	}
+	return 0;
+}
+
+int sxcu_dir_add(const char *file_path, bool force) {
+	char *name = NULL;
+	if (sxcu_dir_name(file_path, &name) != 0) return -1;
+	char dst[SXCU_PATH_MAX];
+	int rc = dest_for(name, dst, sizeof dst);
+	if (rc == 0 && !force && access(dst, F_OK) == 0) {
 		log_error("sxcu: `%s` already exists; `grabit sxcu add %s --force` replaces "
 				  "it, or remove it first",
 				  name, file_path);
-		free(name);
-		return -1;
+		rc = -1;
 	}
 	free(name);
-
+	if (rc != 0) return -1;
 	if (copy_file(file_path, dst) != 0) {
 		log_error("sxcu: copy %s -> %s failed", file_path, dst);
 		return -1;
 	}
-	if (replaced) *replaced = exists;
 	return 0;
 }
 

@@ -120,32 +120,10 @@ static void toast_change(struct settings_state *st, const struct set_row *r, boo
 	}
 }
 
-bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
-	struct set_row *r = set_sxcu_row(st);
-	if (!r) return false;
-	char raw[UI_TEXT_MAX];
-	uri_to_path(path_or_uri, raw, sizeof raw);
-	char *path = paths_expand_tilde(raw);
-	char err[sizeof r->error];
-	log_capture_errors(err, sizeof err);
-	bool replaced = false;
-	int rc = path ? sxcu_dir_add(path, true, &replaced) : -1;
-	log_capture_errors(NULL, 0);
-	free(path);
-	if (rc != 0) {
-		if (!r->error[0])
-			snprintf(r->error, sizeof r->error, "%s", err[0] ? err : "could not add this uploader");
-		ui_window_damage(st->win);
-		return false;
-	}
-	set_refresh_uploaders(st);
-	set_toast(st, replaced ? "Uploader replaced" : "Uploader added");
-	return true;
-}
-
 static void free_change(struct set_change *c) {
 	free(c->before);
 	free(c->after);
+	free(c->sxcu);
 	*c = (struct set_change){0};
 }
 
@@ -155,8 +133,7 @@ void set_history_free(struct settings_state *st) {
 	st->history_n = st->history_pos = 0;
 }
 
-static void record_change(struct settings_state *st, struct set_row *r, char *before,
-						  const char *after) {
+static struct set_change *push_change(struct settings_state *st) {
 	while (st->history_n > st->history_pos)
 		free_change(&st->history[--st->history_n]);
 	if (st->history_n == SET_HISTORY) {
@@ -165,8 +142,26 @@ static void record_change(struct settings_state *st, struct set_row *r, char *be
 		st->history_n--;
 	}
 	struct set_change *c = &st->history[st->history_n++];
-	*c = (struct set_change){r, before, after ? strdup(after) : NULL};
 	st->history_pos = st->history_n;
+	return c;
+}
+
+static void record_change(struct settings_state *st, struct set_row *r, char *before,
+						  const char *after) {
+	*push_change(st) = (struct set_change){.row = r, .before = before, .after = after ? strdup(after) : NULL};
+}
+
+static void undo_toast(struct settings_state *st) {
+	st->toast_undo = true;
+	st->toast_until = grabit_now_ms() + SET_UNDO_TOAST_MS;
+	set_arm_timer(st);
+}
+
+static bool row_failed(struct settings_state *st, struct set_row *r, const char *err,
+					   const char *fallback) {
+	if (!r->error[0]) snprintf(r->error, sizeof r->error, "%s", err[0] ? err : fallback);
+	ui_window_damage(st->win);
+	return false;
 }
 
 static bool write_value(struct settings_state *st, struct set_row *r, const char *value) {
@@ -186,11 +181,7 @@ static bool write_value(struct settings_state *st, struct set_row *r, const char
 	log_capture_errors(err, sizeof err);
 	int rc = config_write_key(r->key, value);
 	log_capture_errors(NULL, 0);
-	if (rc != 0) {
-		snprintf(r->error, sizeof r->error, "%s", err[0] ? err : "could not save this setting");
-		ui_window_damage(st->win);
-		return false;
-	}
+	if (rc != 0) return row_failed(st, r, err, "could not save this setting");
 	r->error[0] = '\0';
 	reload(st);
 	toast_change(st, r, value == NULL);
@@ -213,9 +204,56 @@ void set_apply(struct settings_state *st, struct set_row *r, const char *value) 
 		return;
 	}
 	record_change(st, r, before, value);
-	st->toast_undo = true;
-	st->toast_until = grabit_now_ms() + SET_UNDO_TOAST_MS;
-	set_arm_timer(st);
+	undo_toast(st);
+}
+
+static const char *sxcu_what(const struct set_change *c) {
+	return c->before ? "Uploader replaced" : "Uploader added";
+}
+
+static bool restore_sxcu(struct settings_state *st, struct set_change *c, const char *content) {
+	char err[sizeof c->row->error];
+	c->row->error[0] = '\0';
+	log_capture_errors(err, sizeof err);
+	int rc = content ? sxcu_dir_write(c->sxcu, content, strlen(content))
+					 : sxcu_dir_remove(c->sxcu);
+	log_capture_errors(NULL, 0);
+	set_refresh_uploaders(st);
+	if (rc != 0) return row_failed(st, c->row, err, "could not restore the uploader");
+	set_toast(st, "%s", sxcu_what(c));
+	return true;
+}
+
+bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
+	struct set_row *r = set_sxcu_row(st);
+	if (!r) return false;
+	char raw[UI_TEXT_MAX];
+	uri_to_path(path_or_uri, raw, sizeof raw);
+	char *path = paths_expand_tilde(raw);
+	char err[sizeof r->error];
+	char *name = NULL, *before = NULL, *after = NULL;
+	size_t len = 0, old_len;
+	log_capture_errors(err, sizeof err);
+	int rc = -1;
+	if (path && sxcu_dir_name(path, &name) == 0 &&
+		grabit_read_file(path, SXCU_FILE_MAX, &after, &len) == 0) {
+		sxcu_dir_read(name, &before, &old_len);
+		rc = sxcu_dir_write(name, after, len);
+	}
+	log_capture_errors(NULL, 0);
+	free(path);
+	if (rc != 0) {
+		free(name);
+		free(before);
+		free(after);
+		return row_failed(st, r, err, "could not add this uploader");
+	}
+	struct set_change *c = push_change(st);
+	*c = (struct set_change){.row = r, .before = before, .after = after, .sxcu = name};
+	set_refresh_uploaders(st);
+	set_toast(st, "%s", sxcu_what(c));
+	undo_toast(st);
+	return true;
 }
 
 static void replay(struct settings_state *st, bool undo) {
@@ -225,7 +263,8 @@ static void replay(struct settings_state *st, bool undo) {
 		return;
 	}
 	struct set_change *c = &st->history[undo ? st->history_pos - 1 : st->history_pos];
-	bool ok = write_value(st, c->row, undo ? c->before : c->after);
+	const char *content = undo ? c->before : c->after;
+	bool ok = c->sxcu ? restore_sxcu(st, c, content) : write_value(st, c->row, content);
 	if (!ok && c->row->error[0]) return;
 	st->history_pos = undo ? st->history_pos - 1 : st->history_pos + 1;
 	if (!ok) return;

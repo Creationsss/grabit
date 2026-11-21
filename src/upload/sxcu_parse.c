@@ -16,7 +16,6 @@
 
 #include <json-c/json.h>
 
-#define SXCU_FILE_MAX (1024 * 1024)
 #define UTF8_BOM_0 0xEF
 #define UTF8_BOM_1 0xBB
 #define UTF8_BOM_2 0xBF

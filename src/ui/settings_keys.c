@@ -204,6 +204,12 @@ static struct set_row *find_row(struct settings_state *st, const char *key) {
 	return NULL;
 }
 
+static void clear_choices(struct set_row *r) {
+	for (size_t i = 0; i < r->n_choices; i++)
+		free(r->choices[i]);
+	r->n_choices = 0;
+}
+
 static int push_choice(struct set_row *r, const char *v) {
 	if (r->n_choices == r->choices_cap) {
 		size_t n = r->choices_cap ? r->choices_cap * 2 : 8;
@@ -313,9 +319,12 @@ struct set_row *set_sxcu_row(struct settings_state *st) {
 }
 
 void set_refresh_uploaders(struct settings_state *st) {
-	for (size_t i = 0; i < st->all.n; i++)
-		if (st->all.rows[i]->info.values_src == CFG_VALUES_UPLOADERS)
-			add_uploaders(st->all.rows[i]);
+	for (size_t i = 0; i < st->all.n; i++) {
+		struct set_row *r = st->all.rows[i];
+		if (r->info.values_src != CFG_VALUES_UPLOADERS) continue;
+		clear_choices(r);
+		fill_choices(st, r);
+	}
 }
 
 struct leftover_ctx {
@@ -416,8 +425,7 @@ int settings_build(struct settings_state *st) {
 void settings_free_rows(struct settings_state *st) {
 	for (size_t i = 0; i < st->all.n; i++) {
 		struct set_row *r = st->all.rows[i];
-		for (size_t j = 0; j < r->n_choices; j++)
-			free(r->choices[j]);
+		clear_choices(r);
 		free(r->choices);
 		free(r);
 	}

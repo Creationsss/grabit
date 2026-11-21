@@ -148,6 +148,7 @@ struct set_change {
 	struct set_row *row;
 	char *before;
 	char *after;
+	char *sxcu;
 };
 
 struct settings_state {

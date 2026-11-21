@@ -30,7 +30,7 @@ bool ui_window_snapped(const struct ui_window *w) {
 }
 
 double ui_window_panel_radius(const struct ui_window *w) {
-	return ui_window_snapped(w) ? 0 : grabit_ui_radius(GUI_R_PANEL);
+	return w->fullscreen ? 0 : grabit_ui_radius(GUI_R_PANEL);
 }
 
 void ui_window_damage(struct ui_window *w) {

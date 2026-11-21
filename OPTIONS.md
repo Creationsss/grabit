@@ -209,7 +209,7 @@ in any selector, `ctrl+a` selects the whole monitor under the cursor: with `regi
 
 | key | default | notes |
 |---|---|---|
-| `gui.radius` | `0` | round the corners of grabit's own ui: the region selector and editor, the recording control bar, and the preview and ocr cards. `0` is square, `auto` matches hyprland's `decoration:rounding`, or set a radius in logical pixels (`8` is a good start). one value scales everything; nothing changes size or position. it never affects the captured image (that is `region.window_radius`) |
+| `gui.radius` | `0` | round the corners of grabit's own ui: the region selector and editor, the recording control bar, the preview and ocr cards, and the settings window (also when tiled or maximized; fullscreen stays square). `0` is square, `auto` matches hyprland's `decoration:rounding`, or set a radius in logical pixels (`8` is a good start). one value scales everything; nothing changes size or position. it never affects the captured image (that is `region.window_radius`) |
 | `gui.settings_size` | | the settings window size as `<width>x<height>`; written automatically when the window closes while it is not maximized, fullscreen or tiled (state, not config) |
 
 ### keybinds

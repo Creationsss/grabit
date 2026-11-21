@@ -138,7 +138,7 @@ static const struct set_def CARDS[] = {
 };
 
 static const struct set_def APPEARANCE[] = {
-	{"gui.radius", "Corner radius", "rounds grabit's own ui; auto matches the compositor"},
+	{"gui.radius", "Corner radius", "rounds grabit's own ui, including this window; auto matches the compositor"},
 	{"tray.icon", "Tray icon", "camera and screenshot icons come first; search the list for any icon in your themes"},
 	{NULL, NULL, NULL},
 };

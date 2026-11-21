@@ -372,7 +372,16 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 	if (st->focus_visible) ui_window_damage(w);
 	st->focus_visible = false;
 	if (button == BTN_LEFT && st->toast_until && set_rect_contains(&st->toast_btn, x, y)) {
-		set_undo(st);
+		if (st->toast_btn_kind == TOAST_RESET)
+			set_reset_page(st);
+		else
+			set_undo(st);
+		return;
+	}
+	if (button == BTN_LEFT && set_rect_contains(&st->page_reset_btn, x, y)) {
+		close_popup(st);
+		if (!leave_edit(st)) cancel_edit(st);
+		set_reset_page_ask(st);
 		return;
 	}
 	if (x < set_sidebar_w(st->view_w)) {
@@ -476,8 +485,13 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 			}
 		}
 	}
-	if (st->toast_until && set_rect_contains(&st->toast_btn, x, y))
+	bool reset_hot = set_rect_contains(&st->page_reset_btn, x, y) && st->popup == POPUP_NONE;
+	if ((st->toast_until && set_rect_contains(&st->toast_btn, x, y)) || reset_hot)
 		cur = GCUR_HAND;
+	if (reset_hot != st->page_reset_hover) {
+		st->page_reset_hover = reset_hot;
+		ui_window_damage(w);
+	}
 	w->content_cursor = cur;
 	update_tip(st, side == SET_SIDE_CLEAR ? side : row, part);
 	if (side != st->side_hover || row != st->hover_row || part != st->hover_part ||
@@ -498,6 +512,7 @@ void set_on_leave(struct ui_window *w) {
 	st->text_drag = false;
 	st->press_row = SET_NONE;
 	st->press_part = SP_NONE;
+	st->page_reset_hover = false;
 	update_tip(st, SET_NONE, SP_NONE);
 	st->side_hover = SET_NONE;
 	st->hover_row = SET_NONE;

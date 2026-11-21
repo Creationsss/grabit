@@ -884,8 +884,17 @@ static void draw_body(struct settings_state *st, cairo_t *cr) {
 				 p->n == 1 ? "" : "s", st->search.buf);
 	else
 		snprintf(title, sizeof title, "%s", p->title);
-	ui_draw_text_fit(cr, SET_BODY_PAD, y, bw - SET_BODY_PAD * 2, title, 17,
-					 CAIRO_FONT_WEIGHT_BOLD, 0.92);
+	double title_w = bw - SET_BODY_PAD * 2;
+	st->page_reset_btn = (struct set_rect){0};
+	if (p != &st->results && set_page_resettable(st, p)) {
+		const char *label = "Reset page";
+		double rw = ui_text_width(cr, label, 12, CAIRO_FONT_WEIGHT_NORMAL) + 22, rh = 24;
+		double rx = bw - SET_BODY_PAD - rw, ry = y - 3;
+		ui_button_draw(cr, rx, ry, rw, rh, label, st->page_reset_hover, false);
+		st->page_reset_btn = (struct set_rect){set_body_x(st) + rx, ry - st->body.offset, rw, rh};
+		title_w -= rw + 12;
+	}
+	ui_draw_text_fit(cr, SET_BODY_PAD, y, title_w, title, 17, CAIRO_FONT_WEIGHT_BOLD, 0.92);
 	if (p->note)
 		ui_draw_text_fit(cr, SET_BODY_PAD, y + TITLE_H, bw - SET_BODY_PAD * 2, p->note, 11.5,
 						 CAIRO_FONT_WEIGHT_NORMAL, 0.45);
@@ -908,12 +917,13 @@ static void draw_body(struct settings_state *st, cairo_t *cr) {
 static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	st->toast_btn = (struct set_rect){0};
 	if (!st->toast_until) return;
-	const char *undo = "Undo";
+	static const char *const LABELS[] = {[TOAST_UNDO] = "Undo", [TOAST_RESET] = "Reset"};
+	const char *btn = LABELS[st->toast_btn_kind];
 	double size = 12, pad = 10, gap = 14, h = 30;
 	double tw = ui_text_width(cr, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL);
-	double uw = st->toast_undo ? ui_text_width(cr, undo, size, CAIRO_FONT_WEIGHT_BOLD) : 0;
+	double uw = btn ? ui_text_width(cr, btn, size, CAIRO_FONT_WEIGHT_BOLD) : 0;
 	double max_w = set_body_w(st) - SET_BODY_PAD * 2;
-	double w = pad * 2 + tw + (st->toast_undo ? gap + uw : 0);
+	double w = pad * 2 + tw + (btn ? gap + uw : 0);
 	if (w > max_w) {
 		tw -= w - max_w;
 		w = max_w;
@@ -924,10 +934,14 @@ static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	cairo_fill(cr);
 	double ty = y + (h - 16) / 2.0;
 	ui_draw_text_fit(cr, x + pad, ty, tw, st->toast, size, CAIRO_FONT_WEIGHT_NORMAL, 1.0);
-	if (!st->toast_undo) return;
+	if (!btn) return;
 	double ux = x + pad + tw + gap;
-	ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, undo, size, CAIRO_FONT_WEIGHT_BOLD, GUI_C_ACCENT,
-						  1.0);
+	if (st->toast_btn_kind == TOAST_RESET)
+		ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, btn, size, CAIRO_FONT_WEIGHT_BOLD,
+							  GUI_C_ERROR, 1.0);
+	else
+		ui_draw_text_fit_rgba(cr, ux, ty, uw + 1, btn, size, CAIRO_FONT_WEIGHT_BOLD,
+							  GUI_C_ACCENT, 1.0);
 	double hit_x = ux - gap / 2;
 	st->toast_btn = (struct set_rect){hit_x, y, x + w - hit_x, h};
 }

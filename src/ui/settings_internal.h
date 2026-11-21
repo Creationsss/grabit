@@ -89,6 +89,12 @@ enum set_menu_item {
 	MENU_COUNT,
 };
 
+enum set_toast_btn {
+	TOAST_NONE,
+	TOAST_UNDO,
+	TOAST_RESET,
+};
+
 enum set_area {
 	AREA_SIDEBAR,
 	AREA_SEARCH,
@@ -151,6 +157,7 @@ struct set_change {
 	char *before;
 	char *after;
 	char *sxcu;
+	bool chain;
 };
 
 struct settings_state {
@@ -211,8 +218,11 @@ struct settings_state {
 
 	char toast[192];
 	int64_t toast_until;
-	bool toast_undo;
+	enum set_toast_btn toast_btn_kind;
 	struct set_rect toast_btn;
+	size_t reset_page;
+	struct set_rect page_reset_btn;
+	bool page_reset_hover;
 
 	struct set_change history[SET_HISTORY];
 	size_t history_n;
@@ -290,6 +300,9 @@ void set_on_focus_lost(struct ui_window *w);
 void set_apply(struct settings_state *st, struct set_row *r, const char *value);
 void set_undo(struct settings_state *st);
 void set_redo(struct settings_state *st);
+size_t set_page_resettable(struct settings_state *st, const struct set_page *p);
+void set_reset_page_ask(struct settings_state *st);
+void set_reset_page(struct settings_state *st);
 void set_history_free(struct settings_state *st);
 struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)

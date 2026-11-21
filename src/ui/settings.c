@@ -87,7 +87,7 @@ void set_toast(struct settings_state *st, const char *fmt, ...) {
 	vsnprintf(st->toast, sizeof st->toast, fmt, ap);
 	va_end(ap);
 	st->toast_until = grabit_now_ms() + SET_TOAST_MS;
-	st->toast_undo = false;
+	st->toast_btn_kind = TOAST_NONE;
 	set_arm_timer(st);
 	ui_window_damage(st->win);
 }
@@ -152,8 +152,8 @@ static void record_change(struct settings_state *st, struct set_row *r, char *be
 	*push_change(st) = (struct set_change){.row = r, .before = before, .after = after ? strdup(after) : NULL};
 }
 
-static void undo_toast(struct settings_state *st) {
-	st->toast_undo = true;
+static void toast_button(struct settings_state *st, enum set_toast_btn kind) {
+	st->toast_btn_kind = kind;
 	st->toast_until = grabit_now_ms() + SET_UNDO_TOAST_MS;
 	set_arm_timer(st);
 }
@@ -205,7 +205,7 @@ void set_apply(struct settings_state *st, struct set_row *r, const char *value) 
 		return;
 	}
 	record_change(st, r, before, value);
-	undo_toast(st);
+	toast_button(st, TOAST_UNDO);
 }
 
 static const char *sxcu_what(const struct set_change *c) {
@@ -253,21 +253,32 @@ bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
 	*c = (struct set_change){.row = r, .before = before, .after = after, .sxcu = name};
 	set_refresh_uploaders(st);
 	set_toast(st, "%s", sxcu_what(c));
-	undo_toast(st);
+	toast_button(st, TOAST_UNDO);
 	return true;
 }
 
 static void replay(struct settings_state *st, bool undo) {
-	bool can = undo ? st->history_pos > 0 : st->history_pos < st->history_n;
-	if (!can) {
+	if (undo ? st->history_pos == 0 : st->history_pos == st->history_n) {
 		set_toast(st, undo ? "Nothing to undo" : "Nothing to redo");
 		return;
 	}
-	struct set_change *c = &st->history[undo ? st->history_pos - 1 : st->history_pos];
-	const char *content = undo ? c->before : c->after;
-	bool ok = c->sxcu ? restore_sxcu(st, c, content) : write_value(st, c->row, content);
-	if (!ok && c->row->error[0]) return;
-	st->history_pos = undo ? st->history_pos - 1 : st->history_pos + 1;
+	size_t steps = 0;
+	bool ok = false;
+	for (;;) {
+		size_t at = undo ? st->history_pos - 1 : st->history_pos;
+		struct set_change *c = &st->history[at];
+		bool more = undo ? c->chain && at > 0 : at + 1 < st->history_n && st->history[at + 1].chain;
+		const char *content = undo ? c->before : c->after;
+		ok = c->sxcu ? restore_sxcu(st, c, content) : write_value(st, c->row, content);
+		if (!ok && c->row->error[0]) break;
+		st->history_pos = undo ? at : at + 1;
+		steps++;
+		if (!more) break;
+	}
+	if (steps > 1) {
+		set_toast(st, "%s: reset of %zu settings", undo ? "Undone" : "Redone", steps);
+		return;
+	}
 	if (!ok) return;
 	char msg[sizeof st->toast + 16];
 	snprintf(msg, sizeof msg, "%s: %s", undo ? "Undone" : "Redone", st->toast);
@@ -280,6 +291,54 @@ void set_undo(struct settings_state *st) {
 
 void set_redo(struct settings_state *st) {
 	replay(st, false);
+}
+
+static bool page_resettable(struct settings_state *st, const struct set_row *r) {
+	return !r->info.secret && !r->sxcu_add && set_can_reset(st, r);
+}
+
+size_t set_page_resettable(struct settings_state *st, const struct set_page *p) {
+	size_t n = 0;
+	for (size_t i = 0; i < p->n; i++)
+		n += page_resettable(st, p->rows[i]);
+	return n;
+}
+
+void set_reset_page_ask(struct settings_state *st) {
+	if (st->page >= st->n_pages) return;
+	struct set_page *p = &st->pages[st->page];
+	size_t n = set_page_resettable(st, p);
+	if (!n) return;
+	st->reset_page = st->page;
+	set_toast(st, "Reset %zu setting%s on %s?", n, n == 1 ? "" : "s", p->title);
+	toast_button(st, TOAST_RESET);
+}
+
+void set_reset_page(struct settings_state *st) {
+	if (st->reset_page >= st->n_pages) return;
+	struct set_page *p = &st->pages[st->reset_page];
+	if (stamps_changed(st)) reload(st);
+	size_t done = 0;
+	for (size_t i = 0; i < p->n; i++) {
+		struct set_row *r = p->rows[i];
+		if (!page_resettable(st, r)) continue;
+		const char *cur = set_value(st, r);
+		char *before = cur ? strdup(cur) : NULL;
+		if (!write_value(st, r, NULL)) {
+			free(before);
+			if (r->error[0]) break;
+			continue;
+		}
+		record_change(st, r, before, NULL);
+		st->history[st->history_n - 1].chain = done > 0;
+		done++;
+	}
+	if (done == 1) {
+		toast_button(st, TOAST_UNDO);
+	} else if (done > 1) {
+		set_toast(st, "Reset %zu settings on %s", done, p->title);
+		toast_button(st, TOAST_UNDO);
+	}
 }
 
 void set_commit_edit(struct settings_state *st) {

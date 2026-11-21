@@ -93,7 +93,7 @@ void set_test_upload(struct settings_state *st, struct set_row *r) {
 	}
 	const char *service = config_get(&st->cfg, "service");
 	if (!service || !service[0]) {
-		set_toast(st, "Pick an upload service on the General page first");
+		set_toast(st, "Pick an upload service first");
 		return;
 	}
 	if (!upload_service_known(service)) {

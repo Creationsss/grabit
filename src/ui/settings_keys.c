@@ -29,13 +29,11 @@ struct set_def {
 
 static const struct set_def GENERAL[] = {
 	{"default_action", "Default action", "what a plain `grabit` run does with the capture"},
-	{"service", "Upload service", "where uploads go: a built-in service or a registered sxcu uploader"},
 	{"notifications", "Notifications", "desktop notifications on success; failures are always shown"},
 	{"also_save", "Also save a copy", "keep a file in the save folder when copying or uploading"},
 	{"save_dir", "Save folder", "absolute path or ~/...; empty uses XDG_PICTURES_DIR / XDG_VIDEOS_DIR"},
 	{"filename", "Filename template", "strftime-style template; see `grabit help filename`"},
 	{"filename_preset", "Filename preset", "used when no template is set"},
-	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches and region between runs"},
 	{"log.enabled", "Log file", "mirror every log line to $XDG_RUNTIME_DIR/grabit.log"},
 	{"sound.enabled", "Shutter sound", NULL},
 	{"sound.player", "Sound player", "empty auto-detects pw-play, paplay, play or aplay"},
@@ -70,6 +68,7 @@ static const struct set_def REGION[] = {
 };
 
 static const struct set_def EDITOR[] = {
+	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches and region between runs"},
 	{"edit.always", "Always open the editor", "same as passing -e on every capture"},
 	{"edit.instant_capture", "Capture on select", "selecting a region captures it right away"},
 	{"edit.start_with_tool", "Start with the last tool", "open in drawing mode instead of region-select"},
@@ -102,6 +101,7 @@ static const struct set_def RECORDING[] = {
 };
 
 static const struct set_def UPLOADS[] = {
+	{"service", "Upload service", "where uploads go: a built-in service or a registered sxcu uploader"},
 	{"services.zipline.domain", "Zipline server", "https://host; /api/upload is added for you"},
 	{"services.zipline.auth", "Zipline token", NULL},
 	{"services.zipline.chunked", "Zipline chunked uploads", "always split uploads into chunks"},
@@ -191,7 +191,7 @@ static const struct page_def PAGES[] = {
 	{.title = "General", .defs = GENERAL, .extra = add_config_row},
 	{.title = "Capture", .defs = CAPTURE},
 	{.title = "Region selector", .defs = REGION},
-	{.title = "Editor", .defs = EDITOR, .note = "color, width, tool and swatches are remembered from your last edit"},
+	{.title = "Editor", .defs = EDITOR, .note = "while Remember editor state is on, color, width, tool and swatches come from your last edit"},
 	{.title = "Recording", .defs = RECORDING},
 	{.title = "Uploads",
 	 .defs = UPLOADS,
@@ -759,12 +759,12 @@ int settings_build(struct settings_state *st) {
 		struct set_page *p = &st->pages[st->n_pages++];
 		p->title = PAGES[i].title;
 		p->note = PAGES[i].note;
-		if (PAGES[i].extra && PAGES[i].extra(st, p) != 0) return -1;
 		if (PAGES[i].index_at) *(size_t *)((char *)st + PAGES[i].index_at) = st->n_pages - 1;
 		for (const struct set_def *d = PAGES[i].defs; d->key; d++) {
 			struct set_row *r = new_row(st, d->key, d->label, d->hint);
 			if (r && page_push(p, r) != 0) return -1;
 		}
+		if (PAGES[i].extra && PAGES[i].extra(st, p) != 0) return -1;
 	}
 	if (build_keybinds(st, &st->pages[st->n_pages++]) != 0) return -1;
 

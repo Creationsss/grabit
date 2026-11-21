@@ -22,6 +22,7 @@
 struct ui_window;
 struct grabit_wl_state;
 struct set_dep;
+struct set_upload_test;
 
 #define SET_NONE ((size_t)-1)
 #define SET_SIDE_SEARCH ((size_t)-2)
@@ -282,6 +283,7 @@ struct settings_state {
 	size_t uploads_page;
 	size_t plugins_page;
 	struct set_plugin_jobs plugin_jobs;
+	struct set_upload_test *upload_test;
 	struct set_dialog dialog;
 	struct set_rect page_reset_btn;
 	bool page_reset_hover;
@@ -366,6 +368,11 @@ void set_redo(struct settings_state *st);
 size_t set_page_resettable(struct settings_state *st, const struct set_page *p);
 void set_reset_page_ask(struct settings_state *st);
 void set_toast_run(struct settings_state *st);
+void set_ask(struct settings_state *st, const char *label, bool danger, set_toast_action fn,
+			 char *arg);
+void set_test_upload(struct settings_state *st, struct set_row *r);
+bool set_tests_poll(struct settings_state *st);
+void set_tests_free(struct settings_state *st);
 void set_history_free(struct settings_state *st);
 struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)

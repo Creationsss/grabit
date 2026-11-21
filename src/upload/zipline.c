@@ -40,6 +40,24 @@ struct curl_slist *zipline_option_headers(struct config *cfg,
 	return headers;
 }
 
+char *zipline_delete_url(const char *upload_url, const char *body) {
+	struct json_object *root = body ? json_tokener_parse(body) : NULL;
+	char *id = root ? grabit_json_path_string(root, "files[0].id") : NULL;
+	if (root) json_object_put(root);
+	if (!id) return NULL;
+	char *enc = curl_easy_escape(NULL, id, 0);
+	free(id);
+	if (!enc) return NULL;
+	size_t base = strlen(upload_url);
+	const char *tail = "/upload";
+	if (base >= strlen(tail) && strcmp(upload_url + base - strlen(tail), tail) == 0)
+		base -= strlen(tail);
+	char *url = NULL;
+	grabit_xasprintf(&url, "%.*s/user/files/%s", (int)base, upload_url, enc);
+	curl_free(enc);
+	return url;
+}
+
 static long long zipline_chunk_bytes(struct config *cfg) {
 	const char *v = config_get(cfg, "services.zipline.chunk_size");
 	long long mb = 25;

@@ -23,6 +23,7 @@ struct config {
 int config_load(struct config *c);
 int config_save(struct config *c);
 void config_free(struct config *c);
+int config_copy(struct config *dst, const struct config *src);
 
 int config_load_full(struct config *c);
 bool config_exists(void);

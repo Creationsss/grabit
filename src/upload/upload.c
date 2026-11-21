@@ -155,6 +155,60 @@ struct curl_slist *upload_header_append(struct curl_slist *list, const char *nam
 	return next ? next : list;
 }
 
+const char *upload_missing_setting(struct config *cfg, const char *service) {
+	const struct service *svc = gup_find_service(service);
+	if (!svc) return NULL;
+	if (!svc->url && !config_get(cfg, "services.zipline.domain")) return "services.zipline.domain";
+	if (gup_resolve_auth(cfg, svc->name)) return NULL;
+	static _Thread_local char key[64];
+	snprintf(key, sizeof key, "services.%s.auth", svc->name);
+	return key;
+}
+
+static int send_delete(const char *url, const char *method, struct curl_slist *headers) {
+	CURL *curl = curl_easy_init();
+	if (!curl) return -1;
+	struct grabit_buf body = {0};
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+	upload_curl_common(curl);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+	CURLcode rc = curl_easy_perform(curl);
+	long http_code = 0;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+	curl_easy_cleanup(curl);
+	grabit_buf_free(&body);
+	if (rc != CURLE_OK) {
+		log_error("%s", curl_easy_strerror(rc));
+		return -1;
+	}
+	if (http_code < 200 || http_code >= 300) {
+		log_error("the host answered HTTP %ld", http_code);
+		return -1;
+	}
+	return 0;
+}
+
+int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r) {
+	const struct service *svc = gup_find_service(service_name);
+	if (!svc) return r->del_url && r->del_url[0] ? send_delete(r->del_url, "GET", NULL) : 1;
+	if (strcmp(svc->name, "zipline") != 0) return 1;
+	const char *auth = gup_resolve_auth(cfg, svc->name);
+	const char *domain = config_get(cfg, "services.zipline.domain");
+	if (!auth || !domain) return -1;
+	char *url = zipline_delete_url(domain, r->body);
+	if (!url) return 1;
+	bool oom = false;
+	struct curl_slist *headers = upload_header_append(NULL, svc->auth_name, auth, &oom);
+	int rc = oom ? -1 : send_delete(url, "DELETE", headers);
+	curl_slist_free_all(headers);
+	free(url);
+	return rc;
+}
+
 int upload_perform(const char *service_name, const char *file_path,
 				   struct config *cfg, bool chunked, struct upload_result *out) {
 	upload_result_free(out);

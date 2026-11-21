@@ -41,7 +41,7 @@ void set_arm_timer(struct settings_state *st) {
 		int64_t poll = grabit_now_ms() + 50;
 		if (!due || poll < due) due = poll;
 	}
-	if (st->plugin_jobs.pid > 0) {
+	if (st->plugin_jobs.pid > 0 || st->upload_test) {
 		int64_t poll = grabit_now_ms() + SET_JOB_POLL_MS;
 		if (!due || poll < due) due = poll;
 	}
@@ -448,6 +448,7 @@ void set_on_timer(struct ui_window *w) {
 	if (st->tip_at && now >= st->tip_at) ui_window_damage(w);
 	if (st->icons_state == ICONS_SCANNING && set_icons_poll(st)) ui_window_damage(w);
 	if (set_jobs_poll(st)) ui_window_damage(w);
+	if (set_tests_poll(st)) ui_window_damage(w);
 	if (st->toast_until && now >= st->toast_until) {
 		st->toast_until = 0;
 		ui_window_damage(w);

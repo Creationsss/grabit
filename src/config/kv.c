@@ -87,6 +87,17 @@ size_t cfg_kv_remove(struct config *c, const char *key, bool prefix) {
 	return removed;
 }
 
+int config_copy(struct config *dst, const struct config *src) {
+	*dst = (struct config){.overlaid = src->overlaid, .unparsed = src->unparsed};
+	for (size_t i = 0; i < src->n; i++) {
+		if (cfg_kv_upsert(dst, src->kvs[i].key, src->kvs[i].val) != 0) {
+			config_free(dst);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 void config_free(struct config *c) {
 	if (!c) return;
 	for (size_t i = 0; i < c->n; i++) {

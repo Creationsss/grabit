@@ -13,6 +13,7 @@ struct config;
 struct args;
 
 bool upload_service_known(const char *name);
+const char *upload_missing_setting(struct config *cfg, const char *service);
 int upload_suggest_service(const char *input, char *out, size_t cap);
 
 int upload_preflight(struct config *cfg, const struct args *a, const char **service_out);
@@ -33,6 +34,8 @@ int upload_perform(const char *service_name,
 				   const char *file_path,
 				   struct config *cfg, bool chunked,
 				   struct upload_result *out);
+
+int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r);
 
 void upload_friendly_error(const struct upload_result *r, char *out, size_t cap);
 

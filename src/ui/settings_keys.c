@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 #include "ui/settings_internal.h"
 
+#include "capture/backend.h"
 #include "region/keybinds.h"
 #include "region/region.h"
 #include "upload/sxcu.h"
@@ -174,7 +175,7 @@ struct page_def {
 	size_t index_at;
 };
 
-static int add_sxcu_row(struct settings_state *st, struct set_page *p);
+static int add_upload_rows(struct settings_state *st, struct set_page *p);
 static int add_update_row(struct settings_state *st, struct set_page *p);
 
 static const struct page_def PAGES[] = {
@@ -186,7 +187,7 @@ static const struct page_def PAGES[] = {
 	{.title = "Uploads",
 	 .defs = UPLOADS,
 	 .note = "drop a .sxcu file anywhere on this window to add it as an uploader",
-	 .extra = add_sxcu_row,
+	 .extra = add_upload_rows,
 	 .index_at = offsetof(struct settings_state, uploads_page)},
 	{.title = "Plugins",
 	 .defs = PLUGINS,
@@ -333,7 +334,12 @@ static struct set_row *extra_row(struct settings_state *st, struct set_page *p, 
 	return page_push(p, r) == 0 ? r : NULL;
 }
 
-static int add_sxcu_row(struct settings_state *st, struct set_page *p) {
+static int add_upload_rows(struct settings_state *st, struct set_page *p) {
+	struct set_row *t = extra_row(st, p, "grabit upload test", "Test upload",
+								  "uploads a small test image to the upload service, then deletes it again where the service allows it");
+	if (!t) return -1;
+	t->button = "Test";
+	t->action = set_test_upload;
 	struct set_row *r = extra_row(st, p, "grabit sxcu add", "Add uploader",
 								  "path to a ShareX .sxcu file; it is copied into grabit's uploaders and can then be picked as the upload service");
 	if (!r) return -1;
@@ -564,11 +570,39 @@ static const char *label_of(struct settings_state *st, const char *key) {
 	return r ? r->label : key;
 }
 
+static bool kwin_offered(void) {
+	static int known = -1;
+	if (known < 0) known = grabit_desktop_is("KDE") && grabit_kwin_screenshot_available();
+	return known;
+}
+
+static void backend_note(struct settings_state *st) {
+	if (!st->wls) return;
+	static const char *const NAMES[] = {"wlr", "ext", "kwin"};
+	bool have[] = {st->wls->screencopy_manager != NULL,
+				   st->wls->ext_copy_manager && st->wls->ext_source_manager, kwin_offered()};
+	char list[32] = "";
+	size_t off = 0;
+	for (size_t i = 0; i < 3; i++)
+		if (have[i]) grabit_join_appendf(list, sizeof list, &off, ", ", "%s", NAMES[i]);
+	const char *want = config_get(&st->cfg, "capture.backend");
+	char text[160];
+	for (size_t i = 0; want && i < 3; i++)
+		if (strcmp(want, NAMES[i]) == 0 && !have[i]) {
+			snprintf(text, sizeof text, "This compositor does not offer %s; captures will fail%s%s",
+					 want, list[0] ? ". It offers " : "", list);
+			add_note(st, "capture.backend", text);
+			return;
+		}
+	if (!list[0]) add_note(st, "capture.backend", "This compositor offers no capture protocol grabit can use");
+}
+
 void set_refresh_notes(struct settings_state *st) {
 	for (size_t i = 0; i < st->all.n; i++) {
 		st->all.rows[i]->note[0] = '\0';
 		st->all.rows[i]->note_more = 0;
 	}
+	backend_note(st);
 	struct region_keybind_clash c[64];
 	size_t n = region_keymap_clashes(&st->cfg, c, 64);
 	for (size_t i = 0; i < n; i++) {

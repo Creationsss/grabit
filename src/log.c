@@ -28,8 +28,8 @@ static bool g_file_on = true;
 static bool g_file_locked;
 static bool g_no_color;
 static size_t g_file_written;
-static char *g_capture;
-static size_t g_capture_size;
+static _Thread_local char *g_capture;
+static _Thread_local size_t g_capture_size;
 
 static const char *C_RED = "";
 static const char *C_YELLOW = "";

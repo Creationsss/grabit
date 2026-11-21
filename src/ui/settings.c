@@ -53,6 +53,11 @@ static int reload(struct settings_state *st) {
 	return 0;
 }
 
+static void on_focus_gained(struct ui_window *w) {
+	struct settings_state *st = w->user;
+	if (stamps_changed(st) && reload(st) == 0) ui_window_damage(w);
+}
+
 static int hex_val(char c) {
 	if (c >= '0' && c <= '9') return c - '0';
 	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -520,6 +525,7 @@ int grabit_settings_main(const char *what) {
 		.on_scroll = set_on_scroll,
 		.on_key = set_on_key,
 		.on_focus_lost = set_on_focus_lost,
+		.on_focus_gained = on_focus_gained,
 		.on_timer = set_on_timer,
 		.on_drag = set_on_drag,
 		.on_drop = set_on_drop,

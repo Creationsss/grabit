@@ -181,6 +181,7 @@ static void kb_enter(void *data, struct wl_keyboard *kb, uint32_t serial,
 	(void)keys;
 	struct ui_window *w = data;
 	w->kb_focused = surface == w->surface;
+	if (w->kb_focused && w->on_focus_gained) w->on_focus_gained(w);
 }
 
 static void kb_leave(void *data, struct wl_keyboard *kb, uint32_t serial,

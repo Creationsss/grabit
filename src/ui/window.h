@@ -118,6 +118,7 @@ struct ui_window {
 	void (*on_scroll)(struct ui_window *w, double x, double y, double units);
 	bool (*on_key)(struct ui_window *w, xkb_keysym_t sym, uint8_t mods);
 	void (*on_focus_lost)(struct ui_window *w);
+	void (*on_focus_gained)(struct ui_window *w);
 	void (*on_drag)(struct ui_window *w, bool over);
 	void (*on_drop)(struct ui_window *w, const char *uri_list);
 };

@@ -5,6 +5,7 @@
 #include "ui/settings_internal.h"
 
 #include "capture/backend.h"
+#include "paths.h"
 #include "region/keybinds.h"
 #include "region/region.h"
 #include "upload/sxcu.h"
@@ -12,10 +13,13 @@
 #include "wl/wl.h"
 
 #include <ctype.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 struct set_def {
 	const char *key;
@@ -26,7 +30,6 @@ struct set_def {
 static const struct set_def GENERAL[] = {
 	{"default_action", "Default action", "what a plain `grabit` run does with the capture"},
 	{"service", "Upload service", "where uploads go: a built-in service or a registered sxcu uploader"},
-	{"format", "Image format", "file format for screenshots"},
 	{"notifications", "Notifications", "desktop notifications on success; failures are always shown"},
 	{"also_save", "Also save a copy", "keep a file in the save folder when copying or uploading"},
 	{"save_dir", "Save folder", "absolute path or ~/...; empty uses XDG_PICTURES_DIR / XDG_VIDEOS_DIR"},
@@ -45,10 +48,11 @@ static const struct set_def CAPTURE[] = {
 	{"capture.cursor", "Include the cursor", "draw the mouse pointer into screenshots"},
 	{"capture.delay_secs", "Delay (seconds)", "wait before capturing so you can open a menu first"},
 	{"capture.hdr", "Keep HDR", "write 16-bit png for hdr outputs instead of tone mapping to srgb"},
+	{"format", "Image format", "file format for screenshots"},
 	{"png.level", "PNG compression", "0-9; higher is smaller but slower"},
 	{"jpeg.quality", "JPEG quality", NULL},
-	{"webp.quality", "WebP quality", "ignored when lossless is on"},
 	{"webp.lossless", "WebP lossless", NULL},
+	{"webp.quality", "WebP quality", "ignored when lossless is on"},
 	{NULL, NULL, NULL},
 };
 
@@ -150,6 +154,10 @@ static const struct set_dep DEPS[] = {
 	{"recording.crf", "recording.format", "mp4,webm", "Only used for mp4 and webm recordings"},
 	{"recording.preset", "recording.format", "mp4", "Only used for mp4 recordings"},
 	{"recording.tune", "recording.format", "mp4", "Only used for mp4 recordings"},
+	{"capture.hdr", "format", "png", "Only used for png screenshots"},
+	{"png.level", "format", "png", "Only used for png screenshots"},
+	{"jpeg.quality", "format", "jpeg", "Only used for jpeg screenshots"},
+	{"webp.lossless", "format", "webp", "Only used for webp screenshots"},
 	{"webp.quality", "webp.lossless", "false", "Not used while WebP lossless is on"},
 	{"sound.player", "sound.enabled", "true", "Turn on Shutter sound to use this"},
 	{"sound.file", "sound.enabled", "true", "Turn on Shutter sound to use this"},
@@ -175,11 +183,12 @@ struct page_def {
 	size_t index_at;
 };
 
+static int add_config_row(struct settings_state *st, struct set_page *p);
 static int add_upload_rows(struct settings_state *st, struct set_page *p);
 static int add_update_row(struct settings_state *st, struct set_page *p);
 
 static const struct page_def PAGES[] = {
-	{.title = "General", .defs = GENERAL},
+	{.title = "General", .defs = GENERAL, .extra = add_config_row},
 	{.title = "Capture", .defs = CAPTURE},
 	{.title = "Region selector", .defs = REGION},
 	{.title = "Editor", .defs = EDITOR, .note = "color, width, tool and swatches are remembered from your last edit"},
@@ -332,6 +341,56 @@ static struct set_row *extra_row(struct settings_state *st, struct set_page *p, 
 		return NULL;
 	}
 	return page_push(p, r) == 0 ? r : NULL;
+}
+
+static void config_path(char *out, size_t n) {
+	const char *path = paths_config_file();
+	const char *home = getenv("HOME");
+	size_t hl = home ? strlen(home) : 0;
+	if (path && hl > 1 && strncmp(path, home, hl) == 0 && path[hl] == '/')
+		snprintf(out, n, "~%s", path + hl);
+	else
+		snprintf(out, n, "%s", path ? path : "");
+}
+
+static void open_config(struct settings_state *st, struct set_row *r) {
+	(void)r;
+	const char *path = paths_config_file();
+	char shown[PATH_MAX];
+	config_path(shown, sizeof shown);
+	if (!path || paths_mkdir_p(paths_config_dir()) != 0) {
+		set_toast(st, "Could not find the config folder");
+		return;
+	}
+	int fd = open(path, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+	if (fd >= 0) close(fd);
+	if (!grabit_in_path("xdg-open")) {
+		set_toast(st, "xdg-open is not installed; the config is at %s", shown);
+		return;
+	}
+	int rc = grabit_fork_detached();
+	if (rc == 0) {
+		execlp("xdg-open", "xdg-open", path, (char *)NULL);
+		_exit(127);
+	}
+	if (rc < 0)
+		set_toast(st, "Could not start xdg-open");
+	else
+		set_toast(st, "Opened %s", shown);
+}
+
+static int add_config_row(struct settings_state *st, struct set_page *p) {
+	char shown[PATH_MAX];
+	config_path(shown, sizeof shown);
+	char *key = strdup(shown);
+	if (!key) return -1;
+	struct set_row *r = extra_row(st, p, key, "Config file",
+								  "opens in your default editor; saved edits show up here");
+	if (!r) return -1;
+	r->owned_key = key;
+	r->button = "Open";
+	r->action = open_config;
+	return 0;
 }
 
 static int add_upload_rows(struct settings_state *st, struct set_page *p) {
@@ -832,8 +891,11 @@ static bool in_list(const char *list, const char *v) {
 const char *set_inactive_reason(struct settings_state *st, const struct set_row *r) {
 	if (!r->dep) return NULL;
 	struct set_row *other = set_find_row(st, r->dep->needs);
-	if (!other || in_list(r->dep->values, set_effective(st, other))) return NULL;
-	return r->dep->reason;
+	if (!other) return NULL;
+	const char *up = set_inactive_reason(st, other);
+	if (up) return up;
+	const char *v = config_alias_target(&other->info, set_effective(st, other));
+	return in_list(r->dep->values, v) ? NULL : r->dep->reason;
 }
 
 void set_default_text(const struct set_row *r, char *out, size_t n) {

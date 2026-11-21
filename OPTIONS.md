@@ -57,7 +57,7 @@ when it is absent, but not when it is merely stale.
 ## configuration
 
 ```sh
-grabit settings               # settings window (also in the --tray menu)
+grabit settings               # settings ui (also in the --tray menu)
 grabit settings recording     # open one page; any other word is searched
 grabit set                    # list all settable keys
 grabit set <key>              # show example/default for that key
@@ -71,7 +71,7 @@ grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/
 
 every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
-`grabit settings` edits the same keys in a window: toggles, dropdowns (outputs and sxcu uploaders included), number steppers (shift-click steps by 10) and text fields, plus a search box (`Ctrl+F`). search matches every word separately against labels, keys, descriptions, page names and dropdown choices (so `frame rate` and `recording fps` both find `recording.fps`); results show their page, and the sidebar counts matches per page. each row shows its config key under the label. a key changed from its default gets a "Modified" tag next to the key that also shows the default value, and a reset button that appears on hover or keyboard focus; right-click the row (or press the Menu key / `Shift+F10`) for "Reset to default" and "Copy key name". every change is validated and written right away, exactly like `grabit set`; a banner at the bottom confirms what changed (e.g. "Frame rate set to 120"), and a rejected value gets a red outline and a warning under the row. settings that do nothing with the current values (encoder preset while recording gif, sound player while the shutter sound is off, and so on) are greyed out with a line saying what turns them on. a key at the bottom of the sidebar explains these marks. clicking anywhere on a switch or dropdown row activates it. dropdowns with more than ten choices get a search field at the top; the tray icon dropdown lists every icon in your icon themes (camera and screenshot icons first) with a preview next to each name. secrets stay masked until you click the eye. keybind rows have a record button that captures keys live, like `--watch`. to add a ShareX uploader, drop its `.sxcu` file anywhere on the window or type its path into "Add uploader" on the Uploads page (same as `grabit sxcu add`; an uploader with the same name is replaced). keyboard: arrows or Tab move between rows, Enter or Space edits, Left/Right step a dropdown or number, `Ctrl+PageUp`/`Ctrl+PageDown` switch pages, Esc backs out.
+`grabit settings` opens a settings ui.
 
 ### config vs state
 

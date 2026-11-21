@@ -82,7 +82,7 @@ int gapp_print_help(void) {
 		"  -h, --help          print this help\n"
 		"\n"
 		"Subcommands:\n"
-		"  settings [<page>]   open the settings window\n"
+		"  settings [<page>]   open the settings ui\n"
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
 		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
@@ -98,7 +98,7 @@ int gapp_print_help_topics(void) {
 	fputs(
 		"Usage: grabit help <topic>\n"
 		"\n"
-		"  settings          the settings window\n"
+		"  settings          the settings ui\n"
 		"  set, get, unset   configuration commands\n"
 		"  sxcu              ShareX (.sxcu) uploaders\n"
 		"  plugin            plugin management\n"

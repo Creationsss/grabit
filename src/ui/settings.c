@@ -280,8 +280,7 @@ int cmd_settings(int argc, char **argv) {
 	if (argc > 0 && (strcmp(argv[0], "--help") == 0 || strcmp(argv[0], "-h") == 0)) {
 		puts("Usage: grabit settings [<page>|<search>]");
 		puts("");
-		puts("Opens the settings window. Every change is validated and written to");
-		puts("config.toml right away, the same as `grabit set`.");
+		puts("Opens the settings ui.");
 		puts("");
 		puts("<page> opens that page (general, capture, region, editor, recording,");
 		puts("uploads, ocr, cards, appearance, keybinds); anything else is searched.");

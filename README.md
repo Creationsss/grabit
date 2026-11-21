@@ -78,7 +78,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`. see [OPTIONS.md
 - **`--record`** region recording with overlay and tray icon; mp4, webm, or gif ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
 - **`--pin`** pins captures to the desktop: click-through, stackable, draggable
 - **`--tray`** persistent tray icon with every action in its menu
-- **`grabit settings`** settings window for every config key, with search
+- **`grabit settings`** settings ui
 - uploads to six built-in services or any sharex `.sxcu` uploader
 - **`--tesseract --translate`** OCRs a region and copies the translation
 

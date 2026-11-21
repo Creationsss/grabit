@@ -499,22 +499,7 @@ directly, equivalent to
 .BR "grabit help " subcommand .
 .TP
 .BI "settings " "\fR[\fPpage\fR|\fPsearch\fR]\fP"
-Open the settings window: every key on one page per section, with toggles,
-dropdowns, number steppers and text fields, and a search box (Ctrl+F) that
-matches every word separately and shows each result's page. A key changed from
-its default gets a "Modified" tag with the default value next to its config
-key, and a reset button on hover; right-click its row (or press Menu or Shift+F10) to reset it or
-copy its key name. Each change goes through the same validation as
-.B set
-and is written to the config straight away; a banner at the bottom says what changed and a
-rejected value is outlined in red with its error under the row. Settings that
-have no effect with the current values are greyed out with a note saying what
-turns them on. Keybind rows have a record button that captures keys live, like
-.BR "set " "key " \-\-watch .
-Dropping a .sxcu file on the window (or entering its path under Uploads)
-adds it like
-.BR "sxcu add" ,
-replacing an uploader with the same name.
+Open the settings ui.
 .I page
 opens that section (general, capture, region, editor, recording, uploads, ocr,
 cards, appearance, keybinds); any other word is searched. Also in the

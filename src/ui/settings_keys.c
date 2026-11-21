@@ -325,6 +325,7 @@ static struct set_row *extra_row(struct settings_state *st, struct set_page *p, 
 	snprintf(r->label, sizeof r->label, "%s", label);
 	r->hint = hint;
 	r->info.kind = CFG_KIND_TEXT;
+	r->no_config = true;
 	if (page_push(&st->all, r) != 0) {
 		free(r);
 		return NULL;
@@ -370,15 +371,17 @@ static bool list_has(const struct set_row *r, const struct set_list *l, const ch
 		   strcmp(r->key + pre + n, l->suffix) == 0;
 }
 
-static void describe_row(const struct set_list *l, struct set_row *r, const char *name) {
+static void describe_row(struct settings_state *st, const struct set_list *l, struct set_row *r,
+						 const char *name) {
 	free(r->owned_hint);
 	r->owned_hint = NULL;
 	r->button = l->button;
-	l->describe(r, name);
+	l->describe(st, r, name);
 	r->hint = r->owned_hint ? r->owned_hint : l->unreadable;
 }
 
-static struct set_row *list_row(const struct set_list *l, const char *name, const char *page) {
+static struct set_row *list_row(struct settings_state *st, const struct set_list *l,
+								const char *name, const char *page) {
 	struct set_row *r = calloc(1, sizeof *r);
 	if (!r) return NULL;
 	if (grabit_xasprintf(&r->owned_key, "%s%s%s", l->prefix, name, l->suffix) != 0) {
@@ -386,13 +389,14 @@ static struct set_row *list_row(const struct set_list *l, const char *name, cons
 		return NULL;
 	}
 	r->key = r->owned_key;
+	r->no_config = true;
 	snprintf(r->label, sizeof r->label, "%s", name);
 	r->info.kind = CFG_KIND_TEXT;
 	r->section = l->section;
 	r->page = page;
 	r->action = l->action;
 	r->alt_action = l->alt_action;
-	describe_row(l, r, name);
+	describe_row(st, l, r, name);
 	return r;
 }
 
@@ -421,10 +425,10 @@ static void sync_rows(struct settings_state *st, struct set_page *p, const struc
 			if (p->rows[j] && list_has(p->rows[j], l, names[i])) {
 				fresh[i] = p->rows[j];
 				p->rows[j] = NULL;
-				describe_row(l, fresh[i], names[i]);
+				describe_row(st, l, fresh[i], names[i]);
 			}
 		if (fresh[i]) continue;
-		fresh[i] = list_row(l, names[i], p->title);
+		fresh[i] = list_row(st, l, names[i], p->title);
 		if (fresh[i] && page_push(&st->all, fresh[i]) != 0) {
 			free_row(fresh[i]);
 			fresh[i] = NULL;
@@ -471,7 +475,8 @@ void set_sync_list(struct settings_state *st, size_t page, const struct set_list
 	st->hover_row = st->press_row = st->tip_row = SET_NONE;
 }
 
-static void describe_uploader(struct set_row *r, const char *name) {
+static void describe_uploader(struct settings_state *st, struct set_row *r, const char *name) {
+	(void)st;
 	struct sxcu_uploader u = {0};
 	if (sxcu_dir_lookup(name, &u) != 0) return;
 	if (u.request_url) grabit_xasprintf(&r->owned_hint, "uploads to %s", u.request_url);
@@ -500,6 +505,49 @@ void set_refresh_uploaders(struct settings_state *st) {
 	if (sxcu_dir_list(&names, &n) != 0) return;
 	set_sync_list(st, st->uploads_page, &UPLOADER_LIST, names, n);
 	grabit_strv_free(names, n);
+}
+
+static void describe_unknown(struct settings_state *st, struct set_row *r, const char *name) {
+	const char *v = config_get(&st->cfg, name);
+	const char *val = v ? v : "";
+	const char *hint = config_suggest_key(name);
+	r->alt_button = hint ? "Rename" : NULL;
+	if (hint)
+		grabit_xasprintf(&r->owned_hint, "set to %s, but grabit has no such key; did you mean %s?",
+						 val, hint);
+	else
+		grabit_xasprintf(&r->owned_hint, "set to %s, but grabit has no such key, so it does nothing",
+						 val);
+}
+
+static const struct set_list UNKNOWN_LIST = {
+	.action = set_remove_unknown_ask,
+	.alt_action = set_rename_unknown,
+	.prefix = "",
+	.suffix = "",
+	.section = "Unknown keys in config.toml",
+	.button = "Remove",
+	.unreadable = "grabit has no such key",
+	.describe = describe_unknown,
+};
+
+static void refresh_unknown(struct settings_state *st) {
+	char **names = calloc(st->cfg.n + 1, sizeof *names);
+	size_t n = 0;
+	if (!names) return;
+	for (size_t i = 0; i < st->cfg.n; i++) {
+		if (config_key_known(st->cfg.kvs[i].key)) continue;
+		names[n] = strdup(st->cfg.kvs[i].key);
+		if (names[n]) n++;
+	}
+	if (n > 1) qsort(names, n, sizeof *names, grabit_cmp_str);
+	set_sync_list(st, 0, &UNKNOWN_LIST, names, n);
+	grabit_strv_free(names, n);
+}
+
+void set_refresh_cfg(struct settings_state *st) {
+	refresh_unknown(st);
+	set_refresh_notes(st);
 }
 
 static void add_note(struct settings_state *st, const char *key, const char *text) {
@@ -639,7 +687,7 @@ int settings_build(struct settings_state *st) {
 	st->results.title = "Search";
 	set_refresh_uploaders(st);
 	set_refresh_plugins(st);
-	set_refresh_notes(st);
+	set_refresh_cfg(st);
 	return 0;
 }
 
@@ -707,7 +755,7 @@ struct set_page *set_current_page(struct settings_state *st) {
 }
 
 const char *set_value(struct settings_state *st, const struct set_row *r) {
-	return config_get(&st->cfg, r->key);
+	return r->no_config ? NULL : config_get(&st->cfg, r->key);
 }
 
 const char *set_effective(struct settings_state *st, const struct set_row *r) {

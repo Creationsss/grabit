@@ -353,7 +353,7 @@ int cmd_get(int argc, char **argv) {
 	return rc;
 }
 
-static int cfg_unset_key(const char *key, const char *given) {
+static int cfg_unset_key(const char *key, const char *given, bool known) {
 	struct config c;
 	if (config_load(&c) != 0) return 1;
 	if (!cfg_writable(&c)) {
@@ -367,7 +367,10 @@ static int cfg_unset_key(const char *key, const char *given) {
 		(void)config_state_clear(&c, key);
 		found = true;
 	}
-	if (!found) {
+	if (!found && !known) {
+		cfg_help_report_unknown_key(given);
+		rc = 2;
+	} else if (!found) {
 		log_info("%s was not set", key);
 	} else if (cfg_persist(&c, key, NULL, false) != 0) {
 		log_error("could not save config");
@@ -391,11 +394,22 @@ int cmd_unset(int argc, char **argv) {
 		return 2;
 	}
 	const char *key = cfg_canonical_key(argv[0]);
-	if (!cfg_key_is_known(key)) {
-		cfg_help_report_unknown_key(argv[0]);
-		return 2;
-	}
-	return cfg_unset_key(key, argv[0]);
+	bool known = cfg_key_is_known(key);
+	return cfg_unset_key(known ? key : argv[0], argv[0], known);
+}
+
+bool config_key_known(const char *key) {
+	return cfg_key_is_known(cfg_canonical_key(key));
+}
+
+const char *config_suggest_key(const char *key) {
+	return cfg_help_suggest_key(key);
+}
+
+int config_remove_key(const char *key) {
+	const char *canon = cfg_canonical_key(key);
+	bool known = cfg_key_is_known(canon);
+	return cfg_unset_key(known ? canon : key, key, known) == 0 ? 0 : -1;
 }
 
 int config_write_key(const char *key, const char *value) {
@@ -404,7 +418,7 @@ int config_write_key(const char *key, const char *value) {
 		cfg_help_report_unknown_key(key);
 		return -1;
 	}
-	if (!value) return cfg_unset_key(canon, key) == 0 ? 0 : -1;
+	if (!value) return cfg_unset_key(canon, key, true) == 0 ? 0 : -1;
 	struct config c;
 	if (config_load(&c) != 0) return -1;
 	return cfg_store(&c, canon, value) == 0 ? 0 : -1;

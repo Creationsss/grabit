@@ -56,7 +56,8 @@ static void toggle_plugin(struct settings_state *st, struct set_row *r) {
 	run(st, name_of(r), off ? "disabled" : "enabled", plugin_set_disabled, off);
 }
 
-static void describe_plugin(struct set_row *r, const char *name) {
+static void describe_plugin(struct settings_state *st, struct set_row *r, const char *name) {
+	(void)st;
 	bool off = plugin_is_disabled(name);
 	r->alt_button = off ? "Enable" : "Disable";
 	char *path = plugin_path_for(name, "manifest.toml");

@@ -23,7 +23,6 @@
 
 static void note_unknown(const char *full) {
 	const char *hint = cfg_help_suggest_key(full);
-	if (hint && strcmp(hint, full) == 0) hint = NULL;
 	if (hint)
 		log_warn("config: unknown key `%s`; did you mean `%s`?", full, hint);
 	else

@@ -544,7 +544,8 @@ List all settable keys.
 Print one config key, or dump every set key.
 .TP
 .BI "unset " key
-Remove a config key.
+Remove a config key. Also removes a key grabit does not know, such as an
+old or misspelled one, when it is in config.toml.
 .TP
 .BI "help " [topic]
 Print help for a topic:

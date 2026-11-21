@@ -49,7 +49,7 @@ static int reload(struct settings_state *st) {
 	st->state_stamp = state;
 	grabit_ui_theme_init(&st->cfg);
 	update_banner(st);
-	set_refresh_notes(st);
+	set_refresh_cfg(st);
 	return 0;
 }
 
@@ -223,6 +223,49 @@ void set_apply(struct settings_state *st, struct set_row *r, const char *value) 
 	}
 	record_change(st, r, before, value);
 	undo_toast(st);
+}
+
+static bool drop_unknown(struct settings_state *st, const char *key) {
+	char err[192];
+	log_capture_errors(err, sizeof err);
+	int rc = config_remove_key(key);
+	log_capture_errors(NULL, 0);
+	if (rc != 0) set_toast(st, "%s", err[0] ? err : "could not remove this key");
+	return rc == 0;
+}
+
+static void remove_unknown(struct settings_state *st, const char *key) {
+	if (!drop_unknown(st, key)) return;
+	set_toast(st, "Removed %s from config.toml", key);
+	reload(st);
+}
+
+void set_remove_unknown_ask(struct settings_state *st, struct set_row *r) {
+	char *key = strdup(r->key);
+	if (!key) return;
+	set_toast(st, "Remove %s from config.toml?", key);
+	ask(st, "Remove", true, remove_unknown, key);
+}
+
+void set_rename_unknown(struct settings_state *st, struct set_row *r) {
+	const char *hint = config_suggest_key(r->key);
+	struct set_row *dst = hint ? set_find_row(st, hint) : NULL;
+	const char *v = config_get(&st->cfg, r->key);
+	if (!dst || !v) return;
+	char *key = strdup(r->key), *value = strdup(v), *to = strdup(hint);
+	if (key && value && to) {
+		set_apply(st, dst, value);
+		if (dst->error[0]) {
+			set_toast(st, "Could not rename %s: %s", key, dst->error);
+			dst->error[0] = '\0';
+		} else if (drop_unknown(st, key)) {
+			set_toast(st, "Renamed %s to %s", key, to);
+			reload(st);
+		}
+	}
+	free(key);
+	free(value);
+	free(to);
 }
 
 static const char *sxcu_what(const struct set_change *c) {

@@ -65,7 +65,7 @@ grabit set <key> <value>      # write (validated)
 grabit set <key>=<value>      # same, single-argument form
 grabit get                    # dump current config
 grabit get <key>              # one key
-grabit unset <key>
+grabit unset <key>            # also removes stale keys grabit no longer knows
 grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/ocr
 ```
 

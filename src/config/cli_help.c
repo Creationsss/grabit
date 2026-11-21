@@ -206,7 +206,6 @@ void cfg_help_report_unknown_key(const char *key) {
 		return;
 	}
 	const char *hint = cfg_help_suggest_key(key);
-	if (hint && strcmp(hint, key) == 0) hint = NULL;
 	if (hint)
 		log_error("unknown config key `%s`; did you mean `%s`?", key, hint);
 	else
@@ -262,7 +261,7 @@ const char *cfg_help_suggest_key(const char *input) {
 	if (!best) return NULL;
 	size_t max_allowed = in_len / 3 + 1;
 	if (max_allowed < 2) max_allowed = 2;
-	return best_dist <= max_allowed ? best : NULL;
+	return best_dist <= max_allowed && strcmp(best, input) != 0 ? best : NULL;
 }
 
 void cfg_help_print_all_keys(void) {

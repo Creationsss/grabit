@@ -121,6 +121,7 @@ struct set_row {
 	enum set_aux aux;
 	bool reveal;
 	bool sxcu_add;
+	bool no_config;
 	const char *button;
 	set_row_action action;
 	const char *alt_button;
@@ -170,7 +171,7 @@ struct set_list {
 	const char *section;
 	const char *button;
 	const char *unreadable;
-	void (*describe)(struct set_row *r, const char *name);
+	void (*describe)(struct settings_state *st, struct set_row *r, const char *name);
 };
 
 struct set_plugin_jobs {
@@ -374,6 +375,9 @@ void set_remove_uploader_ask(struct settings_state *st, struct set_row *r);
 void set_sync_list(struct settings_state *st, size_t page, const struct set_list *l,
 				   char **names, size_t n);
 void set_refresh_plugins(struct settings_state *st);
+void set_refresh_cfg(struct settings_state *st);
+void set_remove_unknown_ask(struct settings_state *st, struct set_row *r);
+void set_rename_unknown(struct settings_state *st, struct set_row *r);
 void set_dialog_open(struct settings_state *st, const char *title, const char *text, char *arg);
 void set_dialog_button(struct settings_state *st, const char *label, bool danger,
 					   set_toast_action fn);

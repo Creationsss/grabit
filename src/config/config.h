@@ -77,6 +77,9 @@ int config_key_info(const char *key, struct config_key_info *out);
 const char *config_alias_target(const struct config_key_info *info, const char *value);
 bool cfg_in_list(const char *needle, const char *const *list);
 int config_write_key(const char *key, const char *value);
+bool config_key_known(const char *key);
+int config_remove_key(const char *key);
+const char *config_suggest_key(const char *key);
 void config_each_key(void (*fn)(const char *key, void *data), void *data);
 
 int cmd_set(int argc, char **argv);

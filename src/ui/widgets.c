@@ -201,11 +201,13 @@ void ui_draw_text_fit(cairo_t *cr, double x, double y, double max_w, const char 
 	ui_draw_text_fit_rgba(cr, x, y, max_w, text, size, weight, 1, 1, 1, alpha);
 }
 
+#define FIT_SLACK 0.01
+
 double ui_text_ellipsize(cairo_t *cr, char *buf, double size, cairo_font_weight_t weight,
 						 double max_w) {
 	size_t n = strlen(buf);
 	double w = ui_text_width(cr, buf, size, weight);
-	while (w > max_w && n > 0) {
+	while (w > max_w + FIT_SLACK && n > 0) {
 		n = grabit_utf8_prev(buf, n);
 		memcpy(buf + n, "\xe2\x80\xa6", 4);
 		w = ui_text_width(cr, buf, size, weight);
@@ -221,7 +223,7 @@ void ui_draw_text_fit_rgba(cairo_t *cr, double x, double y, double max_w,
 	n = grabit_utf8_valid_prefix(text, n < sizeof buf - 4 ? n : sizeof buf - 4);
 	memcpy(buf, text, n);
 	buf[n] = '\0';
-	if (ui_text_ellipsize(cr, buf, size, weight, max_w) > max_w) return;
+	if (ui_text_ellipsize(cr, buf, size, weight, max_w) > max_w + FIT_SLACK) return;
 	cairo_font_extents_t fe;
 	cairo_font_extents(cr, &fe);
 	cairo_set_source_rgba(cr, r, g, b, a);

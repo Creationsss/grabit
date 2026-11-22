@@ -73,6 +73,7 @@ enum set_part {
 	SP_AUX,
 	SP_RESET,
 	SP_ALT,
+	SP_ALT2,
 };
 
 enum set_aux {
@@ -103,6 +104,9 @@ enum set_area {
 struct settings_state;
 struct set_row;
 
+#define SET_ALT_BTNS 2
+#define SET_UPDATE_ALL "Update all"
+
 typedef void (*set_row_action)(struct settings_state *st, struct set_row *r);
 typedef void (*set_toast_action)(struct settings_state *st, const char *arg);
 
@@ -121,12 +125,14 @@ struct set_row {
 	const struct set_dep *dep;
 	enum set_aux aux;
 	bool reveal;
-	bool sxcu_add;
 	bool no_config;
 	const char *button;
 	set_row_action action;
-	const char *alt_button;
-	set_row_action alt_action;
+	struct {
+		const char *label;
+		set_row_action action;
+	} alt[SET_ALT_BTNS];
+	bool (*submit)(struct settings_state *st, const char *value);
 	char *owned_key;
 	char *owned_hint;
 	bool icons_loaded;
@@ -173,7 +179,7 @@ struct set_icon_slot {
 
 struct set_list {
 	set_row_action action;
-	set_row_action alt_action;
+	set_row_action alt[SET_ALT_BTNS];
 	const char *prefix;
 	const char *suffix;
 	const char *section;
@@ -183,6 +189,7 @@ struct set_list {
 };
 
 struct set_plugin_jobs {
+	bool install;
 	pid_t pid;
 	char **names;
 	size_t n;
@@ -387,6 +394,8 @@ void set_test_upload(struct settings_state *st, struct set_row *r);
 bool set_tests_poll(struct settings_state *st);
 void set_tests_free(struct settings_state *st);
 void set_history_free(struct settings_state *st);
+struct set_row *set_submit_row(struct settings_state *st,
+							   bool (*fn)(struct settings_state *st, const char *value));
 struct set_row *set_sxcu_row(struct settings_state *st);
 void set_toast(struct settings_state *st, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
@@ -414,6 +423,15 @@ bool set_jobs_poll(struct settings_state *st);
 void set_jobs_free(struct settings_state *st);
 void set_refresh_notes(struct settings_state *st);
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
+bool set_install_plugin(struct settings_state *st, const char *source);
+char *set_resolve_path(const char *path_or_uri);
+
+struct set_drop_hint {
+	const char *title;
+	const char *sub;
+	const char *refused;
+};
+const struct set_drop_hint *set_drop_hint(const struct settings_state *st);
 void set_on_drag(struct ui_window *w, bool over);
 void set_on_drop(struct ui_window *w, const char *uri_list);
 void set_commit_edit(struct settings_state *st);

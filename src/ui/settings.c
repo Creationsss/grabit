@@ -214,9 +214,9 @@ static bool write_value(struct settings_state *st, struct set_row *r, const char
 
 void set_apply(struct settings_state *st, struct set_row *r, const char *value) {
 	if (value && !value[0]) value = NULL;
-	if (r->sxcu_add) {
+	if (r->submit) {
 		r->error[0] = '\0';
-		if (value) set_add_sxcu(st, value);
+		if (value) r->submit(st, value);
 		return;
 	}
 	if (stamps_changed(st)) reload(st);
@@ -291,12 +291,16 @@ static bool restore_sxcu(struct settings_state *st, struct set_change *c, const 
 	return true;
 }
 
+char *set_resolve_path(const char *path_or_uri) {
+	char raw[UI_TEXT_MAX];
+	uri_to_path(path_or_uri, raw, sizeof raw);
+	return paths_expand_tilde(raw);
+}
+
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri) {
 	struct set_row *r = set_sxcu_row(st);
 	if (!r) return false;
-	char raw[UI_TEXT_MAX];
-	uri_to_path(path_or_uri, raw, sizeof raw);
-	char *path = paths_expand_tilde(raw);
+	char *path = set_resolve_path(path_or_uri);
 	char err[sizeof r->error];
 	char *name = NULL, *before = NULL, *after = NULL;
 	size_t len = 0, old_len;
@@ -389,7 +393,7 @@ void set_redo(struct settings_state *st) {
 }
 
 static bool page_resettable(struct settings_state *st, const struct set_row *r) {
-	return !r->info.secret && !r->sxcu_add && set_can_reset(st, r);
+	return !r->info.secret && !r->submit && set_can_reset(st, r);
 }
 
 size_t set_page_resettable(struct settings_state *st, const struct set_page *p) {

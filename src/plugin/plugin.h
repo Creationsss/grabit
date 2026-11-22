@@ -57,7 +57,7 @@ int plugin_update(const char *name);
 int plugin_update_all(void);
 int plugin_touch_check(const char *plugin_dir);
 int plugin_touch(const char *plugin_dir, const char *file);
-_Noreturn void plugin_exec_update(const char *name);
+_Noreturn void plugin_exec(const char *sub, const char *arg);
 
 void plugin_maybe_auto_update(const char *name);
 

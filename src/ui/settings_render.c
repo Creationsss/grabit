@@ -105,6 +105,17 @@ static double text_col_w(const struct settings_state *st) {
 	return w < TEXT_MIN_W ? TEXT_MIN_W : w;
 }
 
+static double row_text_w(struct settings_state *st, const struct set_row *r) {
+	double w = text_col_w(st);
+	for (size_t k = SET_ALT_BTNS; k-- > 0;) {
+		struct set_rect b;
+		if (!set_part_rect(st, r, (enum set_part)(SP_ALT + k), &b)) continue;
+		double room = b.x - SET_BODY_PAD - RESET_GAP;
+		return room < w ? room : w;
+	}
+	return w;
+}
+
 #define ERROR_ICON_W 18
 
 static double error_w(const struct settings_state *st) {
@@ -137,11 +148,11 @@ void set_layout(struct settings_state *st) {
 	cairo_t *cr = ui_measure_cr();
 	struct set_page *p = set_current_page(st);
 	double y = rows_top(st);
-	double tw = text_col_w(st);
 	char lines[SET_HINT_MAX_LINES + 2][160];
 	const char *section = NULL;
 	for (size_t i = 0; i < p->n; i++) {
 		struct set_row *r = p->rows[i];
+		double tw = row_text_w(st, r);
 		r->section_head = p != &st->results && r->section &&
 						  (!section || strcmp(r->section, section) != 0);
 		section = r->section;
@@ -246,7 +257,7 @@ bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_
 	case SP_LABEL: {
 		double lw = ui_text_width(ui_measure_cr(), r->label, SET_LABEL_SIZE,
 								  CAIRO_FONT_WEIGHT_NORMAL);
-		double tw = text_col_w(st);
+		double tw = row_text_w(st, r);
 		*out = (struct set_rect){SET_BODY_PAD, label_y(r), lw < tw ? lw : tw, LABEL_LINE};
 		return true;
 	}
@@ -263,10 +274,13 @@ bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_
 		*out = (struct set_rect){cx + cw - SET_BTN_W, y, SET_BTN_W, SET_CTRL_H};
 		return true;
 	case SP_ALT:
-		if (!r->alt_button) return false;
-		*out = (struct set_rect){right - 2 * SET_ROW_BTN_W - SET_GAP * 2, y, SET_ROW_BTN_W,
-								 SET_CTRL_H};
+	case SP_ALT2: {
+		size_t k = (size_t)(part - SP_ALT);
+		if (!r->alt[k].label) return false;
+		*out = (struct set_rect){right - (double)(k + 2) * SET_ROW_BTN_W - (double)(k + 1) * 2 * SET_GAP,
+								 y, SET_ROW_BTN_W, SET_CTRL_H};
 		return true;
+	}
 	case SP_CONTROL:
 		if (r->button) {
 			*out = (struct set_rect){right - SET_ROW_BTN_W, y, SET_ROW_BTN_W, SET_CTRL_H};
@@ -306,7 +320,7 @@ size_t set_row_at(struct settings_state *st, double y) {
 enum set_part set_part_at(struct settings_state *st, const struct set_row *r, double x,
 						  double y) {
 	static const enum set_part ORDER[] = {SP_RESET, SP_MINUS, SP_PLUS, SP_AUX,
-										  SP_ALT, SP_CONTROL, SP_LABEL};
+										  SP_ALT2, SP_ALT, SP_CONTROL, SP_LABEL};
 	struct set_rect rc;
 	for (size_t i = 0; i < sizeof ORDER / sizeof *ORDER; i++)
 		if (set_part_rect(st, r, ORDER[i], &rc) && set_rect_contains(&rc, x, y)) return ORDER[i];
@@ -470,6 +484,7 @@ const char *set_tip_text(struct settings_state *st, size_t row, enum set_part pa
 	case SP_ROW:
 	case SP_CONTROL:
 	case SP_ALT:
+	case SP_ALT2:
 		break;
 	}
 	return NULL;
@@ -710,10 +725,13 @@ static void draw_controls(struct settings_state *st, cairo_t *cr, size_t i,
 						  struct set_row *r, bool active, bool focused) {
 	struct set_rect c;
 	set_part_rect(st, r, SP_CONTROL, &c);
-	struct set_rect alt;
-	if (set_part_rect(st, r, SP_ALT, &alt))
-		ui_button_draw(cr, alt.x, alt.y, alt.w, alt.h, r->alt_button, hovered(st, i, SP_ALT),
-					   pressed(st, i, SP_ALT));
+	for (size_t k = 0; k < SET_ALT_BTNS; k++) {
+		enum set_part part = (enum set_part)(SP_ALT + k);
+		struct set_rect alt;
+		if (set_part_rect(st, r, part, &alt))
+			ui_button_draw(cr, alt.x, alt.y, alt.w, alt.h, r->alt[k].label, hovered(st, i, part),
+						   pressed(st, i, part));
+	}
 	if (r->button) {
 		ui_button_draw(cr, c.x, c.y, c.w, c.h, r->button, hovered(st, i, SP_CONTROL),
 					   pressed(st, i, SP_CONTROL));
@@ -780,7 +798,7 @@ static void draw_row(struct settings_state *st, cairo_t *cr, size_t i, struct se
 		cairo_fill(cr);
 	}
 
-	double tw = text_col_w(st);
+	double tw = row_text_w(st, r);
 	double ty = label_y(r);
 	ui_draw_text_fit(cr, SET_BODY_PAD, ty, tw, r->label, SET_LABEL_SIZE,
 					 CAIRO_FONT_WEIGHT_NORMAL, why ? 0.5 : 0.95);
@@ -993,7 +1011,7 @@ static void draw_toast(struct settings_state *st, cairo_t *cr, double height) {
 	st->toast_btn = (struct set_rect){hit_x, y, x + w - hit_x, h};
 }
 
-static void draw_drop_overlay(cairo_t *cr, double w, double h) {
+static void draw_drop_overlay(struct settings_state *st, cairo_t *cr, double w, double h) {
 	cairo_set_source_rgba(cr, GUI_C_PANEL, 0.86);
 	cairo_rectangle(cr, 0, 0, w, h);
 	cairo_fill(cr);
@@ -1006,8 +1024,9 @@ static void draw_drop_overlay(cairo_t *cr, double w, double h) {
 	grabit_cairo_rect_r(cr, pad, pad, w - pad * 2, h - pad * 2, r);
 	cairo_stroke(cr);
 	cairo_restore(cr);
-	const char *title = "Drop to add an uploader";
-	const char *sub = "ShareX .sxcu files are copied into grabit's uploaders";
+	const struct set_drop_hint *hint = set_drop_hint(st);
+	const char *title = hint->title;
+	const char *sub = hint->sub;
 	double tw = ui_text_width(cr, title, 17, CAIRO_FONT_WEIGHT_BOLD);
 	double sw = ui_text_width(cr, sub, 12.5, CAIRO_FONT_WEIGHT_NORMAL);
 	ui_draw_text_fit(cr, (w - fmin(tw, w - pad * 4)) / 2, h / 2 - 22, w - pad * 4, title, 17, CAIRO_FONT_WEIGHT_BOLD,
@@ -1103,5 +1122,5 @@ void set_draw(struct ui_window *w, cairo_t *cr, double width, double height) {
 	draw_toast(st, cr, height);
 	draw_tip(st, cr);
 	set_dialog_draw(st, cr, width, height);
-	if (st->drag_over) draw_drop_overlay(cr, width, height);
+	if (st->drag_over) draw_drop_overlay(st, cr, width, height);
 }

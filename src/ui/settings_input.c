@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 static struct set_row *focus_row(struct settings_state *st) {
 	struct set_page *p = set_current_page(st);
@@ -345,7 +346,8 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 		}
 		break;
 	case SP_ALT:
-		r->alt_action(st, r);
+	case SP_ALT2:
+		r->alt[part - SP_ALT].action(st, r);
 		break;
 	case SP_CONTROL:
 		if (clicks(r))
@@ -410,6 +412,7 @@ static enum grabit_cursor_kind cursor_for(struct settings_state *st, const struc
 	case SP_AUX:
 		return r->aux == AUX_SWATCH ? GCUR_DEFAULT : GCUR_HAND;
 	case SP_ALT:
+	case SP_ALT2:
 		return GCUR_HAND;
 	case SP_CONTROL:
 		return clicks(r) ? GCUR_HAND : GCUR_TEXT;
@@ -834,8 +837,7 @@ static bool ends_with_sxcu(const char *s, size_t n) {
 	return n >= 5 && strncasecmp(s + n - 5, ".sxcu", 5) == 0;
 }
 
-static void show_sxcu_row(struct settings_state *st) {
-	struct set_row *r = set_sxcu_row(st);
+static void show_row(struct settings_state *st, const struct set_row *r) {
 	if (!r) return;
 	for (size_t i = 0; i < st->n_pages; i++)
 		for (size_t j = 0; j < st->pages[i].n; j++)
@@ -848,17 +850,40 @@ static void show_sxcu_row(struct settings_state *st) {
 			}
 }
 
+const struct set_drop_hint *set_drop_hint(const struct settings_state *st) {
+	static const struct set_drop_hint PLUGINS = {
+		"Drop to install a plugin", "a folder with the plugin's git repo and manifest.toml",
+		"Drop a folder with a plugin's repo to install it"};
+	static const struct set_drop_hint UPLOADS = {
+		"Drop to add an uploader", "ShareX .sxcu files are copied into grabit's uploaders",
+		"Only ShareX .sxcu files can be added as uploaders"};
+	static const struct set_drop_hint ANY = {
+		"Drop to add an uploader or install a plugin",
+		".sxcu files become uploaders; a plugin's repo folder is installed",
+		"Drop .sxcu files to add uploaders, or a plugin folder to install it"};
+	if (st->page == st->plugins_page) return &PLUGINS;
+	if (st->page == st->uploads_page) return &UPLOADS;
+	return &ANY;
+}
+
+static char *plugin_folder(const char *line) {
+	char *path = set_resolve_path(line);
+	char manifest[UI_TEXT_MAX + 16];
+	if (path && snprintf(manifest, sizeof manifest, "%s/manifest.toml", path) > 0 &&
+		access(manifest, R_OK) == 0)
+		return path;
+	free(path);
+	return NULL;
+}
+
 void set_on_drop(struct ui_window *w, const char *uri_list) {
 	struct settings_state *st = w->user;
 	st->drag_over = false;
 	if (!leave_edit(st)) cancel_edit(st);
 	close_popup(st);
 	set_capture_end(st, false);
-	show_sxcu_row(st);
-	struct set_row *r = set_sxcu_row(st);
-	if (!r) return;
-	r->error[0] = '\0';
-	size_t found = 0;
+	size_t uploaders = 0;
+	char *plugin = NULL;
 	for (const char *p = uri_list; *p;) {
 		const char *e = strchr(p, '\n');
 		size_t n = e ? (size_t)(e - p) : strlen(p);
@@ -867,14 +892,23 @@ void set_on_drop(struct ui_window *w, const char *uri_list) {
 		memcpy(line, p, len);
 		line[len] = '\0';
 		len = grabit_rstrip(line, len);
-		if (len && line[0] != '#' && ends_with_sxcu(line, len)) {
-			found++;
-			set_add_sxcu(st, line);
+		if (len && line[0] != '#') {
+			if (ends_with_sxcu(line, len)) {
+				if (!uploaders++) show_row(st, set_sxcu_row(st));
+				set_add_sxcu(st, line);
+			} else if (!plugin) {
+				plugin = plugin_folder(line);
+			}
 		}
 		if (!e) break;
 		p = e + 1;
 	}
-	if (!found)
-		snprintf(r->error, sizeof r->error, "only .sxcu files can be added here");
+	if (plugin) {
+		show_row(st, set_submit_row(st, set_install_plugin));
+		set_install_plugin(st, plugin);
+		free(plugin);
+	} else if (!uploaders) {
+		set_toast(st, "%s", set_drop_hint(st)->refused);
+	}
 	ui_window_damage(w);
 }

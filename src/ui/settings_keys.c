@@ -165,7 +165,7 @@ static const struct set_dep DEPS[] = {
 };
 
 static const struct set_def PLUGINS[] = {
-	{"plugins.confirm_remove", "Ask before removing", "show a dialog before removing a plugin"},
+	{"plugins.confirm_remove", "Ask before uninstalling", "show a dialog before uninstalling a plugin"},
 	{0},
 };
 
@@ -194,7 +194,7 @@ static const struct page_def PAGES[] = {
 	 .index_at = offsetof(struct settings_state, uploads_page)},
 	{.title = "Plugins",
 	 .defs = PLUGINS,
-	 .note = "install a plugin with grabit plugin add <git-url>",
+	 .note = "install from a git URL below, or with grabit plugin add <git-url>",
 	 .extra = add_update_row,
 	 .index_at = offsetof(struct settings_state, plugins_page)},
 	{.title = "OCR and translate", .defs = OCR},
@@ -396,24 +396,36 @@ static int add_upload_rows(struct settings_state *st, struct set_page *p) {
 	struct set_row *r = extra_row(st, p, "grabit sxcu add", "Add uploader",
 								  "path to a ShareX .sxcu file; it is copied into grabit's uploaders and can then be picked as the upload service");
 	if (!r) return -1;
-	r->sxcu_add = true;
+	r->submit = set_add_sxcu;
 	r->info.example = "~/Downloads/uploader.sxcu";
 	return 0;
 }
 
 static int add_update_row(struct settings_state *st, struct set_page *p) {
+	struct set_row *in = extra_row(st, p, "grabit plugin add", "Install plugin",
+								   "a git URL, an ssh address such as git@host:user/repo, or a local "
+								   "folder with the plugin's repo (or drop the folder on this window); "
+								   "grabit clones and builds it, which can take a while");
+	if (!in) return -1;
+	in->submit = set_install_plugin;
+	in->info.example = "https://github.com/<user>/<plugin>";
 	struct set_row *r = extra_row(st, p, "grabit plugin update", "Update plugins",
 								  "pulls and rebuilds each plugin, or fetches its new release; this can take a while");
 	if (!r) return -1;
-	r->button = "Update all";
+	r->button = SET_UPDATE_ALL;
 	r->action = set_update_plugins;
 	return 0;
 }
 
-struct set_row *set_sxcu_row(struct settings_state *st) {
+struct set_row *set_submit_row(struct settings_state *st,
+							   bool (*fn)(struct settings_state *st, const char *value)) {
 	for (size_t i = 0; i < st->all.n; i++)
-		if (st->all.rows[i]->sxcu_add) return st->all.rows[i];
+		if (st->all.rows[i]->submit == fn) return st->all.rows[i];
 	return NULL;
+}
+
+struct set_row *set_sxcu_row(struct settings_state *st) {
+	return set_submit_row(st, set_add_sxcu);
 }
 
 static void free_row(struct set_row *r) {
@@ -454,7 +466,8 @@ static struct set_row *list_row(struct settings_state *st, const struct set_list
 	r->section = l->section;
 	r->page = page;
 	r->action = l->action;
-	r->alt_action = l->alt_action;
+	for (size_t k = 0; k < SET_ALT_BTNS; k++)
+		r->alt[k].action = l->alt[k];
 	describe_row(st, l, r, name);
 	return r;
 }
@@ -570,7 +583,7 @@ static void describe_unknown(struct settings_state *st, struct set_row *r, const
 	const char *v = config_get(&st->cfg, name);
 	const char *val = v ? v : "";
 	const char *hint = config_suggest_key(name);
-	r->alt_button = hint ? "Rename" : NULL;
+	r->alt[0].label = hint ? "Rename" : NULL;
 	if (hint)
 		grabit_xasprintf(&r->owned_hint, "set to %s, but grabit has no such key; did you mean %s?",
 						 val, hint);
@@ -581,7 +594,7 @@ static void describe_unknown(struct settings_state *st, struct set_row *r, const
 
 static const struct set_list UNKNOWN_LIST = {
 	.action = set_remove_unknown_ask,
-	.alt_action = set_rename_unknown,
+	.alt = {set_rename_unknown},
 	.prefix = "",
 	.suffix = "",
 	.section = "Unknown keys in config.toml",

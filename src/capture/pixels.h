@@ -43,6 +43,7 @@ void pixels_copy(void *dst, int32_t dst_stride,
 
 void pixels_pack_rgb_row(unsigned char *dst, const uint32_t *line, int w);
 void pixels_unpremul_rgba_row(unsigned char *dst, const uint32_t *line, int w);
+void pixels_unpremul_argb_row(unsigned char *dst, const uint32_t *line, int w);
 
 struct image;
 

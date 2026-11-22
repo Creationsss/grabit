@@ -23,7 +23,7 @@ struct sni_props {
 	const char *id;
 	const char *title;
 	const char *status;
-	const char *icon_name;
+	const struct sni_cfg *cfg;
 	const char *overlay_icon_name;
 	const char *attention_icon_name;
 	const char *tooltip_body;

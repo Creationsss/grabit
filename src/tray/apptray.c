@@ -4,17 +4,23 @@
 #define _XOPEN_SOURCE 700
 #include "tray/apptray.h"
 
+#include "capture/pixels.h"
 #include "config/config.h"
 
 #include "log.h"
+#include "paths.h"
 #include "tray/menu.h"
 #include "tray/sni.h"
+#include "ui/icons.h"
 #include "util/util.h"
 
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 static volatile sig_atomic_t g_app_stop = 0;
@@ -143,25 +149,100 @@ static const struct tray_menu app_menu = {
 	.n = sizeof app_items / sizeof app_items[0],
 };
 
+#define DEFAULT_ICON "camera-photo"
+
 static struct sni_cfg app_sni_cfg = {
-	.icon_name = "camera-photo",
+	.icon_name = DEFAULT_ICON,
 	.tooltip_body = "Left click to screenshot, right click for actions",
 	.persist = true,
 	.on_activate = activate_screenshot,
 	.menu = &app_menu,
 };
 
+static const int PIXMAP_SIZES[] = {16, 22, 24, 32, 48, 64};
+#define N_PIXMAPS (sizeof PIXMAP_SIZES / sizeof *PIXMAP_SIZES)
+static struct sni_pixmap g_pixmaps[N_PIXMAPS];
+
+static bool to_pixmap(cairo_surface_t *s, struct sni_pixmap *out) {
+	int w = cairo_image_surface_get_width(s), h = cairo_image_surface_get_height(s);
+	int stride = cairo_image_surface_get_stride(s);
+	cairo_surface_flush(s);
+	const unsigned char *src = cairo_image_surface_get_data(s);
+	unsigned char *dst = malloc((size_t)w * (size_t)h * 4);
+	if (!src || !dst) {
+		free(dst);
+		return false;
+	}
+	for (int y = 0; y < h; y++)
+		pixels_unpremul_argb_row(dst + (size_t)y * (size_t)w * 4,
+								 (const uint32_t *)(src + (size_t)y * (size_t)stride), w);
+	*out = (struct sni_pixmap){w, h, dst};
+	return true;
+}
+
+static bool load_pixmaps(const char *path) {
+	cairo_surface_t *surfaces[N_PIXMAPS] = {0};
+	size_t n = 0;
+	if (ui_icon_render_sizes(path, PIXMAP_SIZES, N_PIXMAPS, surfaces)) {
+		for (size_t i = 0; i < N_PIXMAPS; i++) {
+			if (surfaces[i] && to_pixmap(surfaces[i], &g_pixmaps[n])) n++;
+			if (surfaces[i]) cairo_surface_destroy(surfaces[i]);
+		}
+	}
+	app_sni_cfg.pixmaps = g_pixmaps;
+	app_sni_cfg.n_pixmaps = n;
+	return n > 0;
+}
+
+static char *g_icon;
+static int64_t g_cfg_stamp;
+
+static void apply_icon(const char *icon) {
+	for (size_t i = 0; i < app_sni_cfg.n_pixmaps; i++)
+		free(g_pixmaps[i].argb);
+	app_sni_cfg.n_pixmaps = 0;
+	app_sni_cfg.icon_name = DEFAULT_ICON;
+	free(g_icon);
+	g_icon = icon ? strdup(icon) : NULL;
+	if (!g_icon) return;
+	char *file = ui_icon_file(g_icon);
+	if (file) {
+		if (load_pixmaps(file))
+			app_sni_cfg.icon_name = "";
+		else
+			log_warn("tray: could not load %s as an icon, using the default icon", file);
+		free(file);
+		return;
+	}
+	size_t len = strlen(g_icon);
+	if (grabit_utf8_valid_prefix(g_icon, len) == len)
+		app_sni_cfg.icon_name = g_icon;
+	else
+		log_warn("tray: tray.icon is not valid UTF-8, using the default icon");
+}
+
+static bool refresh_icon(void) {
+	char buf[4096] __attribute__((aligned(__alignof__(struct inotify_event))));
+	while (read(app_sni_cfg.watch_fd, buf, sizeof buf) > 0)
+		;
+	config_watch_add(app_sni_cfg.watch_fd);
+	int64_t stamp = config_stamp();
+	if (stamp == g_cfg_stamp) return false;
+	struct config c;
+	if (config_read(&c) != 0) return false;
+	g_cfg_stamp = stamp;
+	const char *icon = config_get(&c, "tray.icon");
+	bool changed = (icon == NULL) != (g_icon == NULL) || (icon && strcmp(icon, g_icon) != 0);
+	if (changed) apply_icon(icon);
+	config_free(&c);
+	return changed;
+}
+
 int tray_app_run(struct config *cfg) {
 	if (stop_running_tray() == 0) return 0;
 
-	const char *icon = config_get(cfg, "tray.icon");
-	size_t icon_len = icon ? strlen(icon) : 0;
-	if (icon) {
-		if (grabit_utf8_valid_prefix(icon, icon_len) == icon_len)
-			app_sni_cfg.icon_name = icon;
-		else
-			log_warn("tray: tray.icon is not valid UTF-8, using the default icon");
-	}
+	g_cfg_stamp = config_stamp();
+	apply_icon(config_get(cfg, "tray.icon"));
 
 	int rc = grabit_fork_detached();
 	if (rc < 0) {
@@ -179,6 +260,12 @@ int tray_app_run(struct config *cfg) {
 	grabit_install_signal_handler(SIGINT, app_stop_signal);
 	grabit_install_signal_handler(SIGHUP, app_stop_signal);
 	grabit_ignore_signal(SIGPIPE);
+	paths_mkdir_p(paths_config_dir());
+	app_sni_cfg.watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+	if (app_sni_cfg.watch_fd >= 0) {
+		config_watch_add(app_sni_cfg.watch_fd);
+		app_sni_cfg.refresh_icon = refresh_icon;
+	}
 	sni_run(&g_app_stop, NULL, &app_sni_cfg);
 	grabit_lock_release(&g_tray_lock_fd, tray_pid_path());
 	_exit(0);

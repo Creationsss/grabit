@@ -139,7 +139,7 @@ static const struct set_def CARDS[] = {
 
 static const struct set_def APPEARANCE[] = {
 	{"gui.radius", "Corner radius", "rounds grabit's own ui, including this window; auto matches the compositor"},
-	{"tray.icon", "Tray icon", "camera and screenshot icons come first; search the list for any icon in your themes"},
+	{"tray.icon", "Tray icon", "camera and screenshot icons come first; search the list for any icon in your themes, or type the path of a .png or .svg and press Enter"},
 	{NULL, NULL, NULL},
 };
 
@@ -169,10 +169,31 @@ static const struct set_def PLUGINS[] = {
 	{0},
 };
 
+static const struct set_drop_hint DROP_UPLOADS = {
+	"Drop to add an uploader", "ShareX .sxcu files are copied into grabit's uploaders",
+	"Only ShareX .sxcu files can be added as uploaders"};
+static const struct set_drop_hint DROP_PLUGINS = {
+	"Drop to install a plugin", "a folder with the plugin's git repo and manifest.toml",
+	"Drop a folder with a plugin's repo to install it"};
+static const struct set_drop_hint DROP_ICON = {
+	"Drop to set the tray icon", "a .png or .svg image",
+	"Drop a .png or .svg image to use it as the tray icon"};
+static const struct set_drop_hint DROP_ANY = {
+	"Drop an uploader, a plugin or an icon",
+	".sxcu files become uploaders, plugin repo folders are installed, and a .png or .svg becomes "
+	"the tray icon",
+	"Drop .sxcu files, a plugin folder, or a .png or .svg for the tray icon"};
+
+const struct set_drop_hint *set_drop_hint(const struct settings_state *st) {
+	const struct set_page *p = &st->pages[st->page];
+	return st->page < st->n_pages && p->drop ? p->drop : &DROP_ANY;
+}
+
 struct page_def {
 	const char *title;
 	const struct set_def *defs;
 	const char *note;
+	const struct set_drop_hint *drop;
 	int (*extra)(struct settings_state *st, struct set_page *p);
 	size_t index_at;
 };
@@ -190,16 +211,21 @@ static const struct page_def PAGES[] = {
 	{.title = "Uploads",
 	 .defs = UPLOADS,
 	 .note = "drop a .sxcu file anywhere on this window to add it as an uploader",
+	 .drop = &DROP_UPLOADS,
 	 .extra = add_upload_rows,
 	 .index_at = offsetof(struct settings_state, uploads_page)},
 	{.title = "Plugins",
 	 .defs = PLUGINS,
 	 .note = "install from a git URL below, or with grabit plugin add <git-url>",
 	 .extra = add_update_row,
+	 .drop = &DROP_PLUGINS,
 	 .index_at = offsetof(struct settings_state, plugins_page)},
 	{.title = "OCR and translate", .defs = OCR},
 	{.title = "Cards", .defs = CARDS},
-	{.title = "Appearance", .defs = APPEARANCE},
+	{.title = "Appearance",
+	 .defs = APPEARANCE,
+	 .note = "drop a .png or .svg on this window to use it as the tray icon",
+	 .drop = &DROP_ICON},
 };
 
 static void humanize(const char *key, char *out, size_t n) {
@@ -766,6 +792,7 @@ int settings_build(struct settings_state *st) {
 		struct set_page *p = &st->pages[st->n_pages++];
 		p->title = PAGES[i].title;
 		p->note = PAGES[i].note;
+		p->drop = PAGES[i].drop;
 		if (PAGES[i].index_at) *(size_t *)((char *)st + PAGES[i].index_at) = st->n_pages - 1;
 		for (const struct set_def *d = PAGES[i].defs; d->key; d++) {
 			struct set_row *r = new_row(st, d->key, d->label, d->hint);
@@ -1023,7 +1050,9 @@ cairo_surface_t *set_icon(struct settings_state *st, const char *name, int px) {
 	if (c->surface) cairo_surface_destroy(c->surface);
 	c->name = name;
 	c->px = px;
-	c->surface = ui_icon_render(ui_icons_path(&st->icons, name), px);
+	char *file = ui_icon_file(name);
+	c->surface = ui_icon_render(file ? file : ui_icons_path(&st->icons, name), px);
+	free(file);
 	return c->surface;
 }
 

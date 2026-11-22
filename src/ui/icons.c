@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 #include "ui/icons.h"
 
+#include "paths.h"
 #include "util/util.h"
 
 #include <ctype.h>
@@ -13,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 
 #include "vendor/nanosvg/nanosvg.h"
@@ -248,6 +250,18 @@ static int size_of(const char *dir) {
 	return isdigit((unsigned char)dir[0]) ? atoi(dir) : -1;
 }
 
+enum icon_kind { ICON_NONE,
+				 ICON_PNG,
+				 ICON_SVG };
+
+static enum icon_kind icon_kind(const char *name) {
+	const char *dot = name ? strrchr(name, '.') : NULL;
+	if (!dot) return ICON_NONE;
+	if (strcasecmp(dot, ".svg") == 0) return ICON_SVG;
+	if (strcasecmp(dot, ".png") == 0) return ICON_PNG;
+	return ICON_NONE;
+}
+
 static void scan_dir(struct ui_icons *ix, const char *dir, int depth, int base_rank, int size,
 					 bool context) {
 	DIR *d = opendir(dir);
@@ -256,7 +270,8 @@ static void scan_dir(struct ui_icons *ix, const char *dir, int depth, int base_r
 	while ((e = readdir(d))) {
 		if (e->d_name[0] == '.') continue;
 		const char *dot = strrchr(e->d_name, '.');
-		bool svg = dot && strcmp(dot, ".svg") == 0, png = dot && strcmp(dot, ".png") == 0;
+		enum icon_kind kind = icon_kind(e->d_name);
+		bool svg = kind == ICON_SVG, png = kind == ICON_PNG;
 		char path[PATH_CAP];
 		if (snprintf(path, sizeof path, "%s/%s", dir, e->d_name) >= (int)sizeof path) continue;
 		if (svg || png) {
@@ -334,9 +349,36 @@ void ui_icons_free(struct ui_icons *ix) {
 	*ix = (struct ui_icons){0};
 }
 
-static cairo_surface_t *render_svg(const char *path, int px) {
-	NSVGimage *img = nsvgParseFromFile(path, "px", 96.0f);
-	if (!img) return NULL;
+struct icon_src {
+	NSVGimage *svg;
+	cairo_surface_t *png;
+};
+
+static bool src_load(const char *path, struct icon_src *src) {
+	*src = (struct icon_src){0};
+	switch (icon_kind(path)) {
+	case ICON_SVG:
+		src->svg = nsvgParseFromFile(path, "px", 96.0f);
+		return src->svg != NULL;
+	case ICON_PNG:
+		src->png = cairo_image_surface_create_from_png(path);
+		if (cairo_surface_status(src->png) == CAIRO_STATUS_SUCCESS) return true;
+		cairo_surface_destroy(src->png);
+		src->png = NULL;
+		return false;
+	case ICON_NONE:
+		break;
+	}
+	return false;
+}
+
+static void src_free(struct icon_src *src) {
+	if (src->svg) nsvgDelete(src->svg);
+	if (src->png) cairo_surface_destroy(src->png);
+	*src = (struct icon_src){0};
+}
+
+static cairo_surface_t *draw_svg(NSVGimage *img, int px) {
 	cairo_surface_t *out = NULL;
 	float big = img->width > img->height ? img->width : img->height;
 	NSVGrasterizer *rast = big > 0 ? nsvgCreateRasterizer() : NULL;
@@ -365,16 +407,10 @@ static cairo_surface_t *render_svg(const char *path, int px) {
 	}
 	free(rgba);
 	nsvgDeleteRasterizer(rast);
-	nsvgDelete(img);
 	return out;
 }
 
-static cairo_surface_t *render_png(const char *path, int px) {
-	cairo_surface_t *src = cairo_image_surface_create_from_png(path);
-	if (cairo_surface_status(src) != CAIRO_STATUS_SUCCESS) {
-		cairo_surface_destroy(src);
-		return NULL;
-	}
+static cairo_surface_t *draw_png(cairo_surface_t *src, int px) {
 	int w = cairo_image_surface_get_width(src), h = cairo_image_surface_get_height(src);
 	cairo_surface_t *out = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
 	cairo_t *cr = cairo_create(out);
@@ -388,14 +424,40 @@ static cairo_surface_t *render_png(const char *path, int px) {
 		cairo_paint(cr);
 	}
 	cairo_destroy(cr);
-	cairo_surface_destroy(src);
 	return out;
 }
 
+static cairo_surface_t *src_draw(const struct icon_src *src, int px) {
+	if (px <= 0) return NULL;
+	return src->svg ? draw_svg(src->svg, px) : src->png ? draw_png(src->png, px)
+														: NULL;
+}
+
 cairo_surface_t *ui_icon_render(const char *path, int px) {
-	if (!path || px <= 0) return NULL;
-	const char *dot = strrchr(path, '.');
-	if (dot && strcmp(dot, ".svg") == 0) return render_svg(path, px);
-	if (dot && strcmp(dot, ".png") == 0) return render_png(path, px);
-	return NULL;
+	struct icon_src src;
+	if (!path || !src_load(path, &src)) return NULL;
+	cairo_surface_t *out = src_draw(&src, px);
+	src_free(&src);
+	return out;
+}
+
+bool ui_icon_render_sizes(const char *path, const int *px, size_t n, cairo_surface_t **out) {
+	struct icon_src src;
+	if (!path || !src_load(path, &src)) return false;
+	for (size_t i = 0; i < n; i++)
+		out[i] = src_draw(&src, px[i]);
+	src_free(&src);
+	return true;
+}
+
+bool ui_icon_supported(const char *path) {
+	return icon_kind(path) != ICON_NONE;
+}
+
+bool ui_icon_is_file(const char *value) {
+	return value && (value[0] == '/' || strncmp(value, "~/", 2) == 0);
+}
+
+char *ui_icon_file(const char *value) {
+	return ui_icon_is_file(value) ? paths_expand_tilde(value) : NULL;
 }

@@ -427,13 +427,25 @@ bool set_popup_rect(struct settings_state *st, struct set_rect *out, size_t *vis
 	return true;
 }
 
-size_t set_popup_item_at(struct settings_state *st, double bx, double by) {
-	struct set_rect d;
+bool set_popup_area(struct settings_state *st, struct set_rect *outer, struct set_rect *list) {
 	size_t vis;
-	if (!set_popup_rect(st, &d, &vis) || !set_rect_contains(&d, bx, by)) return SET_NONE;
-	double list_top = d.y + 4 + filter_h(st);
-	if (by < list_top || by >= list_top + (double)vis * SET_POPUP_ITEM_H) return SET_POPUP_PAD_HIT;
-	double rel = by - list_top + st->popup_offset;
+	if (!set_popup_rect(st, outer, &vis)) return false;
+	*list = (struct set_rect){outer->x, outer->y + 4 + filter_h(st), outer->w,
+							  (double)vis * SET_POPUP_ITEM_H};
+	return true;
+}
+
+bool set_popup_sync(struct settings_state *st, struct set_rect *outer, struct set_rect *list) {
+	if (!set_popup_area(st, outer, list)) return false;
+	ui_scroll_set(&st->popup_scroll, (double)set_popup_count(st) * SET_POPUP_ITEM_H, list->h);
+	return true;
+}
+
+size_t set_popup_item_at(struct settings_state *st, double bx, double by) {
+	struct set_rect d, list;
+	if (!set_popup_area(st, &d, &list) || !set_rect_contains(&d, bx, by)) return SET_NONE;
+	if (!set_rect_contains(&list, bx, by)) return SET_POPUP_PAD_HIT;
+	double rel = by - list.y + st->popup_scroll.offset;
 	size_t i = (size_t)(rel / SET_POPUP_ITEM_H);
 	return i < set_popup_count(st) ? i : SET_POPUP_PAD_HIT;
 }
@@ -859,7 +871,9 @@ static void draw_popup(struct settings_state *st, cairo_t *cr) {
 	bool select = st->popup == POPUP_SELECT;
 	struct set_row *r = popup_row(st);
 	size_t n = set_popup_count(st);
-	size_t first = (size_t)(st->popup_offset / SET_POPUP_ITEM_H);
+	struct set_rect list;
+	set_popup_sync(st, &d, &list);
+	size_t first = (size_t)(st->popup_scroll.offset / SET_POPUP_ITEM_H);
 	size_t cur = select ? set_dd_index_of(st, r) : SET_NONE;
 	bool icons = select && set_row_has_icons(r);
 	double fh = filter_h(st);
@@ -867,14 +881,12 @@ static void draw_popup(struct settings_state *st, cairo_t *cr) {
 	if (fh > 0)
 		ui_text_draw(cr, &st->popup_filter, d.x + 6, d.y + 6, d.w - 12, fh - 8, 0, false, NULL,
 					 icons ? "Search icons" : "Search");
-	double top = d.y + 4 + fh;
 	cairo_save(cr);
-	cairo_rectangle(cr, d.x, top, d.w, d.h - 8 - fh);
+	cairo_rectangle(cr, list.x, list.y, list.w, list.h);
 	cairo_clip(cr);
-	for (size_t k = 0; k < vis && first + k < n; k++) {
-		size_t idx = first + k;
+	for (size_t idx = first; idx < n && idx <= first + vis; idx++) {
 		size_t choice = set_popup_choice(st, idx);
-		double y = top + (double)k * SET_POPUP_ITEM_H;
+		double y = list.y + (double)idx * SET_POPUP_ITEM_H - st->popup_scroll.offset;
 		bool enabled = set_popup_enabled(st, idx);
 		bool hot = idx == st->popup_hover && enabled;
 		bool is_cur = select && choice == cur;
@@ -889,16 +901,17 @@ static void draw_popup(struct settings_state *st, cairo_t *cr) {
 						 CAIRO_FONT_WEIGHT_NORMAL, alpha);
 	}
 	if (n == 0)
-		ui_draw_text_fit(cr, d.x + 12, top + (SET_POPUP_ITEM_H - 16) / 2.0, d.w - 20,
-						 "no matches", 13, CAIRO_FONT_WEIGHT_NORMAL, 0.5);
+		ui_draw_text_fit(cr, d.x + 12, list.y + (SET_POPUP_ITEM_H - 16) / 2.0, d.w - 20,
+						 icons && ui_icon_is_file(st->popup_filter.buf) &&
+								 ui_icon_supported(st->popup_filter.buf)
+							 ? "press Enter to use this image file"
+							 : "no matches",
+						 13, CAIRO_FONT_WEIGHT_NORMAL, 0.5);
 	cairo_restore(cr);
 	if (n > vis) {
-		struct ui_scroll s = {.offset = st->popup_offset,
-							  .content_h = (double)n * SET_POPUP_ITEM_H,
-							  .view_h = (double)vis * SET_POPUP_ITEM_H};
 		cairo_save(cr);
-		cairo_translate(cr, d.x, top);
-		ui_scroll_draw(cr, &s, d.w - 2);
+		cairo_translate(cr, list.x, list.y);
+		ui_scroll_draw(cr, &st->popup_scroll, list.w - 2);
 		cairo_restore(cr);
 	}
 }

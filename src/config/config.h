@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct kv {
 	char *key;
@@ -21,6 +22,9 @@ struct config {
 };
 
 int config_load(struct config *c);
+int config_read(struct config *c);
+int64_t config_stamp(void);
+void config_watch_add(int inotify_fd);
 int config_save(struct config *c);
 void config_free(struct config *c);
 int config_copy(struct config *dst, const struct config *src);

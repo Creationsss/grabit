@@ -12,11 +12,13 @@
 #include "util/util.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -148,6 +150,42 @@ bool config_exists(void) {
 	return stat(paths_config_file(), &st) == 0 && st.st_size > 0;
 }
 
+static toml_table_t *parse_file(FILE *f, char *err, size_t n) {
+	toml_table_t *root = toml_parse_file(f, err, (int)n);
+	fclose(f);
+	return root;
+}
+
+int config_read(struct config *c) {
+	memset(c, 0, sizeof *c);
+	if (!config_exists()) return -1;
+	FILE *f = fopen(paths_config_file(), "r");
+	if (!f) return -1;
+	char err[256];
+	toml_table_t *root = parse_file(f, err, sizeof err);
+	if (!root) return -1;
+	int rc = flatten_table(root, "", c);
+	toml_free(root);
+	if (rc == 0) return 0;
+	config_free(c);
+	return -1;
+}
+
+int64_t config_stamp(void) {
+	return grabit_file_mtime_ns(paths_config_file());
+}
+
+void config_watch_add(int inotify_fd) {
+	const uint32_t mask = IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_MOVED_FROM;
+	inotify_add_watch(inotify_fd, paths_config_dir(), mask);
+	char target[PATH_MAX];
+	if (!realpath(paths_config_file(), target)) return;
+	char *slash = strrchr(target, '/');
+	if (!slash || slash == target) return;
+	*slash = '\0';
+	inotify_add_watch(inotify_fd, target, mask);
+}
+
 int config_load(struct config *c) {
 	memset(c, 0, sizeof *c);
 
@@ -181,8 +219,7 @@ int config_load(struct config *c) {
 		return -1;
 	}
 	char errbuf[256];
-	toml_table_t *root = toml_parse_file(f, errbuf, sizeof errbuf);
-	fclose(f);
+	toml_table_t *root = parse_file(f, errbuf, sizeof errbuf);
 	if (!root) {
 		log_error("%s: %s", file, errbuf);
 		log_error("using built-in defaults for this run; fix the file or move it "

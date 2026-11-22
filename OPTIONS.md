@@ -326,7 +326,7 @@ config keys (all optional):
 
 | key | default | notes |
 |---|---|---|
-| `tray.icon` | `camera-photo` | icon name looked up in your icon theme |
+| `tray.icon` | `camera-photo` | icon name looked up in your icon theme, or the path of a `.png` or `.svg` file (absolute or `~/...`); a file is sent to the tray as pixels, so it works with any tray. a running tray picks up a change within a second, and dropping a `.png` or `.svg` on the settings window sets it |
 
 left click captures a region, right click opens the menu. if the icon collides with another app's, point `tray.icon` at any other name your theme ships:
 

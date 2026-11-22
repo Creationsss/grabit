@@ -150,9 +150,16 @@ struct set_dep {
 	const char *reason;
 };
 
+struct set_drop_hint {
+	const char *title;
+	const char *sub;
+	const char *refused;
+};
+
 struct set_page {
 	const char *title;
 	const char *note;
+	const struct set_drop_hint *drop;
 	struct set_row **rows;
 	size_t n;
 	size_t cap;
@@ -266,7 +273,7 @@ struct settings_state {
 	enum set_popup popup;
 	size_t popup_row;
 	size_t popup_hover;
-	double popup_offset;
+	struct ui_scroll popup_scroll;
 	double popup_x;
 	double popup_y;
 	struct ui_text popup_filter;
@@ -364,6 +371,8 @@ const char *set_popup_label(struct settings_state *st, size_t i);
 bool set_popup_enabled(struct settings_state *st, size_t i);
 bool set_popup_rect(struct settings_state *st, struct set_rect *out, size_t *visible);
 size_t set_popup_item_at(struct settings_state *st, double bx, double by);
+bool set_popup_area(struct settings_state *st, struct set_rect *outer, struct set_rect *list);
+bool set_popup_sync(struct settings_state *st, struct set_rect *outer, struct set_rect *list);
 size_t set_side_hit(const struct settings_state *st, double x, double y);
 bool set_search_clear_rect(const struct settings_state *st, struct set_rect *out);
 const char *set_tip_text(struct settings_state *st, size_t row, enum set_part part);
@@ -426,11 +435,6 @@ bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 bool set_install_plugin(struct settings_state *st, const char *source);
 char *set_resolve_path(const char *path_or_uri);
 
-struct set_drop_hint {
-	const char *title;
-	const char *sub;
-	const char *refused;
-};
 const struct set_drop_hint *set_drop_hint(const struct settings_state *st);
 void set_on_drag(struct ui_window *w, bool over);
 void set_on_drop(struct ui_window *w, const char *uri_list);

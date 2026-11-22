@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 700
 #include "tray/internal.h"
 
+#include "tray/sni.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
@@ -71,10 +73,23 @@ static void append_variant_path(DBusMessageIter *parent, const char *path) {
 	dbus_message_iter_close_container(parent, &v);
 }
 
-static void append_variant_empty_pixmap(DBusMessageIter *parent) {
+static void append_variant_pixmaps(DBusMessageIter *parent, const struct sni_pixmap *pm,
+								   size_t n) {
 	DBusMessageIter v, a;
 	dbus_message_iter_open_container(parent, DBUS_TYPE_VARIANT, "a(iiay)", &v);
 	dbus_message_iter_open_container(&v, DBUS_TYPE_ARRAY, "(iiay)", &a);
+	for (size_t i = 0; i < n; i++) {
+		DBusMessageIter st, bytes;
+		dbus_int32_t w = pm[i].w, h = pm[i].h;
+		const unsigned char *data = pm[i].argb;
+		dbus_message_iter_open_container(&a, DBUS_TYPE_STRUCT, NULL, &st);
+		dbus_message_iter_append_basic(&st, DBUS_TYPE_INT32, &w);
+		dbus_message_iter_append_basic(&st, DBUS_TYPE_INT32, &h);
+		dbus_message_iter_open_container(&st, DBUS_TYPE_ARRAY, "y", &bytes);
+		dbus_message_iter_append_fixed_array(&bytes, DBUS_TYPE_BYTE, &data, w * h * 4);
+		dbus_message_iter_close_container(&st, &bytes);
+		dbus_message_iter_close_container(&a, &st);
+	}
 	dbus_message_iter_close_container(&v, &a);
 	dbus_message_iter_close_container(parent, &v);
 }
@@ -114,7 +129,7 @@ bool gsni_append_property_value(DBusMessageIter *parent, const char *name,
 		return true;
 	}
 	if (strcmp(name, "IconName") == 0) {
-		gsni_append_variant_s(parent, p->icon_name);
+		gsni_append_variant_s(parent, p->cfg->icon_name);
 		return true;
 	}
 	if (strcmp(name, "OverlayIconName") == 0) {
@@ -133,9 +148,12 @@ bool gsni_append_property_value(DBusMessageIter *parent, const char *name,
 		append_variant_bool(parent, p->item_is_menu);
 		return true;
 	}
-	if (strcmp(name, "IconPixmap") == 0 || strcmp(name, "OverlayIconPixmap") == 0 ||
-		strcmp(name, "AttentionIconPixmap") == 0) {
-		append_variant_empty_pixmap(parent);
+	if (strcmp(name, "IconPixmap") == 0) {
+		append_variant_pixmaps(parent, p->cfg->pixmaps, p->cfg->n_pixmaps);
+		return true;
+	}
+	if (strcmp(name, "OverlayIconPixmap") == 0 || strcmp(name, "AttentionIconPixmap") == 0) {
+		append_variant_pixmaps(parent, NULL, 0);
 		return true;
 	}
 	if (strcmp(name, "ToolTip") == 0) {

@@ -68,14 +68,10 @@ static void reveal_focus(struct settings_state *st) {
 }
 
 static void popup_reveal(struct settings_state *st) {
-	struct set_rect d;
-	size_t vis = SET_POPUP_MAX_ITEMS;
-	set_popup_rect(st, &d, &vis);
-	double top = (double)st->popup_hover * SET_POPUP_ITEM_H;
-	double view = (double)vis * SET_POPUP_ITEM_H;
-	if (top < st->popup_offset) st->popup_offset = top;
-	if (top + SET_POPUP_ITEM_H > st->popup_offset + view)
-		st->popup_offset = top + SET_POPUP_ITEM_H - view;
+	struct set_rect d, list;
+	if (set_popup_sync(st, &d, &list))
+		ui_scroll_reveal(st->win, &st->popup_scroll,
+						 (double)st->popup_hover * SET_POPUP_ITEM_H, SET_POPUP_ITEM_H);
 }
 
 static size_t popup_index_of(const struct settings_state *st, size_t choice) {
@@ -87,7 +83,7 @@ static size_t popup_index_of(const struct settings_state *st, size_t choice) {
 static void open_popup(struct settings_state *st, enum set_popup kind, size_t row) {
 	st->popup = kind;
 	st->popup_row = row;
-	st->popup_offset = 0;
+	st->popup_scroll = (struct ui_scroll){0};
 	struct set_row *r = set_current_page(st)->rows[row];
 	ui_text_set(&st->popup_filter, "");
 	st->popup_hover = SET_NONE;
@@ -257,6 +253,10 @@ static void sidebar_press(struct settings_state *st, double x, double y) {
 
 static bool popup_press(struct settings_state *st, double bx, double by, uint32_t button) {
 	if (st->popup == POPUP_NONE) return false;
+	struct set_rect outer, list;
+	if (button == BTN_LEFT && set_popup_sync(st, &outer, &list) && set_rect_contains(&list, bx, by) &&
+		ui_scroll_press(st->win, &st->popup_scroll, list.w - 2, bx - list.x, by - list.y))
+		return true;
 	size_t item = set_popup_item_at(st, bx, by);
 	struct set_rect d;
 	if (item == SET_POPUP_PAD_HIT && set_popup_filtered(st) && set_popup_rect(st, &d, NULL) &&
@@ -374,6 +374,7 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 		st->text_drag = false;
 		ui_scroll_release(w, &st->side);
 		ui_scroll_release(w, &st->body);
+		ui_scroll_release(w, &st->popup_scroll);
 		if (st->press_row != SET_NONE) {
 			st->press_row = SET_NONE;
 			ui_window_damage(w);
@@ -471,6 +472,14 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 
 	if (set_dialog_motion(st, x, y)) return;
 	if (drag_text(st, x)) return;
+	struct set_rect outer, list;
+	double px = x - set_body_x(st), py = y + st->body.offset;
+	if (st->popup != POPUP_NONE && set_popup_sync(st, &outer, &list) &&
+		ui_scroll_motion(w, &st->popup_scroll, list.w - 2,
+						 set_rect_contains(&list, px, py) ? px - list.x : -1, py - list.y)) {
+		st->win->content_cursor = GCUR_DEFAULT;
+		return;
+	}
 	if (st->body.drag) {
 		ui_scroll_motion(w, &st->body, set_body_w(st), x - set_body_x(st), y);
 		return;
@@ -521,8 +530,10 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 void set_on_leave(struct ui_window *w) {
 	struct settings_state *st = w->user;
 	ui_scroll_motion(w, &st->side, 0, -1, -1);
+	ui_scroll_motion(w, &st->popup_scroll, 0, -1, -1);
 	ui_scroll_release(w, &st->side);
 	ui_scroll_release(w, &st->body);
+	ui_scroll_release(w, &st->popup_scroll);
 	st->text_drag = false;
 	st->press_row = SET_NONE;
 	st->press_part = SP_NONE;
@@ -543,18 +554,12 @@ void set_on_scroll(struct ui_window *w, double x, double y, double units) {
 		ui_scroll_wheel(w, &st->side, units, SET_SIDE_ROW_H * 3.0);
 		return;
 	}
-	struct set_rect d;
-	size_t vis;
+	struct set_rect d, list;
 	double bx = x - set_body_x(st), by = y + st->body.offset;
-	if (set_popup_rect(st, &d, &vis) && set_rect_contains(&d, bx, by)) {
-		size_t n = set_popup_count(st);
-		double max = n > vis ? (double)(n - vis) * SET_POPUP_ITEM_H : 0;
-		double items = st->popup_offset / SET_POPUP_ITEM_H + units / 10.0;
+	if (set_popup_sync(st, &d, &list) && set_rect_contains(&d, bx, by)) {
+		double items = st->popup_scroll.offset / SET_POPUP_ITEM_H + units / 10.0;
 		items = units > 0 ? ceil(items) : floor(items);
-		st->popup_offset = items * SET_POPUP_ITEM_H;
-		if (st->popup_offset < 0) st->popup_offset = 0;
-		if (st->popup_offset > max) st->popup_offset = max;
-		ui_window_damage(w);
+		ui_scroll_to(w, &st->popup_scroll, items * SET_POPUP_ITEM_H);
 		return;
 	}
 	close_popup(st);
@@ -563,11 +568,18 @@ void set_on_scroll(struct ui_window *w, double x, double y, double units) {
 
 static bool popup_filter_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
 	switch (sym) {
+	case XKB_KEY_Return: {
+		struct set_row *r = set_current_page(st)->rows[st->popup_row];
+		const char *v = st->popup_filter.buf;
+		if (!set_row_has_icons(r) || !ui_icon_is_file(v) || !ui_icon_supported(v)) return false;
+		close_popup(st);
+		set_apply(st, r, st->popup_filter.buf);
+		return true;
+	}
 	case XKB_KEY_Up:
 	case XKB_KEY_Down:
 	case XKB_KEY_Page_Up:
 	case XKB_KEY_Page_Down:
-	case XKB_KEY_Return:
 	case XKB_KEY_Tab:
 		return false;
 	case XKB_KEY_Escape:
@@ -587,7 +599,7 @@ static bool popup_filter_key(struct settings_state *st, xkb_keysym_t sym, uint8_
 	}
 	set_popup_refilter(st);
 	st->popup_hover = 0;
-	st->popup_offset = 0;
+	st->popup_scroll = (struct ui_scroll){0};
 	ui_window_damage(st->win);
 	return true;
 }
@@ -833,8 +845,9 @@ void set_on_drag(struct ui_window *w, bool over) {
 	ui_window_damage(w);
 }
 
-static bool ends_with_sxcu(const char *s, size_t n) {
-	return n >= 5 && strncasecmp(s + n - 5, ".sxcu", 5) == 0;
+static bool ends_with(const char *s, size_t n, const char *ext) {
+	size_t e = strlen(ext);
+	return n >= e && strncasecmp(s + n - e, ext, e) == 0;
 }
 
 static void show_row(struct settings_state *st, const struct set_row *r) {
@@ -850,22 +863,6 @@ static void show_row(struct settings_state *st, const struct set_row *r) {
 			}
 }
 
-const struct set_drop_hint *set_drop_hint(const struct settings_state *st) {
-	static const struct set_drop_hint PLUGINS = {
-		"Drop to install a plugin", "a folder with the plugin's git repo and manifest.toml",
-		"Drop a folder with a plugin's repo to install it"};
-	static const struct set_drop_hint UPLOADS = {
-		"Drop to add an uploader", "ShareX .sxcu files are copied into grabit's uploaders",
-		"Only ShareX .sxcu files can be added as uploaders"};
-	static const struct set_drop_hint ANY = {
-		"Drop to add an uploader or install a plugin",
-		".sxcu files become uploaders; a plugin's repo folder is installed",
-		"Drop .sxcu files to add uploaders, or a plugin folder to install it"};
-	if (st->page == st->plugins_page) return &PLUGINS;
-	if (st->page == st->uploads_page) return &UPLOADS;
-	return &ANY;
-}
-
 static char *plugin_folder(const char *line) {
 	char *path = set_resolve_path(line);
 	char manifest[UI_TEXT_MAX + 16];
@@ -876,14 +873,41 @@ static char *plugin_folder(const char *line) {
 	return NULL;
 }
 
+enum { DROP_UPLOADER = 1,
+	   DROP_PLUGIN = 2,
+	   DROP_ICON = 4 };
+
+static unsigned drop_one(struct settings_state *st, const char *line, size_t len, unsigned seen) {
+	if (ends_with(line, len, ".sxcu")) {
+		if (!(seen & DROP_UPLOADER)) show_row(st, set_sxcu_row(st));
+		set_add_sxcu(st, line);
+		return DROP_UPLOADER;
+	}
+	if (ui_icon_supported(line)) {
+		struct set_row *icon = set_find_row(st, "tray.icon");
+		char *path = icon && !(seen & DROP_ICON) ? set_resolve_path(line) : NULL;
+		if (!path) return 0;
+		show_row(st, icon);
+		set_apply(st, icon, path);
+		free(path);
+		return DROP_ICON;
+	}
+	if (seen & DROP_PLUGIN) return 0;
+	char *plugin = plugin_folder(line);
+	if (!plugin) return 0;
+	show_row(st, set_submit_row(st, set_install_plugin));
+	set_install_plugin(st, plugin);
+	free(plugin);
+	return DROP_PLUGIN;
+}
+
 void set_on_drop(struct ui_window *w, const char *uri_list) {
 	struct settings_state *st = w->user;
 	st->drag_over = false;
 	if (!leave_edit(st)) cancel_edit(st);
 	close_popup(st);
 	set_capture_end(st, false);
-	size_t uploaders = 0;
-	char *plugin = NULL;
+	unsigned seen = 0;
 	for (const char *p = uri_list; *p;) {
 		const char *e = strchr(p, '\n');
 		size_t n = e ? (size_t)(e - p) : strlen(p);
@@ -892,23 +916,10 @@ void set_on_drop(struct ui_window *w, const char *uri_list) {
 		memcpy(line, p, len);
 		line[len] = '\0';
 		len = grabit_rstrip(line, len);
-		if (len && line[0] != '#') {
-			if (ends_with_sxcu(line, len)) {
-				if (!uploaders++) show_row(st, set_sxcu_row(st));
-				set_add_sxcu(st, line);
-			} else if (!plugin) {
-				plugin = plugin_folder(line);
-			}
-		}
+		if (len && line[0] != '#') seen |= drop_one(st, line, len, seen);
 		if (!e) break;
 		p = e + 1;
 	}
-	if (plugin) {
-		show_row(st, set_submit_row(st, set_install_plugin));
-		set_install_plugin(st, plugin);
-		free(plugin);
-	} else if (!uploaders) {
-		set_toast(st, "%s", set_drop_hint(st)->refused);
-	}
+	if (!seen) set_toast(st, "%s", set_drop_hint(st)->refused);
 	ui_window_damage(w);
 }

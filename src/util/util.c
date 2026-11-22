@@ -246,6 +246,12 @@ int64_t grabit_now_ns(void) {
 	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
+int64_t grabit_file_mtime_ns(const char *path) {
+	struct stat sb;
+	if (!path || stat(path, &sb) != 0) return 0;
+	return (int64_t)sb.st_mtim.tv_sec * 1000000000 + sb.st_mtim.tv_nsec;
+}
+
 int64_t grabit_now_ms(void) {
 	return grabit_now_ns() / 1000000;
 }

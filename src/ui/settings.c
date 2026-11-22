@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <sys/stat.h>
 
 static void update_banner(struct settings_state *st) {
 	st->banner[0] = '\0';
@@ -28,20 +27,14 @@ static void update_banner(struct settings_state *st) {
 				 paths_config_file());
 }
 
-static int64_t file_stamp(const char *path) {
-	struct stat sb;
-	if (!path || stat(path, &sb) != 0) return 0;
-	return (int64_t)sb.st_mtim.tv_sec * 1000000000 + sb.st_mtim.tv_nsec;
-}
-
 static bool stamps_changed(const struct settings_state *st) {
-	return file_stamp(paths_config_file()) != st->cfg_stamp ||
-		   file_stamp(paths_state_file()) != st->state_stamp;
+	return config_stamp() != st->cfg_stamp ||
+		   grabit_file_mtime_ns(paths_state_file()) != st->state_stamp;
 }
 
 static int reload(struct settings_state *st) {
 	struct config fresh;
-	int64_t cfg = file_stamp(paths_config_file()), state = file_stamp(paths_state_file());
+	int64_t cfg = config_stamp(), state = grabit_file_mtime_ns(paths_state_file());
 	if (config_load_full(&fresh) != 0) return -1;
 	config_free(&st->cfg);
 	st->cfg = fresh;

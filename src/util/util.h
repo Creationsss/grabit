@@ -19,6 +19,7 @@ int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
 int64_t grabit_now_ms(void);
+int64_t grabit_file_mtime_ns(const char *path);
 struct pollfd;
 int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms);
 int grabit_read_fd_all(int fd, size_t cap, int timeout_ms, char **out);

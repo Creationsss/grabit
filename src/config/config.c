@@ -11,6 +11,7 @@
 #include "ui_theme.h"
 #include "util/util.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
@@ -156,6 +157,67 @@ static toml_table_t *parse_file(FILE *f, char *err, size_t n) {
 	return root;
 }
 
+static int is_toml(const struct dirent *e) {
+	size_t n = strlen(e->d_name);
+	return e->d_name[0] != '.' && n > 5 && strcmp(e->d_name + n - 5, ".toml") == 0;
+}
+
+static void config_d_path(char *out, size_t n) {
+	snprintf(out, n, "%s/config.d", paths_config_dir());
+}
+
+static void each_override(void (*fn)(const char *path, void *ud), void *ud) {
+	char dir[PATH_MAX];
+	config_d_path(dir, sizeof dir);
+	struct dirent **ents = NULL;
+	int n = scandir(dir, &ents, is_toml, alphasort);
+	for (int i = 0; i < n; i++) {
+		char path[PATH_MAX];
+		if (snprintf(path, sizeof path, "%s/%s", dir, ents[i]->d_name) < (int)sizeof path)
+			fn(path, ud);
+		free(ents[i]);
+	}
+	free(ents);
+	const char *env = getenv("GRABIT_CONFIG");
+	char *list = env && env[0] ? strdup(env) : NULL;
+	char *save = NULL;
+	for (char *tok = list ? strtok_r(list, ":", &save) : NULL; tok; tok = strtok_r(NULL, ":", &save)) {
+		char *path = paths_expand_tilde(tok);
+		if (path) fn(path, ud);
+		free(path);
+	}
+	free(list);
+}
+
+static void load_override(const char *path, void *ud) {
+	struct config *c = ud;
+	FILE *f = fopen(path, "r");
+	if (!f) {
+		if (!noticed(path, strerror(errno), true))
+			log_warn("config: cannot read %s: %s", path, strerror(errno));
+		return;
+	}
+	char err[256];
+	toml_table_t *root = parse_file(f, err, sizeof err);
+	if (!root) {
+		if (!noticed(path, err, true)) log_warn("config: %s: %s; skipping it", path, err);
+		return;
+	}
+	struct config file = {0};
+	(void)flatten_table(root, "", &file);
+	toml_free(root);
+	char **grown = realloc(c->sources, (c->n_sources + 1) * sizeof *grown);
+	char *copy = grown ? strdup(path) : NULL;
+	if (grown) c->sources = grown;
+	if (copy) {
+		c->sources[c->n_sources++] = copy;
+		for (size_t i = 0; i < file.n; i++)
+			(void)cfg_kv_put(c, file.kvs[i].key, file.kvs[i].val, (unsigned)c->n_sources);
+		c->overlaid = true;
+	}
+	config_free(&file);
+}
+
 int config_read(struct config *c) {
 	memset(c, 0, sizeof *c);
 	if (!config_exists()) return -1;
@@ -166,27 +228,47 @@ int config_read(struct config *c) {
 	if (!root) return -1;
 	int rc = flatten_table(root, "", c);
 	toml_free(root);
-	if (rc == 0) return 0;
-	config_free(c);
-	return -1;
+	if (rc != 0) {
+		config_free(c);
+		return -1;
+	}
+	each_override(load_override, c);
+	return 0;
+}
+
+static void add_stamp(const char *path, void *ud) {
+	*(int64_t *)ud += grabit_file_mtime_ns(path);
 }
 
 int64_t config_stamp(void) {
-	return grabit_file_mtime_ns(paths_config_file());
+	char dir[PATH_MAX];
+	config_d_path(dir, sizeof dir);
+	int64_t stamp = grabit_file_mtime_ns(paths_config_file()) + grabit_file_mtime_ns(dir);
+	each_override(add_stamp, &stamp);
+	return stamp;
 }
 
-void config_watch_add(int inotify_fd) {
-	const uint32_t mask = IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_MOVED_FROM;
-	inotify_add_watch(inotify_fd, paths_config_dir(), mask);
+#define WATCH_MASK (IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_MOVED_FROM)
+
+static void watch_dir_of(const char *path, void *ud) {
 	char target[PATH_MAX];
-	if (!realpath(paths_config_file(), target)) return;
+	if (!realpath(path, target)) return;
 	char *slash = strrchr(target, '/');
 	if (!slash || slash == target) return;
 	*slash = '\0';
-	inotify_add_watch(inotify_fd, target, mask);
+	inotify_add_watch(*(int *)ud, target, WATCH_MASK);
 }
 
-int config_load(struct config *c) {
+void config_watch_add(int inotify_fd) {
+	char dir[PATH_MAX];
+	config_d_path(dir, sizeof dir);
+	inotify_add_watch(inotify_fd, paths_config_dir(), WATCH_MASK);
+	inotify_add_watch(inotify_fd, dir, WATCH_MASK);
+	watch_dir_of(paths_config_file(), &inotify_fd);
+	each_override(watch_dir_of, &inotify_fd);
+}
+
+static int load_base(struct config *c) {
 	memset(c, 0, sizeof *c);
 
 	const char *file = paths_config_file();
@@ -209,7 +291,6 @@ int config_load(struct config *c) {
 			return -1;
 		}
 		log_info("wrote default config to %s", file);
-		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -238,7 +319,6 @@ int config_load(struct config *c) {
 			return -1;
 		}
 		c->unparsed = true;
-		config_apply_runtime(c);
 		return 0;
 	}
 
@@ -248,6 +328,12 @@ int config_load(struct config *c) {
 		config_free(c);
 		return -1;
 	}
+	return 0;
+}
+
+int config_load(struct config *c) {
+	if (load_base(c) != 0) return -1;
+	each_override(load_override, c);
 	config_apply_runtime(c);
 	return 0;
 }

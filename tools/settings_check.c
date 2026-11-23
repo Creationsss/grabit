@@ -9,6 +9,7 @@
 #include "ui/settings_internal.h"
 #include "ui/window.h"
 #include "upload/upload.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <ftw.h>
@@ -18,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static int g_failed;
 static int g_passed;
@@ -75,12 +77,16 @@ static void setup_env(void) {
 		unsetenv(OFF[i]);
 }
 
-static void write_config(const char *text) {
-	if (paths_mkdir_p(paths_config_dir()) != 0 ||
-		paths_atomic_write(paths_config_file(), text, strlen(text)) != 0) {
-		fprintf(stderr, "settings_check: could not write config.toml\n");
+static void write_file(const char *path, const char *text) {
+	if (paths_atomic_write(path, text, strlen(text)) != 0) {
+		fprintf(stderr, "settings_check: could not write %s\n", path);
 		exit(1);
 	}
+}
+
+static void write_config(const char *text) {
+	paths_mkdir_p(paths_config_dir());
+	write_file(paths_config_file(), text);
 }
 
 static void open_settings(const char *config) {
@@ -225,6 +231,64 @@ static void check_reserved(void) {
 	check(!gapp_name_is_reserved("my-plugin"), "an ordinary plugin name is reserved");
 }
 
+static void check_overrides(void) {
+	char dir[600], ten[700], twenty[700], broken[700], env[700];
+	snprintf(dir, sizeof dir, "%s/config.d", paths_config_dir());
+	paths_mkdir_p(dir);
+	snprintf(ten, sizeof ten, "%s/10-work.toml", dir);
+	snprintf(twenty, sizeof twenty, "%s/20-laptop.toml", dir);
+	snprintf(broken, sizeof broken, "%s/15-broken.toml", dir);
+	snprintf(env, sizeof env, "%s/extra.toml", g_root);
+	write_config("format = \"png\"\nnotifications = false\nalso_save = true\n");
+	write_file(ten, "format = \"jpeg\"\nnotifications = true\n");
+	write_file(twenty, "format = \"webp\"\n");
+	write_file(broken, "this is = [not toml\n");
+	write_file(env, "notifications = false\n");
+	setenv("GRABIT_CONFIG", env, 1);
+
+	struct config c;
+	check(config_read(&c) == 0, "config with overrides did not read");
+	const char *fmt = config_get(&c, "format");
+	check(fmt && strcmp(fmt, "webp") == 0, "later config.d file should win, got format=%s",
+		  fmt ? fmt : "nothing");
+	const char *notif = config_get(&c, "notifications");
+	check(notif && strcmp(notif, "false") == 0, "GRABIT_CONFIG should apply last, got %s",
+		  notif ? notif : "nothing");
+	const char *save = config_get(&c, "also_save");
+	check(save && strcmp(save, "true") == 0, "a key only in config.toml should stay");
+	const char *src = config_source(&c, "format");
+	check(src && strstr(src, "20-laptop.toml"), "format should come from 20-laptop.toml, got %s",
+		  src ? src : "config.toml");
+	check(config_source(&c, "also_save") == NULL, "also_save should come from config.toml");
+	config_free(&c);
+
+	open_settings("format = \"png\"\nnotifications = false\nalso_save = true\n");
+	struct set_row *r = set_find_row(&st, "format");
+	check(!set_can_reset(&st, r), "an overridden row should not offer reset");
+	set_apply(&st, r, "png");
+	check(strstr(r->error, "20-laptop.toml") != NULL, "editing an overridden row should name the file, got %s",
+		  r->error);
+	struct config merged;
+	config_load(&merged);
+	check(config_save(&merged) != 0, "a config with overrides must not be saved whole");
+	config_free(&merged);
+	set_apply(&st, set_find_row(&st, "also_save"), "false");
+	char *saved = NULL;
+	size_t len = 0;
+	grabit_read_file(paths_config_file(), 1 << 16, &saved, &len);
+	check(saved && !strstr(saved, "webp") && strstr(saved, "png") && strstr(saved, "also_save = false"),
+		  "config.toml must not receive override values, got %s", saved ? saved : "nothing");
+	free(saved);
+	settings_state_close(&st);
+
+	unsetenv("GRABIT_CONFIG");
+	unlink(ten);
+	unlink(twenty);
+	unlink(broken);
+	unlink(env);
+	rmdir(dir);
+}
+
 int main(void) {
 	setup_env();
 	log_init(true, false);
@@ -234,6 +298,7 @@ int main(void) {
 	check_unknown_keys();
 	check_upload_test();
 	check_reserved();
+	check_overrides();
 	nftw(g_root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
 	if (g_failed) {
 		fprintf(stderr, "settings checks: %d failed, %d passed\n", g_failed, g_passed);

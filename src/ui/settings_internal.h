@@ -434,6 +434,7 @@ void set_refresh_notes(struct settings_state *st);
 bool set_add_sxcu(struct settings_state *st, const char *path_or_uri);
 bool set_install_plugin(struct settings_state *st, const char *source);
 char *set_resolve_path(const char *path_or_uri);
+bool set_override_file(struct settings_state *st, const struct set_row *r, char *out, size_t n);
 
 const struct set_drop_hint *set_drop_hint(const struct settings_state *st);
 void set_on_drag(struct ui_window *w, bool over);

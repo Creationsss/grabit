@@ -363,8 +363,7 @@ static struct set_row *extra_row(struct settings_state *st, struct set_page *p, 
 	return page_push(p, r) == 0 ? r : NULL;
 }
 
-static void config_path(char *out, size_t n) {
-	const char *path = paths_config_file();
+static void tilde_path(const char *path, char *out, size_t n) {
 	const char *home = getenv("HOME");
 	size_t hl = home ? strlen(home) : 0;
 	if (path && hl > 1 && strncmp(path, home, hl) == 0 && path[hl] == '/')
@@ -373,11 +372,23 @@ static void config_path(char *out, size_t n) {
 		snprintf(out, n, "%s", path ? path : "");
 }
 
+bool set_override_file(struct settings_state *st, const struct set_row *r, char *out, size_t n) {
+	const char *path = r->no_config ? NULL : config_source(&st->cfg, r->key);
+	if (!path || !out) return path != NULL;
+	const char *dir = paths_config_dir();
+	size_t dl = dir ? strlen(dir) : 0;
+	if (dl && strncmp(path, dir, dl) == 0 && path[dl] == '/')
+		snprintf(out, n, "%s", path + dl + 1);
+	else
+		tilde_path(path, out, n);
+	return true;
+}
+
 static void open_config(struct settings_state *st, struct set_row *r) {
 	(void)r;
 	const char *path = paths_config_file();
 	char shown[PATH_MAX];
-	config_path(shown, sizeof shown);
+	tilde_path(paths_config_file(), shown, sizeof shown);
 	if (!path || paths_mkdir_p(paths_config_dir()) != 0) {
 		set_toast(st, "Could not find the config folder");
 		return;
@@ -401,7 +412,7 @@ static void open_config(struct settings_state *st, struct set_row *r) {
 
 static int add_config_row(struct settings_state *st, struct set_page *p) {
 	char shown[PATH_MAX];
-	config_path(shown, sizeof shown);
+	tilde_path(paths_config_file(), shown, sizeof shown);
 	char *key = strdup(shown);
 	if (!key) return -1;
 	struct set_row *r = extra_row(st, p, key, "Config file",
@@ -897,6 +908,7 @@ bool set_is_custom(struct settings_state *st, const struct set_row *r) {
 }
 
 bool set_can_reset(struct settings_state *st, const struct set_row *r) {
+	if (set_override_file(st, r, NULL, 0)) return false;
 	return set_is_custom(st, r) || (r->info.state && set_value(st, r));
 }
 

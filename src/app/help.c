@@ -214,6 +214,7 @@ int gapp_print_help_env(void) {
 		"Environment:\n"
 		"\n"
 		"  GRABIT_DEBUG=1            same as -d\n"
+		"  GRABIT_CONFIG=a:b         extra config files applied after config.d, last wins\n"
 		"  GRABIT_<SERVICE>_AUTH     auth token, overrides config. <SERVICE> is one of\n"
 		"                            ZIPLINE, NEST, FAKECRIME, EZ, GUNS, PIXELVAULT.\n"
 		"  GRABIT_TRANSLATE_KEY      api key for the deepl/libretranslate backends\n"

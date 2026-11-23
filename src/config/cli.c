@@ -77,6 +77,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 	}
 	const char *canon = cfg_canonical_key(key);
 	bool is_state = cfg_is_state_key(canon) && cfg_state_enabled(c);
+	const char *over = config_source(c, canon);
 	int rc;
 	const char *stored = NULL;
 	if (is_state) {
@@ -100,6 +101,10 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 			log_info("set %s (was %s) = %s%s", canon, key, shown, where);
 		else
 			log_info("set %s = %s%s", canon, shown, where);
+		if (over)
+			log_warn("%s is also set in %s, which is applied after config.toml; change it there "
+					 "for this to take effect",
+					 canon, over);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;
@@ -419,8 +424,15 @@ int config_write_key(const char *key, const char *value) {
 		cfg_help_report_unknown_key(key);
 		return -1;
 	}
-	if (!value) return cfg_unset_key(canon, key, true) == 0 ? 0 : -1;
 	struct config c;
 	if (config_load(&c) != 0) return -1;
-	return cfg_store(&c, canon, value) == 0 ? 0 : -1;
+	const char *over = config_source(&c, canon);
+	if (over) {
+		log_error("%s sets this and is applied after config.toml; change it there", over);
+		config_free(&c);
+		return -1;
+	}
+	if (value) return cfg_store(&c, canon, value) == 0 ? 0 : -1;
+	config_free(&c);
+	return cfg_unset_key(canon, key, true) == 0 ? 0 : -1;
 }

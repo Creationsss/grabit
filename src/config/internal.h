@@ -28,6 +28,7 @@ int gcfg_cmp_kv(const void *a, const void *b);
 
 struct config;
 int cfg_kv_upsert(struct config *c, const char *key, const char *val);
+int cfg_kv_put(struct config *c, const char *key, const char *val, unsigned src);
 int cfg_upsert_normalized(struct config *c, const char *key, const char *value);
 size_t cfg_kv_remove(struct config *c, const char *key, bool prefix);
 int config_state_save(struct config *c);

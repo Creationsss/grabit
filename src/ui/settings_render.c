@@ -780,6 +780,11 @@ static void draw_controls(struct settings_state *st, cairo_t *cr, size_t i,
 static void modified_tag(struct settings_state *st, const struct set_row *r, char *out,
 						 size_t n) {
 	out[0] = '\0';
+	char from[128];
+	if (set_override_file(st, r, from, sizeof from)) {
+		snprintf(out, n, "From %s", from);
+		return;
+	}
 	if (!set_can_reset(st, r)) return;
 	char def[96] = "";
 	bool has_def = r->info.kind == CFG_KIND_BOOL || (r->info.def && r->info.def[0]);

@@ -11,18 +11,22 @@
 struct kv {
 	char *key;
 	char *val;
+	unsigned src;
 };
 
 struct config {
 	struct kv *kvs;
 	size_t n;
 	size_t cap;
+	char **sources;
+	size_t n_sources;
 	bool overlaid;
 	bool unparsed;
 };
 
 int config_load(struct config *c);
 int config_read(struct config *c);
+const char *config_source(const struct config *c, const char *key);
 int64_t config_stamp(void);
 void config_watch_add(int inotify_fd);
 int config_save(struct config *c);

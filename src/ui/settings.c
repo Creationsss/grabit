@@ -181,7 +181,6 @@ static bool row_failed(struct settings_state *st, struct set_row *r, const char 
 }
 
 static bool write_value(struct settings_state *st, struct set_row *r, const char *value) {
-	if (stamps_changed(st)) reload(st);
 	if (st->cfg.unparsed) {
 		snprintf(r->error, sizeof r->error, "%s", st->banner);
 		ui_window_damage(st->win);
@@ -354,6 +353,7 @@ static void replay(struct settings_state *st, bool undo) {
 		set_toast(st, undo ? "Nothing to undo" : "Nothing to redo");
 		return;
 	}
+	if (stamps_changed(st)) reload(st);
 	size_t steps = 0;
 	bool ok = false;
 	for (;;) {

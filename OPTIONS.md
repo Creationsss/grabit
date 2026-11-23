@@ -77,6 +77,10 @@ every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
 
 config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
 
+### config overrides
+
+after config.toml, grabit reads every `~/.config/grabit/config.d/*.toml` in name order, then each file listed in `GRABIT_CONFIG` (colon-separated, `~` allowed), in that order. a key set in a later file wins, so `config.d/10-work.toml` is applied before `config.d/20-laptop.toml`, and `GRABIT_CONFIG=~/grabit-demo.toml grabit ...` beats all of them for one run. a file that does not parse is skipped with a warning. override files are never written: `grabit set` still writes config.toml and warns when an override would hide the change, and the settings window labels such a row with the file it comes from and asks you to change it there.
+
 anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor color swatches (`edit.swatches`), the editor toolbar position (`edit.toolbar_pos`), the last captured region (`region.last`), and the size of the settings window (`gui.settings_size`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
 
 ### auth tokens
@@ -620,6 +624,7 @@ plugins whose manifest sets `capture.auto` get a fresh screenshot path as their 
 | var | effect |
 |---|---|
 | `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
+| `GRABIT_CONFIG` | extra config files applied last, colon-separated; see config overrides |
 | `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
 | `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log.enabled` config key |
 | `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
@@ -655,6 +660,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | path | purpose |
 |---|---|
 | `~/.config/grabit/config.toml` | user config (mode 0600) |
+| `~/.config/grabit/config.d/*.toml` | overrides applied after config.toml, in name order |
 | `~/.local/state/grabit/state.toml` | what grabit decides on its own (`$XDG_STATE_HOME/grabit/state.toml`); see `save_state` |
 | `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
 | `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |

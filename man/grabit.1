@@ -752,6 +752,13 @@ Test hook: artificially delay every encoder write by this many microseconds to
 reproduce a slow encoder and exercise the frame-drop path. Not a tuning knob;
 setting it makes recording worse.
 .TP
+.B GRABIT_CONFIG
+Colon-separated config files applied after
+.I config.toml
+and
+.IR config.d ;
+a later file wins.
+.TP
 .B GRABIT_CAPTURE_BACKEND
 Force the capture backend:
 .BR auto ,
@@ -868,6 +875,9 @@ config key.
 .B NO_COLOR
 If set to any value, disable ANSI color in log output.
 .SH FILES
+.TP
+.I ~/.config/grabit/config.d/*.toml
+Overrides read after config.toml in name order; a later file wins. Never written by grabit.
 .TP
 .I ~/.config/grabit/config.toml
 User configuration (TOML), mode 0600. Only ever written by

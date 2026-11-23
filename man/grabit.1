@@ -605,6 +605,40 @@ uploaders with a
 .BR DeletionURL ;
 other services keep the image.
 Exits 0 when the upload works.
+.SS History
+grabit remembers each upload, saved screenshot, recording and OCR text in
+.IR ~/.local/state/grabit/history.jsonl .
+Entries are numbered newest first, and
+.I n
+may also be an entry id.
+.TP
+.B history list \fR[\fB\-\-ocr\fR] [\fB\-\-json\fR]
+List uploads and saved files, or OCR text with
+.BR \-\-ocr .
+.TP
+.BI "history copy " n
+Copy the link, file path or OCR text again.
+.TP
+.BI "history open " n
+Open the saved file, or the link when the file is gone.
+.TP
+.BI "history delete " n " \fR[\fB\-y\fR] [\fB\-\-host\-only\fR|\fB\-\-file\-only\fR]"
+Delete the upload from its host (zipline and
+.B .sxcu
+uploaders with a
+.BR DeletionURL )
+and the saved file, then forget the entry.
+Asks first unless
+.B \-y
+is given or
+.B history.confirm_delete
+is false.
+.TP
+.BI "history remove " n
+Forget an entry, leaving the upload and file alone.
+.TP
+.B history clear \fR[\fB\-\-ocr\fR|\fB\-\-all\fR] [\fB\-y\fR]
+Forget every entry.
 .SS Plugins
 .TP
 .BI "plugin install " git\-url

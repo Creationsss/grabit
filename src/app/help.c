@@ -50,6 +50,7 @@ static const struct {
 	{"set|get|unset", "configuration commands", NULL},
 	{"sxcu", "ShareX (.sxcu) uploaders", NULL},
 	{"upload", "test the upload service", NULL},
+	{"history", "upload, saved file and OCR history", NULL},
 	{"plugin", "plugin management", NULL},
 	{"filename", "filename template tokens", gapp_print_help_filename},
 	{"env", "environment variables", gapp_print_help_env},
@@ -123,6 +124,7 @@ int gapp_print_help(void) {
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
 		"  upload test [<svc>] upload a test image, then delete it where the service allows\n"
+		"  history             past uploads, saved files and OCR text (copy/open/delete)\n"
 		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"

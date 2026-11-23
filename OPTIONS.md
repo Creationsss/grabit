@@ -596,13 +596,26 @@ presets via `filename_preset`:
 
 ## history
 
-grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit.
+grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit. browse it from the terminal:
+
+```sh
+grabit history                    # uploads and saved files, newest first (alias: list, ls)
+grabit history --ocr              # OCR text instead; --json prints one JSON object per line
+grabit history copy <n>           # copy the link, file path or text again
+grabit history open <n>           # open the saved file, or the link when the file is gone
+grabit history delete <n> [-y]    # delete from the host and the saved file, then forget it
+grabit history delete <n> --host-only   # or --file-only
+grabit history remove <n>         # forget it, leave the upload and file alone (alias: rm)
+grabit history clear [--ocr|--all] [-y]
+```
+
+`<n>` is the number shown by the list (1 is the newest) or an entry id from `--json`. deleting from the host works on zipline (the token is read from your config at delete time, never stored in the history) and on .sxcu uploaders with a `DeletionURL`; the other built-in services keep the upload.
 
 | key | default | notes |
 |---|---|---|
 | `history.enabled` | `true` | record uploads, saved screenshots and recordings |
 | `history.ocr` | `true` | also record OCR text |
-| `history.confirm_delete` | `true` | ask before deleting an upload or saved file from the history |
+| `history.confirm_delete` | `true` | ask before `grabit history delete` deletes an upload or saved file |
 
 ## plugins
 

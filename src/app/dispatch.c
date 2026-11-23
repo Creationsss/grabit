@@ -13,6 +13,7 @@
 #include "args.h"
 #include "capture/freeze.h"
 #include "config/config.h"
+#include "history/history.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -96,6 +97,7 @@ static const struct {
 	{"unset", cmd_unset},
 	{"sxcu", cmd_sxcu},
 	{"upload", cmd_upload},
+	{"history", cmd_history},
 	{"plugin", cmd_plugin},
 };
 #define N_COMMANDS (sizeof COMMANDS / sizeof *COMMANDS)

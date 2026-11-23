@@ -256,6 +256,7 @@ GRABIT_SRCS := \
 	src/upload/sxcu_cli.c \
 	src/upload/test.c \
 	src/history/history.c \
+	src/history/cli.c \
 	src/plugin/manifest.c \
 	src/plugin/paths.c \
 	src/plugin/spawn.c \

@@ -75,4 +75,6 @@ int history_update(const struct history_entry *e);
 bool history_host_keeps(const struct history_entry *e);
 void history_delete_summary(const struct history_entry *e, unsigned what, char *out, size_t n);
 
+int cmd_history(int argc, char **argv);
+
 #endif

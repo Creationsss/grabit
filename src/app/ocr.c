@@ -14,6 +14,7 @@
 #include "clipboard/clipboard.h"
 #include "config/config.h"
 #include "exit.h"
+#include "history/history.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "ocr/ocr.h"
@@ -103,6 +104,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 	}
 
 	bool translated = false;
+	const char *translated_to = NULL;
 	if (a->translate) {
 		const char *target = a->translate_to;
 		if (!target || !target[0]) target = config_get(cfg, "translate.target");
@@ -137,6 +139,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 				free(text);
 				text = translated_text;
 				translated = true;
+				translated_to = target;
 			}
 		}
 	}
@@ -247,6 +250,7 @@ int gapp_run_ocr(struct config *cfg, const struct args *a) {
 			.body = preview,
 		});
 	grabit_sound_play(cfg);
+	history_record_ocr(cfg, text, lang, translated_to);
 
 	free(text);
 	return 0;

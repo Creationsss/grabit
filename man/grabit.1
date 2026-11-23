@@ -876,6 +876,12 @@ config key.
 If set to any value, disable ANSI color in log output.
 .SH FILES
 .TP
+.I ~/.local/state/grabit/history.jsonl
+Upload, saved file and OCR history, mode 0600
+.RB ( $XDG_STATE_HOME/grabit/history.jsonl ).
+See
+.BR history.enabled .
+.TP
 .I ~/.config/grabit/config.d/*.toml
 Overrides read after config.toml in name order; a later file wins. Never written by grabit.
 .TP

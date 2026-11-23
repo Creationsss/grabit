@@ -134,6 +134,12 @@ static const char *const G_TEXT_CARD[] = {
 	NULL,
 };
 static const char *const G_PLUGINS[] = {"plugins.confirm_remove", NULL};
+static const char *const G_HISTORY[] = {
+	"history.enabled",
+	"history.ocr",
+	"history.confirm_delete",
+	NULL,
+};
 static const char *const G_TRAY[] = {
 	"tray.icon",
 	NULL,
@@ -176,6 +182,7 @@ static const char *const *const KEY_GROUPS[] = {
 	G_PREVIEW,
 	G_TRAY,
 	G_PLUGINS,
+	G_HISTORY,
 	G_SERVICES,
 	NULL,
 };

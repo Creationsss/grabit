@@ -104,6 +104,12 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "history.enabled") == 0 || strcmp(key, "history.ocr") == 0 ||
+		strcmp(key, "history.confirm_delete") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
 	if (strcmp(key, "plugins.confirm_remove") == 0) {
 		*example_out = "true|false";
 		*def_out = "true";

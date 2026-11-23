@@ -594,6 +594,16 @@ presets via `filename_preset`:
 
 `%w`/`%t` name the window you clicked when a region selection snaps to one (hyprland, sway, niri, umbriel and aqueous; a snapped layer surface such as a bar gives its namespace). otherwise, including a manual drag, they name the window focused when the capture started, read over the compositor's ipc or `wlr-foreign-toplevel-management-unstable-v1`, so they also work on river. they resolve to empty where neither is available. all time tokens, `%L` included, come from the moment the capture started.
 
+## history
+
+grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit.
+
+| key | default | notes |
+|---|---|---|
+| `history.enabled` | `true` | record uploads, saved screenshots and recordings |
+| `history.ocr` | `true` | also record OCR text |
+| `history.confirm_delete` | `true` | ask before deleting an upload or saved file from the history |
+
 ## plugins
 
 ```sh
@@ -661,6 +671,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 |---|---|
 | `~/.config/grabit/config.toml` | user config (mode 0600) |
 | `~/.config/grabit/config.d/*.toml` | overrides applied after config.toml, in name order |
+| `~/.local/state/grabit/history.jsonl` | upload, saved file and OCR history; see `history.enabled` |
 | `~/.local/state/grabit/state.toml` | what grabit decides on its own (`$XDG_STATE_HOME/grabit/state.toml`); see `save_state` |
 | `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
 | `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |

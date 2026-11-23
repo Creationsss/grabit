@@ -16,6 +16,7 @@
 #include "clipboard/clipboard.h"
 #include "config/config.h"
 #include "exit.h"
+#include "history/history.h"
 #include "log.h"
 #include "mime.h"
 #include "notify/notify.h"
@@ -46,6 +47,8 @@ int gapp_run_upload(struct config *cfg, const struct args *a) {
 	if (rc == 0) {
 		bool copied = clipboard_set_text(r.url) == 0;
 		char *m = mime_for_file(path);
+		bool theirs = a->file && (!a->edit || grabit_same_file(path, a->file));
+		history_record_upload(cfg, service, is_temp ? NULL : path, theirs, mime_is_video(m), &r);
 		const char *summary = mime_is_video(m) ? "Video uploaded" : "Uploaded";
 		struct notify_opts opts = {
 			.summary = summary,
@@ -97,6 +100,7 @@ int gapp_run_copy(struct config *cfg, const struct args *a) {
 	const char *base = grabit_basename(path);
 	if (!base || !base[0]) base = path;
 	if (rc == 0) {
+		if (!is_temp && !a->file) history_record_file(cfg, path, false);
 		notify_send(&(struct notify_opts){
 			.summary = "Copied to clipboard",
 			.body = base,
@@ -127,6 +131,7 @@ int gapp_run_output(struct config *cfg, const struct args *a) {
 	if (!path) return status;
 
 	puts(path);
+	if (!a->file || !grabit_same_file(path, a->file)) history_record_file(cfg, path, false);
 	notify_send(&(struct notify_opts){
 		.summary = "Saved",
 		.body = grabit_basename(path),
@@ -153,6 +158,7 @@ int gapp_run_pin(struct config *cfg, const struct args *a) {
 	int rc = pin_spawn(cfg, path, have_rect ? &r : NULL);
 
 	if (rc == 0) grabit_sound_play(cfg);
+	if (rc == 0 && !is_temp && !a->file) history_record_file(cfg, path, false);
 
 	gapp_release_source(path, is_temp);
 	return rc == 0 ? 0 : 1;

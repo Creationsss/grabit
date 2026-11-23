@@ -38,6 +38,9 @@ static const struct set_def GENERAL[] = {
 	{"sound.enabled", "Shutter sound", NULL},
 	{"sound.player", "Sound player", "empty auto-detects pw-play, paplay, play or aplay"},
 	{"sound.file", "Sound file", "empty auto-detects the freedesktop camera-shutter sound"},
+	{"history.enabled", "Keep history", "remember uploads, saved screenshots and recordings for grabit history"},
+	{"history.ocr", "Keep OCR history", "remember the text of each OCR run for grabit history --ocr"},
+	{"history.confirm_delete", "Ask before deleting", "ask before grabit history delete removes an upload or a saved file"},
 	{NULL, NULL, NULL},
 };
 

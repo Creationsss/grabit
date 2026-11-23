@@ -192,19 +192,42 @@ static int send_delete(const char *url, const char *method, struct curl_slist *h
 	return 0;
 }
 
-int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r) {
+int upload_delete_target(const char *service_name, struct config *cfg,
+						 const struct upload_result *r, char **url, bool *needs_auth) {
+	*url = NULL;
+	*needs_auth = false;
 	const struct service *svc = gup_find_service(service_name);
-	if (!svc) return r->del_url && r->del_url[0] ? send_delete(r->del_url, "GET", NULL) : 1;
+	if (!svc) {
+		if (!r->del_url || !r->del_url[0]) return 1;
+		*url = strdup(r->del_url);
+		return *url ? 0 : -1;
+	}
 	if (strcmp(svc->name, "zipline") != 0) return 1;
-	const char *auth = gup_resolve_auth(cfg, svc->name);
 	const char *domain = config_get(cfg, "services.zipline.domain");
-	if (!auth || !domain) return -1;
-	char *url = zipline_delete_url(domain, r->body);
-	if (!url) return 1;
+	if (!domain) return -1;
+	*url = zipline_delete_url(domain, r->body);
+	*needs_auth = true;
+	return *url ? 0 : 1;
+}
+
+int upload_delete_url(const char *service_name, struct config *cfg, const char *url,
+					  bool needs_auth) {
+	if (!needs_auth) return send_delete(url, "GET", NULL);
+	const struct service *svc = gup_find_service(service_name);
+	const char *auth = svc ? gup_resolve_auth(cfg, svc->name) : NULL;
+	if (!auth) return -1;
 	bool oom = false;
 	struct curl_slist *headers = upload_header_append(NULL, svc->auth_name, auth, &oom);
 	int rc = oom ? -1 : send_delete(url, "DELETE", headers);
 	curl_slist_free_all(headers);
+	return rc;
+}
+
+int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r) {
+	char *url = NULL;
+	bool needs_auth = false;
+	int rc = upload_delete_target(service_name, cfg, r, &url, &needs_auth);
+	if (rc == 0) rc = upload_delete_url(service_name, cfg, url, needs_auth);
 	free(url);
 	return rc;
 }

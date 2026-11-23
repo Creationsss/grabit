@@ -36,6 +36,10 @@ int upload_perform(const char *service_name,
 				   struct upload_result *out);
 
 int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r);
+int upload_delete_target(const char *service_name, struct config *cfg,
+						 const struct upload_result *r, char **url, bool *needs_auth);
+int upload_delete_url(const char *service_name, struct config *cfg, const char *url,
+					  bool needs_auth);
 
 void upload_friendly_error(const struct upload_result *r, char *out, size_t cap);
 

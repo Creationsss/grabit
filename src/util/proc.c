@@ -214,6 +214,25 @@ void grabit_ignore_signal(int sig) {
 	sigaction(sig, &sa, NULL);
 }
 
+void grabit_quiet_stdio(void) {
+	int null = open("/dev/null", O_RDWR);
+	if (null < 0) return;
+	for (int fd = STDIN_FILENO; fd <= STDERR_FILENO; fd++)
+		if (fd != null) dup2(null, fd);
+	if (null > STDERR_FILENO) close(null);
+}
+
+int grabit_xdg_open(const char *target) {
+	if (!grabit_in_path("xdg-open")) return -2;
+	int rc = grabit_fork_detached();
+	if (rc == 0) {
+		grabit_quiet_stdio();
+		execlp("xdg-open", "xdg-open", target, (char *)NULL);
+		_exit(127);
+	}
+	return rc < 0 ? -1 : 0;
+}
+
 int grabit_fork_detached(void) {
 	pid_t pid = fork();
 	if (pid < 0) return -1;

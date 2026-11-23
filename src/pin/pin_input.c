@@ -127,15 +127,8 @@ static void press_event(struct pin_state *st) {
 	if (!st->ptr_on || !rect_contains(pin_rect(st), st->cx, st->cy)) return;
 
 	if (st->clickable) {
-		if (st->click_open && st->click_open[0]) {
-			int rc = grabit_fork_detached();
-			if (rc < 0) {
-				log_warn("pin: could not start xdg-open");
-			} else if (rc == 0) {
-				execlp("xdg-open", "xdg-open", st->click_open, (char *)NULL);
-				_exit(127);
-			}
-		}
+		if (st->click_open && st->click_open[0] && grabit_xdg_open(st->click_open) != 0)
+			log_warn("pin: could not start xdg-open");
 		st->finished = true;
 		return;
 	}

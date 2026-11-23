@@ -283,10 +283,13 @@ static void ui_window_render(struct ui_window *w) {
 int ui_window_run(struct ui_window *w) {
 	while (!w->closed) {
 		if (w->dirty) ui_window_render(w);
-		if (grabit_wl_pump(w->wls, ui_input_timeout(w)) != 0) {
+		bool ready = false;
+		int fd = w->on_watch ? w->watch_fd : -1;
+		if (grabit_wl_pump_fd(w->wls, ui_input_timeout(w), fd, &ready) != 0) {
 			log_warn("ui: lost the wayland connection");
 			return -1;
 		}
+		if (ready) w->on_watch(w);
 		ui_input_fire_timers(w);
 	}
 	return 0;

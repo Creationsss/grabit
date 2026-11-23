@@ -113,6 +113,8 @@ struct ui_window {
 	void (*on_button)(struct ui_window *w, double x, double y, uint32_t button,
 					  bool pressed);
 	void (*on_timer)(struct ui_window *w);
+	void (*on_watch)(struct ui_window *w);
+	int watch_fd;
 	void (*on_motion)(struct ui_window *w, double x, double y);
 	void (*on_leave)(struct ui_window *w);
 	void (*on_scroll)(struct ui_window *w, double x, double y, double units);

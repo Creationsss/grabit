@@ -184,7 +184,8 @@ struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
 	return ls;
 }
 
-int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
+int grabit_wl_pump_fd(struct grabit_wl_state *s, int timeout_ms, int fd, bool *fd_ready) {
+	if (fd_ready) *fd_ready = false;
 	while (wl_display_prepare_read(s->display) != 0) {
 		if (wl_display_dispatch_pending(s->display) < 0) return -1;
 	}
@@ -192,13 +193,19 @@ int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
 		wl_display_cancel_read(s->display);
 		return -1;
 	}
-	struct pollfd pfd = {.fd = wl_display_get_fd(s->display), .events = POLLIN};
-	int pr = poll(&pfd, 1, timeout_ms);
-	if (pr > 0 && (pfd.revents & POLLIN)) {
+	struct pollfd pfd[2] = {{.fd = wl_display_get_fd(s->display), .events = POLLIN},
+							{.fd = fd, .events = POLLIN}};
+	int pr = poll(pfd, fd >= 0 ? 2 : 1, timeout_ms);
+	if (pr > 0 && fd >= 0 && fd_ready) *fd_ready = (pfd[1].revents & POLLIN) != 0;
+	if (pr > 0 && (pfd[0].revents & POLLIN)) {
 		if (wl_display_read_events(s->display) < 0) return -1;
 	} else {
 		wl_display_cancel_read(s->display);
-		if (pr > 0 && (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))) return -1;
+		if (pr > 0 && (pfd[0].revents & (POLLERR | POLLHUP | POLLNVAL))) return -1;
 	}
 	return wl_display_dispatch_pending(s->display) < 0 ? -1 : 0;
+}
+
+int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
+	return grabit_wl_pump_fd(s, timeout_ms, -1, NULL);
 }

@@ -88,6 +88,7 @@ struct grabit_wl_state {
 int grabit_wl_init(struct grabit_wl_state *s);
 int grabit_wl_probe(struct grabit_wl_state *s);
 int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms);
+int grabit_wl_pump_fd(struct grabit_wl_state *s, int timeout_ms, int fd, bool *fd_ready);
 void grabit_wl_finish(struct grabit_wl_state *s);
 
 struct zwlr_layer_surface_v1_listener;

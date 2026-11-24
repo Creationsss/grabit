@@ -13,6 +13,8 @@
 #include "util/util.h"
 #include "wl/wl.h"
 
+#include <curl/curl.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +51,7 @@ static int reload(struct settings_state *st) {
 static void on_focus_gained(struct ui_window *w) {
 	struct settings_state *st = w->user;
 	if (stamps_changed(st) && reload(st) == 0) ui_window_damage(w);
+	set_history_check(st);
 }
 
 static int hex_val(char c) {
@@ -527,13 +530,18 @@ void settings_state_close(struct settings_state *st) {
 	set_history_free(st);
 	free(st->toast_arg);
 	free(st->dialog.arg);
+	free(st->popup_arg);
+	st->popup_arg = NULL;
 	set_jobs_free(st);
+	set_hist_release(st);
 	set_tests_free(st);
 	settings_free_rows(st);
 	config_free(&st->cfg);
 }
 
 int grabit_settings_main(const char *what) {
+	signal(SIGCHLD, SIG_DFL);
+	curl_global_init(CURL_GLOBAL_DEFAULT);
 	struct grabit_wl_state wls;
 	if (grabit_wl_init(&wls) != 0) return 1;
 	struct settings_state st;

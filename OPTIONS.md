@@ -596,7 +596,7 @@ presets via `filename_preset`:
 
 ## history
 
-grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit. browse it from the terminal:
+grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit. browse it in `grabit settings` (the History and OCR history tabs at the bottom of the sidebar; the history settings themselves are on the General page). History shows every screenshot, recording and upload as a thumbnail grid grouped by day, newest first, and keeps scrolling as far back as the history goes; thumbnails load for what is on screen. the bar above the grid has a search box (matches the name, link, path and service; Ctrl+F or just start typing), type chips (All, Uploads, Saved, Recordings) and service, date and size filters. hover a thumbnail for a quick preview, click it to view it large with copy, open, show in folder and delete buttons (left and right arrows step through the filtered list, Esc closes), or right-click it for the same actions as a menu. from the keyboard, arrow keys move between thumbnails, Tab moves through the search box and filters, Enter opens the viewer, and Menu or Shift+F10 opens the actions. forgetting an entry or clearing the history can be undone from the banner that follows. or from the terminal:
 
 ```sh
 grabit history                    # uploads and saved files, newest first (alias: list, ls)
@@ -609,13 +609,15 @@ grabit history remove <n>         # forget it, leave the upload and file alone (
 grabit history clear [--ocr|--all] [-y]
 ```
 
+uploads whose file was not kept show the image from their link: grabit downloads it once in the background (png, jpeg or webp, up to 40 MB) and keeps a small copy in `$XDG_CACHE_HOME/grabit/history` (default `~/.cache/grabit/history`), which is removed when the entry is forgotten.
+
 `<n>` is the number shown by the list (1 is the newest) or an entry id from `--json`. deleting from the host works on zipline (the token is read from your config at delete time, never stored in the history) and on .sxcu uploaders with a `DeletionURL`; the other built-in services keep the upload.
 
 | key | default | notes |
 |---|---|---|
 | `history.enabled` | `true` | record uploads, saved screenshots and recordings |
 | `history.ocr` | `true` | also record OCR text |
-| `history.confirm_delete` | `true` | ask before `grabit history delete` deletes an upload or saved file |
+| `history.confirm_delete` | `true` | ask before deleting an upload or saved file, in `grabit settings` and `grabit history delete` |
 
 ## plugins
 
@@ -685,6 +687,7 @@ set by grabit when dispatching a plugin (read by the plugin, not by you):
 | `~/.config/grabit/config.toml` | user config (mode 0600) |
 | `~/.config/grabit/config.d/*.toml` | overrides applied after config.toml, in name order |
 | `~/.local/state/grabit/history.jsonl` | upload, saved file and OCR history; see `history.enabled` |
+| `~/.cache/grabit/history/` | thumbnails of uploaded images, fetched from their links |
 | `~/.local/state/grabit/state.toml` | what grabit decides on its own (`$XDG_STATE_HOME/grabit/state.toml`); see `save_state` |
 | `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
 | `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |

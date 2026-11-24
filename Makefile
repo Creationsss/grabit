@@ -145,9 +145,20 @@ GRABIT_SRCS := \
 	src/ui/icons.c \
 	src/ui/settings.c \
 	src/ui/settings_keys.c \
+	src/ui/settings_pages.c \
+	src/ui/settings_icons.c \
 	src/ui/settings_render.c \
+	src/ui/settings_chrome.c \
 	src/ui/settings_input.c \
+	src/ui/settings_keyboard.c \
+	src/ui/settings_drop.c \
 	src/ui/settings_plugins.c \
+	src/ui/settings_history.c \
+	src/ui/settings_grid.c \
+	src/ui/settings_grid_draw.c \
+	src/ui/settings_grid_input.c \
+	src/ui/settings_thumbs.c \
+	src/ui/settings_viewer.c \
 	src/ui/settings_dialog.c \
 	src/ui/settings_tests.c \
 	src/ui/settings_capture.c \

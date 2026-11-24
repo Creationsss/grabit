@@ -2,7 +2,7 @@
 // Copyright (C) 2026 creations
 
 #define _XOPEN_SOURCE 700
-#include "ui/settings_internal.h"
+#include "ui/settings_input.h"
 
 #include "clipboard/clipboard.h"
 #include "ui/window.h"
@@ -18,14 +18,16 @@
 #include <strings.h>
 #include <unistd.h>
 
-static struct set_row *focus_row(struct settings_state *st) {
+struct set_row *set_focus_row(struct settings_state *st) {
 	struct set_page *p = set_current_page(st);
 	return st->focus < p->n ? p->rows[st->focus] : NULL;
 }
 
-static void close_popup(struct settings_state *st) {
+void set_close_popup(struct settings_state *st) {
 	if (st->popup == POPUP_NONE) return;
 	st->popup = POPUP_NONE;
+	free(st->popup_arg);
+	st->popup_arg = NULL;
 	ui_window_damage(st->win);
 }
 
@@ -40,8 +42,12 @@ void set_arm_timer(struct settings_state *st) {
 		int64_t poll = grabit_now_ms() + 50;
 		if (!due || poll < due) due = poll;
 	}
-	if (st->plugin_jobs.pid > 0 || st->upload_test) {
+	if (st->plugin_jobs.pid > 0 || st->upload_test || st->hist_pid > 0) {
 		int64_t poll = grabit_now_ms() + SET_JOB_POLL_MS;
+		if (!due || poll < due) due = poll;
+	}
+	if (set_hist_busy(st)) {
+		int64_t poll = grabit_now_ms() + 60;
 		if (!due || poll < due) due = poll;
 	}
 	if (!due) {
@@ -52,14 +58,14 @@ void set_arm_timer(struct settings_state *st) {
 	ui_window_set_timer(st->win, left < 0 ? 0 : (int)left);
 }
 
-static void hide_tip(struct settings_state *st) {
+void set_hide_tip(struct settings_state *st) {
 	if (set_tip_visible(st)) ui_window_damage(st->win);
 	st->tip_at = 0;
 	set_arm_timer(st);
 }
 
-static void reveal_focus(struct settings_state *st) {
-	struct set_row *r = focus_row(st);
+void set_reveal_focus(struct settings_state *st) {
+	struct set_row *r = set_focus_row(st);
 	if (!r) return;
 	set_layout(st);
 	ui_scroll_set(&st->body, set_content_h(st), st->view_h);
@@ -67,7 +73,7 @@ static void reveal_focus(struct settings_state *st) {
 	ui_scroll_reveal(st->win, &st->body, r->y - 8 - head, r->h + 16 + head);
 }
 
-static void popup_reveal(struct settings_state *st) {
+void set_popup_reveal(struct settings_state *st) {
 	struct set_rect d, list;
 	if (set_popup_sync(st, &d, &list))
 		ui_scroll_reveal(st->win, &st->popup_scroll,
@@ -92,16 +98,31 @@ static void open_popup(struct settings_state *st, enum set_popup kind, size_t ro
 		size_t cur = set_dd_index_of(st, r);
 		set_popup_refilter(st);
 		st->popup_hover = popup_index_of(st, cur);
-		popup_reveal(st);
+		set_popup_reveal(st);
 	}
-	hide_tip(st);
+	set_hide_tip(st);
 	ui_window_damage(st->win);
 }
 
-static void open_menu(struct settings_state *st, size_t row, double bx, double by) {
+void set_open_menu(struct settings_state *st, size_t row, double bx, double by) {
 	st->popup_x = bx;
 	st->popup_y = by;
 	open_popup(st, POPUP_MENU, row);
+}
+
+void set_add_action(struct settings_state *st, const char *label, set_toast_action fn) {
+	if (st->popup_act_n == SET_MAX_ACTIONS) return;
+	st->popup_acts[st->popup_act_n].label = label;
+	st->popup_acts[st->popup_act_n++].fn = fn;
+}
+
+void set_open_actions(struct settings_state *st, size_t row, double bx, double by, char *arg) {
+	set_close_popup(st);
+	st->popup_x = bx;
+	st->popup_y = by;
+	open_popup(st, POPUP_ACTIONS, row);
+	st->popup_arg = arg;
+	st->popup_act_n = 0;
 }
 
 static void begin_edit(struct settings_state *st, struct set_row *r) {
@@ -112,21 +133,21 @@ static void begin_edit(struct settings_state *st, struct set_row *r) {
 	ui_window_damage(st->win);
 }
 
-static void cancel_edit(struct settings_state *st) {
+void set_cancel_edit(struct settings_state *st) {
 	if (!st->editing) return;
 	st->editing = false;
-	struct set_row *r = focus_row(st);
+	struct set_row *r = set_focus_row(st);
 	if (r) r->error[0] = '\0';
 	ui_window_damage(st->win);
 }
 
-static bool leave_edit(struct settings_state *st) {
+bool set_leave_edit(struct settings_state *st) {
 	if (!st->editing) return true;
 	set_commit_edit(st);
 	return !st->editing;
 }
 
-static void step_int(struct settings_state *st, struct set_row *r, int dir, bool big) {
+void set_step_int(struct settings_state *st, struct set_row *r, int dir, bool big) {
 	if (!set_step_enabled(st, r, dir)) return;
 	const char *cur = set_effective(st, r);
 	bool is_auto = !cur[0] || strcmp(cur, "auto") == 0;
@@ -145,7 +166,7 @@ static void step_int(struct settings_state *st, struct set_row *r, int dir, bool
 	set_apply(st, r, buf);
 }
 
-static void step_enum(struct settings_state *st, struct set_row *r, int dir) {
+void set_step_enum(struct settings_state *st, struct set_row *r, int dir) {
 	set_icons_ensure(st, r, true);
 	size_t n = set_dd_count(r);
 	size_t i = set_dd_index_of(st, r);
@@ -154,14 +175,14 @@ static void step_enum(struct settings_state *st, struct set_row *r, int dir) {
 	set_apply(st, r, set_dd_value(r, dir < 0 ? i - 1 : i + 1));
 }
 
-static void toggle(struct settings_state *st, struct set_row *r) {
+void set_toggle(struct settings_state *st, struct set_row *r) {
 	bool on = strcmp(set_effective(st, r), "true") == 0;
 	set_apply(st, r, on ? "false" : "true");
 }
 
 static void record_binding(struct settings_state *st, struct set_row *r) {
-	close_popup(st);
-	if (!leave_edit(st)) return;
+	set_close_popup(st);
+	if (!set_leave_edit(st)) return;
 	set_capture_start(st, r);
 }
 
@@ -169,7 +190,7 @@ static bool clicks(const struct set_row *r) {
 	return r->button || r->info.kind == CFG_KIND_BOOL || r->info.kind == CFG_KIND_ENUM;
 }
 
-static void activate(struct settings_state *st, size_t row) {
+void set_activate(struct settings_state *st, size_t row) {
 	struct set_row *r = set_current_page(st)->rows[row];
 	if (r->action) {
 		r->action(st, r);
@@ -178,7 +199,7 @@ static void activate(struct settings_state *st, size_t row) {
 	if (set_inactive_reason(st, r)) return;
 	switch (r->info.kind) {
 	case CFG_KIND_BOOL:
-		toggle(st, r);
+		set_toggle(st, r);
 		break;
 	case CFG_KIND_ENUM:
 		open_popup(st, POPUP_SELECT, row);
@@ -191,12 +212,21 @@ static void activate(struct settings_state *st, size_t row) {
 	}
 }
 
-static void popup_choose(struct settings_state *st, size_t idx) {
+void set_popup_choose(struct settings_state *st, size_t idx) {
 	if (idx >= set_popup_count(st) || !set_popup_enabled(st, idx)) return;
 	struct set_row *r = set_current_page(st)->rows[st->popup_row];
 	enum set_popup kind = st->popup;
 	size_t choice = set_popup_choice(st, idx);
-	close_popup(st);
+	if (kind == POPUP_ACTIONS) {
+		set_toast_action fn = st->popup_acts[idx].fn;
+		char *arg = st->popup_arg ? st->popup_arg : strdup(st->popup_acts[idx].label);
+		st->popup_arg = NULL;
+		set_close_popup(st);
+		if (fn && arg) fn(st, arg);
+		free(arg);
+		return;
+	}
+	set_close_popup(st);
 	if (kind == POPUP_SELECT) {
 		set_apply(st, r, set_dd_value(r, choice));
 	} else if (idx == MENU_RESET) {
@@ -207,12 +237,12 @@ static void popup_choose(struct settings_state *st, size_t idx) {
 	}
 }
 
-static void select_page(struct settings_state *st, size_t i) {
+void set_select_page(struct settings_state *st, size_t i) {
 	if (i >= st->n_pages) return;
 	bool searching = st->search.len > 0;
 	if (i == st->page && !searching) return;
-	if (!leave_edit(st)) return;
-	close_popup(st);
+	if (!set_leave_edit(st)) return;
+	set_close_popup(st);
 	set_capture_end(st, false);
 	if (searching) ui_text_set(&st->search, "");
 	st->page = i;
@@ -222,12 +252,12 @@ static void select_page(struct settings_state *st, size_t i) {
 	ui_window_damage(st->win);
 }
 
-static void search_changed(struct settings_state *st) {
+void set_search_changed(struct settings_state *st) {
 	settings_filter(st);
 	st->focus = 0;
 	st->body.offset = 0;
 	st->hover_row = SET_NONE;
-	close_popup(st);
+	set_close_popup(st);
 	ui_window_damage(st->win);
 }
 
@@ -235,10 +265,10 @@ static void sidebar_press(struct settings_state *st, double x, double y) {
 	double sw = set_sidebar_w(st->view_w);
 	if (ui_scroll_press(st->win, &st->side, sw, x, y)) return;
 	size_t hit = set_side_hit(st, x, y);
-	if (hit == SET_NONE || !leave_edit(st)) return;
+	if (hit == SET_NONE || !set_leave_edit(st)) return;
 	if (hit == SET_SIDE_CLEAR) {
 		ui_text_set(&st->search, "");
-		search_changed(st);
+		set_search_changed(st);
 		st->area = AREA_SEARCH;
 	} else if (hit == SET_SIDE_SEARCH) {
 		bool extend = st->area == AREA_SEARCH && (ui_window_mods(st->win) & KB_MOD_SHIFT);
@@ -246,7 +276,7 @@ static void sidebar_press(struct settings_state *st, double x, double y) {
 		ui_text_click(&st->search, x - SET_PAD, false, extend);
 	} else {
 		st->area = AREA_SIDEBAR;
-		select_page(st, hit);
+		set_select_page(st, hit);
 	}
 	ui_window_damage(st->win);
 }
@@ -267,10 +297,19 @@ static bool popup_press(struct settings_state *st, double bx, double by, uint32_
 		return true;
 	}
 	if (item == SET_NONE)
-		close_popup(st);
+		set_close_popup(st);
 	else if (item != SET_POPUP_PAD_HIT && button == BTN_LEFT)
-		popup_choose(st, item);
+		set_popup_choose(st, item);
 	return true;
+}
+
+size_t set_captured_row(struct settings_state *st, double bx, double by) {
+	struct set_page *p = set_current_page(st);
+	for (size_t i = 0; i < p->n; i++)
+		if (p->rows[i]->custom && p->rows[i]->custom->capture &&
+			p->rows[i]->custom->capture(st, p->rows[i], bx, by))
+			return i;
+	return SET_NONE;
 }
 
 static bool is_double_click(struct settings_state *st, size_t row) {
@@ -301,24 +340,33 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 		ui_scroll_press(st->win, &st->body, set_body_w(st), bx, y))
 		return;
 	set_layout(st);
-	size_t row = set_row_at(st, by);
+	size_t row = set_captured_row(st, bx, by);
+	if (row == SET_NONE) row = set_row_at(st, by);
 	if (row == SET_NONE) {
-		leave_edit(st);
+		set_leave_edit(st);
 		return;
 	}
 	struct set_row *r = set_current_page(st)->rows[row];
+	if (r->custom) {
+		if (!set_leave_edit(st)) return;
+		st->area = AREA_BODY;
+		st->focus = row;
+		r->custom->press(st, r, bx, by, button);
+		ui_window_damage(st->win);
+		return;
+	}
 	enum set_part part = set_part_at(st, r, bx, by);
 	bool here = st->editing && st->focus == row;
 	bool same_field = here && part == SP_CONTROL;
-	if (here && part == SP_RESET && button == BTN_LEFT) cancel_edit(st);
+	if (here && part == SP_RESET && button == BTN_LEFT) set_cancel_edit(st);
 	bool keep = same_field || (here && part == SP_AUX && r->aux == AUX_EYE) ||
 				(here && part == SP_RESET && button == BTN_RIGHT);
-	if (!keep && !leave_edit(st)) return;
+	if (!keep && !set_leave_edit(st)) return;
 
 	st->area = AREA_BODY;
 	st->focus = row;
 	if (button == BTN_RIGHT) {
-		open_menu(st, row, bx, by);
+		set_open_menu(st, row, bx, by);
 		return;
 	}
 	st->press_row = row;
@@ -333,10 +381,10 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 		set_apply(st, r, NULL);
 		break;
 	case SP_MINUS:
-		step_int(st, r, -1, big);
+		set_step_int(st, r, -1, big);
 		break;
 	case SP_PLUS:
-		step_int(st, r, 1, big);
+		set_step_int(st, r, 1, big);
 		break;
 	case SP_AUX:
 		if (r->aux == AUX_EYE) r->reveal = !r->reveal;
@@ -351,13 +399,13 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 		break;
 	case SP_CONTROL:
 		if (clicks(r))
-			activate(st, row);
+			set_activate(st, row);
 		else
 			field_press(st, r, row, bx, same_field);
 		break;
 	case SP_ROW:
 	case SP_LABEL:
-		if (!r->button) activate(st, row);
+		if (!r->button) set_activate(st, row);
 		break;
 	case SP_NONE:
 		break;
@@ -367,9 +415,10 @@ static void body_press(struct settings_state *st, double x, double y, uint32_t b
 
 void set_on_button(struct ui_window *w, double x, double y, uint32_t button, bool pressed) {
 	struct settings_state *st = w->user;
-	hide_tip(st);
+	set_hide_tip(st);
 	if (set_capture_button(st, button, pressed)) return;
 	if (set_dialog_press(st, x, y, button, pressed)) return;
+	if (set_hist_view_press(st, x, y, button, pressed)) return;
 	if (!pressed) {
 		st->text_drag = false;
 		ui_scroll_release(w, &st->side);
@@ -388,13 +437,13 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 		return;
 	}
 	if (button == BTN_LEFT && set_rect_contains(&st->page_reset_btn, x, y)) {
-		close_popup(st);
-		if (!leave_edit(st)) cancel_edit(st);
+		set_close_popup(st);
+		if (!set_leave_edit(st)) set_cancel_edit(st);
 		set_reset_page_ask(st);
 		return;
 	}
 	if (x < set_sidebar_w(st->view_w)) {
-		close_popup(st);
+		set_close_popup(st);
 		if (button == BTN_LEFT) sidebar_press(st, x, y);
 	} else {
 		body_press(st, x, y, button);
@@ -431,7 +480,7 @@ static enum grabit_cursor_kind cursor_for(struct settings_state *st, const struc
 
 static void update_tip(struct settings_state *st, size_t row, enum set_part part) {
 	if (row == st->tip_row && part == st->tip_part) return;
-	hide_tip(st);
+	set_hide_tip(st);
 	st->tip_row = row;
 	st->tip_part = part;
 	if (!set_tip_text(st, row, part)) return;
@@ -445,6 +494,8 @@ void set_on_timer(struct ui_window *w) {
 	if (st->tip_at && now >= st->tip_at) ui_window_damage(w);
 	if (st->icons_state == ICONS_SCANNING && set_icons_poll(st)) ui_window_damage(w);
 	if (set_jobs_poll(st)) ui_window_damage(w);
+	if (set_history_poll(st)) ui_window_damage(w);
+	if (set_hist_poll_thumbs(st)) ui_window_damage(w);
 	if (set_tests_poll(st)) ui_window_damage(w);
 	if (st->toast_until && now >= st->toast_until) {
 		st->toast_until = 0;
@@ -454,7 +505,7 @@ void set_on_timer(struct ui_window *w) {
 }
 
 static bool drag_text(struct settings_state *st, double x) {
-	struct set_row *r = focus_row(st);
+	struct set_row *r = set_focus_row(st);
 	if (!st->text_drag || !st->editing || !r) return false;
 	struct set_rect c;
 	set_part_rect(st, r, SP_CONTROL, &c);
@@ -471,6 +522,7 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 	enum grabit_cursor_kind cur = GCUR_DEFAULT;
 
 	if (set_dialog_motion(st, x, y)) return;
+	if (set_hist_view_motion(st, x, y)) return;
 	if (drag_text(st, x)) return;
 	struct set_rect outer, list;
 	double px = x - set_body_x(st), py = y + st->body.offset;
@@ -500,14 +552,20 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 			if (hit != SET_POPUP_PAD_HIT) item = hit;
 			cur = GCUR_HAND;
 		} else if (y >= 0) {
-			row = set_row_at(st, by);
+			row = set_captured_row(st, bx, by);
+			if (row == SET_NONE) row = set_row_at(st, by);
 			if (row != SET_NONE) {
 				struct set_row *r = set_current_page(st)->rows[row];
 				part = set_part_at(st, r, bx, by);
 				cur = cursor_for(st, r, part);
+				int gc = r->custom ? r->custom->motion(st, r, bx, by) : 0;
+				if (gc) cur = gc == 2 ? GCUR_TEXT : GCUR_HAND;
 			}
 		}
 	}
+	struct set_page *cp = set_current_page(st);
+	for (size_t k = 0; k < cp->n; k++)
+		if (cp->rows[k]->custom && k != row) cp->rows[k]->custom->motion(st, NULL, 0, 0);
 	bool reset_hot = set_rect_contains(&st->page_reset_btn, x, y) && st->popup == POPUP_NONE;
 	if ((st->toast_until && set_rect_contains(&st->toast_btn, x, y)) || reset_hot)
 		cur = GCUR_HAND;
@@ -531,6 +589,9 @@ void set_on_leave(struct ui_window *w) {
 	struct settings_state *st = w->user;
 	ui_scroll_motion(w, &st->side, 0, -1, -1);
 	ui_scroll_motion(w, &st->popup_scroll, 0, -1, -1);
+	struct set_page *p = set_current_page(st);
+	for (size_t i = 0; i < p->n; i++)
+		if (p->rows[i]->custom) p->rows[i]->custom->motion(st, NULL, 0, 0);
 	ui_scroll_release(w, &st->side);
 	ui_scroll_release(w, &st->body);
 	ui_scroll_release(w, &st->popup_scroll);
@@ -548,8 +609,8 @@ void set_on_leave(struct ui_window *w) {
 
 void set_on_scroll(struct ui_window *w, double x, double y, double units) {
 	struct settings_state *st = w->user;
-	hide_tip(st);
-	if (st->dialog.open) return;
+	set_hide_tip(st);
+	if (st->dialog.open || set_hist_view_shown(st)) return;
 	if (x < set_sidebar_w(st->view_w)) {
 		ui_scroll_wheel(w, &st->side, units, SET_SIDE_ROW_H * 3.0);
 		return;
@@ -562,364 +623,6 @@ void set_on_scroll(struct ui_window *w, double x, double y, double units) {
 		ui_scroll_to(w, &st->popup_scroll, items * SET_POPUP_ITEM_H);
 		return;
 	}
-	close_popup(st);
+	set_close_popup(st);
 	ui_scroll_wheel(w, &st->body, units, 60.0);
-}
-
-static bool popup_filter_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
-	switch (sym) {
-	case XKB_KEY_Return: {
-		struct set_row *r = set_current_page(st)->rows[st->popup_row];
-		const char *v = st->popup_filter.buf;
-		if (!set_row_has_icons(r) || !ui_icon_is_file(v) || !ui_icon_supported(v)) return false;
-		close_popup(st);
-		set_apply(st, r, st->popup_filter.buf);
-		return true;
-	}
-	case XKB_KEY_Up:
-	case XKB_KEY_Down:
-	case XKB_KEY_Page_Up:
-	case XKB_KEY_Page_Down:
-	case XKB_KEY_Tab:
-		return false;
-	case XKB_KEY_Escape:
-		if (!st->popup_filter.len) return false;
-		ui_text_set(&st->popup_filter, "");
-		break;
-	default: {
-		char before[UI_TEXT_MAX];
-		memcpy(before, st->popup_filter.buf, st->popup_filter.len + 1);
-		if (ui_text_key(&st->popup_filter, sym, mods, false) != UI_TEXT_HANDLED) return true;
-		if (strcmp(before, st->popup_filter.buf) == 0) {
-			ui_window_damage(st->win);
-			return true;
-		}
-		break;
-	}
-	}
-	set_popup_refilter(st);
-	st->popup_hover = 0;
-	st->popup_scroll = (struct ui_scroll){0};
-	ui_window_damage(st->win);
-	return true;
-}
-
-static bool popup_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
-	if (set_popup_filtered(st) && popup_filter_key(st, sym, mods)) return true;
-	size_t n = set_popup_count(st);
-	if (n == 0 && sym != XKB_KEY_Escape && sym != XKB_KEY_Tab) return true;
-	switch (sym) {
-	case XKB_KEY_Escape:
-		close_popup(st);
-		return true;
-	case XKB_KEY_Return:
-	case XKB_KEY_space:
-		popup_choose(st, st->popup_hover);
-		return true;
-	case XKB_KEY_Tab:
-		if (st->popup == POPUP_SELECT) popup_choose(st, st->popup_hover);
-		close_popup(st);
-		return false;
-	default:
-		break;
-	}
-	size_t want = st->popup_hover < n ? st->popup_hover : (sym == XKB_KEY_Up ? 0 : n - 1);
-	if (!ui_list_key(sym, n, SET_POPUP_MAX_ITEMS, &want)) return true;
-	st->popup_hover = want;
-	popup_reveal(st);
-	ui_window_damage(st->win);
-	return true;
-}
-
-static bool search_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
-	enum ui_text_result res = ui_text_key(&st->search, sym, mods, false);
-	switch (res) {
-	case UI_TEXT_HANDLED:
-		search_changed(st);
-		return true;
-	case UI_TEXT_CANCEL:
-		if (st->search.len > 0) {
-			ui_text_set(&st->search, "");
-			search_changed(st);
-		} else {
-			st->area = AREA_SIDEBAR;
-		}
-		ui_window_damage(st->win);
-		return true;
-	case UI_TEXT_COMMIT:
-		break;
-	case UI_TEXT_IGNORED:
-		if (sym != XKB_KEY_Down && sym != XKB_KEY_Tab) return true;
-		break;
-	}
-	if (set_current_page(st)->n == 0) return true;
-	st->area = AREA_BODY;
-	st->focus = 0;
-	reveal_focus(st);
-	ui_window_damage(st->win);
-	return true;
-}
-
-static bool sidebar_key(struct settings_state *st, xkb_keysym_t sym) {
-	if (sym == XKB_KEY_Right || sym == XKB_KEY_Return ||
-		sym == XKB_KEY_Tab) {
-		if (set_current_page(st)->n == 0) return true;
-		st->area = AREA_BODY;
-		reveal_focus(st);
-		ui_window_damage(st->win);
-		return true;
-	}
-	if (sym == XKB_KEY_slash) {
-		st->area = AREA_SEARCH;
-		ui_window_damage(st->win);
-		return true;
-	}
-	if (sym == XKB_KEY_ISO_Left_Tab) return true;
-	size_t want = st->page;
-	if (!ui_list_key(sym, st->n_pages, 8, &want)) return false;
-	select_page(st, want);
-	ui_scroll_reveal(st->win, &st->side, SET_SIDE_LIST_Y + (double)want * SET_SIDE_ROW_H,
-					 SET_SIDE_ROW_H);
-	return true;
-}
-
-static void move_focus(struct settings_state *st, long delta) {
-	struct set_page *p = set_current_page(st);
-	if (p->n == 0) return;
-	long f = (long)st->focus + delta;
-	if (f < 0) f = 0;
-	if (f >= (long)p->n) f = (long)p->n - 1;
-	st->focus = (size_t)f;
-	reveal_focus(st);
-	ui_window_damage(st->win);
-}
-
-static void to_sidebar(struct settings_state *st) {
-	st->area = st->search.len > 0 ? AREA_SEARCH : AREA_SIDEBAR;
-	ui_window_damage(st->win);
-}
-
-static bool is_menu_key(xkb_keysym_t sym, uint8_t mods) {
-	return sym == XKB_KEY_Menu || (sym == XKB_KEY_F10 && (mods & KB_MOD_SHIFT));
-}
-
-static bool body_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
-	struct set_row *r = focus_row(st);
-	if (!r) {
-		to_sidebar(st);
-		return true;
-	}
-	if (st->editing) {
-		enum ui_text_result res = ui_text_key(&st->edit, sym, mods, set_masked(r));
-		if (res == UI_TEXT_HANDLED) {
-			ui_window_damage(st->win);
-			return true;
-		}
-		if (res == UI_TEXT_CANCEL) {
-			cancel_edit(st);
-			return true;
-		}
-		if (!is_menu_key(sym, mods) && !leave_edit(st)) return true;
-		if (res == UI_TEXT_COMMIT) return true;
-	}
-	if (is_menu_key(sym, mods)) {
-		open_menu(st, st->focus, SET_BODY_PAD, r->y + r->h - 6);
-		return true;
-	}
-	bool big = (mods & KB_MOD_SHIFT) != 0;
-	switch (sym) {
-	case XKB_KEY_Down:
-	case XKB_KEY_Tab:
-		move_focus(st, 1);
-		return true;
-	case XKB_KEY_Up:
-		move_focus(st, -1);
-		return true;
-	case XKB_KEY_ISO_Left_Tab:
-		if (st->focus == 0)
-			to_sidebar(st);
-		else
-			move_focus(st, -1);
-		return true;
-	case XKB_KEY_Page_Down:
-		move_focus(st, 6);
-		return true;
-	case XKB_KEY_Page_Up:
-		move_focus(st, -6);
-		return true;
-	case XKB_KEY_Home:
-		move_focus(st, -(long)st->focus);
-		return true;
-	case XKB_KEY_End:
-		move_focus(st, (long)set_current_page(st)->n);
-		return true;
-	case XKB_KEY_Left:
-	case XKB_KEY_Right: {
-		int dir = sym == XKB_KEY_Left ? -1 : 1;
-		if (set_inactive_reason(st, r)) {
-			if (dir < 0) to_sidebar(st);
-			return true;
-		}
-		bool on = strcmp(set_effective(st, r), "true") == 0;
-		if (r->info.kind == CFG_KIND_INT)
-			step_int(st, r, dir, big);
-		else if (r->info.kind == CFG_KIND_ENUM)
-			step_enum(st, r, dir);
-		else if (r->info.kind == CFG_KIND_BOOL && on == (dir < 0))
-			toggle(st, r);
-		else if (dir < 0)
-			to_sidebar(st);
-		return true;
-	}
-	case XKB_KEY_Return:
-	case XKB_KEY_space:
-		activate(st, st->focus);
-		return true;
-	case XKB_KEY_Escape:
-		to_sidebar(st);
-		return true;
-	default:
-		return false;
-	}
-}
-
-bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
-	struct settings_state *st = w->user;
-	hide_tip(st);
-	if (!st->focus_visible) ui_window_damage(w);
-	st->focus_visible = true;
-	if (set_capture_key(st, sym, mods)) return true;
-	if (set_dialog_key(st, sym, mods)) return true;
-	bool ctrl = (mods & KB_MOD_CTRL) != 0;
-	xkb_keysym_t lower = xkb_keysym_to_lower(sym);
-	bool typing = st->area == AREA_SEARCH || set_popup_filtered(st);
-	if (ctrl && !typing && (lower == XKB_KEY_z || lower == XKB_KEY_y)) {
-		bool redo = lower == XKB_KEY_y || (mods & KB_MOD_SHIFT);
-		if (st->editing) {
-			if (!redo) cancel_edit(st);
-			return true;
-		}
-		close_popup(st);
-		if (redo)
-			set_redo(st);
-		else
-			set_undo(st);
-		return true;
-	}
-	if (ctrl && lower == XKB_KEY_f) {
-		if (!leave_edit(st)) return true;
-		close_popup(st);
-		st->area = AREA_SEARCH;
-		ui_text_select_all(&st->search);
-		ui_window_damage(w);
-		return true;
-	}
-	if (ctrl && (sym == XKB_KEY_Page_Down || sym == XKB_KEY_Page_Up)) {
-		size_t n = st->n_pages;
-		size_t next = sym == XKB_KEY_Page_Down ? (st->page + 1) % n : (st->page + n - 1) % n;
-		select_page(st, next);
-		return true;
-	}
-	if (st->popup != POPUP_NONE && popup_key(st, sym, mods)) return true;
-	switch (st->area) {
-	case AREA_SEARCH:
-		return search_key(st, sym, mods);
-	case AREA_SIDEBAR:
-		return sidebar_key(st, sym);
-	case AREA_BODY:
-		return body_key(st, sym, mods);
-	}
-	return false;
-}
-
-void set_on_focus_lost(struct ui_window *w) {
-	struct settings_state *st = w->user;
-	hide_tip(st);
-	set_capture_end(st, false);
-	close_popup(st);
-}
-
-void set_on_drag(struct ui_window *w, bool over) {
-	struct settings_state *st = w->user;
-	st->drag_over = over;
-	ui_window_damage(w);
-}
-
-static bool ends_with(const char *s, size_t n, const char *ext) {
-	size_t e = strlen(ext);
-	return n >= e && strncasecmp(s + n - e, ext, e) == 0;
-}
-
-static void show_row(struct settings_state *st, const struct set_row *r) {
-	if (!r) return;
-	for (size_t i = 0; i < st->n_pages; i++)
-		for (size_t j = 0; j < st->pages[i].n; j++)
-			if (st->pages[i].rows[j] == r) {
-				select_page(st, i);
-				st->area = AREA_BODY;
-				st->focus = j;
-				reveal_focus(st);
-				return;
-			}
-}
-
-static char *plugin_folder(const char *line) {
-	char *path = set_resolve_path(line);
-	char manifest[UI_TEXT_MAX + 16];
-	if (path && snprintf(manifest, sizeof manifest, "%s/manifest.toml", path) > 0 &&
-		access(manifest, R_OK) == 0)
-		return path;
-	free(path);
-	return NULL;
-}
-
-enum { DROP_UPLOADER = 1,
-	   DROP_PLUGIN = 2,
-	   DROP_ICON = 4 };
-
-static unsigned drop_one(struct settings_state *st, const char *line, size_t len, unsigned seen) {
-	if (ends_with(line, len, ".sxcu")) {
-		if (!(seen & DROP_UPLOADER)) show_row(st, set_sxcu_row(st));
-		set_add_sxcu(st, line);
-		return DROP_UPLOADER;
-	}
-	if (ui_icon_supported(line)) {
-		struct set_row *icon = set_find_row(st, "tray.icon");
-		char *path = icon && !(seen & DROP_ICON) ? set_resolve_path(line) : NULL;
-		if (!path) return 0;
-		show_row(st, icon);
-		set_apply(st, icon, path);
-		free(path);
-		return DROP_ICON;
-	}
-	if (seen & DROP_PLUGIN) return 0;
-	char *plugin = plugin_folder(line);
-	if (!plugin) return 0;
-	show_row(st, set_submit_row(st, set_install_plugin));
-	set_install_plugin(st, plugin);
-	free(plugin);
-	return DROP_PLUGIN;
-}
-
-void set_on_drop(struct ui_window *w, const char *uri_list) {
-	struct settings_state *st = w->user;
-	st->drag_over = false;
-	if (!leave_edit(st)) cancel_edit(st);
-	close_popup(st);
-	set_capture_end(st, false);
-	unsigned seen = 0;
-	for (const char *p = uri_list; *p;) {
-		const char *e = strchr(p, '\n');
-		size_t n = e ? (size_t)(e - p) : strlen(p);
-		char line[UI_TEXT_MAX];
-		size_t len = n < sizeof line ? n : sizeof line - 1;
-		memcpy(line, p, len);
-		line[len] = '\0';
-		len = grabit_rstrip(line, len);
-		if (len && line[0] != '#') seen |= drop_one(st, line, len, seen);
-		if (!e) break;
-		p = e + 1;
-	}
-	if (!seen) set_toast(st, "%s", set_drop_hint(st)->refused);
-	ui_window_damage(w);
 }

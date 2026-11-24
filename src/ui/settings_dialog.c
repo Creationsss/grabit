@@ -4,11 +4,16 @@
 #define _GNU_SOURCE
 #include "ui/settings_internal.h"
 
+#include "cairo_util.h"
 #include "cursor.h"
+#include "ui/widgets.h"
 #include "ui/window.h"
+#include "ui_colors.h"
+#include "ui_theme.h"
 #include "wl/xkb.h"
 
 #include <linux/input-event-codes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,7 +65,7 @@ static void choose(struct settings_state *st, size_t i) {
 	}
 	if (i > d->n_btn) return;
 	set_toast_action fn = d->btn[i].fn;
-	struct set_row *check = fn && d->check_on ? set_find_row(st, d->check_key) : NULL;
+	struct set_row *check = d->btn[i].danger && d->check_on ? set_find_row(st, d->check_key) : NULL;
 	char *arg = d->arg;
 	d->arg = NULL;
 	set_dialog_close(st);
@@ -126,5 +131,79 @@ bool set_dialog_key(struct settings_state *st, xkb_keysym_t sym, uint8_t mods) {
 		return true;
 	default:
 		return true;
+	}
+}
+
+static void draw_check(cairo_t *cr, double x, double y, double s, bool on, bool hover) {
+	double r = grabit_ui_radius(GUI_R_GLYPH);
+	if (on) {
+		grabit_ui_accent(cr, hover ? 1.0 : 0.88);
+		grabit_cairo_rect_r(cr, x, y, s, s, r);
+		cairo_fill(cr);
+		cairo_set_source_rgba(cr, GUI_C_SHADE, 0.9);
+		cairo_set_line_width(cr, 2.0);
+		cairo_move_to(cr, x + s * 0.24, y + s * 0.52);
+		cairo_line_to(cr, x + s * 0.43, y + s * 0.72);
+		cairo_line_to(cr, x + s * 0.78, y + s * 0.30);
+		cairo_stroke(cr);
+		return;
+	}
+	cairo_set_source_rgba(cr, GUI_C_INK, hover ? 0.6 : 0.4);
+	cairo_set_line_width(cr, 1.5);
+	grabit_cairo_rect_r_inset(cr, x, y, s, s, r, 0.75);
+	cairo_stroke(cr);
+}
+
+void set_dialog_draw(struct settings_state *st, cairo_t *cr, double width, double height) {
+	struct set_dialog *d = &st->dialog;
+	if (!d->open) return;
+	double pad = 20, line = 18, btn_h = 30, gap = 8, check = 16;
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.55);
+	cairo_rectangle(cr, 0, 0, width, height);
+	cairo_fill(cr);
+	double w = fmin(440, width - 32);
+	char lines[4][160];
+	size_t n = set_wrap(cr, d->text, w - pad * 2, 13, lines, 4);
+	double h = pad + 22 + 6 + line * (double)n + (d->check_label ? 14 + check : 0) + 20 +
+			   btn_h + pad;
+	double x = floor((width - w) / 2), y = floor((height - h) / 2);
+	cairo_set_source_rgba(cr, GUI_C_POPOVER, 0.98);
+	grabit_cairo_rect_r(cr, x, y, w, h, grabit_ui_radius(GUI_R_PANEL));
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.12);
+	cairo_set_line_width(cr, 1.0);
+	cairo_stroke(cr);
+	double cy = y + pad;
+	ui_draw_text_fit(cr, x + pad, cy, w - pad * 2, d->title, 15, CAIRO_FONT_WEIGHT_BOLD, 1.0);
+	cy += 28;
+	for (size_t i = 0; i < n; i++, cy += line)
+		ui_draw_text_fit(cr, x + pad, cy, w - pad * 2, lines[i], 13, CAIRO_FONT_WEIGHT_NORMAL,
+						 0.75);
+	d->check_rect = (struct set_rect){0};
+	if (d->check_label) {
+		cy += 14;
+		double lw = ui_text_width(cr, d->check_label, 13, CAIRO_FONT_WEIGHT_NORMAL);
+		d->check_rect = (struct set_rect){x + pad - 4, cy - 4, check + 8 + lw + 8, check + 8};
+		bool hot = d->hover == d->n_btn;
+		draw_check(cr, x + pad, cy, check, d->check_on, hot);
+		ui_draw_text_fit(cr, x + pad + check + 8, cy - 1, lw + 1, d->check_label, 13,
+						 CAIRO_FONT_WEIGHT_NORMAL, 0.9);
+		if (st->focus_visible && d->focus == d->n_btn) set_focus_ring(cr, &d->check_rect);
+		cy += check;
+	}
+	double bx = x + w - pad, by = y + h - pad - btn_h;
+	static const double DANGER[] = {GUI_C_DESTRUCTIVE};
+	for (size_t i = d->n_btn; i-- > 0;) {
+		struct set_dialog_btn *b = &d->btn[i];
+		double bw = fmax(84, ui_text_width(cr, b->label, 13, CAIRO_FONT_WEIGHT_NORMAL) + 28);
+		bx -= bw;
+		b->rect = (struct set_rect){bx, by, bw, btn_h};
+		bool hot = d->hover == i, down = hot && d->press == i;
+		if (b->danger)
+			ui_button_draw_color(cr, bx, by, bw, btn_h, b->label, DANGER, hot, down);
+		else
+			ui_button_draw(cr, bx, by, bw, btn_h, b->label, hot, down);
+		if (st->focus_visible && d->focus == i) set_focus_ring(cr, &b->rect);
+		bx -= gap;
 	}
 }

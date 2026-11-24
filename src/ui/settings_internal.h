@@ -15,6 +15,7 @@
 #include <cairo/cairo.h>
 
 #include "config/config.h"
+#include "history/history.h"
 #include "region/keybinds.h"
 #include "ui/icons.h"
 #include "ui/scroll.h"
@@ -87,7 +88,11 @@ enum set_popup {
 	POPUP_NONE,
 	POPUP_SELECT,
 	POPUP_MENU,
+	POPUP_ACTIONS,
 };
+
+#define SET_MAX_ACTIONS 8
+#define SET_HIST_SHOWN 200
 
 enum set_menu_item {
 	MENU_RESET,
@@ -102,6 +107,7 @@ enum set_area {
 };
 
 struct settings_state;
+struct set_hist_grid;
 struct set_row;
 
 #define SET_ALT_BTNS 2
@@ -109,6 +115,18 @@ struct set_row;
 
 typedef void (*set_row_action)(struct settings_state *st, struct set_row *r);
 typedef void (*set_toast_action)(struct settings_state *st, const char *arg);
+
+struct set_custom {
+	double (*height)(struct settings_state *st, struct set_row *r);
+	void (*draw)(struct settings_state *st, cairo_t *cr, struct set_row *r, bool focused);
+	void (*press)(struct settings_state *st, struct set_row *r, double bx, double by,
+				  uint32_t button);
+	int (*motion)(struct settings_state *st, struct set_row *r, double bx, double by);
+	bool (*key)(struct settings_state *st, struct set_row *r, xkb_keysym_t sym, uint8_t mods);
+	bool (*typing)(const struct settings_state *st);
+	void (*overlay)(struct settings_state *st, cairo_t *cr, struct set_row *r);
+	bool (*capture)(struct settings_state *st, struct set_row *r, double bx, double by);
+};
 
 struct set_row {
 	const char *key;
@@ -136,6 +154,8 @@ struct set_row {
 	char *owned_key;
 	char *owned_hint;
 	bool icons_loaded;
+	bool grid;
+	const struct set_custom *custom;
 	char error[256];
 	char note[160];
 	size_t note_more;
@@ -160,6 +180,7 @@ struct set_page {
 	const char *title;
 	const char *note;
 	const struct set_drop_hint *drop;
+	bool bottom;
 	struct set_row **rows;
 	size_t n;
 	size_t cap;
@@ -205,7 +226,7 @@ struct set_plugin_jobs {
 	const char *failed_name;
 };
 
-#define SET_DIALOG_BTNS 2
+#define SET_DIALOG_BTNS 3
 
 struct set_dialog_btn {
 	const char *label;
@@ -303,6 +324,20 @@ struct settings_state {
 	struct set_rect toast_btn;
 	size_t uploads_page;
 	size_t plugins_page;
+	size_t history_page;
+	size_t ocr_history_page;
+	struct history_list hist;
+	struct history_list hist_ocr;
+	int64_t hist_stamp;
+	pid_t hist_pid;
+	char hist_job_name[128];
+	struct set_hist_grid *grid;
+	struct {
+		const char *label;
+		set_toast_action fn;
+	} popup_acts[SET_MAX_ACTIONS];
+	size_t popup_act_n;
+	char *popup_arg;
 	struct set_plugin_jobs plugin_jobs;
 	struct set_upload_test *upload_test;
 	struct set_dialog dialog;
@@ -355,6 +390,7 @@ double set_body_w(const struct settings_state *st);
 bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_part part,
 				   struct set_rect *out);
 size_t set_row_at(struct settings_state *st, double y);
+size_t set_captured_row(struct settings_state *st, double bx, double by);
 enum set_part set_part_at(struct settings_state *st, const struct set_row *r, double x,
 						  double y);
 size_t set_popup_count(struct settings_state *st);
@@ -413,6 +449,58 @@ void set_remove_uploader_ask(struct settings_state *st, struct set_row *r);
 void set_sync_list(struct settings_state *st, size_t page, const struct set_list *l,
 				   char **names, size_t n);
 void set_refresh_plugins(struct settings_state *st);
+int set_push_choice(struct set_row *r, const char *v);
+struct set_row *set_new_row(struct settings_state *st, const char *key, const char *label, const char *hint);
+int set_page_push(struct set_page *p, struct set_row *r);
+struct set_row *set_extra_row(struct settings_state *st, struct set_page *p, const char *key,
+							  const char *label, const char *hint);
+int set_add_history_rows(struct settings_state *st, struct set_page *p);
+pid_t set_spawn_self(struct settings_state *st, const char *const *args);
+int set_reap(pid_t *pid);
+void set_copy_text(struct settings_state *st, const char *text, const char *what);
+void set_open_target(struct settings_state *st, const char *target);
+int set_add_history_clear_rows(struct settings_state *st, struct set_page *p);
+void set_refresh_history(struct settings_state *st);
+bool set_history_poll(struct settings_state *st);
+void set_history_check(struct settings_state *st);
+const char *set_hist_row_text(struct settings_state *st, const struct set_row *r);
+void set_hist_release(struct settings_state *st);
+void set_open_actions(struct settings_state *st, size_t row, double bx, double by, char *arg);
+void set_add_action(struct settings_state *st, const char *label, set_toast_action fn);
+double set_side_row_y(const struct settings_state *st, size_t i);
+double set_hist_grid_h(struct settings_state *st);
+void set_hist_grid_draw(struct settings_state *st, cairo_t *cr, const struct set_row *r,
+						bool focused);
+void set_hist_overlay_draw(struct settings_state *st, cairo_t *cr);
+void set_hist_grid_press(struct settings_state *st, size_t row, double bx, double by,
+						 uint32_t button);
+int set_hist_grid_motion(struct settings_state *st, const struct set_row *r, double bx, double by);
+bool set_hist_poll_thumbs(struct settings_state *st);
+bool set_hist_busy(const struct settings_state *st);
+void set_hist_grid_sync(struct settings_state *st);
+void set_hist_grid_free(struct settings_state *st);
+void set_hist_grid_key(struct settings_state *st, struct set_row *r);
+void set_hist_grid_menu(struct settings_state *st);
+bool set_hist_grid_keys(struct settings_state *st, xkb_keysym_t sym, uint8_t mods);
+bool set_hist_focus_search(struct settings_state *st);
+bool set_hist_typing(const struct settings_state *st);
+extern const struct set_custom SET_GRID_CUSTOM;
+void set_hist_open_menu(struct settings_state *st, size_t row, const struct history_entry *e,
+						double bx, double by);
+struct set_hist_action {
+	const char *label;
+	set_toast_action fn;
+};
+size_t set_hist_actions(const struct history_entry *e, struct set_hist_action *out);
+bool set_hist_view_shown(const struct settings_state *st);
+void set_hist_view_draw(struct settings_state *st, cairo_t *cr, double w, double h);
+bool set_hist_view_press(struct settings_state *st, double x, double y, uint32_t button,
+						 bool pressed);
+bool set_hist_view_motion(struct settings_state *st, double x, double y);
+bool set_hist_view_key(struct settings_state *st, xkb_keysym_t sym);
+const char *set_hist_name(const struct history_entry *e);
+void set_hist_when(int64_t t, char *out, size_t n);
+void set_hist_tilde(const char *path, char *out, size_t n);
 void set_refresh_cfg(struct settings_state *st);
 void set_remove_unknown_ask(struct settings_state *st, struct set_row *r);
 void set_rename_unknown(struct settings_state *st, struct set_row *r);
@@ -421,6 +509,17 @@ void set_dialog_button(struct settings_state *st, const char *label, bool danger
 					   set_toast_action fn);
 void set_dialog_check(struct settings_state *st, const char *label, const char *key);
 void set_dialog_close(struct settings_state *st);
+double set_draw_chip(cairo_t *cr, double x, double cy, const char *text, double size, bool accent, double *base);
+void set_draw_icon(struct settings_state *st, cairo_t *cr, const char *name, double x, double cy);
+size_t set_wrap(cairo_t *cr, const char *text, double max_w, double size, char lines[][160], size_t max_lines);
+void set_focus_ring(cairo_t *cr, const struct set_rect *c);
+void set_draw_sidebar(struct settings_state *st, cairo_t *cr, double sw, double h);
+void set_draw_popup(struct settings_state *st, cairo_t *cr);
+void set_draw_tip(struct settings_state *st, cairo_t *cr);
+void set_draw_toast(struct settings_state *st, cairo_t *cr, double height);
+void set_draw_drop_overlay(struct settings_state *st, cairo_t *cr, double w, double h);
+double set_legend_y(const struct settings_state *st, double h);
+double set_legend_h(void);
 void set_dialog_draw(struct settings_state *st, cairo_t *cr, double width, double height);
 bool set_dialog_press(struct settings_state *st, double x, double y, uint32_t button,
 					  bool pressed);

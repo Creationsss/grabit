@@ -289,6 +289,14 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 		return true;
 	}
 	if (st->popup != POPUP_NONE && popup_key(st, sym, mods)) return true;
+	struct set_row *paste = ctrl && lower == XKB_KEY_v && st->area != AREA_SEARCH && !st->editing &&
+									!typing
+								? set_drop_row(st, true)
+								: NULL;
+	if (paste) {
+		paste->custom->paste(st, paste);
+		return true;
+	}
 	switch (st->area) {
 	case AREA_SEARCH:
 		return search_key(st, sym, mods);

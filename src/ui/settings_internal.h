@@ -108,6 +108,7 @@ enum set_area {
 
 struct settings_state;
 struct set_hist_grid;
+struct set_upq;
 struct set_row;
 
 #define SET_ALT_BTNS 2
@@ -126,6 +127,8 @@ struct set_custom {
 	bool (*typing)(const struct settings_state *st);
 	void (*overlay)(struct settings_state *st, cairo_t *cr, struct set_row *r);
 	bool (*capture)(struct settings_state *st, struct set_row *r, double bx, double by);
+	void (*drop)(struct settings_state *st, struct set_row *r, const char *uri_list);
+	void (*paste)(struct settings_state *st, struct set_row *r);
 };
 
 struct set_row {
@@ -157,6 +160,9 @@ struct set_row {
 	bool icons_loaded;
 	bool grid;
 	const struct set_custom *custom;
+	bool scratch;
+	const char *once;
+	char *once_value;
 	char error[256];
 	char note[160];
 	size_t note_more;
@@ -325,6 +331,7 @@ struct settings_state {
 	struct set_rect toast_btn;
 	size_t uploads_page;
 	size_t plugins_page;
+	size_t upload_page;
 	size_t history_page;
 	size_t ocr_history_page;
 	struct history_list hist;
@@ -338,6 +345,7 @@ struct settings_state {
 	char *up_id;
 	char up_labels[SET_MAX_ACTIONS][64];
 	struct set_hist_grid *grid;
+	struct set_upq *upq;
 	struct {
 		const char *label;
 		set_toast_action fn;
@@ -397,6 +405,7 @@ bool set_part_rect(struct settings_state *st, const struct set_row *r, enum set_
 				   struct set_rect *out);
 size_t set_row_at(struct settings_state *st, double y);
 size_t set_captured_row(struct settings_state *st, double bx, double by);
+struct set_row *set_drop_row(struct settings_state *st, bool paste);
 enum set_part set_part_at(struct settings_state *st, const struct set_row *r, double x,
 						  double y);
 size_t set_popup_count(struct settings_state *st);
@@ -461,10 +470,26 @@ int set_page_push(struct set_page *p, struct set_row *r);
 struct set_row *set_extra_row(struct settings_state *st, struct set_page *p, const char *key,
 							  const char *label, const char *hint);
 int set_add_history_rows(struct settings_state *st, struct set_page *p);
-pid_t set_spawn_self(struct settings_state *st, const char *const *args);
+int set_add_upload_rows(struct settings_state *st, struct set_page *p);
+void set_fill_choices(struct settings_state *st, struct set_row *r);
+void set_scratch_write(struct settings_state *st, struct set_row *r, const char *value);
+const char *set_scratch_value(struct settings_state *st, const struct set_row *r);
+bool set_upload_busy(const struct settings_state *st);
+bool set_upload_poll(struct settings_state *st);
+void set_upload_free(struct settings_state *st);
+#define SET_PROGRESS_FD 3
+#define SET_PROGRESS_FD_STR "3"
+struct set_spawn {
+	const char *env;
+	int out_fd;
+	int prog_fd;
+};
+pid_t set_spawn_self(struct settings_state *st, const struct set_spawn *opt,
+					 const char *const *args);
 int set_reap(pid_t *pid);
 void set_copy_text(struct settings_state *st, const char *text, const char *what);
 void set_open_target(struct settings_state *st, const char *target);
+char *set_upload_overlay(const struct set_upq *q, size_t files);
 int set_add_history_clear_rows(struct settings_state *st, struct set_page *p);
 void set_refresh_history(struct settings_state *st);
 bool set_history_poll(struct settings_state *st);

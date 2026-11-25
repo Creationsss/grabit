@@ -46,6 +46,10 @@ void set_arm_timer(struct settings_state *st) {
 		int64_t poll = grabit_now_ms() + SET_JOB_POLL_MS;
 		if (!due || poll < due) due = poll;
 	}
+	if (set_upload_busy(st)) {
+		int64_t poll = grabit_now_ms() + 80;
+		if (!due || poll < due) due = poll;
+	}
 	if (set_hist_busy(st)) {
 		int64_t poll = grabit_now_ms() + 60;
 		if (!due || poll < due) due = poll;
@@ -233,7 +237,7 @@ void set_popup_choose(struct settings_state *st, size_t idx) {
 		st->editing = false;
 		set_apply(st, r, NULL);
 	} else if (idx == MENU_COPY_KEY) {
-		clipboard_set_text(r->key);
+		clipboard_set_text(r->once ? r->once : r->key);
 	}
 }
 
@@ -310,6 +314,15 @@ size_t set_captured_row(struct settings_state *st, double bx, double by) {
 			p->rows[i]->custom->capture(st, p->rows[i], bx, by))
 			return i;
 	return SET_NONE;
+}
+
+struct set_row *set_drop_row(struct settings_state *st, bool paste) {
+	struct set_page *p = set_current_page(st);
+	for (size_t i = 0; p != &st->results && i < p->n; i++) {
+		const struct set_custom *c = p->rows[i]->custom;
+		if (c && (paste ? c->paste != NULL : c->drop != NULL)) return p->rows[i];
+	}
+	return NULL;
 }
 
 static bool is_double_click(struct settings_state *st, size_t row) {
@@ -499,6 +512,7 @@ void set_on_timer(struct ui_window *w) {
 	if (st->icons_state == ICONS_SCANNING && set_icons_poll(st)) ui_window_damage(w);
 	if (set_jobs_poll(st)) ui_window_damage(w);
 	if (set_history_poll(st)) ui_window_damage(w);
+	if (set_upload_poll(st)) ui_window_damage(w);
 	if (set_hist_poll_thumbs(st)) ui_window_damage(w);
 	if (set_tests_poll(st)) ui_window_damage(w);
 	if (st->toast_until && now >= st->toast_until) {

@@ -25,6 +25,7 @@
 #define GUI_C_DESTRUCTIVE 0.72, 0.15, 0.15
 #define GUI_C_DESTRUCTIVE_MUTED 0.62, 0.22, 0.22
 #define GUI_C_ERROR 1.0, 0.42, 0.42
+#define GUI_C_WARNING 0.98, 0.78, 0.26
 
 #define GUI_C_TRACK 0.55, 0.55, 0.55
 #define GUI_C_ICON_HI 0.85, 0.85, 0.85

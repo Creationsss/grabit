@@ -238,7 +238,8 @@ static void act_copy_path(struct settings_state *st, const char *id) {
 
 static void act_delete(struct settings_state *st, const char *id);
 
-pid_t set_spawn_self(struct settings_state *st, const char *const *args) {
+pid_t set_spawn_self(struct settings_state *st, const struct set_spawn *opt,
+					 const char *const *args) {
 	char self[1024];
 	if (grabit_self_exe(self, sizeof self) != 0) {
 		set_toast(st, "Could not find the grabit binary");
@@ -250,6 +251,12 @@ pid_t set_spawn_self(struct settings_state *st, const char *const *args) {
 	pid_t pid = fork();
 	if (pid == 0) {
 		grabit_quiet_stdio();
+		if (opt && opt->out_fd >= 0) dup2(opt->out_fd, STDOUT_FILENO);
+		if (opt && opt->prog_fd >= 0) {
+			dup2(opt->prog_fd, SET_PROGRESS_FD);
+			setenv("GRABIT_PROGRESS_FD", SET_PROGRESS_FD_STR, 1);
+		}
+		if (opt && opt->env) setenv("GRABIT_CONFIG", opt->env, 1);
 		execv(self, argv);
 		_exit(127);
 	}
@@ -293,7 +300,7 @@ static void upload_to(struct settings_state *st, const char *service) {
 	}
 	char flag[80];
 	snprintf(flag, sizeof flag, "--%s", service);
-	pid_t pid = set_spawn_self(st, (const char *const[]){"-f", e->path, flag, NULL});
+	pid_t pid = set_spawn_self(st, NULL, (const char *const[]){"-f", e->path, flag, NULL});
 	if (pid == -2) return;
 	if (pid < 0) {
 		set_toast(st, "Could not start the upload");
@@ -363,7 +370,7 @@ static void delete_now(struct settings_state *st, const char *id) {
 		set_toast(st, "Wait for the current delete to finish");
 		return;
 	}
-	pid_t pid = set_spawn_self(st, (const char *const[]){"history", "delete", id, "--yes", NULL});
+	pid_t pid = set_spawn_self(st, NULL, (const char *const[]){"history", "delete", id, "--yes", NULL});
 	if (pid == -2) return;
 	if (pid < 0) {
 		set_toast(st, "Could not start the delete");

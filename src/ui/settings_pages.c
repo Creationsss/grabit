@@ -164,6 +164,9 @@ static const struct set_drop_hint DROP_PLUGINS = {
 static const struct set_drop_hint DROP_ICON = {
 	"Drop to set the tray icon", "a .png or .svg image",
 	"Drop a .png or .svg image to use it as the tray icon"};
+static const struct set_drop_hint DROP_FILE = {
+	"Drop files to upload", "they are added below to review; nothing is uploaded until you press Upload",
+	"Drop files to upload them"};
 static const struct set_drop_hint DROP_ANY = {
 	"Drop an uploader, a plugin or an icon",
 	".sxcu files become uploaders, plugin repo folders are installed, and a .png or .svg becomes "
@@ -214,6 +217,13 @@ static const struct page_def PAGES[] = {
 	 .defs = APPEARANCE,
 	 .note = "drop a .png or .svg on this window to use it as the tray icon",
 	 .drop = &DROP_ICON},
+	{.title = "Upload",
+	 .defs = NO_DEFS,
+	 .note = "upload any file; the options apply to these uploads only and never change your settings",
+	 .drop = &DROP_FILE,
+	 .extra = set_add_upload_rows,
+	 .index_at = offsetof(struct settings_state, upload_page),
+	 .bottom = true},
 	{.title = "History",
 	 .defs = NO_DEFS,
 	 .extra = set_add_history_rows,

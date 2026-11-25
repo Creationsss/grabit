@@ -86,6 +86,13 @@ void set_on_drop(struct ui_window *w, const char *uri_list) {
 	if (!set_leave_edit(st)) set_cancel_edit(st);
 	set_close_popup(st);
 	set_capture_end(st, false);
+	struct set_row *target = set_drop_row(st, false);
+	if (target) {
+		target->custom->drop(st, target, uri_list);
+		show_row(st, target);
+		ui_window_damage(w);
+		return;
+	}
 	unsigned seen = 0;
 	for (const char *p = uri_list; *p;) {
 		const char *e = strchr(p, '\n');

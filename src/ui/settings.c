@@ -225,6 +225,10 @@ static bool write_value(struct settings_state *st, struct set_row *r, const char
 }
 
 void set_apply(struct settings_state *st, struct set_row *r, const char *value) {
+	if (r->scratch) {
+		set_scratch_write(st, r, value);
+		return;
+	}
 	if (value && !value[0]) value = NULL;
 	if (r->submit) {
 		r->error[0] = '\0';
@@ -406,7 +410,7 @@ void set_redo(struct settings_state *st) {
 }
 
 static bool page_resettable(struct settings_state *st, const struct set_row *r) {
-	return !r->info.secret && !r->submit && set_can_reset(st, r);
+	return (r->scratch || !r->info.secret) && !r->submit && set_can_reset(st, r);
 }
 
 size_t set_page_resettable(struct settings_state *st, const struct set_page *p) {
@@ -422,10 +426,15 @@ static void reset_page(struct settings_state *st, const char *title) {
 		if (strcmp(st->pages[i].title, title) == 0) p = &st->pages[i];
 	if (!p) return;
 	if (stamps_changed(st)) reload(st);
-	size_t done = 0;
+	size_t done = 0, cleared = 0;
 	for (size_t i = 0; i < p->n; i++) {
 		struct set_row *r = p->rows[i];
 		if (!page_resettable(st, r)) continue;
+		if (r->scratch) {
+			set_scratch_write(st, r, NULL);
+			cleared++;
+			continue;
+		}
 		const char *cur = set_value(st, r);
 		char *before = cur ? strdup(cur) : NULL;
 		if (!write_value(st, r, NULL)) {
@@ -442,6 +451,8 @@ static void reset_page(struct settings_state *st, const char *title) {
 	} else if (done > 1) {
 		set_toast(st, "Reset %zu settings on %s", done, p->title);
 		undo_toast(st);
+	} else if (cleared) {
+		set_toast(st, "Back to your settings for the next upload");
 	}
 }
 
@@ -551,6 +562,7 @@ void settings_state_close(struct settings_state *st) {
 	st->popup_arg = NULL;
 	set_jobs_free(st);
 	set_hist_release(st);
+	set_upload_free(st);
 	set_tests_free(st);
 	settings_free_rows(st);
 	config_free(&st->cfg);

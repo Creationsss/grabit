@@ -106,7 +106,7 @@ static void add_uploaders(struct set_row *r) {
 	free(names);
 }
 
-static void fill_choices(struct settings_state *st, struct set_row *r) {
+void set_fill_choices(struct settings_state *st, struct set_row *r) {
 	if (r->info.kind != CFG_KIND_ENUM) return;
 	if (r->info.values_src == CFG_VALUES_ICONS) return;
 	for (size_t i = 0; r->info.values && r->info.values[i]; i++) {
@@ -148,7 +148,7 @@ struct set_row *set_new_row(struct settings_state *st, const char *key,
 		snprintf(r->label, sizeof r->label, "%s", label);
 	else
 		humanize(key, r->label, sizeof r->label);
-	fill_choices(st, r);
+	set_fill_choices(st, r);
 	if (r->info.secret) r->aux = AUX_EYE;
 	if (r->info.kind == CFG_KIND_KEYBIND) r->aux = AUX_RECORD;
 	if (strcmp(key, "edit.color") == 0) r->aux = AUX_SWATCH;
@@ -186,6 +186,7 @@ static void free_row(struct set_row *r) {
 	free(r->choices);
 	free(r->owned_key);
 	free(r->owned_hint);
+	free(r->once_value);
 	free(r);
 }
 
@@ -327,7 +328,7 @@ void set_refresh_uploaders(struct settings_state *st) {
 		struct set_row *r = st->all.rows[i];
 		if (r->info.values_src != CFG_VALUES_UPLOADERS) continue;
 		clear_choices(r);
-		fill_choices(st, r);
+		set_fill_choices(st, r);
 	}
 	char **names = NULL;
 	size_t n = 0;
@@ -494,7 +495,7 @@ void settings_filter(struct settings_state *st) {
 	if (n == 0) return;
 	for (size_t i = 0; i < st->all.n; i++) {
 		struct set_row *r = st->all.rows[i];
-		if (r->custom) continue;
+		if (r->custom || r->scratch) continue;
 		size_t k = 0;
 		const char *text = set_hist_row_text(st, r);
 		while (k < n && row_matches(r, words[k], text))
@@ -516,6 +517,7 @@ struct set_page *set_current_page(struct settings_state *st) {
 }
 
 const char *set_value(struct settings_state *st, const struct set_row *r) {
+	if (r->scratch) return set_scratch_value(st, r);
 	return r->no_config ? NULL : config_get(&st->cfg, r->key);
 }
 
@@ -526,6 +528,7 @@ const char *set_effective(struct settings_state *st, const struct set_row *r) {
 }
 
 bool set_is_custom(struct settings_state *st, const struct set_row *r) {
+	if (r->scratch) return r->once_value != NULL;
 	const char *v = set_value(st, r);
 	return v && (!r->info.def || strcmp(v, r->info.def) != 0);
 }

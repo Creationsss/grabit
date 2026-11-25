@@ -9,6 +9,7 @@
 #include "paths.h"
 #include "ui/settings_grid.h"
 #include "ui/settings_internal.h"
+#include "ui/settings_upload.h"
 #include "ui/window.h"
 #include "upload/upload.h"
 #include "util/util.h"
@@ -25,6 +26,7 @@
 #include <unistd.h>
 
 #include <cairo/cairo.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 static int g_failed;
 static int g_passed;
@@ -305,6 +307,116 @@ static size_t page_rows_with(const char *title, const char *prefix) {
 	return 0;
 }
 
+static void check_upload_page(void) {
+	open_settings("service = \"zipline\"\n[services.zipline.headers]\n\"x-zipline-max-views\" = \"5\"\n");
+	struct set_row *mv = set_find_row(&st, "upload once services.zipline.headers.x-zipline-max-views");
+	struct set_row *nest = set_find_row(&st, "upload once services.nest.folder");
+	struct set_row *svc = set_find_row(&st, "grabit -f <file> --<service>");
+	struct set_row *file = set_find_row(&st, "grabit -f <file>");
+	check(mv && nest && svc && file, "the Upload page should have its file, service and option rows");
+	if (!mv || !nest || !svc || !file) {
+		settings_state_close(&st);
+		return;
+	}
+	check(strcmp(mv->page, "Upload") == 0 && st.pages[st.upload_page].bottom, "the upload options should sit on the Upload tab");
+	check(strcmp(set_effective(&st, mv), "5") == 0 && !set_is_custom(&st, mv),
+		  "an upload option should start at the saved setting");
+	set_apply(&st, mv, "10");
+	check(strcmp(set_effective(&st, mv), "10") == 0 && set_is_custom(&st, mv), "an upload option should take a new value");
+	struct config saved = {0};
+	config_load(&saved);
+	const char *kept = config_get(&saved, "services.zipline.headers.x-zipline-max-views");
+	check(kept && strcmp(kept, "5") == 0, "an upload option must not change config.toml");
+	config_free(&saved);
+	set_apply(&st, mv, "abc");
+	check(mv->error[0] && strcmp(set_effective(&st, mv), "10") == 0, "a bad upload option should be refused");
+	check(!set_inactive_reason(&st, mv) && set_inactive_reason(&st, nest),
+		  "with zipline picked, the nest folder should be inactive");
+	set_apply(&st, svc, "nest");
+	check(set_inactive_reason(&st, mv) && !set_inactive_reason(&st, nest),
+		  "picking nest for this upload should switch which options apply");
+	check(strcmp(config_get(&st.cfg, "service"), "zipline") == 0, "picking a service for this upload should keep the default");
+	set_apply(&st, svc, "zipline");
+	check(file->custom != NULL && st.pages[st.upload_page].n == 1,
+		  "the Upload page should open with just the drop zone, options folded away");
+	st.page = st.upload_page;
+	st.area = AREA_BODY;
+	st.focus = 0;
+	set_on_key(&win, XKB_KEY_space, 0);
+	set_on_key(&win, XKB_KEY_Menu, 0);
+	check(!st.editing && st.popup == POPUP_NONE, "space and Menu on the drop zone should not start an edit or a menu");
+	upq_set_options(&st, true);
+	check(st.pages[st.upload_page].n == 1 + st.upq->n_opts && upq_changes(st.upq) == 1,
+		  "Options should unfold the option rows and count one change");
+	set_upload_drop(&st, "/no/such/file.png");
+	check(st.upq->n == 0 && strstr(st.toast, "no such file"), "a missing file should be refused");
+	char pic[600], two[1300];
+	snprintf(pic, sizeof pic, "%s/up.txt", g_root);
+	write_file(pic, "hello");
+	snprintf(two, sizeof two, "file://%s\n%s\n", pic, g_root);
+	check(set_upload_drop(&st, two) == 1 && st.upq->n == 1 && strcmp(st.upq->files[0].path, pic) == 0,
+		  "dropping a file and a folder should queue only the file");
+	check(set_upload_drop(&st, pic) == 0 && st.upq->n == 1, "the same file should not queue twice");
+	set_apply(&st, svc, "zipline");
+	struct set_row *orig = set_find_row(&st, "upload once services.zipline.headers.x-zipline-original-name");
+	check(orig && orig->info.kind == CFG_KIND_BOOL && strcmp(set_effective(&st, orig), "false") == 0,
+		  "keep the original name should be a toggle that starts off");
+	if (orig) set_apply(&st, orig, "true");
+	struct set_row *exp = set_find_row(&st, "upload once services.zipline.headers.x-zipline-deletes-at");
+	check(exp && exp->info.kind == CFG_KIND_ENUM && set_dd_count(exp) > 5, "expiry should be a dropdown of presets");
+	if (exp) {
+		set_apply(&st, exp, "1d");
+		check(strcmp(set_dd_label(exp, set_dd_index_of(&st, exp)), "1 day") == 0, "expiry should read 1 day, not 1d");
+		set_apply(&st, exp, NULL);
+	}
+	struct set_row *fname = set_find_row(&st, "upload once services.zipline.headers.x-zipline-filename");
+	if (fname) set_apply(&st, fname, "renamed.txt");
+	char *many = set_upload_overlay(st.upq, 2);
+	if (many && many[0]) {
+		setenv("GRABIT_CONFIG", many, 1);
+		struct config c = {0};
+		config_load(&c);
+		check(!config_get(&c, "services.zipline.headers.x-zipline-filename"), "override file name should be skipped for several files");
+		config_free(&c);
+		unsetenv("GRABIT_CONFIG");
+		unlink(many);
+	}
+	free(many);
+	if (fname) set_apply(&st, fname, NULL);
+	set_apply(&st, mv, "");
+	char *ov = set_upload_overlay(st.upq, 1);
+	check(ov && ov[0], "changed options should be written to an overlay");
+	if (ov && ov[0]) {
+		setenv("GRABIT_CONFIG", ov, 1);
+		struct config c = {0};
+		config_load(&c);
+		const char *v = config_get(&c, "services.zipline.headers.x-zipline-max-views");
+		const char *on = config_get(&c, "services.zipline.headers.x-zipline-original-name");
+		check(!v && on && strcmp(on, "true") == 0 && strcmp(config_get(&c, "service"), "zipline") == 0,
+			  "the overlay should clear max views and send the original name, got %s", v ? v : "nothing");
+		config_free(&c);
+		unsetenv("GRABIT_CONFIG");
+		unlink(ov);
+	}
+	free(ov);
+	ui_text_set(&st.search, "max views");
+	settings_filter(&st);
+	bool leaked = false;
+	for (size_t i = 0; i < st.results.n; i++)
+		leaked |= st.results.rows[i]->scratch;
+	check(!leaked, "search should not list the Upload page's one-off rows");
+	ui_text_set(&st.search, "");
+	settings_filter(&st);
+	st.page = st.upload_page;
+	check(set_page_resettable(&st, &st.pages[st.upload_page]) == 2, "two upload options should be resettable, got %zu",
+		  set_page_resettable(&st, &st.pages[st.upload_page]));
+	set_reset_page_ask(&st);
+	set_toast_run(&st);
+	check(!mv->once_value && (!orig || !orig->once_value), "resetting the Upload page should clear the one-off values");
+	unlink(pic);
+	settings_state_close(&st);
+}
+
 static void check_history(void) {
 	struct config c;
 	write_config("");
@@ -437,7 +549,8 @@ static void check_history(void) {
 	check(g->n_items == 0, "uploads with no file have no size, got %zu", g->n_items);
 	g->size = GS_ANY;
 	g->dirty = true;
-	check(set_side_row_y(&st, st.history_page) > set_side_row_y(&st, st.history_page - 1) + 64,
+	check(st.upload_page + 1 == st.history_page && st.pages[st.upload_page].bottom &&
+			  set_side_row_y(&st, st.upload_page) > set_side_row_y(&st, st.upload_page - 1) + 64,
 		  "the bottom pages should sit apart from the rest");
 	settings_state_close(&st);
 
@@ -524,6 +637,7 @@ int main(void) {
 	check_upload_test();
 	check_reserved();
 	check_overrides();
+	check_upload_page();
 	check_history();
 	nftw(g_root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
 	if (g_failed) {

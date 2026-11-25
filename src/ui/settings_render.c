@@ -517,6 +517,10 @@ static void draw_controls(struct settings_state *st, cairo_t *cr, size_t i,
 static void modified_tag(struct settings_state *st, const struct set_row *r, char *out,
 						 size_t n) {
 	out[0] = '\0';
+	if (r->scratch) {
+		if (r->once && r->once_value) snprintf(out, n, "This upload");
+		return;
+	}
 	char from[128];
 	if (set_override_file(st, r, from, sizeof from)) {
 		snprintf(out, n, "From %s", from);
@@ -566,7 +570,7 @@ static void draw_row(struct settings_state *st, cairo_t *cr, size_t i, struct se
 
 	char tag[192];
 	modified_tag(st, r, tag, sizeof tag);
-	draw_key(cr, SET_BODY_PAD, ty + LABEL_LINE, tw, r->key, tag,
+	draw_key(cr, SET_BODY_PAD, ty + LABEL_LINE, tw, r->once ? r->once : r->key, tag,
 			 set_current_page(st) == &st->results ? r->page : NULL);
 
 	char lines[SET_HINT_MAX_LINES + 2][160];

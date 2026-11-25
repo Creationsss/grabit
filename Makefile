@@ -154,6 +154,9 @@ GRABIT_SRCS := \
 	src/ui/settings_drop.c \
 	src/ui/settings_plugins.c \
 	src/ui/settings_history.c \
+	src/ui/settings_upload.c \
+	src/ui/settings_upload_draw.c \
+	src/ui/settings_upload_input.c \
 	src/ui/settings_grid.c \
 	src/ui/settings_grid_draw.c \
 	src/ui/settings_grid_input.c \

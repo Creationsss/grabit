@@ -30,6 +30,7 @@ const char *config_source(const struct config *c, const char *key);
 int64_t config_stamp(void);
 void config_watch_add(int inotify_fd);
 int config_save(struct config *c);
+int config_write_to(struct config *c, const char *path);
 void config_free(struct config *c);
 int config_copy(struct config *dst, const struct config *src);
 

@@ -297,7 +297,7 @@ int cfg_validate_value(const char *key, const char *value) {
 	}
 
 	const char *zl_prefix = "services.zipline.headers.";
-	if (strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {
+	if (value[0] && strncmp(key, zl_prefix, strlen(zl_prefix)) == 0) {
 		if (gcfg_validate_zl_header(key + strlen(zl_prefix), value) != 0) return -1;
 	}
 

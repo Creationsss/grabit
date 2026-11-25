@@ -31,7 +31,7 @@ struct curl_slist *zipline_option_headers(struct config *cfg,
 		if (strncmp(k, prefix, pl) != 0) continue;
 		const char *header_name = k + pl;
 		const char *val = cfg->kvs[i].val;
-		if (strcmp(header_name, "x-zipline-format") == 0) has_format = true;
+		if (strcmp(header_name, "x-zipline-format") == 0 && val && val[0]) has_format = true;
 		if (val && val[0]) headers = upload_header_append(headers, header_name, val, oom);
 	}
 	if (!has_format) {

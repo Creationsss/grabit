@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/inotify.h>
+#include <unistd.h>
 
 static void update_banner(struct settings_state *st) {
 	st->banner[0] = '\0';
@@ -52,6 +54,21 @@ static void on_focus_gained(struct ui_window *w) {
 	struct settings_state *st = w->user;
 	if (stamps_changed(st) && reload(st) == 0) ui_window_damage(w);
 	set_history_check(st);
+}
+
+#define WATCH_MASK (IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_MOVED_FROM)
+
+static void watch_files(int fd) {
+	if (paths_mkdir_p(paths_state_dir()) == 0) inotify_add_watch(fd, paths_state_dir(), WATCH_MASK);
+	config_watch_add(fd);
+}
+
+static void on_watch(struct ui_window *w) {
+	char buf[4096] __attribute__((aligned(__alignof__(struct inotify_event))));
+	while (read(w->watch_fd, buf, sizeof buf) > 0)
+		;
+	watch_files(w->watch_fd);
+	on_focus_gained(w);
 }
 
 static int hex_val(char c) {
@@ -564,10 +581,15 @@ int grabit_settings_main(const char *what) {
 		.on_focus_lost = set_on_focus_lost,
 		.on_focus_gained = on_focus_gained,
 		.on_timer = set_on_timer,
+		.watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC),
 		.on_drag = set_on_drag,
 		.on_drop = set_on_drop,
 	};
 	st.win = &win;
+	if (win.watch_fd >= 0) {
+		watch_files(win.watch_fd);
+		win.on_watch = on_watch;
+	}
 	set_arm_timer(&st);
 
 	int rc = 1;
@@ -579,6 +601,7 @@ int grabit_settings_main(const char *what) {
 		save_size(&st.cfg, &win);
 	}
 	ui_window_finish(&win);
+	if (win.watch_fd >= 0) close(win.watch_fd);
 	wl_display_roundtrip(wls.display);
 
 	settings_state_close(&st);

@@ -331,6 +331,11 @@ struct settings_state {
 	int64_t hist_stamp;
 	pid_t hist_pid;
 	char hist_job_name[128];
+	pid_t up_pid;
+	char up_job_name[128];
+	char up_service[64];
+	char *up_id;
+	char up_labels[SET_MAX_ACTIONS][64];
 	struct set_hist_grid *grid;
 	struct {
 		const char *label;
@@ -493,6 +498,8 @@ struct set_hist_action {
 };
 size_t set_hist_actions(const struct history_entry *e, struct set_hist_action *out);
 bool set_hist_view_shown(const struct settings_state *st);
+bool set_hist_view_anchor(struct settings_state *st, size_t items, size_t *row, double *bx,
+						  double *by);
 void set_hist_view_draw(struct settings_state *st, cairo_t *cr, double w, double h);
 bool set_hist_view_press(struct settings_state *st, double x, double y, uint32_t button,
 						 bool pressed);

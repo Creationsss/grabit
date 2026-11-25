@@ -42,7 +42,7 @@ void set_arm_timer(struct settings_state *st) {
 		int64_t poll = grabit_now_ms() + 50;
 		if (!due || poll < due) due = poll;
 	}
-	if (st->plugin_jobs.pid > 0 || st->upload_test || st->hist_pid > 0) {
+	if (st->plugin_jobs.pid > 0 || st->upload_test || st->hist_pid > 0 || st->up_pid > 0) {
 		int64_t poll = grabit_now_ms() + SET_JOB_POLL_MS;
 		if (!due || poll < due) due = poll;
 	}
@@ -418,6 +418,10 @@ void set_on_button(struct ui_window *w, double x, double y, uint32_t button, boo
 	set_hide_tip(st);
 	if (set_capture_button(st, button, pressed)) return;
 	if (set_dialog_press(st, x, y, button, pressed)) return;
+	if (pressed && st->popup != POPUP_NONE && set_hist_view_shown(st)) {
+		popup_press(st, x - set_body_x(st), y + st->body.offset, button);
+		return;
+	}
 	if (set_hist_view_press(st, x, y, button, pressed)) return;
 	if (!pressed) {
 		st->text_drag = false;
@@ -522,6 +526,16 @@ void set_on_motion(struct ui_window *w, double x, double y) {
 	enum grabit_cursor_kind cur = GCUR_DEFAULT;
 
 	if (set_dialog_motion(st, x, y)) return;
+	if (st->popup != POPUP_NONE && set_hist_view_shown(st)) {
+		size_t hit = set_popup_item_at(st, x - set_body_x(st), y + st->body.offset);
+		if (hit == SET_POPUP_PAD_HIT) hit = SET_NONE;
+		st->win->content_cursor = hit == SET_NONE ? GCUR_DEFAULT : GCUR_HAND;
+		if (hit != st->popup_hover) {
+			st->popup_hover = hit;
+			ui_window_damage(w);
+		}
+		return;
+	}
 	if (set_hist_view_motion(st, x, y)) return;
 	if (drag_text(st, x)) return;
 	struct set_rect outer, list;

@@ -369,9 +369,22 @@ static void run(struct settings_state *st, size_t i) {
 	}
 	if (i >= g->n_acts) return;
 	set_toast_action fn = g->acts[i].fn;
+	g->view_ran = i;
 	char *id = strdup(g->view_id);
 	if (id && fn) fn(st, id);
 	free(id);
+}
+
+bool set_hist_view_anchor(struct settings_state *st, size_t items, size_t *row, double *bx,
+						  double *by) {
+	struct set_hist_grid *g = st->grid;
+	if (!g || g->view_ran >= g->n_acts || !grid_row(st, row)) return false;
+	struct set_rect b = g->btn[g->view_ran];
+	double h = (double)items * SET_POPUP_ITEM_H + 8;
+	bool down = b.y + b.h + 4 + h <= g->panel.y + g->panel.h;
+	*bx = b.x - set_body_x(st);
+	*by = (down ? b.y + b.h + 4 : b.y - 4 - h) + st->body.offset;
+	return true;
 }
 
 bool set_hist_view_press(struct settings_state *st, double x, double y, uint32_t button,

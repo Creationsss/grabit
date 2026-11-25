@@ -246,6 +246,10 @@ bool set_on_key(struct ui_window *w, xkb_keysym_t sym, uint8_t mods) {
 	st->focus_visible = true;
 	if (set_capture_key(st, sym, mods)) return true;
 	if (set_dialog_key(st, sym, mods)) return true;
+	if (st->popup != POPUP_NONE && set_hist_view_shown(st)) {
+		popup_key(st, sym, mods);
+		return true;
+	}
 	if (set_hist_view_key(st, sym)) return true;
 	bool ctrl = (mods & KB_MOD_CTRL) != 0;
 	xkb_keysym_t lower = xkb_keysym_to_lower(sym);

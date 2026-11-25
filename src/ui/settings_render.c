@@ -652,7 +652,7 @@ static void draw_body(struct settings_state *st, cairo_t *cr) {
 						 "no settings match", 13, CAIRO_FONT_WEIGHT_NORMAL, 0.5);
 	for (size_t i = 0; i < p->n; i++)
 		if (p->rows[i]->custom && p->rows[i]->custom->overlay) p->rows[i]->custom->overlay(st, cr, p->rows[i]);
-	set_draw_popup(st, cr);
+	if (!set_hist_view_shown(st)) set_draw_popup(st, cr);
 	cairo_restore(cr);
 	ui_scroll_draw(cr, &st->body, bw);
 	cairo_restore(cr);
@@ -669,6 +669,12 @@ void set_draw(struct ui_window *w, cairo_t *cr, double width, double height) {
 	set_draw_sidebar(st, cr, sw, height);
 	draw_body(st, cr);
 	set_hist_view_draw(st, cr, width, height);
+	if (set_hist_view_shown(st) && st->popup != POPUP_NONE) {
+		cairo_save(cr);
+		cairo_translate(cr, set_body_x(st), -st->body.offset);
+		set_draw_popup(st, cr);
+		cairo_restore(cr);
+	}
 	set_draw_toast(st, cr, height);
 	set_draw_tip(st, cr);
 	set_dialog_draw(st, cr, width, height);

@@ -7,6 +7,8 @@
 #include "clipboard/clipboard.h"
 #include "log.h"
 #include "ui/window.h"
+#include "upload/sxcu.h"
+#include "upload/upload.h"
 #include "util/util.h"
 
 #include <errno.h>
@@ -135,6 +137,8 @@ void set_hist_release(struct settings_state *st) {
 	set_hist_grid_free(st);
 	history_list_free(&st->hist);
 	history_list_free(&st->hist_ocr);
+	free(st->up_id);
+	st->up_id = NULL;
 }
 
 void set_copy_text(struct settings_state *st, const char *text, const char *what) {
@@ -252,6 +256,75 @@ pid_t set_spawn_self(struct settings_state *st, const char *const *args) {
 	return pid;
 }
 
+static void add_target(struct settings_state *st, size_t *n, const char *service) {
+	if (!service || !service[0] || *n == SET_MAX_ACTIONS) return;
+	for (size_t i = 0; i < *n; i++)
+		if (strcmp(st->up_labels[i], service) == 0) return;
+	const char *missing = NULL;
+	if (upload_test_check(&st->cfg, service, &missing) != UPLOAD_TEST_READY) return;
+	snprintf(st->up_labels[(*n)++], sizeof st->up_labels[0], "%s", service);
+}
+
+static size_t upload_targets(struct settings_state *st) {
+	size_t n = 0;
+	add_target(st, &n, config_get(&st->cfg, "service"));
+	struct set_row *svc = set_find_row(st, "service");
+	for (size_t i = 0; svc && svc->info.values && svc->info.values[i]; i++)
+		add_target(st, &n, svc->info.values[i]);
+	char **names = NULL;
+	size_t count = 0;
+	if (sxcu_dir_list(&names, &count) == 0) {
+		for (size_t i = 0; i < count; i++)
+			add_target(st, &n, names[i]);
+		grabit_strv_free(names, count);
+	}
+	return n;
+}
+
+static void upload_to(struct settings_state *st, const char *service) {
+	const struct history_entry *e = st->up_id ? find(st, st->up_id) : NULL;
+	if (!e || !history_has_file(e)) {
+		set_toast(st, "This file is gone");
+		return;
+	}
+	if (st->up_pid > 0) {
+		set_toast(st, "Wait for the current upload to finish");
+		return;
+	}
+	char flag[80];
+	snprintf(flag, sizeof flag, "--%s", service);
+	pid_t pid = set_spawn_self(st, (const char *const[]){"-f", e->path, flag, NULL});
+	if (pid == -2) return;
+	if (pid < 0) {
+		set_toast(st, "Could not start the upload");
+		return;
+	}
+	st->up_pid = pid;
+	snprintf(st->up_job_name, sizeof st->up_job_name, "%s", grabit_basename(e->path));
+	snprintf(st->up_service, sizeof st->up_service, "%s", service);
+	set_toast(st, "Uploading %s to %s", st->up_job_name, service);
+}
+
+static void act_upload(struct settings_state *st, const char *id) {
+	const struct history_entry *e = find(st, id);
+	if (!e || !history_has_file(e)) return;
+	size_t n = upload_targets(st);
+	if (n == 0) {
+		set_toast(st, "Set up an upload service on the Uploads page first");
+		return;
+	}
+	size_t row = st->popup_row;
+	double bx = st->popup_x, by = st->popup_y;
+	if (set_hist_view_shown(st) && !set_hist_view_anchor(st, n, &row, &bx, &by)) return;
+	free(st->up_id);
+	st->up_id = strdup(id);
+	if (!st->up_id) return;
+	set_open_actions(st, row, bx, by, NULL);
+	for (size_t i = 0; i < n; i++)
+		set_add_action(st, st->up_labels[i], upload_to);
+	if (st->focus_visible) st->popup_hover = 0;
+}
+
 size_t set_hist_actions(const struct history_entry *e, struct set_hist_action *out) {
 	size_t n = 0;
 	bool file = history_has_file(e);
@@ -264,6 +337,7 @@ size_t set_hist_actions(const struct history_entry *e, struct set_hist_action *o
 		out[n++] = (struct set_hist_action){e->kind == HISTORY_UPLOAD ? "Open file" : "Open",
 											act_open_file};
 		out[n++] = (struct set_hist_action){"Show in folder", act_show_folder};
+		out[n++] = (struct set_hist_action){"Upload to\xe2\x80\xa6", act_upload};
 	}
 	if (e->path && e->kind == HISTORY_FILE)
 		out[n++] = (struct set_hist_action){"Copy path", act_copy_path};
@@ -363,12 +437,17 @@ int set_reap(pid_t *pid) {
 }
 
 bool set_history_poll(struct settings_state *st) {
-	int del = set_reap(&st->hist_pid);
+	int del = set_reap(&st->hist_pid), up = set_reap(&st->up_pid);
 	if (del == 1)
 		set_toast(st, "Deleted %s", st->hist_job_name);
 	else if (del == 0)
 		set_toast(st, "Could not delete %s; details in grabit.log", st->hist_job_name);
-	if (del < 0) return false;
+	if (up == 1)
+		set_toast(st, "Uploaded %s to %s", st->up_job_name, st->up_service);
+	else if (up == 0)
+		set_toast(st, "Could not upload %s to %s; details in grabit.log", st->up_job_name,
+				  st->up_service);
+	if (del < 0 && up < 0) return false;
 	set_refresh_history(st);
 	return true;
 }

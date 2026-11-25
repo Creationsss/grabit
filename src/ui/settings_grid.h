@@ -140,6 +140,7 @@ struct set_hist_grid {
 	size_t view_hover;
 	size_t view_press;
 	size_t view_focus;
+	size_t view_ran;
 	int64_t view_tip_at;
 	bool tip_drawn;
 };

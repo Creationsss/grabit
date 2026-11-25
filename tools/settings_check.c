@@ -459,7 +459,43 @@ static void check_history(void) {
 		set_refresh_history(&st);
 	int64_t took = grabit_now_ms() - t0;
 	check(took < 500, "refreshing the history with loaders running took %lld ms", (long long)took);
+	struct set_hist_action acts[SET_MAX_ACTIONS];
+	size_t na = st.hist.n ? set_hist_actions(&st.hist.v[0], acts) : 0, up = SET_NONE;
+	for (size_t i = 0; i < na; i++)
+		if (strncmp(acts[i].label, "Upload to", 9) == 0) up = i;
+	check(up != SET_NONE, "a saved file should offer Upload to");
+	if (up != SET_NONE) {
+		acts[up].fn(&st, st.hist.v[0].id);
+		check(st.popup == POPUP_NONE && st.toast[0], "Upload to with no service set up should explain why");
+	}
 	settings_state_close(&st);
+	char sxcu[600];
+	snprintf(sxcu, sizeof sxcu, "%s/uploaders", paths_config_dir());
+	paths_mkdir_p(sxcu);
+	snprintf(sxcu, sizeof sxcu, "%s/uploaders/mock.sxcu", paths_config_dir());
+	write_file(sxcu, "{\"Version\":\"14.0.0\",\"Name\":\"mock\",\"RequestMethod\":\"POST\","
+					 "\"RequestURL\":\"http://127.0.0.1:9/up\",\"Body\":\"MultipartFormData\","
+					 "\"FileFormName\":\"file\",\"URL\":\"{json:url}\"}");
+	open_settings("");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	viewer_show(&st, 0);
+	cairo_surface_t *frame = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *fcr = cairo_create(frame);
+	set_draw(&win, fcr, 1000, 720);
+	g = st.grid;
+	for (size_t i = 0; g && i < g->n_acts; i++)
+		if (strncmp(g->acts[i].label, "Upload to", 9) == 0) {
+			g->view_ran = i;
+			g->acts[i].fn(&st, g->view_id);
+		}
+	check(st.popup == POPUP_ACTIONS && st.popup_act_n == 1 && strcmp(st.popup_acts[0].label, "mock") == 0,
+		  "Upload to in the viewer should list the one ready uploader");
+	cairo_destroy(fcr);
+	cairo_surface_destroy(frame);
+	settings_state_close(&st);
+	unlink(sxcu);
 	unlink(img);
 	history_clear(HISTORY_ALL);
 	for (int i = 0; i < 20; i++) {

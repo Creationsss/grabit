@@ -13,10 +13,13 @@
 #include "util/json_path.h"
 #include "util/util.h"
 
+#include <errno.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <curl/curl.h>
@@ -34,11 +37,57 @@ static bool g_progress_shown;
 static curl_off_t g_progress_bytes = -1;
 static int64_t g_progress_ms;
 
+static long long g_span_base;
+static long long g_span_total;
+
+void upload_progress_span(long long base, long long total) {
+	g_span_base = base;
+	g_span_total = total;
+}
+
+static int g_report_fd = -2;
+
+static int progress_fd(void) {
+	if (g_report_fd != -2) return g_report_fd;
+	g_report_fd = -1;
+	const char *env = getenv("GRABIT_PROGRESS_FD");
+	char *end = NULL;
+	long n = env && env[0] ? strtol(env, &end, 10) : -1;
+	struct stat sb;
+	if (end && !*end && n > 2 && n < 1024 && fstat((int)n, &sb) == 0 && S_ISFIFO(sb.st_mode)) {
+		g_report_fd = (int)n;
+		signal(SIGPIPE, SIG_IGN);
+	}
+	unsetenv("GRABIT_PROGRESS_FD");
+	return g_report_fd;
+}
+
+static void report_progress(curl_off_t ulnow, curl_off_t ultotal) {
+	static int64_t last_ms;
+	static long long last_sent = -1;
+	int fd = progress_fd();
+	if (fd < 0 || ultotal <= 0) return;
+	long long sent = g_span_base + (long long)ulnow;
+	long long total = g_span_total > 0 ? g_span_total : (long long)ultotal;
+	int64_t now = grabit_now_ms();
+	if (sent == last_sent || (sent < total && now - last_ms < 100)) return;
+	char line[64];
+	int n = snprintf(line, sizeof line, "%lld %lld\n", sent, total);
+	if (write(fd, line, (size_t)n) < 0 && errno != EAGAIN) {
+		close(fd);
+		g_report_fd = -1;
+		return;
+	}
+	last_ms = now;
+	last_sent = sent;
+}
+
 static int upload_xfer_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
 						  curl_off_t ultotal, curl_off_t ulnow) {
 	(void)clientp;
 	(void)dltotal;
 	(void)dlnow;
+	report_progress(ulnow, ultotal);
 	if (ultotal <= 0 || log_is_silent() || !isatty(STDERR_FILENO)) return 0;
 
 	int64_t now = grabit_now_ms();

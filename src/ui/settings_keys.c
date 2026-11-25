@@ -588,6 +588,8 @@ const char *set_dd_value(const struct set_row *r, size_t i) {
 
 const char *set_dd_label(const struct set_row *r, size_t i) {
 	const char *v = set_dd_value(r, i);
+	for (size_t k = 0; v[0] && r->choice_labels && r->choice_labels[k] && k < r->n_choices; k++)
+		if (strcmp(r->choices[k], v) == 0) return r->choice_labels[k];
 	return v[0] ? v : r->empty_label ? r->empty_label
 									 : "none";
 }

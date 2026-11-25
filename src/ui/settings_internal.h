@@ -135,6 +135,7 @@ struct set_row {
 	struct config_key_info info;
 	char **choices;
 	size_t n_choices;
+	const char *const *choice_labels;
 	size_t choices_cap;
 	const char *empty_label;
 	const char *page;

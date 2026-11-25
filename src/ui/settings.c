@@ -493,9 +493,16 @@ void set_commit_edit(struct settings_state *st) {
 	ui_window_damage(st->win);
 }
 
+#define PAGE_KEY "gui.settings_page"
+
 static void open_at(struct settings_state *st, const char *what) {
-	if (!what || !*what) return;
-	size_t n = strlen(what), hits = 0, hit = 0;
+	if (!what || !*what) {
+		const char *last = config_get(&st->cfg, PAGE_KEY);
+		for (size_t i = 0; last && i < st->n_pages; i++)
+			if (strcmp(st->pages[i].title, last) == 0) st->page = i;
+		return;
+	}
+	size_t n = strlen(what), hits = 0, hit = 0, top_hits = 0, top_hit = 0;
 	for (size_t i = 0; i < st->n_pages; i++) {
 		if (strcasecmp(st->pages[i].title, what) == 0) {
 			st->page = i;
@@ -504,10 +511,14 @@ static void open_at(struct settings_state *st, const char *what) {
 		if (strncasecmp(st->pages[i].title, what, n) == 0) {
 			hits++;
 			hit = i;
+			if (!st->pages[i].bottom) {
+				top_hits++;
+				top_hit = i;
+			}
 		}
 	}
-	if (hits == 1) {
-		st->page = hit;
+	if (hits == 1 || top_hits == 1) {
+		st->page = hits == 1 ? hit : top_hit;
 		return;
 	}
 	ui_text_set(&st->search, what);
@@ -534,6 +545,14 @@ static void save_size(struct config *cfg, const struct ui_window *win) {
 	if (cur && strcmp(cur, v) == 0) return;
 	const char *keys[] = {SIZE_KEY}, *vals[] = {v};
 	(void)config_state_put(cfg, keys, vals, 1);
+}
+
+static void save_page(struct settings_state *st) {
+	if (st->page >= st->n_pages) return;
+	const char *title = st->pages[st->page].title, *cur = config_get(&st->cfg, PAGE_KEY);
+	if (cur && strcmp(cur, title) == 0) return;
+	const char *keys[] = {PAGE_KEY}, *vals[] = {title};
+	(void)config_state_put(&st->cfg, keys, vals, 1);
 }
 
 int settings_state_open(struct settings_state *st, struct grabit_wl_state *wls) {
@@ -611,6 +630,7 @@ int grabit_settings_main(const char *what) {
 		rc = ui_window_run(&win) == 0 ? 0 : 1;
 		set_commit_edit(&st);
 		save_size(&st.cfg, &win);
+		save_page(&st);
 	}
 	ui_window_finish(&win);
 	if (win.watch_fd >= 0) close(win.watch_fd);
@@ -628,8 +648,8 @@ int cmd_settings(int argc, char **argv) {
 		puts("Opens the settings ui.");
 		puts("");
 		puts("<page> opens that page (general, capture, region, editor, recording,");
-		puts("uploads, plugins, ocr, cards, appearance, keybinds); anything else is");
-		puts("searched.");
+		puts("uploads, plugins, ocr, cards, appearance, keybinds, upload, history);");
+		puts("anything else is searched. With no page it opens the last one used.");
 		return 0;
 	}
 	if (argc > 1) {

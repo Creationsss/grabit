@@ -40,7 +40,7 @@ bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_
 int ginp_anno_hit_index(const struct ro_state *st, int32_t x, int32_t y) {
 	if (!st->out_annos) return -1;
 	for (size_t i = st->out_annos->n; i > 0; i--) {
-		if (annotation_hit(&st->out_annos->items[i - 1], x, y))
+		if (annotation_hit(&st->out_annos->items[i - 1], x, y, 6))
 			return (int)(i - 1);
 	}
 	return -1;

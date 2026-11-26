@@ -215,8 +215,8 @@ int annotation_corner_mask(const struct annotation *a) {
 	return 0;
 }
 
-bool annotation_hit(const struct annotation *a, int32_t x, int32_t y) {
-	int32_t tol = a->width + 6;
+bool annotation_hit(const struct annotation *a, int32_t x, int32_t y, int32_t slack) {
+	int32_t tol = a->width + slack;
 	double tol2 = (double)tol * (double)tol;
 	struct rect ebb = {a->bbox.x - tol, a->bbox.y - tol,
 					   a->bbox.w + tol * 2, a->bbox.h + tol * 2};

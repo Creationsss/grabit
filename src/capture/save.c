@@ -247,6 +247,59 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 	return rc;
 }
 
+cairo_surface_t *grabit_composite_surface(int32_t dst_w, int32_t dst_h,
+										  const struct png_slice *slices, size_t n) {
+	if (dst_w <= 0 || dst_h <= 0 || n == 0 || !slices) return NULL;
+	if (dst_w > GRABIT_MAX_PIXEL_SIDE || dst_h > GRABIT_MAX_PIXEL_SIDE) {
+		log_error("save: %dx%d exceeds %d-px side cap",
+				  dst_w, dst_h, GRABIT_MAX_PIXEL_SIDE);
+		return NULL;
+	}
+	for (size_t i = 0; i < n; i++)
+		pixels_to_8bit((struct image *)slices[i].src);
+	return build_composite_surface(dst_w, dst_h, slices, n);
+}
+
+int grabit_save_cropped_annotated(cairo_surface_t *base, const struct rect *area,
+								  const struct rect *crop,
+								  const struct annotation_list *annos,
+								  const struct grabit_save_opts *opts, const char *path) {
+	if (!base || !area || !crop || !opts || !path || area->w <= 0 || area->h <= 0)
+		return -1;
+	double rx = (double)cairo_image_surface_get_width(base) / area->w;
+	double ry = (double)cairo_image_surface_get_height(base) / area->h;
+	int32_t x0 = (int32_t)lround((crop->x - area->x) * rx);
+	int32_t y0 = (int32_t)lround((crop->y - area->y) * ry);
+	int32_t x1 = (int32_t)lround((crop->x + crop->w - area->x) * rx);
+	int32_t y1 = (int32_t)lround((crop->y + crop->h - area->y) * ry);
+	int32_t w = x1 - x0, h = y1 - y0;
+	if (w <= 0 || h <= 0) {
+		log_error("save: empty crop");
+		return -1;
+	}
+	cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+	if (cairo_surface_status(dst) != CAIRO_STATUS_SUCCESS) {
+		log_error("save: %dx%d surface failed", w, h);
+		cairo_surface_destroy(dst);
+		return -1;
+	}
+	cairo_t *cr = cairo_create(dst);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_surface(cr, base, -x0, -y0);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+	if (annos && annos->n > 0) {
+		cr = cairo_create(dst);
+		annotation_list_paint(cr, annos, crop->x, crop->y, rx);
+		cairo_destroy(cr);
+	}
+	struct grabit_save_opts scaled = *opts;
+	scaled.corner_radius = (int32_t)lround(opts->corner_radius * rx);
+	int rc = grabit_save_surface(dst, &scaled, path);
+	cairo_surface_destroy(dst);
+	return rc;
+}
+
 FILE *grabit_open_write(const char *tag, const char *path) {
 	FILE *f = fopen(path, "wb");
 	if (!f) log_error("%s: open %s: %s", tag, path, strerror(errno));

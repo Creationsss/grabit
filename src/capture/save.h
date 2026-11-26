@@ -51,6 +51,13 @@ int grabit_save_composite_annotated(int32_t dst_w, int32_t dst_h,
 									const struct grabit_save_opts *opts,
 									const char *path);
 
+cairo_surface_t *grabit_composite_surface(int32_t dst_w, int32_t dst_h,
+										  const struct png_slice *slices, size_t n);
+int grabit_save_cropped_annotated(cairo_surface_t *base, const struct rect *area,
+								  const struct rect *crop,
+								  const struct annotation_list *annos,
+								  const struct grabit_save_opts *opts, const char *path);
+
 int grabit_save_surface(cairo_surface_t *dst,
 						const struct grabit_save_opts *opts, const char *path);
 

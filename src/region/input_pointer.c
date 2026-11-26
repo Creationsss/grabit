@@ -19,14 +19,16 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "region/input_internal.h"
+#include "region/render_internal.h"
 
 static bool enter_output(struct ro_state *st, struct wl_surface *surface,
 						 wl_fixed_t sx, wl_fixed_t sy) {
 	struct ro_output *o = region_render_find_by_surface(st, surface);
 	if (!o) return false;
 	st->cursor_on = o;
-	st->cursor_x = o->go->x + wl_fixed_to_int(sx);
-	st->cursor_y = o->go->y + wl_fixed_to_int(sy);
+	gren_overlay_view(o);
+	st->ui_x = st->cursor_x = o->go->x + wl_fixed_to_int(sx);
+	st->ui_y = st->cursor_y = o->go->y + wl_fixed_to_int(sy);
 	st->cursor_seen = true;
 	return true;
 }
@@ -38,7 +40,7 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial,
 	if (st->cleanup) return;
 	if (!enter_output(st, surface, sx, sy)) return;
 	st->last_cursor_serial = serial;
-	st->current_cursor_kind = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
+	st->current_cursor_kind = ginp_pick_cursor(st);
 	ginp_apply_cursor(st, serial, st->current_cursor_kind);
 }
 
@@ -63,20 +65,20 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	if (st->cleanup) return;
 	if (!st->cursor_on) return;
-	st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
-	st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
+	st->ui_x = st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
+	st->ui_y = st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
 	st->cursor_seen = true;
 
 	if (st->tb_dragging) {
 		if (!st->tb_lock) st->tb_out = st->cursor_on->go;
-		st->tb_x = st->cursor_x - st->tb_grab_dx;
-		st->tb_y = st->cursor_y - st->tb_grab_dy;
+		st->tb_x = st->ui_x - st->tb_grab_dx;
+		st->tb_y = st->ui_y - st->tb_grab_dy;
 		st->tb_moved = true;
 	} else if (st->slider_dragging) {
 		ginp_slider_set_width_from_cursor(st, false);
 	} else if (st->color_picker_dragging) {
 		uint32_t picked = 0;
-		if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked))
+		if (region_color_picker_pick(st, st->ui_x, st->ui_y, &picked))
 			region_apply_color(st, picked, false);
 	} else if (st->region_locked) {
 		if (st->moving_region) {
@@ -120,7 +122,7 @@ static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 
 	int hover = -1;
 	if (ginp_toolbar_reachable(st)) {
-		enum tb_action a = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
+		enum tb_action a = region_toolbar_hit(st, st->ui_x, st->ui_y);
 		if (a != TB_NONE) hover = (int)a;
 	}
 	if (st->pressed_button >= 0 && hover != st->pressed_button) st->pressed_button = -1;

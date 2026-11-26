@@ -25,17 +25,16 @@ bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 	int32_t tx, ty, tw, th;
 	const struct grabit_output *to;
 	region_toolbar_rect(st, &to, &tx, &ty, &tw, &th);
-	if (!to || !rect_contains((struct rect){tx, ty, tw, th},
-							  st->cursor_x, st->cursor_y))
+	if (!to || !rect_contains((struct rect){tx, ty, tw, th}, st->ui_x, st->ui_y))
 		return false;
 
-	enum tb_action act = region_toolbar_hit(st, st->cursor_x, st->cursor_y);
+	enum tb_action act = region_toolbar_hit(st, st->ui_x, st->ui_y);
 	st->pressed_button = state == WL_POINTER_BUTTON_STATE_PRESSED ? (int)act : -1;
 	if (act == TB_NONE) {
 		if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			st->tb_dragging = true;
-			st->tb_grab_dx = st->cursor_x - tx;
-			st->tb_grab_dy = st->cursor_y - ty;
+			st->tb_grab_dx = st->ui_x - tx;
+			st->tb_grab_dy = st->ui_y - ty;
 			region_drag_start(st);
 			ginp_refresh_cursor(st);
 		}

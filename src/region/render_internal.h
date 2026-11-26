@@ -18,5 +18,6 @@ void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st);
 void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char *hint);
 
 void gren_output_configure(struct ro_output *o);
+void gren_overlay_view(struct ro_output *o);
 
 #endif

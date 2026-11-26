@@ -38,6 +38,8 @@ void gren_output_redraw(struct ro_output *o) {
 	const int32_t pw = o->pixel_width;
 	const int32_t ph = o->pixel_height;
 
+	gren_overlay_view(o);
+
 	struct grabit_shm_slot *slot = grabit_shm_pool_next(
 		o->st->wls->shm, "grabit-region", &o->pool, pw, ph);
 	if (!slot) {
@@ -71,14 +73,14 @@ void gren_output_redraw(struct ro_output *o) {
 		}
 	}
 	if (draw_any) {
-		int32_t sx = (draw_x - o->go->x) * S;
-		int32_t sy = (draw_y - o->go->y) * S;
-		int32_t sw = draw_w * S;
-		int32_t sh = draw_h * S;
+		int32_t sx = (int32_t)lround((draw_x - o->vx) * o->vs);
+		int32_t sy = (int32_t)lround((draw_y - o->vy) * o->vs);
+		int32_t sx1 = (int32_t)lround((draw_x + draw_w - o->vx) * o->vs);
+		int32_t sy1 = (int32_t)lround((draw_y + draw_h - o->vy) * o->vs);
 		sel_l = i32max(0, sx);
 		sel_t = i32max(0, sy);
-		sel_r = i32min(pw, sx + sw);
-		sel_b = i32min(ph, sy + sh);
+		sel_r = i32min(pw, sx1);
+		sel_b = i32min(ph, sy1);
 		sel_visible = (sel_r > sel_l && sel_b > sel_t);
 	}
 
@@ -116,8 +118,8 @@ void gren_output_redraw(struct ro_output *o) {
 	const struct annotation *live = NULL;
 	if (region_editing(o->st)) {
 		cairo_save(cr);
-		cairo_translate(cr, -o->go->x * S, -o->go->y * S);
-		cairo_scale(cr, S, S);
+		cairo_translate(cr, -o->vx * o->vs, -o->vy * o->vs);
+		cairo_scale(cr, o->vs, o->vs);
 		if (o->st->drawing) {
 			int32_t px1 = o->st->cursor_x, py1 = o->st->cursor_y;
 			region_apply_shape_snap(o->st->current_tool, o->st->shift_held,
@@ -249,8 +251,8 @@ void gren_output_redraw(struct ro_output *o) {
 			int32_t hx[8], hy[8];
 			region_handle_points(o->st, hx, hy);
 			for (int i = 0; i < 8; i++) {
-				hx[i] = (hx[i] - o->go->x) * S;
-				hy[i] = (hy[i] - o->go->y) * S;
+				hx[i] = (int32_t)lround((hx[i] - o->vx) * o->vs);
+				hy[i] = (int32_t)lround((hy[i] - o->vy) * o->vs);
 			}
 			double hr = 6.0 * S;
 			for (int i = 0; i < 8; i++) {

@@ -102,14 +102,14 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 		region_color_input_rect(st, &ir.x, &ir.y, &ir.w, &ir.h);
 		region_color_eyedropper_rect(st, &er.x, &er.y, &er.w, &er.h);
 		bool inside_grid = pr.w > 0 && pr.h > 0 &&
-						   rect_contains(pr, st->cursor_x, st->cursor_y);
+						   rect_contains(pr, st->ui_x, st->ui_y);
 		bool inside_input = ir.w > 0 && ir.h > 0 &&
-							rect_contains(ir, st->cursor_x, st->cursor_y);
+							rect_contains(ir, st->ui_x, st->ui_y);
 		bool inside_eyedropper = er.w > 0 && er.h > 0 &&
-								 rect_contains(er, st->cursor_x, st->cursor_y);
+								 rect_contains(er, st->ui_x, st->ui_y);
 		struct rect rr;
 		region_color_reset_rect(st, &rr.x, &rr.y, &rr.w, &rr.h);
-		if (rr.w > 0 && rr.h > 0 && rect_contains(rr, st->cursor_x, st->cursor_y)) {
+		if (rr.w > 0 && rr.h > 0 && rect_contains(rr, st->ui_x, st->ui_y)) {
 			region_apply_color(st, edit_swatch_default((size_t)st->swatch_edit), true);
 			st->color_input_active = false;
 			region_render_request_redraw_all(st);
@@ -125,7 +125,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 		if (inside_grid) {
 			st->color_input_active = false;
 			uint32_t picked = 0;
-			if (region_color_picker_pick(st, st->cursor_x, st->cursor_y, &picked))
+			if (region_color_picker_pick(st, st->ui_x, st->ui_y, &picked))
 				region_apply_color(st, picked, true);
 			st->color_picker_dragging = true;
 			region_render_request_redraw_all(st);
@@ -148,7 +148,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 		}
 		if (st->eyedropper_mode) {
 			/* fall through to eyedropper sample below; keep panel open */
-		} else if (!region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
+		} else if (!region_toolbar_contains(st, st->ui_x, st->ui_y)) {
 			st->color_picker_open = false;
 			ginp_refresh_cursor(st);
 			region_render_request_redraw_all(st);
@@ -159,7 +159,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 	if (st->picker_group != TB_NONE && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		int val = 0;
 		enum tool_picker_kind k =
-			region_tool_picker_hit(st, st->cursor_x, st->cursor_y, &val);
+			region_tool_picker_hit(st, st->ui_x, st->ui_y, &val);
 		if (k == TP_TOOL) {
 			ginp_mode_select_tool(st, (enum tool_kind)val);
 			st->picker_group = TB_NONE;
@@ -174,9 +174,9 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 		}
 		struct rect pr;
 		region_tool_picker_rect(st, &pr.x, &pr.y, &pr.w, &pr.h);
-		if (pr.w > 0 && rect_contains(pr, st->cursor_x, st->cursor_y))
+		if (pr.w > 0 && rect_contains(pr, st->ui_x, st->ui_y))
 			return;
-		if (!region_toolbar_contains(st, st->cursor_x, st->cursor_y)) {
+		if (!region_toolbar_contains(st, st->ui_x, st->ui_y)) {
 			st->picker_group = TB_NONE;
 			region_render_request_redraw_all(st);
 			return;

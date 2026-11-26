@@ -33,9 +33,7 @@
 
 static bool output_has_cursor(const struct ro_output *o) {
 	if (!o->st->cursor_seen) return false;
-	struct rect r;
-	grabit_output_rect(o->go, &r);
-	return rect_contains(r, o->st->cursor_x, o->st->cursor_y);
+	return rect_contains(o->area, o->st->cursor_x, o->st->cursor_y);
 }
 
 bool region_magnifier_active(const struct ro_output *o) {
@@ -52,8 +50,8 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	const int32_t S = o->scale;
 	const int32_t pw = o->pixel_width;
 	const int32_t ph = o->pixel_height;
-	double cx = (o->st->cursor_x - o->go->x) * S;
-	double cy = (o->st->cursor_y - o->go->y) * S;
+	double cx = (o->st->ui_x - o->go->x) * S;
+	double cy = (o->st->ui_y - o->go->y) * S;
 
 	char info[32];
 	snprintf(info, sizeof info, "%d, %d", o->st->cursor_x, o->st->cursor_y);
@@ -90,9 +88,9 @@ static void paint_view(cairo_t *cr, const struct ro_output *o, bool edits,
 	cairo_paint(cr);
 	if (!edits || !region_editing(o->st)) return;
 	const struct image *img = &o->st->frozen[o->idx];
-	cairo_scale(cr, (double)o->scale * img->width / o->pixel_width,
-				(double)o->scale * img->height / o->pixel_height);
-	cairo_translate(cr, -o->go->x, -o->go->y);
+	if (o->area.w <= 0 || o->area.h <= 0) return;
+	cairo_scale(cr, (double)img->width / o->area.w, (double)img->height / o->area.h);
+	cairo_translate(cr, -o->area.x, -o->area.y);
 	gren_paint_annos(cr, o, live);
 }
 
@@ -140,8 +138,8 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	const int32_t pw = o->pixel_width;
 	const int32_t ph = o->pixel_height;
 
-	int32_t px = (o->st->cursor_x - o->go->x) * S;
-	int32_t py = (o->st->cursor_y - o->go->y) * S;
+	int32_t px = (o->st->ui_x - o->go->x) * S;
+	int32_t py = (o->st->ui_y - o->go->y) * S;
 
 	const double cell = MAGNIFIER_CELL * S;
 	const double L = MAGNIFIER_CELLS * cell;

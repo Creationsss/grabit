@@ -15,10 +15,18 @@
 
 #include "region/render_internal.h"
 
+void gren_overlay_view(struct ro_output *o) {
+	o->area = (struct rect){o->go->x, o->go->y, o->width, o->height};
+	o->vx = o->go->x;
+	o->vy = o->go->y;
+	o->vs = o->scale;
+}
+
 void gren_output_configure(struct ro_output *o) {
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
 	o->pixel_width = o->width * o->scale;
 	o->pixel_height = o->height * o->scale;
+	gren_overlay_view(o);
 
 	if (o->cairo_frozen_pat) {
 		cairo_pattern_destroy(o->cairo_frozen_pat);

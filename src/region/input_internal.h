@@ -23,7 +23,7 @@ extern const struct wl_pointer_listener ginp_pointer_listener_g;
 extern const struct wl_touch_listener ginp_touch_listener_g;
 int ginp_anno_corner_at(const struct ro_state *st, int32_t x, int32_t y);
 int ginp_anno_hit_index(const struct ro_state *st, int32_t x, int32_t y);
-int ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y);
+int ginp_pick_cursor(const struct ro_state *st);
 uint32_t ginp_region_nudge_for_key(struct ro_state *st, xkb_keysym_t sym, uint8_t mods);
 void ginp_apply_cursor(struct ro_state *st, uint32_t serial, int kind);
 void ginp_lock_or_finish(struct ro_state *st);

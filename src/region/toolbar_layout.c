@@ -129,7 +129,7 @@ void region_toolbar_rect(const struct ro_state *st,
 	*h = th;
 
 	if (st->tb_moved) {
-		struct rect b = st->bounds;
+		struct rect b = st->ui_bounds;
 		if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
 		struct rect r = rect_clamp_into((struct rect){st->tb_x, st->tb_y, tw, th}, b);
 		*x = r.x;
@@ -165,7 +165,7 @@ bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
 	toolbar_btn_rect_local(anchor, tw, &bx, &by, &bw, &bh);
 	int32_t btn_cx = tx + bx + bw / 2;
 	int32_t want_x = btn_cx - pw / 2;
-	struct rect b = st->bounds;
+	struct rect b = st->ui_bounds;
 	if (st->tb_lock)
 		grabit_output_rect(st->tb_lock, &b);
 	else if (tb_attaching(st))

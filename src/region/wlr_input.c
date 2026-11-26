@@ -27,13 +27,10 @@ bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_
 					int32_t *fy) {
 	if (!o || !st->frozen) return false;
 	const struct image *img = &st->frozen[o->idx];
-	if (!img->bytes || img->stride <= 0 || o->pixel_width <= 0 || o->pixel_height <= 0)
+	if (!img->bytes || img->stride <= 0 || o->area.w <= 0 || o->area.h <= 0)
 		return false;
-	int32_t scale = o->scale > 0 ? o->scale : 1;
-	*fx = (int32_t)floor((double)(st->cursor_x - o->go->x) * scale * img->width /
-						 o->pixel_width);
-	*fy = (int32_t)floor((double)(st->cursor_y - o->go->y) * scale * img->height /
-						 o->pixel_height);
+	*fx = (int32_t)floor((double)(st->cursor_x - o->area.x) * img->width / o->area.w);
+	*fy = (int32_t)floor((double)(st->cursor_y - o->area.y) * img->height / o->area.h);
 	return *fx >= 0 && *fy >= 0 && *fx < img->width && *fy < img->height;
 }
 
@@ -95,15 +92,17 @@ void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
 	st->edit_choices_dirty = true;
 }
 
-int ginp_pick_cursor(const struct ro_state *st, int32_t abs_x, int32_t abs_y) {
+int ginp_pick_cursor(const struct ro_state *st) {
+	int32_t abs_x = st->cursor_x, abs_y = st->cursor_y;
+	int32_t ux = st->ui_x, uy = st->ui_y;
 	if (st->tb_dragging) return RCUR_MOVE;
 	if (st->picker_group != TB_NONE) {
 		int val;
-		if (region_tool_picker_hit(st, abs_x, abs_y, &val) != TP_NONE)
+		if (region_tool_picker_hit(st, ux, uy, &val) != TP_NONE)
 			return RCUR_HAND;
 	}
-	if (ginp_toolbar_reachable(st) && region_toolbar_contains(st, abs_x, abs_y)) {
-		enum tb_action a = region_toolbar_hit(st, abs_x, abs_y);
+	if (ginp_toolbar_reachable(st) && region_toolbar_contains(st, ux, uy)) {
+		enum tb_action a = region_toolbar_hit(st, ux, uy);
 		return a != TB_NONE ? RCUR_HAND : RCUR_MOVE;
 	}
 	if (st->region_locked) {
@@ -156,7 +155,7 @@ static struct wl_cursor *kind_cursor(const struct ro_state *st, int kind) {
 
 void ginp_refresh_cursor(struct ro_state *st) {
 	if (!st->pointer || !st->cursor_on) return;
-	int want = ginp_pick_cursor(st, st->cursor_x, st->cursor_y);
+	int want = ginp_pick_cursor(st);
 	if (want == st->current_cursor_kind) return;
 	st->current_cursor_kind = want;
 	if (st->last_cursor_serial == 0) return;
@@ -204,7 +203,7 @@ void ginp_slider_set_width_from_cursor(struct ro_state *st, bool record) {
 	region_toolbar_slider_rect(st, &sx, &sy, &sw, &sh);
 	(void)sy;
 	(void)sh;
-	double frac = sw > 0 ? (double)(st->cursor_x - sx) / (double)sw : 0;
+	double frac = sw > 0 ? (double)(st->ui_x - sx) / (double)sw : 0;
 	if (frac < 0) frac = 0;
 	if (frac > 1) frac = 1;
 	int32_t lo, hi;

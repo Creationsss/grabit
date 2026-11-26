@@ -76,6 +76,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.n_outs = s->n_outputs;
 
 	grabit_wl_outputs_bbox(s, &st.bounds);
+	st.ui_bounds = st.bounds;
 
 	st.snap_hover = -1;
 	st.snap_picked = -1;

@@ -55,6 +55,11 @@ struct ro_output {
 
 	struct grabit_shm_pool pool;
 
+	struct rect area;
+	double vx;
+	double vy;
+	double vs;
+
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
 
@@ -147,7 +152,11 @@ struct ro_state {
 	struct ro_output *cursor_on;
 	int32_t cursor_x;
 	int32_t cursor_y;
+	int32_t ui_x;
+	int32_t ui_y;
 	bool cursor_seen;
+
+	struct rect ui_bounds;
 
 	bool dragging;
 	int32_t drag_x0;

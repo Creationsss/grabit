@@ -260,7 +260,7 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	}
 	if (strcmp(key, "tray.icon") == 0) {
 		*example_out = "<icon name from your icon theme, or /path/to/icon.png|.svg>";
-		*def_out = "camera-photo";
+		*def_out = "hand";
 		return 0;
 	}
 	return -1;

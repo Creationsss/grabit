@@ -125,7 +125,7 @@ int gapp_print_help(void) {
 		"  sxcu                ShareX uploaders\n"
 		"  upload test [<svc>] upload a test image, then delete it where the service allows\n"
 		"  history             past uploads, saved files and OCR text (copy/open/delete)\n"
-		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
+		"  plugin install <git-url>   install a plugin (also: list/show/update/remove/disable/enable)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
 		"Topics: grabit help <",
@@ -226,8 +226,9 @@ int gapp_print_help_env(void) {
 		"  GRABIT_BIN                set by plugin dispatch; absolute path to grabit\n"
 		"  NO_COLOR                  disable color in logs\n"
 		"\n"
-		"XDG_CONFIG_HOME and XDG_STATE_HOME choose where config.toml and state.toml\n"
-		"live. man grabit lists the rest.\n",
+		"XDG_CONFIG_HOME and XDG_STATE_HOME choose where config.toml, state.toml and\n"
+		"history.jsonl live; XDG_CACHE_HOME holds history thumbnails. man grabit lists\n"
+		"the rest.\n",
 		stdout);
 	return 0;
 }

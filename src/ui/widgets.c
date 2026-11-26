@@ -191,6 +191,14 @@ void ui_eye_icon_draw(cairo_t *cr, double cx, double cy, double size, bool open,
 double ui_text_width(cairo_t *cr, const char *text, double size,
 					 cairo_font_weight_t weight) {
 	ui_set_font(cr, size, weight);
+	char buf[1024];
+	size_t n = strlen(text), ok = grabit_utf8_valid_prefix(text, n);
+	if (ok != n) {
+		ok = grabit_utf8_valid_prefix(text, ok < sizeof buf ? ok : sizeof buf - 1);
+		memcpy(buf, text, ok);
+		buf[ok] = '\0';
+		text = buf;
+	}
 	cairo_text_extents_t ext;
 	cairo_text_extents(cr, text, &ext);
 	return ext.x_advance;

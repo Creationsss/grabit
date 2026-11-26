@@ -517,6 +517,7 @@ static void draw_card(struct settings_state *st, cairo_t *cr, const struct upq_l
 	double icon = 40, gap = 18, maxw = c.w - 32 - icon - gap;
 	char shown[256];
 	snprintf(shown, sizeof shown, "%s", grabit_basename(f->path));
+	shown[grabit_utf8_valid_prefix(shown, strlen(shown))] = '\0';
 	ui_text_ellipsize(cr, shown, 13.5, CAIRO_FONT_WEIGHT_NORMAL, maxw);
 	cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 13.5);

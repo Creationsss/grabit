@@ -71,7 +71,7 @@ static const struct set_def REGION[] = {
 };
 
 static const struct set_def EDITOR[] = {
-	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches, region and settings window size between runs"},
+	{"save_state", "Remember editor state", "keep the last color, width, tool, swatches, region, and the settings window size and page between runs"},
 	{"edit.always", "Always open the editor", "same as passing -e on every capture"},
 	{"edit.instant_capture", "Capture on select", "selecting a region captures it right away"},
 	{"edit.start_with_tool", "Start with the last tool", "open in drawing mode instead of region-select"},
@@ -109,6 +109,16 @@ static const struct set_def UPLOADS[] = {
 	{"services.zipline.auth", "Zipline token", NULL},
 	{"services.zipline.chunked", "Zipline chunked uploads", "always split uploads into chunks"},
 	{"services.zipline.chunk_size", "Zipline chunk size (MiB)", NULL},
+	{"services.zipline.headers.x-zipline-format", "Zipline name format", "how zipline names uploads; grabit sends name when unset, keeping your filename"},
+	{"services.zipline.headers.x-zipline-deletes-at", "Zipline deletes after", "e.g. 1d or 30m"},
+	{"services.zipline.headers.x-zipline-max-views", "Zipline max views", NULL},
+	{"services.zipline.headers.x-zipline-image-compression-type", "Zipline compression format", NULL},
+	{"services.zipline.headers.x-zipline-image-compression-percent", "Zipline compression percent", NULL},
+	{"services.zipline.headers.x-zipline-password", "Zipline password", "viewers need it to open the upload"},
+	{"services.zipline.headers.x-zipline-folder", "Zipline folder", "folder id"},
+	{"services.zipline.headers.x-zipline-domain", "Zipline link domain", "domain used in the returned link"},
+	{"services.zipline.headers.x-zipline-file-extension", "Zipline file extension", NULL},
+	{"services.zipline.headers.x-zipline-original-name", "Zipline keep original name", NULL},
 	{"services.nest.auth", "Nest token", NULL},
 	{"services.nest.folder", "Nest folder", "optional folder uuid"},
 	{"services.fakecrime.auth", "fakecrime token", NULL},
@@ -142,7 +152,7 @@ static const struct set_def CARDS[] = {
 
 static const struct set_def APPEARANCE[] = {
 	{"gui.radius", "Corner radius", "rounds grabit's own ui, including this window; auto matches the compositor"},
-	{"tray.icon", "Tray icon", "camera and screenshot icons come first; search the list for any icon in your themes, or type the path of a .png or .svg and press Enter"},
+	{"tray.icon", "Tray icon", "hand, camera and screenshot icons come first; search the list for any icon in your themes, or type the path of a .png or .svg and press Enter"},
 	{NULL, NULL, NULL},
 };
 

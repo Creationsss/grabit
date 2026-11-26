@@ -33,6 +33,7 @@
         ffmpeg-headless
         tesseract
         translate-shell
+        xdg-utils
       ];
 
       mkGrabit = {wrapped ? true}:

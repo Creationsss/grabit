@@ -429,7 +429,7 @@ int config_state_put(struct config *cfg, const char *const *keys,
 	int rc = 0;
 	for (size_t i = 0; i < n && rc == 0; i++) {
 		const char *v = config_get(cfg, keys[i]);
-		if (v && cfg_kv_upsert(&st, keys[i], v) != 0) rc = -1;
+		if (cfg_kv_upsert(&st, keys[i], v ? v : "") != 0) rc = -1;
 	}
 	if (rc == 0) rc = config_state_save(&st);
 	config_free(&st);

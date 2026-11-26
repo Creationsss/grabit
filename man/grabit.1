@@ -30,8 +30,13 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .RI [ service ]
 .br
 .B grabit
+.B history
+.RB [ list | copy | open | delete | remove | clear ]
+.RI [ n ]
+.br
+.B grabit
 .B plugin
-.RB { install | list | show | update | remove }
+.RB { install | list | show | update | remove | disable | enable }
 .RI [ arg ]
 .br
 .B grabit
@@ -506,7 +511,8 @@ directly, equivalent to
 Open the settings ui.
 .I page
 opens that section (general, capture, region, editor, recording, uploads,
-plugins, ocr, cards, appearance, keybinds); any other word is searched. Also in the
+plugins, ocr, cards, appearance, keybinds, upload, history); any other word is
+searched. With no page it opens the last one used. Also in the
 .B \-\-tray
 menu and the desktop file's actions.
 .TP
@@ -553,11 +559,13 @@ old or misspelled one, when it is in config.toml.
 .TP
 .BI "help " [topic]
 Print help for a topic:
+.BR settings ,
 .BR set ,
 .BR get ,
 .BR unset ,
 .BR sxcu ,
 .BR upload ,
+.BR history ,
 .BR plugin ,
 .BR filename ,
 .BR env ,
@@ -616,8 +624,10 @@ may also be an entry id.
 List uploads and saved files, or OCR text with
 .BR \-\-ocr .
 .TP
-.BI "history copy " n
-Copy the link, file path or OCR text again.
+.BI "history copy " n " \fR[\fB\-\-ocr\fR]"
+Copy the link, file path or OCR text again;
+.B \-\-ocr
+numbers the OCR entries instead.
 .TP
 .BI "history open " n
 Open the saved file, or the link when the file is gone.
@@ -634,7 +644,7 @@ is given or
 .B history.confirm_delete
 is false.
 .TP
-.BI "history remove " n
+.BI "history remove " n " \fR[\fB\-\-ocr\fR]"
 Forget an entry, leaving the upload and file alone.
 .TP
 .B history clear \fR[\fB\-\-ocr\fR|\fB\-\-all\fR] [\fB\-y\fR]
@@ -658,6 +668,15 @@ Update one plugin, or all of them.
 .BI "plugin remove " name
 Uninstall a plugin (alias:
 .BR rm ).
+.TP
+.BI "plugin disable " name
+Keep a plugin installed but stop
+.BI "grabit " name
+from running it.
+.TP
+.BI "plugin enable " name
+Undo
+.BR "plugin disable" .
 .TP
 .BI name " ..."
 Run the installed plugin
@@ -836,9 +855,16 @@ fallbacks.
 .TP
 .B XDG_STATE_HOME
 Base for
-.IR grabit/state.toml ,
+.I grabit/state.toml
+and
+.IR grabit/history.jsonl ,
 default
 .IR ~/.local/state .
+.TP
+.B XDG_CACHE_HOME
+Base for history thumbnails and plugin caches,
+default
+.IR ~/.cache .
 .TP
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
@@ -923,8 +949,9 @@ See
 Overrides read after config.toml in name order; a later file wins. Never written by grabit.
 .TP
 .I ~/.config/grabit/config.toml
-User configuration (TOML), mode 0600. Only ever written by
-.BR "grabit set" / unset .
+User configuration (TOML), mode 0600. Only written by
+.BR "grabit set" / unset
+and the settings window.
 It may hold upload tokens under
 .BR services. \fIname\fB .auth ,
 so use the

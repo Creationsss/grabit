@@ -368,6 +368,7 @@ static int cfg_unset_key(const char *key, const char *given, bool known) {
 	}
 
 	int rc = 0;
+	const char *over = config_source(&c, key);
 	bool found = cfg_kv_remove(&c, key, false) > 0;
 	if (cfg_is_state_key(key)) {
 		(void)config_state_clear(&c, key);
@@ -385,6 +386,11 @@ static int cfg_unset_key(const char *key, const char *given, bool known) {
 		log_info("unset %s (%s)", given, key);
 	} else {
 		log_info("unset %s", key);
+	}
+	if (rc == 0 && over) {
+		log_warn("%s is still set in %s, which is applied after config.toml; remove it there", key,
+				 over);
+		rc = 1;
 	}
 	config_free(&c);
 	return rc;

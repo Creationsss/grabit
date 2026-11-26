@@ -364,7 +364,8 @@ $(BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 
 .PHONY: check-docs
 check-docs: $(GRABIT_BIN) $(DOCS_BIN)
-	@$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE)
+	@d=$$(mktemp -d) && XDG_CONFIG_HOME=$$d/config XDG_STATE_HOME=$$d/state XDG_CACHE_HOME=$$d/cache \
+		$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE); rc=$$?; rm -rf "$$d"; exit $$rc
 
 .PHONY: check-settings
 check-settings: $(SETCHK_BIN)

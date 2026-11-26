@@ -3,13 +3,48 @@ Type=Application
 Name=grabit
 GenericName=Screenshot Tool
 Comment=Screenshot, screen recording, OCR, and uploader for Wayland
+Icon=hand
 Exec=@BINDIR@/grabit
 Terminal=false
+StartupNotify=false
 Categories=Graphics;
-Keywords=screenshot;capture;record;ocr;screen;settings;
-Actions=settings;
+Keywords=screenshot;capture;record;ocr;screen;settings;upload;pin;history;translate;
+Actions=window;monitor;record;ocr;pin;upload;history;tray;settings;
 X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
 X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1
+
+[Desktop Action window]
+Name=Screenshot the window
+Exec=@BINDIR@/grabit -w
+
+[Desktop Action monitor]
+Name=Screenshot a monitor
+Exec=@BINDIR@/grabit -F
+
+[Desktop Action record]
+Name=Start or stop recording
+Icon=media-record
+Exec=@BINDIR@/grabit --record
+
+[Desktop Action ocr]
+Name=Read text
+Exec=@BINDIR@/grabit --tesseract
+
+[Desktop Action pin]
+Name=Pin a capture
+Exec=@BINDIR@/grabit --pin
+
+[Desktop Action upload]
+Name=Upload files
+Exec=@BINDIR@/grabit settings Upload
+
+[Desktop Action history]
+Name=History
+Exec=@BINDIR@/grabit settings History
+
+[Desktop Action tray]
+Name=Show or hide the tray icon
+Exec=@BINDIR@/grabit --tray
 
 [Desktop Action settings]
 Name=Settings

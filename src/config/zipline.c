@@ -43,6 +43,7 @@ int gcfg_validate_zl_header(const char *hdr, const char *value) {
 		log_warn("unknown zipline header %s; forwarding as-is", hdr);
 		return 0;
 	}
+	if (!*value) return 0;
 	switch (spec->kind) {
 	case ZL_FREE:
 		return 0;

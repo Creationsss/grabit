@@ -239,6 +239,7 @@ static void check_reserved(void) {
 }
 
 static void check_overrides(void) {
+	log_mute(true);
 	char dir[600], ten[700], twenty[700], broken[700], env[700];
 	snprintf(dir, sizeof dir, "%s/config.d", paths_config_dir());
 	paths_mkdir_p(dir);
@@ -294,6 +295,7 @@ static void check_overrides(void) {
 	unlink(broken);
 	unlink(env);
 	rmdir(dir);
+	log_mute(false);
 }
 
 static size_t page_rows_with(const char *title, const char *prefix) {
@@ -321,6 +323,11 @@ static void check_upload_page(void) {
 	check(strcmp(mv->page, "Upload") == 0 && st.pages[st.upload_page].bottom, "the upload options should sit on the Upload tab");
 	check(strcmp(set_effective(&st, mv), "5") == 0 && !set_is_custom(&st, mv),
 		  "an upload option should start at the saved setting");
+	struct set_row *hdr = set_find_row(&st, "services.zipline.headers.x-zipline-max-views");
+	check(hdr && strcmp(hdr->page, "Uploads") == 0 && strcmp(set_effective(&st, hdr), "5") == 0,
+		  "a zipline header in config.toml should show on the Uploads page");
+	struct set_row *fmt = set_find_row(&st, "services.zipline.headers.x-zipline-format");
+	check(fmt && fmt->info.kind == CFG_KIND_ENUM, "the zipline name format should be a dropdown");
 	set_apply(&st, mv, "10");
 	check(strcmp(set_effective(&st, mv), "10") == 0 && set_is_custom(&st, mv), "an upload option should take a new value");
 	struct config saved = {0};
@@ -328,7 +335,9 @@ static void check_upload_page(void) {
 	const char *kept = config_get(&saved, "services.zipline.headers.x-zipline-max-views");
 	check(kept && strcmp(kept, "5") == 0, "an upload option must not change config.toml");
 	config_free(&saved);
+	log_mute(true);
 	set_apply(&st, mv, "abc");
+	log_mute(false);
 	check(mv->error[0] && strcmp(set_effective(&st, mv), "10") == 0, "a bad upload option should be refused");
 	check(!set_inactive_reason(&st, mv) && set_inactive_reason(&st, nest),
 		  "with zipline picked, the nest folder should be inactive");
@@ -392,13 +401,27 @@ static void check_upload_page(void) {
 		config_load(&c);
 		const char *v = config_get(&c, "services.zipline.headers.x-zipline-max-views");
 		const char *on = config_get(&c, "services.zipline.headers.x-zipline-original-name");
-		check(!v && on && strcmp(on, "true") == 0 && strcmp(config_get(&c, "service"), "zipline") == 0,
+		check((!v || !v[0]) && on && strcmp(on, "true") == 0 && strcmp(config_get(&c, "service"), "zipline") == 0,
 			  "the overlay should clear max views and send the original name, got %s", v ? v : "nothing");
 		config_free(&c);
 		unsetenv("GRABIT_CONFIG");
 		unlink(ov);
 	}
 	free(ov);
+	char latin[700], uri[800];
+	snprintf(latin, sizeof latin, "%s/caf\xe9.txt", g_root);
+	write_file(latin, "x");
+	snprintf(uri, sizeof uri, "file://%s/caf%%E9.txt\n", g_root);
+	check(set_upload_drop(&st, uri) == 1, "a file whose name is not utf-8 should still queue");
+	st.page = st.upload_page;
+	cairo_surface_t *up = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *ucr = cairo_create(up);
+	set_draw(&win, ucr, 1000, 720);
+	check(cairo_status(ucr) == CAIRO_STATUS_SUCCESS, "a name that is not utf-8 should not break drawing: %s",
+		  cairo_status_to_string(cairo_status(ucr)));
+	cairo_destroy(ucr);
+	cairo_surface_destroy(up);
+	unlink(latin);
 	ui_text_set(&st.search, "max views");
 	settings_filter(&st);
 	bool leaked = false;

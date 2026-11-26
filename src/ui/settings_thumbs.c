@@ -55,6 +55,7 @@ cairo_surface_t *grid_load_fit(const char *path, int max) {
 struct fetch {
 	FILE *f;
 	long n;
+	bool io;
 	atomic_bool *stop;
 };
 
@@ -63,7 +64,9 @@ static size_t fetch_write(char *p, size_t size, size_t nmemb, void *ud) {
 	size_t t = size * nmemb;
 	if (x->n + (long)t > FETCH_MAX) return 0;
 	x->n += (long)t;
-	return fwrite(p, 1, t, x->f);
+	size_t w = fwrite(p, 1, t, x->f);
+	if (w < t) x->io = true;
+	return w;
 }
 
 static int fetch_progress(void *ud, curl_off_t a, curl_off_t b, curl_off_t c, curl_off_t d) {
@@ -117,8 +120,8 @@ int grid_fetch(atomic_bool *stop, const char *url, const char *dest) {
 	curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ctype);
 	bool image = image_type(ctype);
 	curl_easy_cleanup(curl);
-	fclose(f);
-	if (rc == CURLE_WRITE_ERROR) return 1;
+	if (fclose(f) != 0) x.io = true;
+	if (rc == CURLE_WRITE_ERROR || x.io) return x.io ? -1 : 1;
 	if (rc != CURLE_OK) return -1;
 	if (code >= 200 && code < 300) return image ? 0 : 1;
 	return code >= 400 && code < 500 && code != 408 && code != 429 ? 1 : -1;

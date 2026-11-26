@@ -159,6 +159,7 @@ static const char *const OUTPUT_KEYS[] = {"preview.output", "text_card.output",
 										  "edit.toolbar_output", NULL};
 
 static const char *TRAY_ICONS[] = {
+	"hand",
 	"camera-photo",
 	"camera-photo-symbolic",
 	"applets-screenshooter",
@@ -194,6 +195,15 @@ static void classify(const char *key, struct config_key_info *out) {
 		out->open_values = true;
 		out->values = uploaders ? cfg_builtin_services() : NULL;
 		out->values_src = uploaders ? CFG_VALUES_UPLOADERS : CFG_VALUES_OUTPUTS;
+		return;
+	}
+	if (strncmp(key, "services.zipline.headers.", 25) == 0) {
+		const struct zl_hdr *h = gcfg_zl_find(key + 25);
+		if (h && h->kind == ZL_ENUM) {
+			out->kind = CFG_KIND_ENUM;
+			out->values = h->allowed;
+			out->allow_empty = true;
+		}
 		return;
 	}
 	if (strcmp(key, "tray.icon") == 0) {

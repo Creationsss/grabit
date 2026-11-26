@@ -650,6 +650,7 @@ int cmd_settings(int argc, char **argv) {
 		puts("<page> opens that page (general, capture, region, editor, recording,");
 		puts("uploads, plugins, ocr, cards, appearance, keybinds, upload, history);");
 		puts("anything else is searched. With no page it opens the last one used.");
+		puts("Quote a name with spaces, e.g. grabit settings \"OCR history\".");
 		return 0;
 	}
 	if (argc > 1) {

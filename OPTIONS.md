@@ -42,14 +42,14 @@ grabit set <key>              # show example/default for that key
 grabit set <key> <value>      # write (validated); <key>=<value> works too
 grabit get [<key>]            # dump the config, or one key
 grabit unset <key>            # also removes stale keys grabit no longer knows
-grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/ocr
+grabit help [<topic>]         # settings/set/get/unset/sxcu/upload/history/plugin/filename/env/examples/ocr
 ```
 
 every subcommand takes `--help` / `-h`.
 
 ### config, overrides and state
 
-config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). grabit only writes it when you run `set` or `unset`.
+config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). grabit only writes it from `set`, `unset` and the settings window.
 
 after it, grabit reads every `~/.config/grabit/config.d/*.toml` in name order, then each file in `GRABIT_CONFIG` (colon-separated, `~` allowed). a later file wins, so `GRABIT_CONFIG=~/demo.toml grabit ...` beats everything for one run. a file that does not parse is skipped with a warning. override files are never written: `grabit set` warns when an override hides the change, and the settings window names the file a row comes from.
 
@@ -65,6 +65,8 @@ export GRABIT_ZIPLINE_AUTH="$(pass show grabit/zipline)"
 ```
 
 zipline also needs `grabit set services.zipline.domain https://your.host` (`/api/upload` is appended if missing). nest takes an optional `services.nest.folder` (uuid).
+
+`grabit upload test [<service>]` uploads a small test image, prints the link and deletes it again where the service allows, so you can check a token.
 
 ### zipline chunked uploads
 
@@ -240,7 +242,7 @@ while recording there is a red border, a control bar (start, pause, stop, abort 
 
 | key | default | notes |
 |---|---|---|
-| `tray.icon` | `camera-photo` | an icon theme name, or a `.png` / `.svg` path (sent as pixels, so it works with any tray). a running tray picks up changes, and dropping an image on the settings window sets it |
+| `tray.icon` | `hand` | an icon theme name, or a `.png` / `.svg` path (sent as pixels, so it works with any tray). a running tray picks up changes, and dropping an image on the settings window sets it |
 
 the recording tray is separate and always uses `media-record`.
 
@@ -399,10 +401,10 @@ in `grabit settings`:
 
 ```sh
 grabit history                    # newest first (alias: list, ls); --ocr for OCR text, --json for scripts
-grabit history copy <n>           # the link, path or text again
+grabit history copy <n> [--ocr]   # the link, path or text again
 grabit history open <n>           # the file, or the link when the file is gone
 grabit history delete <n> [-y]    # from the host and disk, then forget (--host-only / --file-only)
-grabit history remove <n>         # just forget it (alias: rm)
+grabit history remove <n> [--ocr] # just forget it (alias: rm)
 grabit history clear [--ocr|--all] [-y]
 ```
 
@@ -450,6 +452,7 @@ a plugin with `capture.auto` gets a fresh screenshot as its first argument; `--c
 | `HOME` | needed when the XDG dirs are unset |
 | `XDG_RUNTIME_DIR` | runtime files, else `/tmp` |
 | `XDG_STATE_HOME` | `state.toml` and history, default `~/.local/state` |
+| `XDG_CACHE_HOME` | history thumbnails and plugin caches, default `~/.cache` |
 | `XDG_PICTURES_DIR` / `XDG_VIDEOS_DIR` | save dirs when `save_dir` is unset |
 | `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor for the selector and overlays (8-256, default 24) |
 | `TESSDATA_PREFIX` | tesseract language data |

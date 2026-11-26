@@ -75,6 +75,7 @@ static void spawn_grabit(const char *const *args) {
 	argv[i] = NULL;
 	execv(argv[0], argv);
 	execvp("grabit", argv);
+	log_error("tray: could not run grabit: %s", strerror(errno));
 	_exit(127);
 }
 
@@ -195,7 +196,7 @@ static const struct tray_menu app_menu = {
 	.n = sizeof app_items / sizeof app_items[0],
 };
 
-#define DEFAULT_ICON "camera-photo"
+#define DEFAULT_ICON "hand"
 
 static struct sni_cfg app_sni_cfg = {
 	.icon_name = DEFAULT_ICON,

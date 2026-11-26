@@ -61,6 +61,9 @@ int grabit_self_exe(char *out, size_t cap) {
 	ssize_t n = readlink("/proc/self/exe", out, cap - 1);
 	if (n <= 0 || (size_t)n >= cap - 1) return -1;
 	out[n] = '\0';
+	static const char gone[] = " (deleted)";
+	size_t g = sizeof gone - 1;
+	if ((size_t)n > g && strcmp(out + n - g, gone) == 0) out[n - g] = '\0';
 	return 0;
 }
 

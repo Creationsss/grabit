@@ -1,5 +1,7 @@
 # grabit options
 
+every config key is here; the command-line flags are in `man grabit`, and `grabit set <key>` shows a key's values and default.
+
 ## usage
 
 ```sh
@@ -18,41 +20,17 @@ first run writes a default config to `~/.config/grabit/config.toml`.
 ## build
 
 ```sh
-make
-./build/grabit --version
-```
-
-### targets
-
-```sh
 make             # release build into build/grabit
 make sanitize    # asan + ubsan into build-san/grabit
 make install     # binary, man page and grabit.desktop to $(DESTDIR)$(PREFIX)
-make clean
 make test        # spdx headers, doc sync, self-contained headers
+make fmt         # clang-format -i (fmt-check: dry run)
+make clangd-check  # clangd --check every source (FILE=src/x.c for one)
 make apply-headers
-make fmt         # clang-format -i
-make fmt-check   # dry-run, errors on diff
-make clangd-check  # parse every source with clangd, fail on errors
+make clean
 ```
 
-`clangd-check` generates `compile_commands.json` with `bear` if it is missing, then
-runs `clangd --check` over each source. one file at a time with `FILE=`:
-
-```sh
-make clangd-check FILE=src/record/record.c
-```
-
-### development build
-
-generate `compile_commands.json` for clangd / your editor's lsp:
-
-```sh
-bear -- make all
-```
-
-re-run after adding/removing source files. `make clangd-check` generates it for you
-when it is absent, but not when it is merely stale.
+`bear -- make all` writes `compile_commands.json` for your editor; re-run it after adding or removing sources.
 
 ## configuration
 
@@ -61,643 +39,436 @@ grabit settings               # settings ui (also in the --tray menu)
 grabit settings recording     # open one page; any other word is searched
 grabit set                    # list all settable keys
 grabit set <key>              # show example/default for that key
-grabit set <key> <value>      # write (validated)
-grabit set <key>=<value>      # same, single-argument form
-grabit get                    # dump current config
-grabit get <key>              # one key
+grabit set <key> <value>      # write (validated); <key>=<value> works too
+grabit get [<key>]            # dump the config, or one key
 grabit unset <key>            # also removes stale keys grabit no longer knows
 grabit help [<topic>]         # set/get/unset/sxcu/plugin/filename/env/examples/ocr
 ```
 
-every subcommand also takes `--help` / `-h` directly, e.g. `grabit set --help`.
+every subcommand takes `--help` / `-h`.
 
-`grabit settings` opens a settings ui.
+### config, overrides and state
 
-### config vs state
+config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). grabit only writes it when you run `set` or `unset`.
 
-config lives at `$XDG_CONFIG_HOME/grabit/config.toml` (else `~/.config/grabit/config.toml`). it is yours: grabit only writes it when you run `set` or `unset`.
+after it, grabit reads every `~/.config/grabit/config.d/*.toml` in name order, then each file in `GRABIT_CONFIG` (colon-separated, `~` allowed). a later file wins, so `GRABIT_CONFIG=~/demo.toml grabit ...` beats everything for one run. a file that does not parse is skipped with a warning. override files are never written: `grabit set` warns when an override hides the change, and the settings window names the file a row comes from.
 
-### config overrides
-
-after config.toml, grabit reads every `~/.config/grabit/config.d/*.toml` in name order, then each file listed in `GRABIT_CONFIG` (colon-separated, `~` allowed), in that order. a key set in a later file wins, so `config.d/10-work.toml` is applied before `config.d/20-laptop.toml`, and `GRABIT_CONFIG=~/grabit-demo.toml grabit ...` beats all of them for one run. a file that does not parse is skipped with a warning. override files are never written: `grabit set` still writes config.toml and warns when an override would hide the change, and the settings window labels such a row with the file it comes from and asks you to change it there.
-
-anything grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`) instead: the last-used `edit.color`, `edit.width` and `edit.tool`, the editor color swatches (`edit.swatches`), the editor toolbar position (`edit.toolbar_pos`), the last captured region (`region.last`), and the size of the settings window (`gui.settings_size`) and the page it was last on (`gui.settings_page`). state wins over config, so setting those keys in config.toml just picks the starting value. if you already had them in config.toml they are copied over once, with a note; the entries left behind are harmless and can be deleted. set `save_state = false` to turn the whole state file off.
+what grabit decides on its own goes to `$XDG_STATE_HOME/grabit/state.toml` (default `~/.local/state/grabit/state.toml`): the last `edit.color`, `edit.width` and `edit.tool`, `edit.swatches`, `edit.toolbar_pos`, `region.last`, `gui.settings_size` and `gui.settings_page`. state wins over config, so those keys in config.toml only set the starting value (old copies are moved over once, with a note). `save_state = false` turns the state file off.
 
 ### auth tokens
 
-per service, either:
+per service, in the config (chmod 0600) or, preferably, from the environment:
 
 ```sh
-grabit set services.zipline.auth "<token>"             # plaintext in config (chmod 0600)
-```
-
-or via env (preferred, works with password managers):
-
-```sh
+grabit set services.zipline.auth "<token>"
 export GRABIT_ZIPLINE_AUTH="$(pass show grabit/zipline)"
 ```
 
-zipline also needs:
-
-```sh
-grabit set services.zipline.domain https://your.host
-# /api/upload is appended automatically if missing
-```
-
-nest accepts an optional `services.nest.folder` (uuid) to upload into a specific folder.
+zipline also needs `grabit set services.zipline.domain https://your.host` (`/api/upload` is appended if missing). nest takes an optional `services.nest.folder` (uuid).
 
 ### zipline chunked uploads
 
-zipline v4 supports splitting large uploads into chunks (useful behind cloudflare's 100MB post limit). grabit sends them to `/api/upload/partial` the same way the zipline web client does:
+zipline v4 can take large uploads in chunks through `/api/upload/partial`, like its web client (useful behind cloudflare's 100MB limit):
 
 ```sh
-grabit --record --zipline --chunked      # chunk this one upload
-grabit set services.zipline.chunked true # always chunk zipline uploads
+grabit --record --zipline --chunked        # chunk this one upload
+grabit set services.zipline.chunked true   # always chunk
 grabit set services.zipline.chunk_size 50  # MiB per chunk (default 25, 1-95)
 ```
 
-the final chunk returns the file URL immediately while the server assembles the chunks in the background, so the link may 404 for a moment on very large files.
-
-grabit also recovers from proxy size limits automatically (cloudflare's free plan caps request bodies at 100MB): a plain zipline upload rejected with HTTP 413 is retried in chunks, and a chunk that still gets 413'd is retried with progressively halved chunks (down to 1 MiB).
+the link may 404 for a moment on very large files while the server assembles them. a plain upload rejected with HTTP 413 is retried in chunks, and a chunk that still gets a 413 is retried at half the size, down to 1 MiB.
 
 ### zipline custom headers
 
-zipline supports per-upload metadata via headers. set them with `services.zipline.headers.<name>`:
+set per-upload metadata with `services.zipline.headers.<name>`:
 
 | header | accepted values |
 |---|---|
-| `x-zipline-format` | `random`, `date`, `uuid`, `name`, `gfycat` - **defaults to `name`** so the uploaded URL preserves grabit's filename template (e.g. `%w`, `%Y-%m-%d`). Set it explicitly to override. |
+| `x-zipline-format` | `random`, `date`, `uuid`, `name`, `gfycat`; **defaults to `name`** so the link keeps grabit's filename |
 | `x-zipline-image-compression-percent` | 0-100 |
 | `x-zipline-image-compression-type` | `jpg`, `png`, `webp`, `jxl` |
 | `x-zipline-password` | string |
 | `x-zipline-max-views` | non-negative integer |
-| `x-zipline-no-json` | `true` only (see below) |
-| `x-zipline-original-name` | `true` only (see below) |
+| `x-zipline-no-json` | `true` only |
+| `x-zipline-original-name` | `true` only |
 | `x-zipline-folder` | folder id |
 | `x-zipline-filename` | string |
 | `x-zipline-domain` | string |
 | `x-zipline-file-extension` | string |
-| `x-zipline-deletes-at` | duration string (e.g. `1d`, `30m`) |
+| `x-zipline-deletes-at` | duration (e.g. `1d`, `30m`) |
 
-`x-zipline-no-json` and `x-zipline-original-name` are presence flags: zipline enables them whenever the header is sent, whatever the value, so `false` would not disable them and grabit rejects it. `grabit unset services.zipline.headers.<name>` turns them off.
-
-unknown header names are forwarded as-is with a warning.
+zipline turns `no-json` and `original-name` on whenever they are sent, so `false` is rejected; `grabit unset` them instead. unknown header names are sent as-is with a warning.
 
 ### sharex (.sxcu) uploaders
 
-import any sharex custom uploader file:
-
 ```sh
-grabit sxcu add  ~/Downloads/myhost.sxcu     # parse, sanitize name, copy into config dir (alias: install)
-grabit sxcu add  myhost.sxcu --force          # replace an uploader that already exists
-grabit sxcu list                              # registered names (alias: ls)
-grabit sxcu show <name>                       # parsed fields (auth masked; --show-secrets unmasks)
-grabit sxcu remove <name> [--yes]             # alias: rm; asks first on a terminal
+grabit sxcu add ~/Downloads/myhost.sxcu   # copy into the config dir (alias: install; --force replaces)
+grabit sxcu list                          # alias: ls
+grabit sxcu show <name>                   # parsed fields, auth masked (--show-secrets unmasks)
+grabit sxcu remove <name> [--yes]         # alias: rm
+grabit --<name>                           # screenshot + upload, like a built-in
 ```
 
-added uploaders live at `~/.config/grabit/uploaders/<name>.sxcu` (chmod 0600). once added, use them like a built-in:
+uploaders live at `~/.config/grabit/uploaders/<name>.sxcu` (chmod 0600), and their auth stays in the file's `Headers`.
 
-```sh
-grabit --<name>                               # screenshot + upload
-grabit -f file.png --<name>                   # upload an existing file
-```
+supported fields: `Name`, `RequestURL`, `RequestMethod` (or `RequestType`), `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `DeletionURL`, `ThumbnailURL`, `ErrorMessage`, `RegexList`.
 
-supported sxcu fields: `Name`, `RequestURL`, `RequestMethod` (or `RequestType`), `Body` (`MultipartFormData`/`FormURLEncoded`/`JSON`/`XML`/`Binary`/`None`), `FileFormName`, `Headers`, `Parameters`, `Arguments`, `Data`, `URL`, `DeletionURL`, `ThumbnailURL`, `ErrorMessage`, `RegexList`.
-
-placeholders in url/headers/args/data: `{filename}`, `{base64:...}`, `{random:a|b|c}` (picks one at random), `{select:a|b|c}` (takes the first), `{input}` (expands to empty), `{prompt:label|default}` / `{inputbox:label|default}` (expands to the default; grabit never prompts). a backslash escapes a `{`. response placeholders for the `URL`/`DeletionURL`/`ThumbnailURL`/`ErrorMessage` templates: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}` (POSIX ERE, not PCRE), `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
-
-auth lives inside the `.sxcu` `Headers` block - no separate `services.<name>.auth` config needed.
+request placeholders: `{filename}`, `{base64:...}`, `{random:a|b|c}`, `{select:a|b|c}` (the first), `{input}` (empty), `{prompt:label|default}` / `{inputbox:label|default}` (the default; grabit never prompts). a backslash escapes `{`. response placeholders: `{response}`, `{responseurl}`, `{json:path.to[0].field}`, `{regex:pattern|group}` (POSIX ERE), `{regex:N|group}` (N indexes `RegexList`), `{header:Name}`.
 
 ### top-level keys
 
 | key | type | notes |
 |---|---|---|
 | `default_action` | enum | `copy`/`upload`/`save`/`pin` (default `copy`) |
-| `service` | string | default upload target when `default_action=upload` (one of the built-ins or an sxcu name) |
-| `notifications` | bool | enable desktop notifications (default `true`); failure notifications are still sent (see `--silent` in `man grabit`) |
-| `log.enabled` | bool | mirror every log line to `$XDG_RUNTIME_DIR/grabit.log` (default `true`). set `false` for stderr only; `GRABIT_LOG_FILE` overrides this either way. old name: `log_file` |
-| `also_save` | bool | also save a copy when copying/uploading (default `false`). Alias: `save_captures` (legacy). |
-| `save_state` | bool | read and write `state.toml` (default `true`). set `false` and grabit keeps nothing between runs: the last-used `edit.color`/`edit.width`/`edit.tool`, the color swatches, the toolbar position, and the last region (`-L`/`--last`, `region.repeat_last`) all stop persisting |
-| `save_dir` | string | save dir for screenshots and recordings (takes precedence over the XDG dirs; else `XDG_PICTURES_DIR` then `~/Pictures` for screenshots, `XDG_VIDEOS_DIR` then `~/Videos` for recordings) |
-| `filename` | string | filename template (see "filename templates" below) |
+| `service` | string | upload target for `-u` and `default_action=upload`: a built-in or an sxcu name |
+| `notifications` | bool | desktop notifications (default `true`); failures are still shown |
+| `log.enabled` | bool | mirror log lines to `$XDG_RUNTIME_DIR/grabit.log` (default `true`; `GRABIT_LOG_FILE` overrides). old name: `log_file` |
+| `also_save` | bool | also keep a file when copying or uploading (default `false`). old name: `save_captures` |
+| `save_state` | bool | read and write `state.toml` (default `true`) |
+| `save_dir` | string | where screenshots and recordings go; else `XDG_PICTURES_DIR`/`XDG_VIDEOS_DIR`, else `~/Pictures`/`~/Videos` |
+| `filename` | string | filename template (see below) |
 | `filename_preset` | enum | `date`/`random`/`uuid`/`timestamp` |
-| `format` | enum | screenshot output format: `png`/`jpeg` (alias `jpg`)/`webp` (default `png`). per-run override: `--format <name>` |
+| `format` | enum | `png`/`jpeg` (alias `jpg`)/`webp` (default `png`); `--format` per run |
 
-### capture backend
+### capture
 
 | key | default | notes |
 |---|---|---|
-| `capture.backend` | `auto` | `auto` picks `wlr` (wlroots/hyprland/sway/niri/river), then `ext`, then `kwin` (KDE Plasma, via the `org.kde.KWin.ScreenShot2` dbus service). Force one with `wlr`, `ext`, or `kwin`. |
-| `capture.hdr` | `false` | keep the full range of an hdr output instead of tone mapping it. off by default: grabit converts pq or hlg to srgb so a capture looks the way the screen does, and most viewers cannot read a 16-bit png anyway. set `true` and a plain `-F`/`-w`/`-L` png keeps 10 bits, written as a 16-bit file carrying `cICP`, `mDCV` and `cLLI`. it does not apply to an interactive region drag, to `-e`, a preview, a rounded window, jpeg or webp, or a capture spanning two monitors, all of which are tone mapped instead. the files are roughly 2.5x larger. needs the compositor to report its colorimetry over `color-management-v1` |
-| `capture.delay_secs` | `0` | seconds to wait before capturing, so you can open a menu or tooltip first (`--delay <secs>` overrides per run, max 3600). for screenshots the wait happens before the screen is frozen, so whatever you open during it is captured; for `--record` it happens after the region is picked, right before recording starts. old name: `capture.delay` |
-| `capture.cursor` | `true` | include the mouse pointer in screenshots; set `false` to hide it (recordings use `recording.cursor`) |
+| `capture.backend` | `auto` | `wlr`, then `ext`, then `kwin` (KDE's `org.kde.KWin.ScreenShot2`); force one by name |
+| `capture.hdr` | `false` | keep an hdr output's full range as a 16-bit png with `cICP`, `mDCV` and `cLLI` instead of tone mapping to srgb. only for a plain png `-F`/`-w`/`-L` on one monitor; files are ~2.5x larger; needs `color-management-v1` |
+| `capture.delay_secs` | `0` | wait before capturing (`--delay` per run, max 3600). screenshots wait before the freeze; `--record` waits after the region is picked. old name: `capture.delay` |
+| `capture.cursor` | `true` | include the pointer in screenshots (`--cursor` forces it for one run; recordings use `recording.cursor`) |
 
 ### region selector
 
 | key | default | notes |
 |---|---|---|
-| `region.window_snap` | `true` | hover-highlight visible windows and click to capture one; set `false` to always require a drag. needs window geometry from compositor ipc, which hyprland, sway, umbriel and aqueous report for every window and niri only for floating ones |
-| `region.window_radius` | `auto` | round the corners of window captures to match the compositor. `auto` reads hyprland's `decoration:rounding` plus its border width (and stays square for fullscreen windows); `0`..`100` forces a radius. applies to `-w`/`--window` and to click-to-snap selections, never to a manual drag. png and webp keep the corners transparent; jpeg cannot store alpha so it is left square with a warning; recordings get black corners |
-| `region.window_borders` | `false` | include the compositor's window borders in window captures: the hover highlight and the `-w`/`--window` rect grow by the border width on every side, framing the ring's outer edge exactly. reads hyprland's `general:border_size`, so a per-window `bordersize` rule is not seen and such a window is framed by the global width. on aqueous the width is read per window from its ipc. fullscreen windows are never expanded, and the growth is clamped to the window's own monitor, so a window flush with a screen edge gains nothing on that side. currently a no-op on sway (its rects already cover the border) and niri |
-| `region.snap_ignore` | `""` | comma-separated window classes (case-insensitive) that window snapping looks through, for click-through overlays that cover other windows, such as a game overlay pinned over a fullscreen game. on hyprland and sway it matches the class or app_id, on niri, umbriel and aqueous the app_id (aqueous also the xwayland class). on hyprland it also matches layer-shell namespaces (e.g. `neru-overlay`), and a window carrying the `grabit-ignore` tag is skipped as well, so a window rule that adds it works too (in a lua config: `tag = "+grabit-ignore"`). layer surfaces that cover their whole monitor are always skipped on hyprland, since they would hide every window under them. does not affect `-w`/`--window`, which follows focus |
-| `region.snap_animation` | `false` | animate the window-snap highlight: it slides and resizes between windows and fades out when the cursor leaves them, instead of jumping. needs `region.window_snap` |
-| `region.show_coords` | `false` | draw a live readout of the cursor position while selecting |
-| `region.magnifier_edits` | `true` | draw your annotations inside the magnifier (`keys.magnifier`), so the zoomed view matches what will be saved; set `false` to magnify only the raw screen. the color readout under it then reads the edited pixel too |
-| `region.confirm` | `false` | keep the selection adjustable after releasing the drag: resize with the handles or Shift+arrows, move by dragging inside or with the arrow keys (hold to accelerate), drag outside to start over, then press Enter, Ctrl+C, or double-click inside it to capture; Esc cancels |
-| `region.repeat_last` | `false` | reuse the last captured region instead of opening the selector, same as passing `-L`/`--last`. applies to screenshots and `--record`. with `-e` the region is applied and locked, so the editor opens on the last tool instead of in region-select mode. `-F` still wins, and `--no-last` forces the selector for one run |
-| `region.last` | | the last captured region as `<x>,<y>,<w>,<h>`; written automatically after each region capture or recording (state, not config) |
+| `region.window_snap` | `true` | hover-highlight windows and click to capture one. needs compositor ipc (niri only reports floating windows) |
+| `region.window_radius` | `auto` | round window captures like the compositor: `auto` reads hyprland's rounding plus border, `0`..`100` forces it. jpeg stays square |
+| `region.window_borders` | `false` | grow window captures by the border width (hyprland's `general:border_size`, or per window on aqueous). no-op on sway and niri |
+| `region.snap_ignore` | `""` | comma-separated window classes or app_ids that snapping looks through, e.g. a game overlay. on hyprland it also matches layer namespaces and windows tagged `grabit-ignore` (`tag = "+grabit-ignore"`) |
+| `region.snap_animation` | `false` | slide the snap highlight between windows instead of jumping |
+| `region.show_coords` | `false` | show the cursor position while selecting |
+| `region.magnifier_edits` | `true` | show your annotations inside the magnifier and its color readout |
+| `region.confirm` | `false` | keep the selection adjustable after the drag (handles, arrows, Shift+arrows), then Enter, Ctrl+C or double-click captures |
+| `region.repeat_last` | `false` | always reuse the last region, like `-L`; `--no-last` overrides one run |
+| `region.last` | | the last region as `<x>,<y>,<w>,<h>` (state) |
 
-in any selector, `ctrl+a` selects the whole monitor under the cursor: with `region.confirm` (or `-e`) it locks for adjustment, otherwise it captures immediately.
+`ctrl+a` selects the whole monitor under the cursor.
 
 ### gui
 
 | key | default | notes |
 |---|---|---|
-| `gui.radius` | `0` | round the corners of grabit's own ui: the region selector and editor, the recording control bar, the preview and ocr cards, and the settings window (also when tiled or maximized; fullscreen stays square). `0` is square, `auto` matches hyprland's `decoration:rounding`, or set a radius in logical pixels (`8` is a good start). one value scales everything; nothing changes size or position. it never affects the captured image (that is `region.window_radius`) |
-| `gui.settings_page` | | the settings page that was open when the window last closed, by title; the next `grabit settings` with no page opens there (state, not config) |
-| `gui.settings_size` | | the settings window size as `<width>x<height>`; written automatically when the window closes while it is not maximized, fullscreen or tiled (state, not config) |
+| `gui.radius` | `0` | round grabit's own windows and cards: `0` square, `auto` follows hyprland, or a radius in logical pixels. never touches the capture |
+| `gui.settings_page` | | the settings page last open, reopened by a bare `grabit settings` (state) |
+| `gui.settings_size` | | the settings window size as `<width>x<height>` (state) |
 
 ### keybinds
 
-every key and mouse action in the selector/editor is rebindable under the `keys.*` namespace. each value is a comma-separated list of bindings, and an action fires when any of its bindings match. a binding is either a key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` modifiers (key names are xkb keysyms, e.g. `Enter`, `Escape`, `Left`, `space`, `a`, `F1`; keypad keys count as their main-keyboard twin, so `Enter` also matches the keypad Enter and `1` the keypad 1), or a mouse button. letters match case-insensitively; the left mouse button is always the draw/select button and cannot be rebound.
-
-mouse buttons are written `mouse:<button>`, where `<button>` is a name (`left`, `right`, `middle`, `back`, `forward`, `side`, `extra`) or a raw evdev button code (`mouse:272` = left, `273` = right, `274` = middle, same numbering as hyprland/sway). the names `back`/`forward`/`side`/`extra` are device-dependent: most mice report the two thumb buttons as `side` (physical back) and `extra` (physical forward), not `back`/`forward`. if a named binding does not fire, find the real code with `wev` or `libinput debug-events` and bind that number.
+every selector and editor action is rebindable under `keys.*`. a value is a comma-separated list of bindings: an xkb key name with optional `Ctrl+`/`Shift+`/`Alt+`/`Super+` (keypad keys match their main twin), or `mouse:<button>` with a name (`left`, `right`, `middle`, `back`, `forward`, `side`, `extra`) or an evdev code (`mouse:273` is right). most mice report the thumb buttons as `side` and `extra`. left click always draws and cannot be rebound.
 
 | key | default | action |
 |---|---|---|
-| `keys.confirm` | `Enter, Ctrl+s` | capture/save the selection (copy/upload path chosen elsewhere) |
-| `keys.cancel` | `Escape, Ctrl+w, Ctrl+q, mouse:right` | cancel; while dragging/typing it aborts that instead |
-| `keys.select_all` | `Ctrl+a` | select the whole monitor under the cursor |
-| `keys.undo` | `u, Ctrl+z` | undo the last annotation (edit mode) |
-| `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo the last undo (edit mode) |
-| `keys.delete` | `Delete, BackSpace` | delete the selected annotations (move/resize mode) |
-| `keys.magnifier` | `Alt_L, Alt_R` | hold for a pixel loupe with the color under the cursor |
-| `keys.edit_mode` | `s` | switch to the annotation select/edit tool |
-| `keys.region_mode` | `q` | switch back to region-select |
-| `keys.nudge_left` / `keys.nudge_right` / `keys.nudge_up` / `keys.nudge_down` | `Left` etc. | move a locked selection by one pixel (hold to accelerate) |
-| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool; `<name>` is one of pen, marker, line, rect, rounded_rect, ellipse, arrow, arrow_pen, blur, pixelate, spotlight, text, counter, callout, eraser (`rounded_rect` and `arrow_pen` have no binding of their own; press `p`, `r`, `a` or `b` again to cycle that group and reach them) |
-
-example: to make the right mouse button save instead of cancel (so a quick `-e` capture is `left`-drag then `right`-click), swap them:
+| `keys.confirm` | `Enter, Ctrl+s` | capture the selection |
+| `keys.cancel` | `Escape, Ctrl+w, Ctrl+q, mouse:right` | cancel, or abort a drag or text entry |
+| `keys.select_all` | `Ctrl+a` | select the monitor under the cursor |
+| `keys.undo` | `u, Ctrl+z` | undo |
+| `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo |
+| `keys.delete` | `Delete, BackSpace` | delete the selected annotations |
+| `keys.magnifier` | `Alt_L, Alt_R` | hold for a pixel loupe |
+| `keys.edit_mode` | `s` | move/resize tool |
+| `keys.region_mode` | `q` | back to region select |
+| `keys.nudge_left` / `keys.nudge_right` / `keys.nudge_up` / `keys.nudge_down` | `Left` etc. | move a locked selection one pixel |
+| `keys.tool.<name>` | `p, 1` ... `e, 9` | pick a tool (names under edit below) |
 
 ```sh
-grabit set keys.confirm "Enter, mouse:right, Ctrl+s"
-grabit set keys.cancel "Escape"
+grabit set keys.confirm "Enter, mouse:right, Ctrl+s"   # right click saves
+grabit set keys.confirm --watch   # press the bindings live, Enter saves, Esc cancels
+grabit set keys.confirm --reset   # back to default; `grabit set keys --reset` resets all
 ```
 
-instead of typing bindings by hand, `--watch` (or `-w`) captures them live in the terminal: grabit starts listening, you press the keys and mouse buttons you want, and each one is echoed as it is captured. `Enter` saves and `Esc` cancels. the captured set replaces the action's current bindings. this is the reliable way to bind an odd mouse button, since it records the exact code the device emits. the left mouse button is reserved (draw/select) and is ignored; to bind `Enter` or `Esc` themselves, set them by hand.
+`--watch` records the exact code a device sends, so use it for a mouse button that a name does not catch.
 
-```sh
-grabit set keys.confirm --watch     # press right mouse, then Enter -> keys.confirm = mouse:right
-```
-
-`--reset` restores defaults by dropping the config entry (an unset binding falls back to its compiled-in default). reset one action, or the whole `keys` namespace at once:
-
-```sh
-grabit set keys.confirm --reset     # keys.confirm back to its default
-grabit set keys --reset             # every keybind back to defaults
-```
-
-### encoder options
+### encoders
 
 | key | default | notes |
 |---|---|---|
-| `png.level` | `1` | PNG zlib compression 0-9. `1` is the default because PNG is lossless: higher levels only shrink the file, and level 6 (what cairo used before) costs roughly 2-6x the encode time for ~15-20% less size. Raise it if you care more about upload size than shutter latency. |
-| `jpeg.quality` | `90` | JPEG quality 1-100 |
-| `webp.quality` | `85` | WebP quality 0-100 (ignored when `webp.lossless = true`) |
-| `webp.lossless` | `false` | use WebP lossless mode |
+| `png.level` | `1` | zlib level 0-9; higher only shrinks the file, at several times the encode time |
+| `jpeg.quality` | `90` | 1-100 |
+| `webp.quality` | `85` | 0-100 (ignored when lossless) |
+| `webp.lossless` | `false` | webp lossless mode |
 
-JPEG and WebP support is detected at build time via `pkg-config libjpeg` and `pkg-config libwebp`. If a format wasn't compiled in, picking it at runtime errors out clearly. PNG is always available.
+jpeg and webp exist only when built with `libjpeg` / `libwebp`; png is always there.
 
 ## recording
 
 ```sh
-grabit --record               # start (region selector, then begins)
-grabit --record               # stop
-grabit --pause                # pause or resume it (same as SIGUSR1)
+grabit --record               # start; run again to stop
+grabit --pause                # pause or resume (also SIGUSR1, e.g. pkill -USR1 -x grabit)
+grabit --record --no-upload   # skip the auto-upload
+grabit --record --zipline     # upload this one to a given service
 ```
-
-### backends
 
 | compositor | source | notes |
 |---|---|---|
-| wlroots (hyprland, sway, niri, river) | `wlr-screencopy` / `ext-image-copy` | grabit streams frames itself |
-| KDE Plasma | `zkde_screencast_unstable_v1` | needs an installed grabit, see below |
-| GNOME | `org.gnome.Mutter.ScreenCast` | recording only, no region selector |
+| wlroots (hyprland, sway, niri, river) | `wlr-screencopy` / `ext-image-copy` | |
+| KDE Plasma | `zkde_screencast_unstable_v1` | needs `make install`, see below |
+| GNOME | `org.gnome.Mutter.ScreenCast` | no region selector; private api that may break on upgrade |
 
-KDE and GNOME both hand back a pipewire node, so a `libpipewire-0.3` build is required for either. neither shows a portal dialog.
+KDE and GNOME need a `libpipewire-0.3` build; neither shows a portal dialog. KWin only grants screenshots and recording to programs whose installed `.desktop` declares `X-KDE-DBUS-Restricted-Interfaces` and `X-KDE-Wayland-Interfaces`, so use `make install` (`KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing). GNOME has no `zwlr_layer_shell_v1`, so pick the area with `-F` or `-L` and stop with a second `grabit --record`.
 
-KWin keeps both `org.kde.KWin.ScreenShot2` and `zkde_screencast_unstable_v1` behind an allow-list and only grants them to programs whose installed `.desktop` declares `X-KDE-DBUS-Restricted-Interfaces` (screenshots) and `X-KDE-Wayland-Interfaces` (recording), so both on KDE need `make install` rather than a build directory. `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1` bypasses it for testing.
-
-GNOME has no `zwlr_layer_shell_v1`, so the region selector, overlay and control bar do not appear. pick the area up front with `-F`/`--fullscreen=<monitor>` or `-L`/`--last`, and stop with a second `grabit --record`. `org.gnome.Mutter.ScreenCast` is a private API, so a GNOME upgrade can break recording there.
-
-while recording you'll see:
-- a thin red border around the captured region
-- a control bar (start / pause / stop / abort, plus a state dot and elapsed timer) at the top of the current monitor, or the nearest spot that stays out of the recording; it stays where it is placed (unlike the editor toolbar, it cannot be dragged)
-- a recording icon in your status bar tray (waybar with `tray` module, etc.)
-
-the pause button finishes the current encoder segment; resume (the start button) begins a new one, and stopping stitches the segments together, so paused time never appears in the output (no frozen gap). the timer counts recorded time only. if the region covers every monitor there's nowhere to put the bar, so it's skipped; stop with the tray icon or by re-running `grabit --record`.
-
-pause is also scriptable: sending `SIGUSR1` to the recording process toggles it, so a compositor keybind like `pkill -USR1 -x grabit` pauses/resumes without touching the mouse.
-
-after stopping, encoders may still be flushing buffered frames; grabit shows a "Recording finishing" notification while it waits and stitches, then the usual saved/uploaded notification. heavy CPU load (a game, many pauses) stretches this phase; a faster `recording.preset` like `superfast` shrinks it.
-
-clicking the tray icon also stops the recording.
-
-per-recording overrides:
-- `grabit --record --no-upload`: skip auto-upload even if `default_action=upload`
-- `grabit --record --zipline`: upload to a specific service after recording
-
-when uploading, the recording follows the same `also_save` rule as screenshots: if `also_save = false` (the default) the mp4 is written to a temp file and deleted after a successful upload. set `also_save = true` to keep a local copy in your videos dir.
-
-config keys (all optional):
+while recording there is a red border, a control bar (start, pause, stop, abort and a timer) placed outside the recording, and a tray icon that stops it on click. pausing ends an encoder segment and stopping stitches them, so paused time is cut and the timer counts recorded time only. a "Recording finishing" notification covers the stitch; a faster `recording.preset` shortens it. like screenshots, the file is kept after an upload only with `also_save = true`.
 
 | key | default | notes |
 |---|---|---|
 | `recording.fps` | 30 | 1-120 |
-| `recording.format` | `mp4` | `mp4` (h.264), `webm` (vp9), or `gif`. `crf` applies to mp4/webm; `preset`/`tune`/`max_size_mb` are mp4-only; gif ignores all encoder keys |
-| `recording.crf` | 23 | 0-51 (lower = higher quality) |
-| `recording.preset` | `fast` | one of: `ultrafast`, `superfast`, `veryfast`, `faster`, `fast`, `medium`, `slow`, `slower`, `veryslow` |
-| `recording.tune` | (none) | one of: `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
-| `recording.pix_fmt` | `yuv420p` | one of: `yuv420p`, `yuv422p`, `yuv444p`, `yuv420p10le` |
+| `recording.format` | `mp4` | `mp4` (h.264), `webm` (vp9) or `gif`. `crf` is mp4/webm; `preset`, `tune`, `max_size_mb` are mp4 only |
+| `recording.crf` | 23 | 0-51, lower is better |
+| `recording.preset` | `fast` | `ultrafast` ... `veryslow` |
+| `recording.tune` | (none) | `film`, `animation`, `grain`, `stillimage`, `psnr`, `ssim`, `fastdecode`, `zerolatency` |
+| `recording.pix_fmt` | `yuv420p` | `yuv420p`, `yuv422p`, `yuv444p`, `yuv420p10le` |
 | `recording.cursor` | `true` | record the cursor |
-| `recording.tray` | `true` | show the tray icon while recording; `--no-tray` overrides one run |
-| `recording.show_dimensions` | `true` | display dimension badge on the active recording region overlay |
-| `recording.max_size_mb` | (none) | re-encode if file exceeds this (0-100000) |
-| `recording.ffmpeg` | `ffmpeg` | path to ffmpeg binary |
+| `recording.tray` | `true` | tray icon while recording; `--no-tray` for one run |
+| `recording.show_dimensions` | `true` | size badge on the region border |
+| `recording.max_size_mb` | (none) | re-encode when the file is larger (0-100000) |
+| `recording.ffmpeg` | `ffmpeg` | ffmpeg binary |
 
 ## tray
 
-`grabit --tray` starts a persistent StatusNotifierItem with every action in its menu. running it a second time stops the one already running.
+`grabit --tray` starts a persistent tray icon; run it again to stop it. left click captures a region. the menu has screenshot (region, window, monitor, all monitors, last region, a 3 or 5 second delay, and copy/upload/save/edit), record (with pause), OCR, pin, upload files, history (copy or open the last link, file or OCR text) and settings.
 
 | key | default | notes |
 |---|---|---|
-| `tray.icon` | `camera-photo` | icon name looked up in your icon theme, or the path of a `.png` or `.svg` file (absolute or `~/...`); a file is sent to the tray as pixels, so it works with any tray. a running tray picks up a change within a second, and dropping a `.png` or `.svg` on the settings window sets it |
+| `tray.icon` | `camera-photo` | an icon theme name, or a `.png` / `.svg` path (sent as pixels, so it works with any tray). a running tray picks up changes, and dropping an image on the settings window sets it |
 
-left click captures a region, right click opens the menu. if the icon collides with another app's, point `tray.icon` at any other name your theme ships:
-
-```sh
-grabit set tray.icon camera-video
-```
-
-the recording tray shown during `--record` is separate and always uses `media-record`.
+the recording tray is separate and always uses `media-record`.
 
 ## sound
 
-play a shutter sound on capture (off by default):
-
 | key | default | notes |
 |---|---|---|
-| `sound.enabled` | `false` | toggle |
-| `sound.player` | (auto) | path to player binary (auto-detects `pw-play`, `paplay`, `play`, `aplay`) |
-| `sound.file` | (auto) | path to audio file (auto-detects standard freedesktop camera-shutter sounds) |
+| `sound.enabled` | `false` | play a shutter sound on capture |
+| `sound.player` | (auto) | `pw-play`, `paplay`, `play` or `aplay` |
+| `sound.file` | (auto) | the freedesktop camera-shutter sound |
 
 ## pin
 
 ```sh
-grabit --pin                  # capture a region; pins it to the desktop where it was grabbed
-grabit --grab                 # all pins become interactive (X close button + draggable)
-grabit --release              # pins go back to click-through
-grabit --close-all            # dismiss every pin
+grabit --pin                  # pin a region where it was grabbed
+grabit --grab                 # make pins draggable, with a close button
+grabit --release              # back to click-through
+grabit --close-all
 ```
 
-each pin is a long-lived process holding a wlr-layer-shell overlay surface. they stack as you create them, are click-through by default, and ignore other layers' exclusive zones (so the position matches exactly where the region was selected, even with status bars).
-
-interactive mode is meant to be wired to a hold-bind in your compositor. example for hyprland:
+pins stack, are click-through, and sit exactly where the region was, even over bars. a hold-bind makes them easy to move, e.g. on hyprland:
 
 ```
 bindrn = SUPER SHIFT, mouse:272, exec, grabit --grab
 bindrn = SUPER SHIFT, mouse:272, release, exec, grabit --release
 ```
 
-while grabbed, click anywhere to drag, click the X in the top-right to close that pin.
-
-dragging uses plain `wl_pointer` motion, so it works anywhere layer-shell does.
-
 ## ocr
 
-```sh
-grabit --tesseract            # select a region; text lands in clipboard
-```
-
-requires `tesseract` on `$PATH` and the training data for the language you OCR in. override the binary with `grabit set ocr.tesseract /custom/path/tesseract`. when `ocr.tesseract` is unset, grabit probes `tesseract-ocr` before `tesseract` on `$PATH`.
+`grabit --tesseract` copies the text of a region. it needs `tesseract` (`tesseract-ocr` is tried first) and the traineddata for your language (`tesseract --list-langs`).
 
 | key | default | notes |
 |---|---|---|
-| `ocr.tesseract` | `tesseract-ocr`, then `tesseract` | path to the tesseract binary |
-| `ocr.lang` | `eng` | language passed to tesseract's `-l`. combine with `+` (e.g. `eng+deu`). needs the matching traineddata installed; list what you have with `tesseract --list-langs` |
-
-```sh
-grabit set ocr.lang deu                   # ocr german
-grabit set ocr.lang eng+deu               # both at once
-```
+| `ocr.tesseract` | `tesseract-ocr`, then `tesseract` | tesseract binary |
+| `ocr.lang` | `eng` | tesseract `-l`; combine with `+`, e.g. `eng+deu` |
 
 ### translate
 
 ```sh
-grabit --tesseract --translate            # uses `translate.target` (default en)
-grabit --tesseract --translate=ja         # per-run target override
-grabit set translate.target de            # set a default target
-grabit set translate.backend libretranslate
-grabit set translate.url http://localhost:5000
+grabit --tesseract --translate       # to translate.target
+grabit --tesseract --translate=ja    # per-run target
 ```
 
-`--translate` translates the OCR result and copies that to the clipboard instead of the raw OCR text. if the translate call fails or times out, grabit falls back to copying the raw OCR text and fires a notification.
+the translation is copied instead of the raw text; if it fails, the raw text is copied and a notification says so.
 
-> **privacy:** translating sends your OCR'd screen text to whatever server the backend talks to. `trans` sends it to google. `libretranslate` sends it wherever `translate.url` points - use your own instance to keep it on your machine.
+> **privacy:** translating sends your screen text to the backend's server: google for `trans`, wherever `translate.url` points for `libretranslate`. the deepl free tier may keep what you send.
 
 | key | default | notes |
 |---|---|---|
-| `translate.target` | `en` | iso-639-1 target code; source is auto-detected |
-| `translate.backend` | `trans` | `trans`, `libretranslate`, or `deepl` |
-| `translate.url` | (unset) | server url. required for `libretranslate`; optional override for `deepl`. the api path is appended if you leave it off |
-| `translate.api_key` | (unset) | api key. required for `deepl`, optional for `libretranslate`. `GRABIT_TRANSLATE_KEY` overrides it |
+| `translate.target` | `en` | target code; the source is detected |
+| `translate.backend` | `trans` | `trans` ([translate-shell](https://github.com/soimort/translate-shell)), `libretranslate` ([LibreTranslate](https://github.com/LibreTranslate/LibreTranslate), run your own to stay local) or `deepl` ([DeepL API](https://developers.deepl.com)) |
+| `translate.url` | (unset) | server url: required for `libretranslate`, optional for `deepl` |
+| `translate.api_key` | (unset) | required for `deepl`; `GRABIT_TRANSLATE_KEY` overrides |
 
-- `trans` pipes the text through [translate-shell](https://github.com/soimort/translate-shell)'s `trans` binary (target via `-t`). needs the `trans` binary on `$PATH`; without it grabit copies the raw OCR text.
-- `libretranslate` POSTs to a [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) server (`/translate`, json in, json out). no extra binary needed, and pointing it at a local instance means the text never leaves your machine:
+deepl keys ending in `:fx` go to `api-free.deepl.com`, others to `api.deepl.com`. deepl targets are passed as given (`EN-US`, `PT-BR`, `ZH-HANS`), and quota (456), rate limit (429) and key (403) errors are reported as such.
 
-```sh
-grabit set translate.backend libretranslate
-grabit set translate.url http://localhost:5000
-```
+### on-screen cards
 
-- `deepl` POSTs to the [DeepL API](https://developers.deepl.com) with your own key. grabit picks the endpoint from the key: keys ending in `:fx` are Free plan and go to `api-free.deepl.com`, everything else goes to `api.deepl.com`. override with `translate.url` if needed.
-
-```sh
-export GRABIT_TRANSLATE_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
-grabit set translate.backend deepl
-grabit set translate.target EN-US            # deepl codes: EN-US, PT-BR, ZH-HANS, DE ...
-```
-
-  deepl language codes are not plain iso-639-1 - regional variants like `EN-US`, `EN-GB`, `PT-BR`, `ZH-HANS` and `ES-419` are passed through as you set them (upper-cased). grabit reports quota exhaustion (`http 456`), rate limiting (`429`), and key/endpoint problems (`403`) distinctly.
-
-  **note:** the deepl free tier may retain submitted content; prefer a paid key or a self-hosted libretranslate instance for sensitive screen content.
-
-### show on screen
-
-combine `--tesseract` with `--show` to render the result on screen as a transient text card (dark background, word-wrapped). the text is printed to stdout either way; add `--no-copy` to leave the clipboard alone:
-
-```sh
-grabit --tesseract --show                 # show the raw OCR
-grabit --tesseract --translate --show     # show the translation
-grabit --tesseract --show --no-copy       # print and show, leave the clipboard alone
-grabit set text_card.dismiss_secs 12      # auto-dismiss after 12s (default 8, 0 = stay until replaced)
-```
-
-**`text_card.*`** (configures the text card shown by `--tesseract --show`):
+`--tesseract --show` also shows the text on a card (`--no-copy` leaves the clipboard alone; the text is on stdout either way). `preview.enabled` shows a thumbnail after `-c`, `-u` or `-o`: hovering keeps it up, and a click opens the link (`-u`) or folder (`-o`). only one card is on screen at a time.
 
 | key | default | notes |
 |---|---|---|
-| `text_card.dismiss_secs` | `8` | auto-dismiss after N seconds (0-600; 0 = stay until replaced) |
+| `text_card.dismiss_secs` | `8` | 0-600; 0 stays until replaced |
 | `text_card.position` | `top-right` | `top-left`/`top-center`/`top-right`/`bottom-left`/`bottom-center`/`bottom-right`/`center` |
-| `text_card.output` | (primary) | output name (e.g. `DP-1`, `HDMI-A-1`). if the named output isn't connected, falls back to the primary output |
-
-**`preview.*`** (post-capture thumbnail, independent of `text_card.*`):
-
-| key | default | notes |
-|---|---|---|
-| `preview.enabled` | `false` | after a successful `-c` / `-u` / `-o`, show a preview card |
-| `preview.size` | `300` | thumbnail width in pixels (100-800); the height keeps the screenshot's aspect ratio (no padding, no boxy frame) |
-| `preview.position` | `bottom-right` | same value set as `text_card.position` |
-| `preview.output` | (primary) | same semantics as `text_card.output` |
-| `preview.dismiss_secs` | `5` | auto-dismiss after N seconds (0-600; 0 = stay until next capture) |
-
-the preview is the scaled screenshot with a thin dark border. hovering over it overlays a translucent centered caption bar at the bottom (`Copied`, `Uploaded`, or the bare filename for saves), and re-arms the auto-dismiss timer (so the card stays as long as you keep mousing over it). clicking the preview:
-
-- after `-u`: runs `xdg-open <url>` (opens the upload link in your browser)
-- after `-o`: runs `xdg-open <dir>` (opens the containing folder in your file manager)
-- after `-c`: just dismisses (the file may already be gone if it was a temp)
-
-the `--show` text card is click-through (no input region); the preview card takes hover and click as above. running `--show` again kills any previous card via a pid file in `$XDG_RUNTIME_DIR/grabit-show.pid`, so only one card is ever on screen.
-
+| `text_card.output` | (primary) | output name, e.g. `DP-1`; falls back to the primary |
+| `preview.enabled` | `false` | show the preview card |
+| `preview.size` | `300` | width in pixels (100-800) |
+| `preview.position` | `bottom-right` | as `text_card.position` |
+| `preview.output` | (primary) | as `text_card.output` |
+| `preview.dismiss_secs` | `5` | 0-600; 0 stays until the next capture |
 
 ## fullscreen
 
 ```sh
-grabit -F -o                  # whole-monitor screenshot (picker if multi-monitor)
-grabit --fullscreen -c        # copy a whole monitor to the clipboard
-grabit --fullscreen=2 -u      # upload monitor 2 directly (no picker)
-grabit --fullscreen=DP-1 -e -o   # annotate the whole monitor, then save
-grabit --record -F            # record a whole monitor
+grabit -F -o                  # pick a monitor (or the only one) and save it
+grabit --fullscreen=2 -u      # monitor 2, no picker
+grabit --fullscreen=DP-1 -e -o
+grabit --fullscreen=all -c    # every monitor stitched together (gaps are black)
+grabit --record -F
 ```
 
-`-F`/`--fullscreen` captures a whole monitor instead of dragging a region. it pairs with any capture action (`-c`, `-u`, `-o`, `--<service>`, `--pin`, `--tesseract`, `--record`) and with `-e`; it cannot be combined with `-f`.
-
-monitor selection:
-
-- one monitor connected: that monitor is grabbed directly, no UI.
-- multiple monitors, no target: the region selector opens dimmed and snaps to whole monitors. hover a monitor to highlight it, click to grab it (same as window-snapping, but for monitors). dragging still works if you want a custom region.
-- `--fullscreen=<n>`: pick by 1-based number directly, no picker (the order shown in the printed monitor list).
-- `--fullscreen=<name>`: pick by output name directly, e.g. `--fullscreen=DP-1`.
-- `--fullscreen=all`: capture every monitor stitched into one image (gaps in the layout come out black).
-
-an unknown number or name prints the available monitors and exits.
-
-the mouse pointer is included in screenshots by default (`capture.cursor`, default `true`); `--cursor` forces it on for one run even when the config disables it. recordings have their own `recording.cursor`.
-
-with `-e`/`--edit`, once a monitor is chosen it opens as the locked region with the annotation toolbar (no drag step). with `--record`, the chosen monitor becomes the recording region.
+`-F` works with every capture action and `-e`, but not `-f`. with several monitors and no target, the selector snaps to whole monitors; dragging still works. an unknown target lists the monitors.
 
 ## window
 
 ```sh
-grabit -w -o                  # save the active window
-grabit --window -c            # copy the active window
-grabit -w -e -u               # annotate the active window, then upload
+grabit -w -c                  # copy the active window
+grabit -w -e -u               # annotate it, then upload
 ```
 
-`-w`/`--window` captures the focused window instead of dragging a region. it pairs with the same actions `-F` does, and it cannot be combined with `-f`, `-F`, or `--record`.
+`-w` works with the same actions as `-F`, but not with `-f`, `-F` or `--record`.
 
-how the window is captured depends on what the compositor can tell grabit:
-
-- **hyprland** and **sway** report the geometry of every window, so `-w` resolves the focused window to a rectangle and crops the screen to it. this behaves exactly like `-F` with a smaller region: `-e` works, and anything drawn on top of the window is included. on sway the rectangle is the window and its border but not its title bar, which is what sway's own ipc reports and what grimshot captures; bars and panels are missing from window snapping there, because sway's ipc does not list layer surfaces.
-- **umbriel** reports the geometry of every window over its ipc socket, so `-w` and window snapping take the same crop path as hyprland. bars and panels are not part of window snapping there.
-- **aqueous** reports the geometry of every window over its ipc socket too, so `-w` and window snapping take the same crop path. bars and panels are not part of window snapping there either.
-- **niri** only reports positions for *floating* windows. for a floating window `-w` takes the same crop path as hyprland. for a tiled window there is no geometry to crop to, so grabit asks niri to render the window itself (`screenshot-window`), which needs **niri 25.11 or newer** and has three consequences: the shot contains only the window (nothing overlapping it); `-e` is unavailable, so grabit logs a warning and captures without the editor; and for `png` output the file niri wrote is used as-is, so `png.level` does not apply (it still does for `jpeg`/`webp`, which are re-encoded). niri also copies its window screenshots to the clipboard unconditionally, so a `-w -o` run on a tiled window replaces the clipboard contents as a side effect.
-- **other compositors** have no way to report the active window; `-w` fails with a notification.
-
-`%w`/`%t` in `--filename` are independent of this and work anywhere `wlr-foreign-toplevel-management-unstable-v1` is available.
+- **hyprland, sway, umbriel, aqueous**: the window is cropped from the screen, so `-e` works and anything on top is included. on sway that is the window and border without the title bar, like grimshot.
+- **niri**: floating windows are cropped the same way. tiled ones are rendered by niri's `screenshot-window` (niri 25.11+): only the window, no `-e`, `png.level` is not applied, and niri also puts it on the clipboard.
+- **elsewhere**: `-w` fails with a notification.
 
 ## edit
 
-```sh
-grabit -e -c                  # annotate, then copy
-grabit -e -u                  # annotate, then upload
-grabit -e -o                  # annotate, then save
-```
+`-e` opens the editor before `-c`, `-u`, `-o`, `--pin` or `--tesseract` (`edit.always` makes it the default). it starts in region select; pick a tool to draw anywhere first, then `q` to drag out the region. the toolbar can be dragged anywhere, including to another monitor, and remembers the spot (`grabit unset edit.toolbar_pos` forgets it).
 
-`-e`/`--edit` pairs with `-c`, `-u`, `-o`, `--pin` and `--tesseract`; it is ignored for `--record`, `--tray` and the pin-management flags. an annotation toolbar sits at the top of the primary monitor (or the output named in `edit.toolbar_output`) from the moment the overlay opens, or stays hidden until you select a region with `edit.toolbar_placement = attach`; drag it by its background to park it anywhere, including onto another monitor (same as the recording control bar and pinned screenshots). the parked position is remembered across invocations (via `edit.toolbar_pos`) as long as that monitor is still connected; if it's gone, the toolbar falls back to the default placement. `grabit unset edit.toolbar_pos` forgets the parked spot. the overlay starts in region-select mode, but picking any tool (click or `0`-`9`) switches to drawing immediately: you can annotate anywhere on the frozen screen before a region exists, then click the **select region** button (or press `q`) to drag out the capture area (save stays disabled until one is set). tools:
+tools, by key: `q` region, `s` move/resize, `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `h` spotlight, `t` text, `c` counter, `k` callout, `e` eraser, or `0`-`9`. pressing `p`, `r`, `a` or `b` again cycles its group, which is the way to the rounded rect and freehand arrow.
 
-- **select region** (`q`) - drag out or replace the capture area
-- **move/resize** (`s`) - click an annotation to select it, drag to move it, drag the corner handles to resize (four on rect/rounded rect/ellipse/blur/pixelate/spotlight, two on line/arrow/callout; pen, marker, freehand arrow, eraser, text and counter move only). ctrl+click adds another annotation to the selection (`edit.multi_select`), `Delete` removes the selected ones, and the scroll wheel changes a selected annotation's stroke width (font size for text, counter and callout). while something is selected the swatches, hsl picker and width slider retarget it instead of the tool defaults
-- **pen, marker, line, rect, rounded rect, ellipse, arrow, freehand arrow, blur, pixelate, spotlight, text, counter, callout, eraser** - keyboard shortcuts `0`-`9` (or the keypad), or by letter: `p` pen, `m` marker, `l` line, `r` rect, `o` ellipse, `a` arrow, `b` blur, `x` pixelate, `t` text, `c` counter, `k` callout, `e` eraser. the freehand arrow draws like the pen but always ends in an arrow head, so it can curve around whatever it points at; press `a` again to reach it
-- **spotlight** (`h`) dims everything outside the rect you drag, to draw the eye to one area. the width slider sets how dark the surround goes. a second spotlight adds a second bright area rather than dimming the first
-- **callout** (`k`) draws a speech bubble: click the thing it should point at, type the text, press Enter. the bubble appears offset from that point with a tail leading back to it; in the move/resize tool (`s`) both the bubble and the tail tip are draggable handles, so you can re-aim it
-- **tool groups**: the pen, shapes, arrow and redact toolbar buttons each hold several tools. click one to get a list (Pen/Marker/Line, Rectangle/Rounded/Ellipse, Straight/Freehand, Blur/Pixelate/Spotlight) plus the line style for the pen and shape groups, or press that group's own key again to cycle it (`p`, `r`, `a`, `b`). the popup and cycling are the only routes to rounded rect and freehand arrow, which have no key of their own
-- **eraser** (`e`) rubs out drawn pixels with a freehand stroke; it does not delete whole annotations
-- **counter** (`c`) drops a numbered badge, numbered from the count of existing counters, so deleting one in the middle reuses its number
-- **6 preset color swatches** + a current-color square (click to open the picker)
-- **hsl picker panel**: drag in the gradient, type a hex value (hex digits only, `rrggbb` or `rgb`; the `#` is implied), or click the eyedropper to sample a pixel from the screen
-- **width slider** (1-12 in the toolbar, or scroll the mouse wheel anywhere; the persisted `edit.width` accepts up to 20 if you set it via the cli). the wheel sizes the font instead (8-72) while text, counter or callout is active
-- **undo** (`u` or `ctrl+z`, hold to repeat) / **redo** (`ctrl+y` or `ctrl+shift+z`) - steps through annotations, annotation moves/resizes, and region changes (move, resize, re-select) alike / **save** (`enter`) / **cancel** (`esc` or right-click)
-- **resize handles** on the locked region; **ctrl+drag** inside to move the whole region (with a drawing tool active)
-- **shift** while drawing constrains rect/rounded rect/ellipse/blur/pixelate/spotlight to squares and arrows/lines to 45° angles
-- **arrow keys / shift+arrows** still move and resize the capture region while the editor is open
-- **text tool**: `enter` commits the annotation, clicking anywhere else commits it too, `esc` discards the typed text without leaving the editor. while typing, `left`/`right`/`home`/`end` move the caret, `backspace`/`delete` cut either side of it, and `ctrl+v` pastes the clipboard
-- **hex field**: the typed value applies on `enter` or when you click elsewhere in the picker; `esc` abandons it
-- **right-click** cancels the selector in every mode, aborting an in-progress drag or text entry first
-- **magnifier**: hold `Alt` for a pixel loupe showing the color under the cursor as `#rrggbb` and its coordinates. works in region-select mode too
-- **tooltips** appear after about a second of hovering a toolbar button
-- **touch**: the selector, the recording control bar and pinned captures take touch as well as pointer input. a tap is a left click and a drag is a drag; one finger at a time, and hover-only things like tooltips need a real pointer
-
-the editor opens in region-select mode; drag out a region, then pick a tool to annotate (or press a tool key). two toggles change this:
-
-- `edit.instant_capture true` - selecting the region captures immediately instead of leaving it adjustable. to annotate first, pick a tool and draw, then switch back with the **select region** button or `q` and drag out the region.
-- `edit.start_with_tool true` - the editor opens already in your last-used `edit.tool` (drawing mode) instead of region-select. press `q` (or click the select-region button) when you're ready to define the capture area.
-
-last-picked color, width, and tool persist via:
+- **move/resize**: drag annotations and their handles; ctrl+click selects more (`edit.multi_select`), `Delete` removes, the wheel changes width or font size, and the color and width controls apply to the selection
+- **other tools**: spotlight dims everything outside the rect, callout draws a speech bubble pointing at where you click, counter numbers badges in order, and the eraser rubs out pixels rather than whole annotations
+- **color**: six swatches (click a selected one to repoint it), an hsl picker with hex input and an eyedropper
+- **width**: the slider, or the wheel anywhere
+- **shapes and region**: Shift keeps shapes square and lines at 45°, Ctrl+drag moves the region, and the arrows and Shift+arrows move and resize it
+- **text**: Enter or a click elsewhere commits, Esc discards, Ctrl+V pastes
+- **undo**: undo and redo cover annotations, moves and region changes. hold Alt for a magnifier; touch works as a pointer
 
 | key | default | notes |
 |---|---|---|
-| `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or one of red/yellow/green/blue/black/white |
-| `edit.width` | `4` | integer 1-20 |
-| `edit.tool` | `pen` | one of: `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` - the editor reopens with your last-used tool |
-| `edit.always` | `false` | when `true`, every capture opens the editor (same as passing `-e` to every run; applies to copy/upload/save/pin, ignored for `-f`/record/OCR). old name: `edit.default` |
-| `edit.instant_capture` | `false` | when `true`, picking the region in the editor captures straight away instead of leaving it adjustable (also applies to window-snap click and `ctrl+a`). `region.confirm` takes precedence if both are set |
-| `edit.start_with_tool` | `false` | when `true`, the editor opens in your last-used `edit.tool` instead of region-select mode. press `q` for region-select when ready |
-| `edit.smooth` | `false` | smooth pen/marker/eraser strokes into a curve instead of tracing every sampled pixel |
-| `edit.eyedropper_edits` | `true` | the color picker's eyedropper picks the pixel with your annotations drawn on it, so it can pick up a color you already used; set `false` to always pick from the raw screen |
-| `edit.line_style` | `solid` | stroke style for pen, marker, line and the shape tools: `solid`, `dashed` or `dotted` |
-| `edit.multi_select` | `ctrl` | modifier that adds another annotation to the selection in move/resize mode: `ctrl`, `shift`, `alt` or `super` |
-| `edit.swatches` | (built-in) | the six color buttons in the editor toolbar, as a comma separated list. each one is `#rrggbb`, `#rgb`, or a name (red/yellow/green/blue/black/white), so `grabit set edit.swatches "#f38ba8,#f9e2af,#a6e3a1,#89b4fa,#11111b,#cdd6f4"` gives you a catppuccin row. all six must be given, or set one at a time with `grabit set edit.swatches <n> <color>` where `<n>` is 1-6 and `<color>` may be `default` to put that one back. clicking a swatch that is already selected opens the color picker on it, so you can repoint that swatch in place; the picker grows a reset button next to the eyedropper to put that one back to its built-in color. the row is remembered like the other editor choices |
-| `edit.toolbar_placement` | `top` | where the toolbar opens. `top` centers it at the top of the monitor; `attach` hides it until you select a region, then puts it below the selection (above when there is no room), which saves crossing screens on a multi-monitor setup. it hides again while you move or resize the region and settles at the new spot on release. keys still work while it is hidden, and dragging the toolbar parks it for the rest of that run without remembering the spot (`edit.toolbar_pos` is ignored) |
-| `edit.toolbar_output` | (empty) | pin the toolbar to one output, e.g. `DP-1`; it opens there and dragging cannot leave it. empty opens on the primary monitor and lets you drag the toolbar across any monitor |
-| `edit.toolbar_pos` | (empty) | last parked toolbar spot as `<output>:<x>,<y>`, written automatically when you drag the toolbar; ignored if that output is gone |
+| `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or red/yellow/green/blue/black/white |
+| `edit.width` | `4` | 1-20 |
+| `edit.tool` | `pen` | `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` |
+| `edit.always` | `false` | open the editor for every copy, upload, save and pin. old name: `edit.default` |
+| `edit.instant_capture` | `false` | capture as soon as the region is picked (also for snap clicks and `ctrl+a`); `region.confirm` wins |
+| `edit.start_with_tool` | `false` | open in the last `edit.tool` instead of region select |
+| `edit.smooth` | `false` | smooth pen, marker and eraser strokes |
+| `edit.eyedropper_edits` | `true` | the eyedropper sees your annotations |
+| `edit.line_style` | `solid` | `solid`, `dashed` or `dotted` |
+| `edit.multi_select` | `ctrl` | `ctrl`, `shift`, `alt` or `super` |
+| `edit.swatches` | (built-in) | six colors, comma-separated, or `grabit set edit.swatches <1-6> <color|default>` for one |
+| `edit.toolbar_placement` | `top` | `top` of the monitor, or `attach` below the selection once there is one |
+| `edit.toolbar_output` | (empty) | keep the toolbar on one output, e.g. `DP-1` |
+| `edit.toolbar_pos` | (empty) | the parked toolbar spot as `<output>:<x>,<y>` (state) |
 
 ## filename templates
 
-`grabit --filename '<tpl>'` (per-run) overrides `filename` config (per-user). tokens:
+`--filename '<tpl>'` overrides `filename` for one run.
 
 | token | expands to |
 |---|---|
 | `%Y %m %d %H %M %S` | date/time fields |
 | `%s` | unix timestamp |
-| `%L` | milliseconds, 3 digits (`000`-`999`) |
-| `%r` | 12-char random alnum (`%r8` etc. picks length) |
+| `%L` | milliseconds (`000`-`999`) |
+| `%r` | 12 random alnum chars (`%r8` for 8) |
 | `%u` | uuid v4 |
-| `%w` | window class / app id (see below) |
-| `%t` | window title (see below) |
+| `%w` | window class / app id |
+| `%t` | window title |
 | `%%` | literal `%` |
 
-presets via `filename_preset`:
-- `date`: `%Y-%m-%d-%H-%M-%S` (default)
-- `random`: `%r12`
-- `uuid`: `%u`
-- `timestamp`: `%s`
+`filename_preset`: `date` (`%Y-%m-%d-%H-%M-%S`, the default), `random` (`%r12`), `uuid` (`%u`), `timestamp` (`%s`).
 
-`%w`/`%t` name the window you clicked when a region selection snaps to one (hyprland, sway, niri, umbriel and aqueous; a snapped layer surface such as a bar gives its namespace). otherwise, including a manual drag, they name the window focused when the capture started, read over the compositor's ipc or `wlr-foreign-toplevel-management-unstable-v1`, so they also work on river. they resolve to empty where neither is available. all time tokens, `%L` included, come from the moment the capture started.
+`%w`/`%t` name the snapped window, or else the focused one (compositor ipc or `wlr-foreign-toplevel-management-unstable-v1`, so river too), and are empty when neither is known. all tokens use the moment the capture started.
 
 ## history
 
-grabit remembers each upload (link, service, how to delete it), each saved screenshot or recording, and the text of each OCR run in `$XDG_STATE_HOME/grabit/history.jsonl` (default `~/.local/state/grabit/history.jsonl`, mode 0600). there is no size limit. browse it in `grabit settings` (the History and OCR history tabs at the bottom of the sidebar; the history settings themselves are on the General page). History shows every screenshot, recording and upload as a thumbnail grid grouped by day, newest first, and keeps scrolling as far back as the history goes; thumbnails load for what is on screen. the bar above the grid has a search box (matches the name, link, path and service; Ctrl+F or just start typing), type chips (All, Uploads, Saved, Recordings) and service, date and size filters. hover a thumbnail for a quick preview, click it to view it large with copy, open, show in folder, upload to and delete buttons (left and right arrows step through the filtered list, Esc closes), or right-click it for the same actions as a menu. from the keyboard, arrow keys move between thumbnails, Tab moves through the search box and filters, Enter opens the viewer, and Menu or Shift+F10 opens the actions. forgetting an entry or clearing the history can be undone from the banner that follows. upload to sends a saved file to any service that is set up. the Upload tab, just above History, follows zipline's upload page: drop files on the window, press Ctrl+V to paste copied files or paths, or click the drop zone to type a path. the files show up as cards to review (hover one for a preview, its type and size, and a Remove button), then Upload sends them one after another with a progress bar, speed and time left. when they are done, a panel lists each link with open and copy buttons and a Copy all; a file that failed stays in the list to retry. the Options button (with a count of what you changed) folds out the service and, for zipline, deletes at, name format, compression format and percent, max views, folder, override domain, override file name (single files only), password and add original name, plus chunking, the nest folder, and whether the uploads go into the history or show notifications. those options apply to these uploads only: grabit hands them over as a temporary `GRABIT_CONFIG` file and never touches config.toml, and Reset page puts them back to your settings. `grabit settings` with no page opens on the tab it was last closed on. or from the terminal:
+grabit keeps every upload (with how to delete it), saved screenshot and recording, and OCR text in `$XDG_STATE_HOME/grabit/history.jsonl` (mode 0600, no size limit).
+
+in `grabit settings`:
+
+- **History** is a thumbnail grid by day, with search, type, service, date and size filters. click for a viewer (copy, open, show in folder, upload to, delete), right-click for the same as a menu. forgets and clears can be undone.
+- **OCR history** lists past OCR text.
+- **Upload** works like zipline's upload page: drop, paste or type files, review them, and upload with progress. its Options (service, zipline headers, chunking, history and notifications) apply to that upload only and never touch config.toml.
 
 ```sh
-grabit history                    # uploads and saved files, newest first (alias: list, ls)
-grabit history --ocr              # OCR text instead; --json prints one JSON object per line
-grabit history copy <n>           # copy the link, file path or text again
-grabit history open <n>           # open the saved file, or the link when the file is gone
-grabit history delete <n> [-y]    # delete from the host and the saved file, then forget it
-grabit history delete <n> --host-only   # or --file-only
-grabit history remove <n>         # forget it, leave the upload and file alone (alias: rm)
+grabit history                    # newest first (alias: list, ls); --ocr for OCR text, --json for scripts
+grabit history copy <n>           # the link, path or text again
+grabit history open <n>           # the file, or the link when the file is gone
+grabit history delete <n> [-y]    # from the host and disk, then forget (--host-only / --file-only)
+grabit history remove <n>         # just forget it (alias: rm)
 grabit history clear [--ocr|--all] [-y]
 ```
 
-uploads whose file was not kept show the image from their link: grabit downloads it once in the background (png, jpeg or webp, up to 40 MB) and keeps a small copy in `$XDG_CACHE_HOME/grabit/history` (default `~/.cache/grabit/history`), which is removed when the entry is forgotten.
-
-`<n>` is the number shown by the list (1 is the newest) or an entry id from `--json`. deleting from the host works on zipline (the token is read from your config at delete time, never stored in the history) and on .sxcu uploaders with a `DeletionURL`; the other built-in services keep the upload.
+`<n>` is the list number (1 is newest) or an id from `--json`. deleting from the host works on zipline (the token is read from your config, never stored) and on .sxcu uploaders with a `DeletionURL`. thumbnails of uploads without a local file are fetched once into `$XDG_CACHE_HOME/grabit/history`.
 
 | key | default | notes |
 |---|---|---|
 | `history.enabled` | `true` | record uploads, saved screenshots and recordings |
 | `history.ocr` | `true` | also record OCR text |
-| `history.confirm_delete` | `true` | ask before deleting an upload or saved file, in `grabit settings` and `grabit history delete` |
+| `history.confirm_delete` | `true` | ask before deleting, in settings and `grabit history delete` |
 
 ## plugins
 
 ```sh
 grabit plugin install <git-url>   # clone, build, install (alias: add)
-grabit plugin list                # installed plugins (alias: ls)
-grabit plugin show <name>         # parsed manifest
-grabit plugin update [<name>]     # update one, or all
-grabit plugin remove <name> [--yes]  # uninstall (alias: rm); asks first on a terminal
-grabit plugin disable <name>      # keep it installed but stop `grabit <name>` running it
-grabit plugin enable <name>       # undo disable
+grabit plugin list                # alias: ls
+grabit plugin show <name>
+grabit plugin update [<name>]
+grabit plugin remove <name> [--yes]  # alias: rm
+grabit plugin disable|enable <name>
+grabit <name> [args]              # run it (execs grabit-<name>)
+grabit <name> --pin [args]        # run it and pin its last stdout line
 ```
 
-run one by name - a non-flag first argument resolving to an installed plugin execs `grabit-<name>`:
-
-```sh
-grabit <name> [args]              # run the plugin
-grabit <name> --pin [args]        # run it and pin its last stdout line as a file (old: -p <name>)
-```
-
-plugins whose manifest sets `capture.auto` get a fresh screenshot path as their first argument; `--capture` forces that per call and `--no-capture` suppresses it. see `PLUGINS.md` for the manifest format.
+a plugin with `capture.auto` gets a fresh screenshot as its first argument; `--capture` / `--no-capture` force it either way. see `PLUGINS.md`.
 
 | key | default | notes |
 |---|---|---|
-| `plugins.confirm_remove` | `true` | in `grabit settings`, ask before removing a plugin. disabling never asks |
+| `plugins.confirm_remove` | `true` | ask before removing a plugin in `grabit settings` |
 
 ## environment
 
 | var | effect |
 |---|---|
-| `GRABIT_DEBUG=1` | enable debug logging (same as `-d`) |
-| `GRABIT_CONFIG` | extra config files applied last, colon-separated; see config overrides |
-| `GRABIT_<SERVICE>_AUTH` | per-service auth token (overrides config) |
-| `GRABIT_LOG_FILE` | `0` disables the log file (stderr only), anything else forces it on; takes precedence over the `log.enabled` config key |
-| `GRABIT_CAPTURE_BACKEND` | force the capture backend (`auto`/`wlr`/`ext`/`kwin`); takes precedence over the `capture.backend` config key |
-| `GRABIT_CLIPBOARD_BACKEND` | force the clipboard protocol (`auto`/`ext`/`wlr`); `auto` prefers `ext-data-control-v1` and falls back to the deprecated `wlr-data-control` |
-| `WAYLAND_DISPLAY` | wayland socket to connect to; named in the connection-failure message |
-| `AQUEOUS_SOCKET` | set by aqueous; locates the aqueous ipc socket behind `-w`/`--window` and window snapping. there is no fallback path |
-| `HOME` | required when `XDG_CONFIG_HOME` or `XDG_STATE_HOME` is unset (grabit exits with "HOME is not set"); also backs the `~/Pictures`, `~/Videos`, `~/.cache` fallbacks |
-| `HYPRLAND_INSTANCE_SIGNATURE` | set by hyprland; with `XDG_RUNTIME_DIR` locates the hyprland ipc socket behind window snapping and `-w`/`--window` |
-| `NIRI_SOCKET` | set by niri; locates the niri ipc socket behind `-w`/`--window` and window snapping |
-| `SWAYSOCK` | set by sway; locates the sway ipc socket behind `-w`/`--window` and window snapping |
-| `UMBRIEL_SOCKET` | set by umbriel; locates the umbriel ipc socket behind `-w`/`--window` and window snapping. falls back to `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock` |
-| `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor theme and size for the selector/overlays (size clamped to 8..256, default 24) |
-| `XDG_RUNTIME_DIR` | base for grabit's runtime files if set, else `/tmp` (see files below) |
-| `XDG_STATE_HOME` | where `state.toml` lives, default `~/.local/state` |
-| `XDG_VIDEOS_DIR` | recording save dir (`save_dir` config takes precedence; else this, else `~/Videos`) |
-| `XDG_PICTURES_DIR` | screenshot save dir (`save_dir` config takes precedence; else this, else `~/Pictures`) |
-| `TESSDATA_PREFIX` | tesseract language-data dir |
-| `GRABIT_TRANSLATE_KEY` | api key for the `deepl` and `libretranslate` backends; overrides `translate.api_key` |
-| `NO_COLOR` | if set to any value, disable ansi color in log output |
-| `GRABIT_RECORD_ENC_DELAY_US` | debug knob: throttle the recording encoder drain loop, in microseconds per frame |
+| `GRABIT_DEBUG=1` | debug logging, like `-d` |
+| `GRABIT_CONFIG` | extra config files applied last, colon-separated |
+| `GRABIT_<SERVICE>_AUTH` | per-service auth token, over the config |
+| `GRABIT_LOG_FILE` | `0` turns the log file off, anything else on; over `log.enabled` |
+| `GRABIT_CAPTURE_BACKEND` | `auto`/`wlr`/`ext`/`kwin`, over `capture.backend` |
+| `GRABIT_CLIPBOARD_BACKEND` | `auto`/`ext`/`wlr`; `auto` prefers `ext-data-control-v1` |
+| `GRABIT_TRANSLATE_KEY` | translate api key, over `translate.api_key` |
+| `GRABIT_RECORD_ENC_DELAY_US` | debug: slow the recording encoder by N µs per frame |
+| `HYPRLAND_INSTANCE_SIGNATURE`, `SWAYSOCK`, `NIRI_SOCKET`, `UMBRIEL_SOCKET`, `AQUEOUS_SOCKET` | compositor ipc for `-w` and snapping (umbriel falls back to `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`) |
+| `WAYLAND_DISPLAY` | the wayland socket |
+| `HOME` | needed when the XDG dirs are unset |
+| `XDG_RUNTIME_DIR` | runtime files, else `/tmp` |
+| `XDG_STATE_HOME` | `state.toml` and history, default `~/.local/state` |
+| `XDG_PICTURES_DIR` / `XDG_VIDEOS_DIR` | save dirs when `save_dir` is unset |
+| `XCURSOR_THEME` / `XCURSOR_SIZE` | cursor for the selector and overlays (8-256, default 24) |
+| `TESSDATA_PREFIX` | tesseract language data |
+| `NO_COLOR` | no colour in log output |
 
-set by grabit when dispatching a plugin (read by the plugin, not by you):
-
-| var | effect |
-|---|---|
-| `GRABIT_BIN` | absolute path to the grabit binary |
-| `GRABIT_PLUGIN_NAME` | the plugin's name |
-| `GRABIT_PLUGIN_DIR` | the plugin's install directory |
-| `GRABIT_CACHE_DIR` | per-plugin cache directory |
+plugins get `GRABIT_BIN`, `GRABIT_PLUGIN_NAME`, `GRABIT_PLUGIN_DIR` and `GRABIT_CACHE_DIR`.
 
 ## files
 
 | path | purpose |
 |---|---|
-| `~/.config/grabit/config.toml` | user config (mode 0600) |
-| `~/.config/grabit/config.d/*.toml` | overrides applied after config.toml, in name order |
-| `~/.local/state/grabit/history.jsonl` | upload, saved file and OCR history; see `history.enabled` |
-| `~/.cache/grabit/history/` | thumbnails of uploaded images, fetched from their links |
-| `~/.local/state/grabit/state.toml` | what grabit decides on its own (`$XDG_STATE_HOME/grabit/state.toml`); see `save_state` |
-| `~/.config/grabit/uploaders/<name>.sxcu` | registered sharex uploaders |
-| `~/.config/grabit/plugins/<name>/` | installed plugins (binaries symlinked from `plugins/.bin/`) |
-| `~/.config/grabit/plugins/.lock` | plugin install/update lock |
-| `~/.config/grabit/plugins/<name>/.source`, `.last_check`, `.update.log` | per-plugin bookkeeping |
+| `~/.config/grabit/config.toml` | config (0600) |
+| `~/.config/grabit/config.d/*.toml` | overrides, in name order |
+| `~/.config/grabit/uploaders/<name>.sxcu` | sharex uploaders |
+| `~/.config/grabit/plugins/` | plugins (`.bin/` symlinks, `.lock`, per-plugin `.source`, `.last_check`, `.update.log`) |
+| `~/.local/state/grabit/state.toml` | state; see `save_state` |
+| `~/.local/state/grabit/history.jsonl` | history; see `history.enabled` |
+| `~/.cache/grabit/history/` | thumbnails fetched from upload links |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
-| `$XDG_RUNTIME_DIR/grabit.log` | every message grabit prints, including info and debug (else `/tmp/grabit-<uid>/grabit.log`). notifications that say "check the log file" mean this one. truncated once it passes 1 MiB; turn it off with `grabit set log.enabled false` or `GRABIT_LOG_FILE=0` |
-| `$XDG_RUNTIME_DIR/grabit/` | temp captures for the clipboard/upload flows (else `/tmp/grabit-<uid>/grabit/`; grabit refuses a world-writable directory rather than using `/tmp` itself) |
-| `$XDG_RUNTIME_DIR/grabit_recording.pid` | active recording pid file (else `/tmp/grabit-<uid>/grabit_recording.pid`) |
-| `$XDG_RUNTIME_DIR/grabit-show.pid` | on-screen text/preview card pid file |
-| `$XDG_RUNTIME_DIR/grabit-tray.pid` | tray process pid file |
-
+| `$XDG_RUNTIME_DIR/grabit.log` | the log that "check the log file" means (else `/tmp/grabit-<uid>/grabit.log`); truncated past 1 MiB |
+| `$XDG_RUNTIME_DIR/grabit/` | temp captures (grabit refuses a world-writable dir) |
+| `$XDG_RUNTIME_DIR/grabit_recording.pid`, `grabit-show.pid`, `grabit-tray.pid` | recording, card and tray pid files |

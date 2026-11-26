@@ -36,7 +36,10 @@ static void append_item_props(DBusMessageIter *parent,
 							  const struct tray_menu_item *it, bool submenu) {
 	DBusMessageIter dict;
 	dbus_message_iter_open_container(parent, DBUS_TYPE_ARRAY, "{sv}", &dict);
-	if (it) append_prop_s(&dict, "label", item_label(it));
+	if (it && it->separator)
+		append_prop_s(&dict, "type", "separator");
+	else if (it)
+		append_prop_s(&dict, "label", item_label(it));
 	if (submenu) append_prop_s(&dict, "children-display", "submenu");
 	dbus_message_iter_close_container(parent, &dict);
 }

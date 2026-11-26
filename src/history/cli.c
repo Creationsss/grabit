@@ -7,6 +7,7 @@
 #include "clipboard/clipboard.h"
 #include "config/config.h"
 #include "log.h"
+#include "notify/notify.h"
 #include "subcmd.h"
 #include "upload/upload.h"
 #include "util/util.h"
@@ -134,6 +135,22 @@ static const char *payload(const struct history_entry *e) {
 	return e->url ? e->url : e->path;
 }
 
+static void tell(const char *summary, const char *body, bool failed) {
+	if (isatty(STDERR_FILENO)) return;
+	struct config cfg;
+	if (config_load(&cfg) != 0) return;
+	notify_init(&cfg, false);
+	config_free(&cfg);
+	notify_send(&(struct notify_opts){
+		.summary = summary,
+		.body = body,
+		.urgency = failed ? NOTIFY_CRITICAL : NOTIFY_LOW,
+		.transient = !failed,
+		.log_hint = failed,
+	});
+	notify_finish();
+}
+
 static int do_copy(const struct opts *o) {
 	struct history_list l = {0};
 	const struct history_entry *e = resolve(o, &l);
@@ -142,6 +159,12 @@ static int do_copy(const struct opts *o) {
 		rc = clipboard_set_text(payload(e)) == 0 ? 0 : 1;
 		if (rc == 0) log_info("copied %s", e->kind == HISTORY_OCR ? "the text" : payload(e));
 	}
+	if (rc == 0)
+		tell(e->kind == HISTORY_OCR ? "OCR text copied" : e->url ? "Link copied"
+																 : "File path copied",
+			 e->kind == HISTORY_OCR ? NULL : payload(e), false);
+	else
+		tell("Nothing copied", e ? "the clipboard write failed" : "no such history entry", true);
 	history_list_free(&l);
 	return rc;
 }
@@ -159,6 +182,7 @@ static int do_open(const struct opts *o) {
 		if (!target) log_error("history: the file is gone and there is no link");
 		rc = x == 0 ? 0 : 1;
 	}
+	if (rc != 0) tell("Could not open it", e ? NULL : "no such history entry", true);
 	history_list_free(&l);
 	return rc;
 }

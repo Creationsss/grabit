@@ -38,19 +38,19 @@ grabit <name> [args]                     # exec the plugin
 grabit <name> --pin [args]               # run plugin, then pin its last stdout line as a file
 ```
 
-dispatch looks only at the first argument, and only when it doesn't start with `-` (`grabit --silent <name>` never dispatches). `set`, `get`, `unset`, `sxcu`, `plugin`, and `help` are matched first, so plugins with those names are unreachable. on a match grabit sets the env vars below, optionally captures (`capture.auto`), and exec's the plugin binary. if there's no match, `grabit <name>` falls through to the usual `unknown argument` error; `grabit <name> --pin` does print a dedicated `plugin: <name> not installed`. `-p <name>` still works as a deprecated spelling.
+dispatch looks only at the first argument, and only when it doesn't start with `-` (`grabit --silent <name>` never dispatches). `settings`, `set`, `get`, `unset`, `sxcu`, `upload`, `history`, `plugin` and `help` are matched first, so plugins with those names are unreachable. on a match grabit sets the env vars below, optionally captures (`capture.auto`), and exec's the plugin binary. if there's no match, `grabit <name>` falls through to the usual `unknown argument` error; `grabit <name> --pin` does print a dedicated `plugin: <name> not installed`. `-p <name>` still works as a deprecated spelling.
 
-### `-p <name>` semantics
+### `--pin` semantics
 
 - runs the plugin (with its forwarded argv) under a pipe. stdout is buffered up to 16 MiB (truncated with a warning beyond that); stderr streams through untouched.
 - after the plugin exits, takes the last newline-terminated chunk of stdout (trimmed) as a file path and execs `grabit --pin -f <path>`.
 - if the plugin exits non-zero: any captured stdout is flushed to stderr and grabit exits with the plugin's exit code (1 if it died to a signal).
 - if stdout is empty: errors with `plugin: <name> produced no output to pin` and exits 1.
-- `capture.auto` and `--capture`/`--no-capture` do not apply under `-p`; those args are forwarded to the plugin verbatim.
+- `capture.auto` and `--capture`/`--no-capture` do not apply with `--pin`; those args are forwarded to the plugin unchanged.
 
 ### capture.auto
 
-with `capture.auto = true`, grabit captures a screenshot in-process (same as `grabit -o`, honoring your full config) and prepends the saved path as the plugin's first positional arg - but only when the user didn't pass a positional themselves. if the capture fails, grabit exits 1 without running the plugin. per-call overrides:
+with `capture.auto = true`, grabit captures a screenshot in-process (same as `grabit -o`, honoring your full config) and prepends the saved path as the plugin's first positional arg, unless the user passed a positional themselves. if the capture fails, grabit exits 1 without running the plugin. per-call overrides:
 
 ```sh
 grabit <name> --capture                  # force capture even if user passed a positional
@@ -106,7 +106,7 @@ auto = true                              # see capture.auto above
 description = "extra subcommand"
 ```
 
-`description`, `homepage`, and `[actions.*]` are not consumed by dispatch - they're discoverability metadata.
+`description`, `homepage`, and `[actions.*]` are only shown by `grabit plugin show`; dispatch ignores them.
 
 ## install
 
@@ -136,19 +136,19 @@ acquires the lock (non-blocking, same as install). behavior depends on the sourc
 - **git**: `git fetch --depth 1 origin <branch>` then `git reset --hard FETCH_HEAD`. if `[build]` is set, re-runs `cmd`.
 - **prebuilt**: refetches the url with `If-Modified-Since` (using the binary's mtime). if the server says 304, logs "up to date". on 200, re-verifies sha256 and atomic-renames `<name>.new` into place.
 
-there is no `--force` flag - `If-Modified-Since` is always honored. any foreground `plugin update` also resets `.last_check`, postponing the next auto check.
+there is no `--force` flag, so `If-Modified-Since` is always honored. any foreground `plugin update` also resets `.last_check`, postponing the next auto check.
 
-**prebuilt caveat**: `.source` stores the prebuilt url, not the git url. updates only refetch the binary - the repo (manifest, bundled files) is never git-pulled, and reinstalling from the original git url errors because the url comparison uses the stored prebuilt url. a changed manifest needs `remove` + `install`.
+**prebuilt caveat**: `.source` stores the prebuilt url, not the git url. updates only refetch the binary. the repo (manifest, bundled files) is never git-pulled, and reinstalling from the original git url errors because the url comparison uses the stored prebuilt url. a changed manifest needs `remove` + `install`.
 
 ### auto-update
 
 triggered on every `grabit <name>` and `grabit <name> --pin` invocation. flow:
 
-1. tries the lock non-blockingly. if held by another op, **silently skips this round** (no log).
+1. tries the lock non-blockingly. if another op holds it, this round is skipped without a log line.
 2. if `<plugin-dir>/.last_check` is newer than `check_every_hours` ago, skip.
-3. **touches `.last_check` first**, then:
+3. touches `.last_check` first, then:
    - **prebuilt plugins** double-fork-detach `grabit plugin update <name>` writing stdout+stderr to `<plugin-dir>/.update.log` (truncated each run, hard-killed after 5 minutes). this is safe because the fetched binary is https-only and pinned to the manifest's `sha256`.
-   - **git/build plugins** are **not** auto-updated - doing so would `git reset --hard` to the remote's current head and run the manifest's build command unattended, i.e. run whatever the (untrusted) remote serves. instead grabit just prints a one-line "run `grabit plugin update <name>`" hint (rate-limited by `.last_check`), and you update on demand.
+   - **git/build plugins** are not auto-updated, because that would `git reset --hard` to the remote's current head and run the manifest's build command unattended, i.e. run whatever the (untrusted) remote serves. instead grabit prints a one-line "run `grabit plugin update <name>`" hint (rate-limited by `.last_check`), and you update on demand.
 
 note the touch-before-spawn: a *failed* background update (or an ignored git hint) still postpones the next attempt by `check_every_hours`. if you're debugging an auto-update problem, run `grabit plugin update <name>` in the foreground.
 
@@ -160,7 +160,7 @@ set `check_every_hours = 0` (or any value <= 0) to disable the check entirely.
 grabit plugin remove <name>
 ```
 
-`rm -rf`'s the plugin dir and removes the `grabit-<name>` symlink. **the cache dir at `~/.cache/grabit/plugins/<name>/` is not touched** - manage that yourself if your plugin caches sensitive data.
+`rm -rf`'s the plugin dir and removes the `grabit-<name>` symlink. **the cache dir at `~/.cache/grabit/plugins/<name>/` is left in place**, so clear it yourself if your plugin caches sensitive data.
 
 ## environment
 
@@ -177,7 +177,7 @@ treat these as best-effort: `GRABIT_BIN` can be unset if `/proc/self/exe` is unr
 
 ## helper header (`include/grabit-plugin.h`)
 
-a single-file, header-only helper. POSIX + libc only - no link-time deps; vendor it into your plugin repo and `#include` it.
+a single-file, header-only helper. POSIX and libc only, with no link-time deps. vendor it into your plugin repo and `#include` it.
 
 ```c
 #include "grabit-plugin.h"
@@ -203,4 +203,4 @@ functions:
 | `grabit_plugin_cache_dir()` | `$GRABIT_CACHE_DIR` (or `"/tmp"` if unset). |
 | `grabit_plugin_name()` | `$GRABIT_PLUGIN_NAME` (or `"plugin"` if unset). |
 
-you don't have to use the header - plugins can be any language, since dispatch is just exec with env vars set. the header is a convenience for C plugins that want to call back into grabit.
+the header is optional: plugins can be in any language, since dispatch is an exec with env vars set. the header is a convenience for C plugins that want to call back into grabit.

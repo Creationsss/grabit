@@ -79,20 +79,36 @@ static void spawn_grabit(const char *const *args) {
 }
 
 static const char *const ARGS_SHOT_REGION[] = {NULL};
+static const char *const ARGS_SHOT_WINDOW[] = {"-w", NULL};
 static const char *const ARGS_SHOT_MONITOR[] = {"-F", NULL};
+static const char *const ARGS_SHOT_ALL[] = {"--fullscreen=all", NULL};
+static const char *const ARGS_SHOT_LAST[] = {"-L", NULL};
+static const char *const ARGS_SHOT_DELAY3[] = {"-F", "--delay", "3", NULL};
+static const char *const ARGS_SHOT_DELAY5[] = {"-F", "--delay", "5", NULL};
 static const char *const ARGS_SHOT_COPY[] = {"-c", NULL};
 static const char *const ARGS_SHOT_UPLOAD[] = {"-u", NULL};
 static const char *const ARGS_SHOT_SAVE[] = {"-o", NULL};
 static const char *const ARGS_SHOT_EDIT[] = {"-e", NULL};
+static const char *const ARGS_WIN_COPY[] = {"-w", "-c", NULL};
+static const char *const ARGS_WIN_UPLOAD[] = {"-w", "-u", NULL};
 static const char *const ARGS_REC_REGION[] = {"--record", NULL};
 static const char *const ARGS_REC_MONITOR[] = {"--record", "-F", NULL};
+static const char *const ARGS_REC_LOCAL[] = {"--record", "--no-upload", NULL};
+static const char *const ARGS_REC_PAUSE[] = {"--pause", NULL};
 static const char *const ARGS_OCR_COPY[] = {"--tesseract", NULL};
 static const char *const ARGS_OCR_SHOW[] = {"--tesseract", "--show", NULL};
 static const char *const ARGS_OCR_TRANSLATE[] = {"--tesseract", "--translate", NULL};
 static const char *const ARGS_PIN_NEW[] = {"--pin", NULL};
+static const char *const ARGS_PIN_WINDOW[] = {"--pin", "-w", NULL};
 static const char *const ARGS_PIN_GRAB[] = {"--grab", NULL};
 static const char *const ARGS_PIN_RELEASE[] = {"--release", NULL};
 static const char *const ARGS_PIN_CLOSE[] = {"--close-all", NULL};
+static const char *const ARGS_UPLOAD_FILES[] = {"settings", "Upload", NULL};
+static const char *const ARGS_HIST_COPY[] = {"history", "copy", "1", NULL};
+static const char *const ARGS_HIST_OPEN[] = {"history", "open", "1", NULL};
+static const char *const ARGS_HIST_OCR[] = {"history", "copy", "1", "--ocr", NULL};
+static const char *const ARGS_HIST_SHOW[] = {"settings", "History", NULL};
+static const char *const ARGS_HIST_SHOW_OCR[] = {"settings", "OCR history", NULL};
 static const char *const ARGS_SETTINGS[] = {"settings", NULL};
 
 static void click_spawn(const struct tray_menu_item *it) {
@@ -108,39 +124,69 @@ static void activate_screenshot(void) {
 	spawn_grabit(ARGS_SHOT_REGION);
 }
 
+#define SPAWN(i, l, a) {.id = (i), .label = (l), .on_click = click_spawn, .user = (a)}
+#define SEP(i) {.id = (i), .separator = true}
+#define SUB(i, l, c) {.id = (i), .label = (l), .children = (c), .n_children = sizeof(c) / sizeof(c)[0]}
+
 static const struct tray_menu_item shot_items[] = {
-	{.id = 11, .label = "Region…", .on_click = click_spawn, .user = ARGS_SHOT_REGION},
-	{.id = 12, .label = "Monitor…", .on_click = click_spawn, .user = ARGS_SHOT_MONITOR},
-	{.id = 13, .label = "Region and copy…", .on_click = click_spawn, .user = ARGS_SHOT_COPY},
-	{.id = 14, .label = "Region and upload…", .on_click = click_spawn, .user = ARGS_SHOT_UPLOAD},
-	{.id = 15, .label = "Region and save…", .on_click = click_spawn, .user = ARGS_SHOT_SAVE},
-	{.id = 16, .label = "Region and edit…", .on_click = click_spawn, .user = ARGS_SHOT_EDIT},
+	SPAWN(11, "Region…", ARGS_SHOT_REGION),
+	SPAWN(12, "Window", ARGS_SHOT_WINDOW),
+	SPAWN(13, "Monitor", ARGS_SHOT_MONITOR),
+	SPAWN(14, "All monitors", ARGS_SHOT_ALL),
+	SPAWN(15, "Last region again", ARGS_SHOT_LAST),
+	SEP(16),
+	SPAWN(17, "Monitor in 3 seconds", ARGS_SHOT_DELAY3),
+	SPAWN(18, "Monitor in 5 seconds", ARGS_SHOT_DELAY5),
+	SEP(19),
+	SPAWN(111, "Region and copy…", ARGS_SHOT_COPY),
+	SPAWN(112, "Region and upload…", ARGS_SHOT_UPLOAD),
+	SPAWN(113, "Region and save…", ARGS_SHOT_SAVE),
+	SPAWN(114, "Region and edit…", ARGS_SHOT_EDIT),
+	SPAWN(115, "Window and copy", ARGS_WIN_COPY),
+	SPAWN(116, "Window and upload", ARGS_WIN_UPLOAD),
 };
 
 static const struct tray_menu_item rec_items[] = {
-	{.id = 21, .label = "Region…", .on_click = click_spawn, .user = ARGS_REC_REGION},
-	{.id = 22, .label = "Monitor…", .on_click = click_spawn, .user = ARGS_REC_MONITOR},
+	SPAWN(21, "Region…", ARGS_REC_REGION),
+	SPAWN(23, "Monitor", ARGS_REC_MONITOR),
+	SPAWN(24, "Region without uploading…", ARGS_REC_LOCAL),
+	SEP(25),
+	SPAWN(26, "Pause or resume", ARGS_REC_PAUSE),
 };
 
 static const struct tray_menu_item ocr_items[] = {
-	{.id = 31, .label = "Read text…", .on_click = click_spawn, .user = ARGS_OCR_COPY},
-	{.id = 32, .label = "Read and show…", .on_click = click_spawn, .user = ARGS_OCR_SHOW},
-	{.id = 33, .label = "Read and translate…", .on_click = click_spawn, .user = ARGS_OCR_TRANSLATE},
+	SPAWN(31, "Read text…", ARGS_OCR_COPY),
+	SPAWN(32, "Read and show…", ARGS_OCR_SHOW),
+	SPAWN(33, "Read and translate…", ARGS_OCR_TRANSLATE),
 };
 
 static const struct tray_menu_item pin_items[] = {
-	{.id = 41, .label = "Pin a capture…", .on_click = click_spawn, .user = ARGS_PIN_NEW},
-	{.id = 42, .label = "Make pins clickable", .on_click = click_spawn, .user = ARGS_PIN_GRAB},
-	{.id = 43, .label = "Make pins click-through", .on_click = click_spawn, .user = ARGS_PIN_RELEASE},
-	{.id = 44, .label = "Close all pins", .on_click = click_spawn, .user = ARGS_PIN_CLOSE},
+	SPAWN(41, "Pin a capture…", ARGS_PIN_NEW),
+	SPAWN(42, "Pin the window", ARGS_PIN_WINDOW),
+	SEP(43),
+	SPAWN(44, "Make pins clickable", ARGS_PIN_GRAB),
+	SPAWN(45, "Make pins click-through", ARGS_PIN_RELEASE),
+	SPAWN(46, "Close all pins", ARGS_PIN_CLOSE),
+};
+
+static const struct tray_menu_item hist_items[] = {
+	SPAWN(51, "Copy the last link or file", ARGS_HIST_COPY),
+	SPAWN(52, "Open the last link or file", ARGS_HIST_OPEN),
+	SPAWN(53, "Copy the last OCR text", ARGS_HIST_OCR),
+	SEP(54),
+	SPAWN(55, "Show history…", ARGS_HIST_SHOW),
+	SPAWN(56, "Show OCR history…", ARGS_HIST_SHOW_OCR),
 };
 
 static const struct tray_menu_item app_items[] = {
-	{.id = 1, .label = "Screenshot", .children = shot_items, .n_children = sizeof shot_items / sizeof shot_items[0]},
-	{.id = 2, .label = "Record", .children = rec_items, .n_children = sizeof rec_items / sizeof rec_items[0]},
-	{.id = 3, .label = "OCR", .children = ocr_items, .n_children = sizeof ocr_items / sizeof ocr_items[0]},
-	{.id = 4, .label = "Pin", .children = pin_items, .n_children = sizeof pin_items / sizeof pin_items[0]},
-	{.id = 6, .label = "Settings…", .on_click = click_spawn, .user = ARGS_SETTINGS},
+	SUB(1, "Screenshot", shot_items),
+	SUB(2, "Record", rec_items),
+	SUB(3, "OCR", ocr_items),
+	SUB(4, "Pin", pin_items),
+	SPAWN(7, "Upload files…", ARGS_UPLOAD_FILES),
+	SUB(8, "History", hist_items),
+	SEP(9),
+	SPAWN(6, "Settings…", ARGS_SETTINGS),
 	{.id = 5, .label = "Quit", .on_click = click_quit},
 };
 

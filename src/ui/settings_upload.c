@@ -333,14 +333,42 @@ void upq_paste(struct settings_state *st, struct set_row *r) {
 	added_toast(st, n, err, " from the clipboard");
 }
 
-void upq_load_preview(struct upq_file *f) {
+void upq_load_preview(struct settings_state *st, struct upq_file *f) {
 	if (f->loaded) return;
 	f->loaded = true;
 	f->mime = mime_for_file(f->path);
-	if (grid_is_image(f->path)) f->thumb = grid_load_fit(f->path, (int)(UPQ_POP_W * 2));
+	bool media = media_path(f->path) || mime_is_video(f->mime) ||
+				 (f->mime && strcmp(f->mime, "image/gif") == 0);
+	if (!media && grid_is_image(f->path)) {
+		f->thumb = grid_load_fit(f->path, (int)(UPQ_POP_W * 2));
+	} else if (media) {
+		char *ffmpeg = media_ffmpeg(&st->cfg);
+		if (ffmpeg) f->job = media_job_start(ffmpeg, f->path, (int)(UPQ_POP_W * 2));
+		free(ffmpeg);
+		set_arm_timer(st);
+	}
+}
+
+static bool previews_pending(const struct set_upq *q) {
+	for (size_t i = 0; q && i < q->n; i++)
+		if (q->files[i].job) return true;
+	return false;
+}
+
+static bool poll_previews(struct set_upq *q) {
+	bool got = false;
+	for (size_t i = 0; q && i < q->n; i++) {
+		struct upq_file *f = &q->files[i];
+		if (!f->job || !media_job_take(f->job, &f->thumb)) continue;
+		media_job_end(f->job);
+		f->job = NULL;
+		got = true;
+	}
+	return got;
 }
 
 static void free_file(struct upq_file *f) {
+	media_job_end(f->job);
 	free(f->path);
 	free(f->mime);
 	if (f->thumb) cairo_surface_destroy(f->thumb);
@@ -375,7 +403,7 @@ bool upq_busy(const struct set_upq *q) {
 }
 
 bool set_upload_busy(const struct settings_state *st) {
-	return upq_busy(st->upq);
+	return upq_busy(st->upq) || previews_pending(st->upq);
 }
 
 double upq_progress(const struct set_upq *q) {
@@ -620,11 +648,12 @@ static void close_fd(int *fd) {
 
 bool set_upload_poll(struct settings_state *st) {
 	struct set_upq *q = st->upq;
-	if (!upq_busy(q)) return false;
+	bool got = poll_previews(q);
+	if (!upq_busy(q)) return got;
 	drain(q->out_fd, q->out, sizeof q->out, &q->out_len);
 	bool moved = read_progress(q);
 	int rc = set_reap(&q->pid);
-	if (rc < 0) return moved;
+	if (rc < 0) return moved || got;
 	drain(q->out_fd, q->out, sizeof q->out, &q->out_len);
 	bool ok = rc == 1;
 	close_fd(&q->out_fd);

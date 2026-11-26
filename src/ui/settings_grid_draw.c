@@ -57,13 +57,18 @@ static void draw_tile(struct settings_state *st, cairo_t *cr, size_t pos, struct
 		grid_draw_image(cr, s, t.x, t.y, t.w, t.h, rad, true);
 	else if (thumbs_pending(g->th, i))
 		grid_centered(cr, t.x, t.y + t.h / 2, t.w, "\xe2\x80\xa6", 16, 0.35);
-	else if (e->video)
+	else if (media_entry(e))
 		grid_play(cr, t.x + t.w / 2, t.y + t.h / 2, 34, file || e->kind == HISTORY_UPLOAD ? 0.55 : 0.25);
 	else if (!file && e->kind == HISTORY_UPLOAD)
 		grid_centered(cr, t.x + 6, t.y + t.h / 2, t.w - 12, "no preview", 12, 0.45);
 	else if (!file)
 		grid_centered(cr, t.x + 6, t.y + t.h / 2, t.w - 12, "file is gone", 12, 0.45);
-	if (e->video) badge(cr, t.x + 6, t.y + t.h - 24, "video", false, true);
+	if (media_entry(e)) {
+		char len[24] = "GIF";
+		bool gif = media_is_gif(e);
+		if (!gif) media_secs_text(thumbs_secs(g->th, i), len, sizeof len);
+		badge(cr, t.x + 6, t.y + t.h - 24, len[0] ? len : "video", false, !gif);
+	}
 	if (e->kind == HISTORY_UPLOAD)
 		badge(cr, t.x + t.w - 6, t.y + 6, e->service ? e->service : "upload", true, false);
 	if (hot) {
@@ -209,7 +214,7 @@ static cairo_surface_t *big_for(struct set_hist_grid *g, size_t i, const struct 
 	g->big = NULL;
 	char cache[PATH_MAX];
 	history_thumb_path(e->id, ".png", cache, sizeof cache);
-	if (!e->video && grid_is_image(e->path) && history_has_file(e))
+	if (!media_entry(e) && grid_is_image(e->path) && history_has_file(e))
 		g->big = grid_load_fit(e->path, PREVIEW_PX);
 	else if (access(cache, R_OK) == 0)
 		g->big = grid_load_fit(cache, PREVIEW_PX);

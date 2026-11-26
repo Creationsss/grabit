@@ -161,6 +161,7 @@ GRABIT_SRCS := \
 	src/ui/settings_grid_draw.c \
 	src/ui/settings_grid_input.c \
 	src/ui/settings_thumbs.c \
+	src/ui/settings_media.c \
 	src/ui/settings_viewer.c \
 	src/ui/settings_dialog.c \
 	src/ui/settings_tests.c \

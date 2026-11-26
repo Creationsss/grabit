@@ -16,7 +16,6 @@
 #include <strings.h>
 #include <unistd.h>
 
-#define CACHE_PX 512
 #define FETCH_MAX (40L * 1024 * 1024)
 #define KEEP_MIN 240
 
@@ -138,7 +137,7 @@ static cairo_surface_t *thumb_of(int px, cairo_surface_t *src) {
 	return out;
 }
 
-static void mark_none(const char *id) {
+void grid_mark_none(const char *id) {
 	char path[PATH_MAX];
 	history_thumb_path(id, ".none", path, sizeof path);
 	FILE *f = path[0] ? fopen(path, "we") : NULL;
@@ -158,10 +157,10 @@ static cairo_surface_t *remote(struct grid_thumbs *t, const char *id, const char
 	if (access(part, F_OK) == 0 || paths_mkdir_p(history_thumb_dir()) != 0) return NULL;
 	grid_temp_path(cache, part, sizeof part);
 	int rc = grid_fetch(&t->stop, url, part);
-	cairo_surface_t *big = rc == 0 ? grid_load_fit(part, CACHE_PX) : NULL;
+	cairo_surface_t *big = rc == 0 ? grid_load_fit(part, GRID_CACHE_PX) : NULL;
 	unlink(part);
 	if (!big) {
-		if (rc > 0 && !atomic_load(&t->stop)) mark_none(id);
+		if (rc > 0 && !atomic_load(&t->stop)) grid_mark_none(id);
 		return NULL;
 	}
 	grid_temp_path(cache, part, sizeof part);
@@ -208,6 +207,9 @@ static void destroy(struct grid_thumbs *t) {
 	free(t->ids);
 	free(t->paths);
 	free(t->urls);
+	free(t->media);
+	free(t->secs);
+	free(t->ffmpeg);
 	free(t->state);
 	free(t->thumbs);
 	free(t->want);
@@ -230,11 +232,18 @@ static void *worker(struct grid_thumbs *t, bool net) {
 		}
 		atomic_store(&t->state[i], TH_LOADING);
 		pthread_mutex_unlock(&t->mu);
-		cairo_surface_t *s =
-			net ? remote(t, t->ids[i], t->urls[i])
-				: thumb_of(t->px, grabit_load_image_surface(t->paths[i], "history"));
+		struct media_info info = {.secs = -1};
+		cairo_surface_t *s;
+		if (t->media[i])
+			s = thumb_of(t->px, media_poster(t->ffmpeg, t->ids[i], net ? t->urls[i] : t->paths[i],
+											 &t->stop, &info));
+		else if (net)
+			s = remote(t, t->ids[i], t->urls[i]);
+		else
+			s = thumb_of(t->px, grabit_load_image_surface(t->paths[i], "history"));
 		pthread_mutex_lock(&t->mu);
 		t->thumbs[i] = s;
+		t->secs[i] = info.secs;
 		atomic_store(&t->state[i], TH_DONE);
 		atomic_fetch_add(&t->finished, 1);
 	}
@@ -252,11 +261,12 @@ static void *net_thread(void *arg) {
 	return worker(arg, true);
 }
 
-static cairo_surface_t *take(struct grid_thumbs *old, const char *id) {
+static cairo_surface_t *take(struct grid_thumbs *old, const char *id, int *secs) {
 	for (size_t i = 0; old && i < old->n; i++) {
 		if (!old->thumbs[i] || atomic_load(&old->state[i]) != TH_DONE || strcmp(old->ids[i], id) != 0)
 			continue;
 		cairo_surface_t *s = old->thumbs[i];
+		*secs = old->secs[i];
 		old->thumbs[i] = NULL;
 		atomic_store(&old->state[i], TH_NONE);
 		return s;
@@ -264,7 +274,8 @@ static cairo_surface_t *take(struct grid_thumbs *old, const char *id) {
 	return NULL;
 }
 
-struct grid_thumbs *thumbs_new(const struct history_list *h, struct grid_thumbs *old, int px) {
+struct grid_thumbs *thumbs_new(const struct history_list *h, struct grid_thumbs *old, int px,
+							   const char *ffmpeg) {
 	struct grid_thumbs *t = calloc(1, sizeof *t);
 	if (!t) return NULL;
 	pthread_mutex_init(&t->mu, NULL);
@@ -277,18 +288,27 @@ struct grid_thumbs *thumbs_new(const struct history_list *h, struct grid_thumbs 
 	t->urls = calloc(n ? n : 1, sizeof *t->urls);
 	t->state = calloc(n ? n : 1, sizeof *t->state);
 	t->thumbs = calloc(n ? n : 1, sizeof *t->thumbs);
-	if (!t->ids || !t->paths || !t->urls || !t->state || !t->thumbs) return t;
+	t->media = calloc(n ? n : 1, sizeof *t->media);
+	t->secs = calloc(n ? n : 1, sizeof *t->secs);
+	t->ffmpeg = ffmpeg ? strdup(ffmpeg) : NULL;
+	if (!t->ids || !t->paths || !t->urls || !t->state || !t->thumbs || !t->media || !t->secs)
+		return t;
 	t->n = n;
 	bool reuse = old && old->px == px;
 	if (reuse) pthread_mutex_lock(&old->mu);
 	for (size_t i = 0; i < n; i++) {
 		const struct history_entry *e = &h->v[i];
 		t->ids[i] = strdup(e->id);
-		t->thumbs[i] = reuse ? take(old, e->id) : NULL;
-		bool file = history_has_file(e);
-		if (!e->video && file && grid_is_image(e->path))
+		t->secs[i] = -1;
+		t->thumbs[i] = reuse ? take(old, e->id, &t->secs[i]) : NULL;
+		bool file = history_has_file(e), media = media_entry(e);
+		const char *src = media && t->ffmpeg ? media_source(e) : NULL;
+		t->media[i] = src != NULL;
+		if (src)
+			*(file ? &t->paths[i] : &t->urls[i]) = strdup(src);
+		else if (!media && file && grid_is_image(e->path))
 			t->paths[i] = strdup(e->path);
-		else if (!e->video && !file && e->kind == HISTORY_UPLOAD && e->url)
+		else if (!media && !file && e->kind == HISTORY_UPLOAD && e->url)
 			t->urls[i] = strdup(e->url);
 		enum grid_thumb_state s = t->thumbs[i]				  ? TH_DONE
 								  : t->paths[i] || t->urls[i] ? TH_NONE
@@ -387,6 +407,10 @@ bool thumbs_busy(struct grid_thumbs *t) {
 	for (size_t k = 0; k < t->n_want; k++)
 		if (thumbs_pending(t, t->want[k])) return true;
 	return false;
+}
+
+int thumbs_secs(struct grid_thumbs *t, size_t i) {
+	return t && i < t->n && atomic_load(&t->state[i]) == TH_DONE ? t->secs[i] : -1;
 }
 
 int thumbs_px(const struct grid_thumbs *t) {

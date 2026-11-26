@@ -3,6 +3,7 @@
 
 #define _XOPEN_SOURCE 700
 #include "ui/settings_input.h"
+#include "ui/settings_grid.h"
 
 #include "clipboard/clipboard.h"
 #include "ui/window.h"
@@ -51,7 +52,7 @@ void set_arm_timer(struct settings_state *st) {
 		if (!due || poll < due) due = poll;
 	}
 	if (set_hist_busy(st)) {
-		int64_t poll = grabit_now_ms() + 60;
+		int64_t poll = grabit_now_ms() + (set_hist_playing(st) ? 500 / GRID_PLAY_FPS : 60);
 		if (!due || poll < due) due = poll;
 	}
 	if (!due) {

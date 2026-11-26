@@ -56,6 +56,7 @@ struct upq_file {
 	char *mime;
 	int64_t size;
 	cairo_surface_t *thumb;
+	struct media_job *job;
 	bool loaded;
 	enum upq_state state;
 };
@@ -147,7 +148,7 @@ void upq_draw_overlay(struct settings_state *st, cairo_t *cr, struct set_row *r)
 
 size_t upq_add_text(struct settings_state *st, const char *text, char *err, size_t n);
 void upq_remove_at(struct settings_state *st, size_t i);
-void upq_load_preview(struct upq_file *f);
+void upq_load_preview(struct settings_state *st, struct upq_file *f);
 void upq_clear_files(struct settings_state *st);
 void upq_start(struct settings_state *st);
 size_t set_upload_drop(struct settings_state *st, const char *uri_list);

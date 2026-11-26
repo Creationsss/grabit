@@ -143,6 +143,7 @@ void set_hist_grid_free(struct settings_state *st) {
 	viewer_free(g);
 	if (g->big) cairo_surface_destroy(g->big);
 	free(g->big_id);
+	free(g->ffmpeg);
 	free(g->sizes);
 	free(g->items);
 	free(g->heads);
@@ -167,7 +168,9 @@ void set_hist_grid_sync(struct settings_state *st) {
 		g->tile_menu = false;
 	}
 	struct grid_thumbs *old = g->th;
-	g->th = thumbs_new(&st->hist, old, grid_want_px(st));
+	free(g->ffmpeg);
+	g->ffmpeg = media_ffmpeg(&st->cfg);
+	g->th = thumbs_new(&st->hist, old, grid_want_px(st), g->ffmpeg);
 	thumbs_release(old);
 	thumbs_start(g->th);
 

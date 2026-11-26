@@ -395,7 +395,7 @@ grabit keeps every upload (with how to delete it), saved screenshot and recordin
 
 in `grabit settings`:
 
-- **History** is a thumbnail grid by day, with search, type, service, date and size filters. click for a viewer (copy, open, show in folder, upload to, delete), right-click for the same as a menu. forgets and clears can be undone.
+- **History** is a thumbnail grid by day, with search, type, service, date and size filters. click for a viewer (copy, open, show in folder, upload to, delete), right-click for the same as a menu. forgets and clears can be undone. recordings and GIFs get a thumbnail and their length, and play in the viewer on a loop (click or Space pauses); this uses `recording.ffmpeg`, and without ffmpeg they keep a plain tile.
 - **OCR history** lists past OCR text.
 - **Upload** works like zipline's upload page: drop, paste or type files, review them, and upload with progress. its Options (service, zipline headers, chunking, history and notifications) apply to that upload only and never touch config.toml.
 
@@ -470,7 +470,7 @@ plugins get `GRABIT_BIN`, `GRABIT_PLUGIN_NAME`, `GRABIT_PLUGIN_DIR` and `GRABIT_
 | `~/.config/grabit/plugins/` | plugins (`.bin/` symlinks, `.lock`, per-plugin `.source`, `.last_check`, `.update.log`) |
 | `~/.local/state/grabit/state.toml` | state; see `save_state` |
 | `~/.local/state/grabit/history.jsonl` | history; see `history.enabled` |
-| `~/.cache/grabit/history/` | thumbnails fetched from upload links |
+| `~/.cache/grabit/history/` | thumbnails fetched from upload links, and video and GIF thumbnails with their length |
 | `~/.cache/grabit/plugins/<name>/` | per-plugin cache |
 | `$XDG_RUNTIME_DIR/grabit.log` | the log that "check the log file" means (else `/tmp/grabit-<uid>/grabit.log`); truncated past 1 MiB |
 | `$XDG_RUNTIME_DIR/grabit/` | temp captures (grabit refuses a world-writable dir) |

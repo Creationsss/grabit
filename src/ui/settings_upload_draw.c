@@ -578,7 +578,7 @@ void upq_draw_overlay(struct settings_state *st, cairo_t *cr, struct set_row *r)
 	struct set_rect b, rm;
 	if (!upq_popover(st, &l, &b, &rm)) return;
 	struct upq_file *f = &q->files[q->pop];
-	upq_load_preview(f);
+	upq_load_preview(st, f);
 	double rad = grabit_ui_radius(GUI_R_PANEL);
 	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.35);
 	grabit_cairo_rect_r(cr, b.x + 1, b.y + 4, b.w, b.h, rad);

@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -26,6 +27,9 @@
 #define VIEW_PREV ((size_t)101)
 #define VIEW_NEXT ((size_t)102)
 #define VIEW_PANEL ((size_t)103)
+#define VIEW_MEDIA ((size_t)104)
+#define PLAY_MAX_W 1600
+#define PLAY_MAX_H 1000
 
 struct view_job {
 	atomic_int refs;
@@ -77,8 +81,9 @@ static void job_end(struct set_hist_grid *g) {
 static void job_start(struct set_hist_grid *g, const struct history_entry *e) {
 	job_end(g);
 	bool file = history_has_file(e);
-	bool local = !e->video && grid_is_image(e->path) && file;
-	bool link = !e->video && !file && e->kind == HISTORY_UPLOAD && e->url;
+	bool media = media_entry(e);
+	bool local = !media && grid_is_image(e->path) && file;
+	bool link = !media && !file && e->kind == HISTORY_UPLOAD && e->url;
 	if (!local && !link) return;
 	struct view_job *j = calloc(1, sizeof *j);
 	if (!j) return;
@@ -105,7 +110,28 @@ static void drop_image(struct set_hist_grid *g) {
 	g->view_img_id = NULL;
 }
 
+static void play_end(struct set_hist_grid *g) {
+	player_stop(g->player);
+	g->player = NULL;
+	if (g->frame) cairo_surface_destroy(g->frame);
+	g->frame = NULL;
+	g->play_failed = false;
+}
+
+static void play_start(struct settings_state *st, const struct history_entry *e) {
+	struct set_hist_grid *g = st->grid;
+	const char *src = media_entry(e) ? media_source(e) : NULL;
+	if (g->player || g->play_failed || !g->ffmpeg || !src) return;
+	double scale = st->win && st->win->scale120 > 0 ? st->win->scale120 / 120.0 : 1.0;
+	int bw = (int)(g->img.w * scale), bh = (int)(g->img.h * scale);
+	g->player = player_start(g->ffmpeg, e->id, src, bw < PLAY_MAX_W ? bw : PLAY_MAX_W,
+							 bh < PLAY_MAX_H ? bh : PLAY_MAX_H);
+	g->play_failed = g->player == NULL;
+	set_arm_timer(st);
+}
+
 void viewer_free(struct set_hist_grid *g) {
+	play_end(g);
 	job_end(g);
 	drop_image(g);
 	free(g->view_id);
@@ -115,6 +141,7 @@ void viewer_free(struct set_hist_grid *g) {
 void viewer_show(struct settings_state *st, size_t entry) {
 	struct set_hist_grid *g = st->grid;
 	if (!g || entry >= st->hist.n) return;
+	if (!g->view_id || strcmp(g->view_id, st->hist.v[entry].id) != 0) play_end(g);
 	free(g->view_id);
 	g->view_id = strdup(st->hist.v[entry].id);
 	g->view = g->view_id ? entry : SET_NONE;
@@ -126,6 +153,7 @@ void viewer_show(struct settings_state *st, size_t entry) {
 
 void viewer_close(struct settings_state *st) {
 	struct set_hist_grid *g = st->grid;
+	play_end(g);
 	job_end(g);
 	drop_image(g);
 	free(g->view_id);
@@ -156,12 +184,25 @@ bool viewer_poll(struct settings_state *st) {
 		g->tip_drawn = true;
 		redraw = true;
 	}
+	if (g->player && player_frame(g->player, &g->frame)) redraw = true;
+	if (g->player && player_failed(g->player)) {
+		player_stop(g->player);
+		g->player = NULL;
+		g->play_failed = true;
+		redraw = true;
+	}
 	return redraw;
+}
+
+bool set_hist_playing(const struct settings_state *st) {
+	const struct set_hist_grid *g = st->grid;
+	return g && g->player && !player_paused(g->player) && set_hist_view_shown(st);
 }
 
 bool viewer_busy(const struct settings_state *st) {
 	const struct set_hist_grid *g = st->grid;
-	return g->job || (g->view_tip_at && !g->tip_drawn && set_hist_view_shown(st));
+	return g->job || set_hist_playing(st) ||
+		   (g->view_tip_at && !g->tip_drawn && set_hist_view_shown(st));
 }
 
 static cairo_surface_t *view_image(struct set_hist_grid *g, const struct history_entry *e) {
@@ -237,8 +278,12 @@ void set_hist_view_draw(struct settings_state *st, cairo_t *cr, double w, double
 	set_hist_when(e->time, when, sizeof when);
 	set_hist_tilde(e->path, where, sizeof where);
 	if (g->view < g->n_sizes && g->sizes[g->view] >= 0) grid_size_text(g->sizes[g->view], size, sizeof size);
-	snprintf(meta, sizeof meta, "%s%s%s%s%s", when, e->service ? " \xc2\xb7 " : "",
-			 e->service ? e->service : "", size[0] ? " \xc2\xb7 " : "", size);
+	char len[24];
+	int secs = g->player ? player_secs(g->player) : -1;
+	media_secs_text(secs >= 0 ? secs : thumbs_secs(g->th, g->view), len, sizeof len);
+	snprintf(meta, sizeof meta, "%s%s%s%s%s%s%s", when, e->service ? " \xc2\xb7 " : "",
+			 e->service ? e->service : "", size[0] ? " \xc2\xb7 " : "", size,
+			 len[0] ? " \xc2\xb7 " : "", len);
 	char url[2][GRID_WRAP_W], path[2][GRID_WRAP_W];
 	size_t nu = e->url ? grid_wrap(cr, e->url, tw, 11.5, url, 2) : 0;
 	if (e->path && !history_has_file(e))
@@ -259,22 +304,32 @@ void set_hist_view_draw(struct settings_state *st, cairo_t *cr, double w, double
 	double info = 22 + 18 + (double)(nu + np) * 17 + 10 + rows * (bh + gap);
 	struct set_rect img = {p.x + pad, p.y + pad, tw, p.h - pad * 2 - info};
 	bool was = g->job != NULL;
+	g->img = img;
 	cairo_surface_t *s = img.h > 40 ? view_image(g, e) : NULL;
 	if (g->job && !was) set_arm_timer(st);
+	if (img.h > 40) play_start(st, e);
+	if (g->frame) s = g->frame;
 	if (s) grid_draw_image(cr, s, img.x, img.y, img.w, img.h, 0, false);
-	if (s && g->job)
-		ui_draw_text_fit(cr, img.x + 12, img.y + 12, img.w / 2, "loading full size\xe2\x80\xa6", 11.5,
-						 CAIRO_FONT_WEIGHT_NORMAL, 0.7);
+	const char *note = g->job					? "loading full size\xe2\x80\xa6"
+					   : g->player && !g->frame ? "loading\xe2\x80\xa6"
+					   : g->play_failed			? "this video could not be played"
+												: NULL;
+	if (s && note)
+		ui_draw_text_fit(cr, img.x + 12, img.y + 12, img.w - 24, note, 11.5, CAIRO_FONT_WEIGHT_NORMAL, 0.7);
+	if (s && g->player && g->frame && player_paused(g->player))
+		grid_play(cr, img.x + img.w / 2, img.y + img.h / 2, 56, 0.85);
 	if (!s && img.h > 40) {
-		if (e->video)
-			grid_play(cr, img.x + img.w / 2, img.y + img.h / 2, 56, 0.5);
+		bool file = history_has_file(e);
+		const char *msg = g->play_failed										  ? file ? "this video could not be played" : "no preview for this link"
+						  : g->player || g->job || thumbs_pending(g->th, g->view) ? "loading\xe2\x80\xa6"
+						  : media_entry(e)										  ? NULL
+						  : file												  ? "this file could not be read"
+						  : e->kind == HISTORY_UPLOAD							  ? "no preview for this link"
+																				  : "file is gone";
+		if (msg)
+			grid_centered(cr, img.x, img.y + img.h / 2, img.w, msg, 14, 0.5);
 		else
-			grid_centered(cr, img.x, img.y + img.h / 2, img.w,
-						  thumbs_pending(g->th, g->view) || g->job ? "loading\xe2\x80\xa6"
-						  : history_has_file(e)					   ? "this file could not be read"
-						  : e->kind == HISTORY_UPLOAD			   ? "no preview for this link"
-																   : "file is gone",
-						  14, 0.5);
+			grid_play(cr, img.x + img.w / 2, img.y + img.h / 2, 56, 0.5);
 	}
 
 	double nav = 40;
@@ -345,6 +400,7 @@ static size_t view_hit(const struct set_hist_grid *g, double x, double y) {
 	if (set_rect_contains(&g->close, x, y)) return VIEW_CLOSE;
 	if (g->prev.w > 0 && set_rect_contains(&g->prev, x, y)) return VIEW_PREV;
 	if (g->next.w > 0 && set_rect_contains(&g->next, x, y)) return VIEW_NEXT;
+	if (g->player && g->frame && set_rect_contains(&g->img, x, y)) return VIEW_MEDIA;
 	if (set_rect_contains(&g->panel, x, y)) return VIEW_PANEL;
 	return SET_NONE;
 }
@@ -365,6 +421,11 @@ static void run(struct settings_state *st, size_t i) {
 	}
 	if (i == VIEW_PREV || i == VIEW_NEXT) {
 		step(st, i == VIEW_PREV ? -1 : 1);
+		return;
+	}
+	if (i == VIEW_MEDIA) {
+		player_toggle(g->player);
+		set_arm_timer(st);
 		return;
 	}
 	if (i >= g->n_acts) return;
@@ -461,7 +522,10 @@ bool set_hist_view_key(struct settings_state *st, xkb_keysym_t sym) {
 		break;
 	case XKB_KEY_Return:
 	case XKB_KEY_space:
-		if (g->view_focus != SET_NONE) run(st, g->view_focus);
+		if (g->view_focus != SET_NONE)
+			run(st, g->view_focus);
+		else if (sym == XKB_KEY_space && g->player)
+			run(st, VIEW_MEDIA);
 		break;
 	default:
 		break;

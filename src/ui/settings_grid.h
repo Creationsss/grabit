@@ -22,6 +22,8 @@
 #define GRID_FIELD_H 32.0
 #define GRID_CHIP_H 28.0
 #define GRID_ROW_STEP (GRID_TILE + GRID_CAPTION + GRID_GAP)
+#define GRID_CACHE_PX 512
+#define GRID_PLAY_FPS 30
 
 enum grid_thumb_state { TH_NONE,
 						TH_LOADING,
@@ -40,6 +42,9 @@ struct grid_thumbs {
 	char **ids;
 	char **paths;
 	char **urls;
+	bool *media;
+	int *secs;
+	char *ffmpeg;
 	atomic_uchar *state;
 	cairo_surface_t **thumbs;
 	size_t *want;
@@ -77,6 +82,14 @@ enum grid_stop {
 };
 
 struct view_job;
+struct media_player;
+struct media_job;
+
+struct media_info {
+	int secs;
+	int w;
+	int h;
+};
 
 struct grid_item {
 	double x;
@@ -130,6 +143,11 @@ struct set_hist_grid {
 	cairo_surface_t *view_img;
 	char *view_img_id;
 	struct view_job *job;
+	char *ffmpeg;
+	struct media_player *player;
+	cairo_surface_t *frame;
+	bool play_failed;
+	struct set_rect img;
 	struct set_hist_action acts[SET_MAX_ACTIONS];
 	size_t n_acts;
 	struct set_rect btn[SET_MAX_ACTIONS];
@@ -150,8 +168,10 @@ cairo_surface_t *grid_fit(cairo_surface_t *src, int max);
 cairo_surface_t *grid_load_fit(const char *path, int max);
 int grid_fetch(atomic_bool *stop, const char *url, const char *dest);
 void grid_temp_path(const char *base, char *out, size_t n);
+void grid_mark_none(const char *id);
 
-struct grid_thumbs *thumbs_new(const struct history_list *h, struct grid_thumbs *old, int px);
+struct grid_thumbs *thumbs_new(const struct history_list *h, struct grid_thumbs *old, int px,
+							   const char *ffmpeg);
 void thumbs_start(struct grid_thumbs *t);
 void grid_thread_enter(void);
 void grid_thread_leave(void);
@@ -163,6 +183,30 @@ cairo_surface_t *thumbs_get(struct grid_thumbs *t, size_t i);
 bool thumbs_pending(struct grid_thumbs *t, size_t i);
 bool thumbs_poll(struct grid_thumbs *t);
 bool thumbs_busy(struct grid_thumbs *t);
+int thumbs_secs(struct grid_thumbs *t, size_t i);
+
+bool media_is_url(const char *s);
+bool media_path(const char *path);
+const char *media_source(const struct history_entry *e);
+bool media_entry(const struct history_entry *e);
+bool media_is_gif(const struct history_entry *e);
+char *media_ffmpeg(struct config *cfg);
+void media_secs_text(int secs, char *out, size_t n);
+int media_grab(const char *ffmpeg, const char *src, const char *dest, int max, int timeout_ms,
+			   atomic_bool *stop, struct media_info *info);
+cairo_surface_t *media_poster(const char *ffmpeg, const char *id, const char *src,
+							  atomic_bool *stop, struct media_info *info);
+struct media_job *media_job_start(const char *ffmpeg, const char *path, int max);
+bool media_job_take(struct media_job *j, cairo_surface_t **out);
+void media_job_end(struct media_job *j);
+struct media_player *player_start(const char *ffmpeg, const char *id, const char *src, int box_w,
+								  int box_h);
+bool player_frame(struct media_player *p, cairo_surface_t **surf);
+void player_toggle(struct media_player *p);
+bool player_paused(const struct media_player *p);
+bool player_failed(const struct media_player *p);
+int player_secs(struct media_player *p);
+void player_stop(struct media_player *p);
 
 void grid_draw_image(cairo_t *cr, cairo_surface_t *s, double x, double y, double w, double h,
 					 double rad, bool cover);

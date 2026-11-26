@@ -508,6 +508,7 @@ void set_hist_grid_press(struct settings_state *st, size_t row, double bx, doubl
 int set_hist_grid_motion(struct settings_state *st, const struct set_row *r, double bx, double by);
 bool set_hist_poll_thumbs(struct settings_state *st);
 bool set_hist_busy(const struct settings_state *st);
+bool set_hist_playing(const struct settings_state *st);
 void set_hist_grid_sync(struct settings_state *st);
 void set_hist_grid_free(struct settings_state *st);
 void set_hist_grid_key(struct settings_state *st, struct set_row *r);

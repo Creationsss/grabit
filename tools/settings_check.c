@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
-#define _XOPEN_SOURCE 700
+#define _GNU_SOURCE
 #include "app/app.h"
 #include "config/config.h"
 #include "history/history.h"
@@ -650,6 +650,160 @@ static void check_history(void) {
 	unlink(pic);
 }
 
+static void pump(cairo_t *cr, int ms, bool (*done)(void)) {
+	int64_t end = grabit_now_ms() + ms;
+	while (grabit_now_ms() < end) {
+		set_draw(&win, cr, 1000, 720);
+		set_hist_poll_thumbs(&st);
+		if (done && done()) return;
+		usleep(20000);
+	}
+}
+
+static size_t entry_of(const char *path) {
+	for (size_t i = 0; i < st.hist.n; i++)
+		if (st.hist.v[i].path && strcmp(st.hist.v[i].path, path) == 0) return i;
+	return SET_NONE;
+}
+
+static size_t g_clip, g_gif, g_bad;
+
+static bool thumbs_settled(void) {
+	struct grid_thumbs *t = st.grid ? st.grid->th : NULL;
+	return t && thumbs_get(t, g_clip) && thumbs_get(t, g_gif) && !thumbs_pending(t, g_bad);
+}
+
+static bool have_frame(void) {
+	return st.grid && st.grid->frame;
+}
+
+static bool play_failed(void) {
+	return st.grid && st.grid->play_failed;
+}
+
+static bool ffmpeg_make(const char *args, const char *out) {
+	char cmd[1400];
+	snprintf(cmd, sizeof cmd, "ffmpeg -nostdin -hide_banner -loglevel error -y %s '%s'", args, out);
+	return system(cmd) == 0;
+}
+
+static void check_media(void) {
+	if (!grabit_in_path("ffmpeg")) {
+		printf("skipping the media checks: ffmpeg is not installed\n");
+		return;
+	}
+	char clip[600], gif[600], bad[600], meta[700];
+	snprintf(clip, sizeof clip, "%s/clip.mp4", g_root);
+	snprintf(gif, sizeof gif, "%s/anim.gif", g_root);
+	snprintf(bad, sizeof bad, "%s/broken.mp4", g_root);
+	bool made = ffmpeg_make("-f lavfi -i testsrc=size=320x240:rate=30:duration=2 -c:v mpeg4", clip) &&
+				ffmpeg_make("-f lavfi -i testsrc=size=80x60:rate=10:duration=1", gif);
+	write_file(bad, "this is not a video");
+	check(made, "ffmpeg should make the test clip and gif");
+	if (!made) return;
+	history_clear(HISTORY_ALL);
+	struct config rc = {0};
+	history_record_file(&rc, clip, true);
+	history_record_file(&rc, gif, false);
+	history_record_file(&rc, bad, true);
+	open_settings("");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	g_clip = entry_of(clip);
+	g_gif = entry_of(gif);
+	g_bad = entry_of(bad);
+	check(g_clip != SET_NONE && g_gif != SET_NONE && g_bad != SET_NONE, "the three media entries should load");
+	if (g_clip == SET_NONE || g_gif == SET_NONE || g_bad == SET_NONE) {
+		settings_state_close(&st);
+		return;
+	}
+	cairo_surface_t *frame = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *cr = cairo_create(frame);
+	pump(cr, 15000, thumbs_settled);
+	struct set_hist_grid *g = st.grid;
+	check(thumbs_get(g->th, g_clip) != NULL, "a recording should get a thumbnail from its first frame");
+	check(thumbs_secs(g->th, g_clip) == 2, "a 2 second recording should report 2 seconds, got %d",
+		  thumbs_secs(g->th, g_clip));
+	check(thumbs_get(g->th, g_gif) != NULL, "a gif should get a thumbnail");
+	check(media_entry(&st.hist.v[g_gif]) && media_is_gif(&st.hist.v[g_gif]), "a .gif file should count as media");
+	check(!thumbs_get(g->th, g_bad) && !thumbs_pending(g->th, g_bad), "a broken video should settle with no thumbnail");
+	history_thumb_path(st.hist.v[g_bad].id, ".none", meta, sizeof meta);
+	check(access(meta, F_OK) == 0, "a broken video should be marked so it is not retried");
+	history_thumb_path(st.hist.v[g_clip].id, ".meta", meta, sizeof meta);
+	check(access(meta, F_OK) == 0, "the duration should be cached next to the thumbnail");
+
+	viewer_show(&st, g_clip);
+	pump(cr, 8000, have_frame);
+	check(g->frame != NULL, "the viewer should play the recording");
+	if (g->frame) {
+		int w = cairo_image_surface_get_width(g->frame), h = cairo_image_surface_get_height(g->frame);
+		check(w <= 320 && h <= 240 && w > 0 && abs(w * 3 - h * 4) <= 8,
+			  "playback should keep the clip's 4:3 shape without upscaling, got %dx%d", w, h);
+	}
+	check(g->player && player_secs(g->player) == 2, "the viewer should know the clip is 2 seconds");
+	check(set_hist_playing(&st), "a playing clip should keep the window ticking");
+	set_on_key(&win, XKB_KEY_space, 0);
+	check(g->player && player_paused(g->player) && !set_hist_playing(&st), "space should pause playback");
+	pump(cr, 200, NULL);
+	bool moved = false;
+	for (int i = 0; i < 15 && g->player; i++) {
+		usleep(20000);
+		moved |= player_frame(g->player, &g->frame);
+	}
+	check(!moved, "no new frames should arrive while paused");
+	set_on_key(&win, XKB_KEY_space, 0);
+	moved = false;
+	for (int i = 0; i < 50 && g->player && !moved; i++) {
+		usleep(20000);
+		moved = player_frame(g->player, &g->frame);
+	}
+	check(moved, "space should resume playback");
+	set_draw(&win, cr, 1000, 720);
+	check(cairo_status(cr) == CAIRO_STATUS_SUCCESS, "drawing a playing clip should keep cairo healthy");
+
+	viewer_show(&st, g_gif);
+	check(g->frame == NULL && g->player == NULL, "moving to another entry should stop the old player");
+	pump(cr, 8000, have_frame);
+	check(g->frame != NULL, "the viewer should animate a gif");
+
+	viewer_show(&st, g_bad);
+	pump(cr, 8000, play_failed);
+	check(g->play_failed && !g->frame, "a broken video should say it cannot be played");
+	set_draw(&win, cr, 1000, 720);
+
+	struct upq_file f = {.path = strdup(clip)};
+	upq_load_preview(&st, &f);
+	check(f.job && !f.thumb, "a video preview should load off the ui thread");
+	for (int i = 0; i < 400 && f.job && !media_job_take(f.job, &f.thumb); i++)
+		usleep(20000);
+	media_job_end(f.job);
+	check(f.thumb != NULL, "the upload page should preview a video's first frame");
+	if (f.thumb) cairo_surface_destroy(f.thumb);
+	free(f.path);
+	free(f.mime);
+
+	viewer_close(&st);
+	cairo_destroy(cr);
+	cairo_surface_destroy(frame);
+	settings_state_close(&st);
+	int status;
+	check(waitpid(-1, &status, WNOHANG) == -1, "every ffmpeg should be reaped once the window closes");
+
+	open_settings("[recording]\nffmpeg = \"/no/such/ffmpeg\"\n");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	size_t c = entry_of(clip);
+	check(c != SET_NONE && !thumbs_pending(st.grid->th, c) && !thumbs_get(st.grid->th, c),
+		  "without ffmpeg a recording should keep its plain tile");
+	settings_state_close(&st);
+	history_clear(HISTORY_ALL);
+	unlink(clip);
+	unlink(gif);
+	unlink(bad);
+}
+
 int main(void) {
 	setup_env();
 	log_init(true, false);
@@ -662,6 +816,7 @@ int main(void) {
 	check_overrides();
 	check_upload_page();
 	check_history();
+	check_media();
 	nftw(g_root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
 	if (g_failed) {
 		fprintf(stderr, "settings checks: %d failed, %d passed\n", g_failed, g_passed);

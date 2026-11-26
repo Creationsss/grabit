@@ -77,7 +77,7 @@ void history_thumb_path(const char *id, const char *ext, char *out, size_t n) {
 }
 
 static void drop_thumbs(const char *id) {
-	static const char *const EXTS[] = {".png", ".none", ".orig", ".part", ".orig.part"};
+	static const char *const EXTS[] = {".png", ".none", ".orig", ".meta", ".part", ".orig.part"};
 	char path[PATH_MAX];
 	for (size_t i = 0; i < sizeof EXTS / sizeof *EXTS; i++) {
 		history_thumb_path(id, EXTS[i], path, sizeof path);

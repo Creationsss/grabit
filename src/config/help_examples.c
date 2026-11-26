@@ -104,6 +104,17 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		*def_out = "true";
 		return 0;
 	}
+	if (strcmp(key, "history.enabled") == 0 || strcmp(key, "history.ocr") == 0 ||
+		strcmp(key, "history.confirm_delete") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
+	if (strcmp(key, "plugins.confirm_remove") == 0) {
+		*example_out = "true|false";
+		*def_out = "true";
+		return 0;
+	}
 	if (strcmp(key, "gui.radius") == 0) {
 		*example_out = "auto|0..100";
 		*def_out = "0";
@@ -152,6 +163,14 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 	if (strcmp(key, "region.repeat_last") == 0) {
 		*example_out = "true|false";
 		*def_out = "false";
+		return 0;
+	}
+	if (strcmp(key, "gui.settings_page") == 0) {
+		*example_out = "<page title> (written automatically when the settings window closes)";
+		return 0;
+	}
+	if (strcmp(key, "gui.settings_size") == 0) {
+		*example_out = "<width>x<height> (written automatically when the settings window closes)";
 		return 0;
 	}
 	if (strcmp(key, "region.last") == 0) {
@@ -240,8 +259,8 @@ int cfg_help_example_for_key(const char *key, const char **example_out, const ch
 		return 0;
 	}
 	if (strcmp(key, "tray.icon") == 0) {
-		*example_out = "<icon name from your icon theme>";
-		*def_out = "camera-photo";
+		*example_out = "<icon name from your icon theme, or /path/to/icon.png|.svg>";
+		*def_out = "hand";
 		return 0;
 	}
 	return -1;

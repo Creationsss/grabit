@@ -135,6 +135,37 @@ GRABIT_SRCS := \
 	src/template.c \
 	src/cairo_util.c \
 	src/ui_theme.c \
+	src/ui/window.c \
+	src/ui/frame.c \
+	src/ui/scroll.c \
+	src/ui/input.c \
+	src/ui/dnd.c \
+	src/ui/text.c \
+	src/ui/widgets.c \
+	src/ui/icons.c \
+	src/ui/settings.c \
+	src/ui/settings_keys.c \
+	src/ui/settings_pages.c \
+	src/ui/settings_icons.c \
+	src/ui/settings_render.c \
+	src/ui/settings_chrome.c \
+	src/ui/settings_input.c \
+	src/ui/settings_keyboard.c \
+	src/ui/settings_drop.c \
+	src/ui/settings_plugins.c \
+	src/ui/settings_history.c \
+	src/ui/settings_upload.c \
+	src/ui/settings_upload_draw.c \
+	src/ui/settings_upload_input.c \
+	src/ui/settings_grid.c \
+	src/ui/settings_grid_draw.c \
+	src/ui/settings_grid_input.c \
+	src/ui/settings_thumbs.c \
+	src/ui/settings_media.c \
+	src/ui/settings_viewer.c \
+	src/ui/settings_dialog.c \
+	src/ui/settings_tests.c \
+	src/ui/settings_capture.c \
 	src/wm/wm.c \
 	src/wm/ipc.c \
 	src/wm/hyprland.c \
@@ -144,6 +175,7 @@ GRABIT_SRCS := \
 	src/wm/aqueous.c \
 	src/mime.c \
 	src/wl/wl.c \
+	src/wl/xkb.c \
 	src/wl/toplevel.c \
 	src/wl/color.c \
 	src/wl/output.c \
@@ -237,6 +269,9 @@ GRABIT_SRCS := \
 	src/upload/sxcu_upload.c \
 	src/upload/sxcu_dir.c \
 	src/upload/sxcu_cli.c \
+	src/upload/test.c \
+	src/history/history.c \
+	src/history/cli.c \
 	src/plugin/manifest.c \
 	src/plugin/paths.c \
 	src/plugin/spawn.c \
@@ -264,7 +299,8 @@ GRABIT_SRCS := \
 
 GRABIT_VENDOR_SRCS := \
 	src/vendor/tomlc99/toml.c \
-	src/vendor/sha256/sha256.c
+	src/vendor/sha256/sha256.c \
+	src/vendor/nanosvg/nanosvg.c
 
 GRABIT_OBJS := $(GRABIT_SRCS:%.c=$(BUILDDIR)/%.o) \
                $(GRABIT_VENDOR_SRCS:%.c=$(BUILDDIR)/%.o) \
@@ -277,8 +313,11 @@ CHECK_OBJS  := $(CHECK_SRCS:%.c=$(BUILDDIR)/%.o)
 CHECK_BIN   := $(BUILDDIR)/check_headers
 DOCS_OBJS   := $(DOCS_SRCS:%.c=$(BUILDDIR)/%.o)
 DOCS_BIN    := $(BUILDDIR)/check_docs
+SETCHK_SRCS := tools/settings_check.c
+SETCHK_OBJS := $(SETCHK_SRCS:%.c=$(BUILDDIR)/%.o)
+SETCHK_BIN  := $(BUILDDIR)/settings_check
 
-OBJS := $(GRABIT_OBJS) $(CHECK_OBJS) $(DOCS_OBJS)
+OBJS := $(GRABIT_OBJS) $(CHECK_OBJS) $(DOCS_OBJS) $(SETCHK_OBJS)
 DEPS := $(OBJS:.o=.d)
 
 .PHONY: all
@@ -305,22 +344,33 @@ $(DOCS_BIN): $(DOCS_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+$(SETCHK_BIN): $(SETCHK_OBJS) $(filter-out $(BUILDDIR)/src/main.o,$(GRABIT_OBJS))
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
 $(BUILDDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(GRABIT_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
+$(GRABIT_OBJS) $(SETCHK_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 
 $(WL_PROTO_DIR)/%.o: $(WL_PROTO_DIR)/%.c
 	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes,$(CFLAGS)) -c -o $@ $<
 
+VENDOR_WARN_OFF := -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference
+
 $(BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
-	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(CFLAGS)) -c -o $@ $<
+	$(CC) $(filter-out $(VENDOR_WARN_OFF),$(CFLAGS)) -Wno-sign-compare -c -o $@ $<
 
 .PHONY: check-docs
 check-docs: $(GRABIT_BIN) $(DOCS_BIN)
-	@$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE)
+	@d=$$(mktemp -d) && XDG_CONFIG_HOME=$$d/config XDG_STATE_HOME=$$d/state XDG_CACHE_HOME=$$d/cache \
+		$(DOCS_BIN) $(GRABIT_BIN) $(NAME) $(VERSION) $(PKGS_CORE); rc=$$?; rm -rf "$$d"; exit $$rc
+
+.PHONY: check-settings
+check-settings: $(SETCHK_BIN)
+	@$(SETCHK_BIN)
 
 .PHONY: test
 .PHONY: check-headers-standalone
@@ -333,14 +383,15 @@ check-headers-standalone: | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 	[ $$fail -eq 0 ] || { echo "a header does not compile on its own"; exit 1; }; \
 	echo "headers self-contained"
 
-test: $(CHECK_BIN) check-docs check-headers-standalone
+test: $(CHECK_BIN) check-docs check-headers-standalone check-settings
 	$(CHECK_BIN) --check src
 
 .PHONY: apply-headers
 apply-headers: $(CHECK_BIN)
 	$(CHECK_BIN) --apply src
 
-FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c tools/check_docs.c
+FMT_SRCS := $(shell find src -path src/vendor -prune -o \( -name '*.c' -o -name '*.h' \) -print) tools/check_headers.c tools/check_docs.c \
+            tools/settings_check.c
 
 .PHONY: fmt
 fmt:
@@ -395,7 +446,7 @@ $(SAN_BUILDDIR)/src/%.o: src/%.c
 
 $(SAN_BUILDDIR)/src/vendor/%.o: src/vendor/%.c
 	@mkdir -p $(@D)
-	$(CC) $(filter-out -Wpedantic -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wnull-dereference,$(SAN_CFLAGS)) $(SAN_FLAGS) -c -o $@ $<
+	$(CC) $(filter-out $(VENDOR_WARN_OFF),$(SAN_CFLAGS)) -Wno-sign-compare $(SAN_FLAGS) -c -o $@ $<
 
 $(SAN_OBJS): | $(WL_PROTO_HEADERS) $(BUILDDIR)/version.h
 

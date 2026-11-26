@@ -302,7 +302,7 @@ static inline bool region_tool_uses_font(const struct ro_state *st) {
 
 static inline bool region_multi_select_held(const struct ro_state *st) {
 	return st->xkb_state && st->multi_select_mods &&
-		   (region_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
+		   (grabit_xkb_mods(st->xkb_state) & st->multi_select_mods) != 0;
 }
 
 #define ANNO_DRAG_NONE (-1)

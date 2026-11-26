@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "util/util.h"
 #include "wl/wl.h"
@@ -35,11 +36,11 @@ static void draw_close_button(cairo_t *cr, int32_t width) {
 	cairo_save(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
 	cairo_arc(cr, bx + bw / 2.0, by + bw / 2.0, bw / 2.0, 0, 2.0 * M_PI);
 	cairo_fill(cr);
 
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	cairo_set_line_width(cr, 2.5);
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 	double pad = 7.5;
@@ -88,13 +89,13 @@ static void draw_caption(cairo_t *cr, struct pin_state *st) {
 	}
 	double bar_h = font + 2 * pad;
 	double bar_y = (double)st->height - bar_h;
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.7);
 	if (grabit_ui_radius(GUI_R_PANEL) > 0.0)
 		cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
 	cairo_rectangle(cr, 0, bar_y, st->width, bar_h);
 	cairo_fill(cr);
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	double tx = ((double)st->width - st->caption_fit_x_advance) / 2.0;
 	if (tx < pad) tx = pad;
 	cairo_move_to(cr, tx, bar_y + pad + font * 0.85);

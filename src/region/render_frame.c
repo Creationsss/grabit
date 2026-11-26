@@ -21,6 +21,7 @@
 #include <wayland-client.h>
 
 #include "region/render_internal.h"
+#include "ui_colors.h"
 
 #define REGION_DIM_A 0.45
 
@@ -85,11 +86,11 @@ void gren_output_redraw(struct ro_output *o) {
 	if (o->cairo_frozen_pat)
 		cairo_set_source(cr, o->cairo_frozen_pat);
 	else
-		cairo_set_source_rgba(cr, 0, 0, 0, 0);
+		cairo_set_source_rgba(cr, GUI_C_SHADE, 0);
 	cairo_paint(cr);
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, REGION_DIM_A);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, REGION_DIM_A);
 	if (sel_visible) {
 		double snap_r = (draw_is_snap && o->st->snap_radius > 0 &&
 						 !region_snap_is_fullscreen(o->st))
@@ -101,7 +102,7 @@ void gren_output_redraw(struct ro_output *o) {
 		cairo_fill(cr);
 		cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
 		if (draw_is_snap && o->st->snap_cur_alpha < 0.999) {
-			cairo_set_source_rgba(cr, 0, 0, 0,
+			cairo_set_source_rgba(cr, GUI_C_SHADE,
 								  REGION_DIM_A * (1.0 - o->st->snap_cur_alpha));
 			grabit_cairo_rect_r(cr, sel_l, sel_t, sel_r - sel_l, sel_b - sel_t,
 								snap_r);
@@ -175,7 +176,7 @@ void gren_output_redraw(struct ro_output *o) {
 				}
 				double pad = 4.0;
 				double tw = typed_ext.x_advance > 0 ? typed_ext.x_advance : font * 0.6;
-				cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
+				cairo_set_source_rgba(cr, GUI_C_SHADE, 0.55);
 				grabit_cairo_rect_r(cr, (double)o->st->text_x - pad,
 									(double)o->st->text_y - fe.ascent - pad,
 									tw + 2 * pad, fe.ascent + fe.descent + 2 * pad,
@@ -183,7 +184,7 @@ void gren_output_redraw(struct ro_output *o) {
 				cairo_fill(cr);
 				if (o->st->text_len > 0) annotation_paint(cr, &typing, 1.0);
 				double cursor_x = (double)o->st->text_x + caret_ext.x_advance;
-				cairo_set_source_rgba(cr, 1.0, 0.18, 0.18, 1.0);
+				cairo_set_source_rgba(cr, GUI_C_ALERT, 1.0);
 				cairo_set_line_width(cr, 1.5);
 				cairo_move_to(cr, cursor_x, (double)o->st->text_y - fe.ascent);
 				cairo_line_to(cr, cursor_x, (double)o->st->text_y + fe.descent);
@@ -194,7 +195,7 @@ void gren_output_redraw(struct ro_output *o) {
 	}
 
 	if (sel_visible) {
-		cairo_set_source_rgba(cr, 1, 1, 1, draw_is_snap ? 0.45 : 0.9);
+		cairo_set_source_rgba(cr, GUI_C_INK, draw_is_snap ? 0.45 : 0.9);
 		cairo_set_line_width(cr, (double)S);
 		double dashes[2] = {4.0 * S, 4.0 * S};
 		cairo_set_dash(cr, dashes, 2, 0);
@@ -215,12 +216,12 @@ void gren_output_redraw(struct ro_output *o) {
 			cairo_text_extents(cr, dims, &ext);
 			double tx = (double)sel_r - ext.width - 14.0 * S;
 			double ty = (double)sel_b - 14.0 * S;
-			cairo_set_source_rgba(cr, 0, 0, 0, 0.7);
+			cairo_set_source_rgba(cr, GUI_C_SHADE, 0.7);
 			grabit_cairo_rect_r(cr, tx - 4.0 * S, ty - ext.height - 2.0 * S,
 								ext.width + 8.0 * S, ext.height + 6.0 * S,
 								grabit_ui_radius(GUI_R_TIP) * S);
 			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 1, 1, 1, 1);
+			cairo_set_source_rgba(cr, GUI_C_INK, 1);
 			cairo_move_to(cr, tx, ty);
 			cairo_show_text(cr, dims);
 		}
@@ -253,10 +254,10 @@ void gren_output_redraw(struct ro_output *o) {
 			}
 			double hr = 6.0 * S;
 			for (int i = 0; i < 8; i++) {
-				cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+				cairo_set_source_rgba(cr, GUI_C_INK, 0.95);
 				cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
 				cairo_fill(cr);
-				cairo_set_source_rgba(cr, 0, 0, 0, 0.85);
+				cairo_set_source_rgba(cr, GUI_C_SHADE, 0.85);
 				cairo_set_line_width(cr, 1.5 * S);
 				cairo_arc(cr, hx[i], hy[i], hr, 0, 2.0 * M_PI);
 				cairo_stroke(cr);

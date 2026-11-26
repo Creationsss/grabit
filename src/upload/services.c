@@ -36,12 +36,18 @@ static void build_auth_keys(const char *service, char *env_key, size_t env_cap,
 	snprintf(cfg_key, cfg_cap, "services.%s.auth", service);
 }
 
-const char *gup_resolve_auth(struct config *cfg, const char *service) {
+const char *gup_lookup_auth(struct config *cfg, const char *service) {
 	char env_key[64], cfg_key[64];
 	build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
 	const char *auth = getenv(env_key);
-	if (!auth || !auth[0]) auth = config_get(cfg, cfg_key);
-	if (!auth || !auth[0]) {
+	return auth && auth[0] ? auth : config_get(cfg, cfg_key);
+}
+
+const char *gup_resolve_auth(struct config *cfg, const char *service) {
+	const char *auth = gup_lookup_auth(cfg, service);
+	if (!auth) {
+		char env_key[64], cfg_key[64];
+		build_auth_keys(service, env_key, sizeof env_key, cfg_key, sizeof cfg_key);
 		log_error("no auth token for %s: set $%s, or run `grabit set %s -` and paste "
 				  "the token (keeps it out of shell history)",
 				  service, env_key, cfg_key);
@@ -138,8 +144,7 @@ int upload_preflight(struct config *cfg, const struct args *a, const char **serv
 	}
 
 	if (strcmp(service, "zipline") == 0) {
-		const char *domain = config_get(cfg, "services.zipline.domain");
-		if (!domain || !domain[0]) {
+		if (!config_get(cfg, "services.zipline.domain")) {
 			log_error("zipline needs a domain: grabit set services.zipline.domain "
 					  "https://<host>/api/upload");
 			notify_send(&(struct notify_opts){

@@ -5,6 +5,7 @@
 
 #include "config/internal.h"
 #include "log.h"
+#include "region/edit_persist.h"
 #include "region/region.h"
 #include "util/util.h"
 
@@ -77,6 +78,7 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 		}
 		if (strcmp(leaf, "max_size_mb") == 0) {
 			*example_out = "100 (0 to disable)";
+			*def_out = "0";
 			return 0;
 		}
 		if (strcmp(leaf, "cursor") == 0) {
@@ -152,8 +154,8 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			return 0;
 		}
 		if (strcmp(leaf, "swatches") == 0) {
-			*example_out = "#ff3030,#fff030,#40ff40,#4080ff,#000000,#ffffff";
-			*def_out = "the six built-in colors; `set edit.swatches <n> <color>` sets one, and <color> may be `default`";
+			*example_out = "<six colors>; `set edit.swatches <n> <color>` sets one, and <color> may be `default`";
+			*def_out = edit_swatches_default_text();
 			return 0;
 		}
 		if (strcmp(leaf, "toolbar_placement") == 0) {

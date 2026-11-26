@@ -7,6 +7,7 @@
 #include "cairo_util.h"
 #include "capture/save.h"
 #include "log.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 
 #include <stdlib.h>
@@ -192,7 +193,7 @@ int pin_text_card_render_png(const char *text, const char *out_path) {
 	grabit_ui_card_bg(cr);
 	cairo_paint(cr);
 
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.95);
 	cairo_select_font_face(cr, FONT_FACE, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, FONT_SIZE);
 	cairo_font_extents_t fe;

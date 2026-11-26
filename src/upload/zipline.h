@@ -16,5 +16,6 @@ struct curl_slist *zipline_option_headers(struct config *cfg,
 int zipline_upload_partial(const char *base_url, const char *auth,
 						   struct config *cfg, const char *file_path,
 						   struct upload_result *out);
+char *zipline_delete_url(const char *upload_url, const char *body);
 
 #endif

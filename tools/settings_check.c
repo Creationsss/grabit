@@ -1,0 +1,827 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 creations
+
+#define _GNU_SOURCE
+#include "app/app.h"
+#include "config/config.h"
+#include "history/history.h"
+#include "log.h"
+#include "paths.h"
+#include "ui/settings_grid.h"
+#include "ui/settings_internal.h"
+#include "ui/settings_upload.h"
+#include "ui/window.h"
+#include "upload/upload.h"
+#include "util/util.h"
+#include "wl/wl.h"
+
+#include <ftw.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <cairo/cairo.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+
+static int g_failed;
+static int g_passed;
+static char g_root[256];
+
+static struct settings_state st;
+static struct ui_window win;
+static struct grabit_wl_state wls;
+
+static void check(bool ok, const char *fmt, ...) {
+	if (ok) {
+		g_passed++;
+		return;
+	}
+	g_failed++;
+	va_list ap;
+	va_start(ap, fmt);
+	fputs("  FAIL: ", stderr);
+	vfprintf(stderr, fmt, ap);
+	fputc('\n', stderr);
+	va_end(ap);
+}
+
+static int rm_one(const char *path, const struct stat *sb, int flag, struct FTW *ftw) {
+	(void)sb;
+	(void)flag;
+	(void)ftw;
+	return remove(path);
+}
+
+static void setup_env(void) {
+	const char *tmp = getenv("TMPDIR");
+	snprintf(g_root, sizeof g_root, "%s/grabit-settings-check-XXXXXX", tmp && tmp[0] ? tmp : "/tmp");
+	if (!mkdtemp(g_root)) {
+		perror("mkdtemp");
+		exit(1);
+	}
+	static const char *const DIRS[][2] = {
+		{"HOME", ""},
+		{"XDG_CONFIG_HOME", "/config"},
+		{"XDG_STATE_HOME", "/state"},
+		{"XDG_DATA_HOME", "/data"},
+		{"XDG_CACHE_HOME", "/cache"},
+		{"XDG_RUNTIME_DIR", "/run"},
+	};
+	for (size_t i = 0; i < sizeof DIRS / sizeof *DIRS; i++) {
+		char path[512];
+		snprintf(path, sizeof path, "%s%s", g_root, DIRS[i][1]);
+		mkdir(path, 0700);
+		setenv(DIRS[i][0], path, 1);
+	}
+	static const char *const OFF[] = {"WAYLAND_DISPLAY", "GRABIT_ZIPLINE_AUTH", "GRABIT_LOG_FILE",
+									  "GRABIT_DEBUG"};
+	for (size_t i = 0; i < sizeof OFF / sizeof *OFF; i++)
+		unsetenv(OFF[i]);
+}
+
+static void write_file(const char *path, const char *text) {
+	if (paths_atomic_write(path, text, strlen(text)) != 0) {
+		fprintf(stderr, "settings_check: could not write %s\n", path);
+		exit(1);
+	}
+}
+
+static void write_config(const char *text) {
+	paths_mkdir_p(paths_config_dir());
+	write_file(paths_config_file(), text);
+}
+
+static void open_settings(const char *config) {
+	write_config(config);
+	if (settings_state_open(&st, &wls) != 0) {
+		fprintf(stderr, "settings_check: could not build the settings rows\n");
+		exit(1);
+	}
+	win = (struct ui_window){.scale120 = 120, .user = &st};
+	st.win = &win;
+}
+
+static size_t key_count(const char *key) {
+	size_t n = 0;
+	for (size_t i = 0; i < st.n_pages; i++)
+		for (size_t j = 0; j < st.pages[i].n; j++)
+			n += strcmp(st.pages[i].rows[j]->key, key) == 0;
+	return n;
+}
+
+static const char *page_of(const char *key) {
+	struct set_row *r = set_find_row(&st, key);
+	return r ? r->page : NULL;
+}
+
+static bool active(const char *key) {
+	struct set_row *r = set_find_row(&st, key);
+	return r && !set_inactive_reason(&st, r);
+}
+
+static void check_pages(void) {
+	open_settings("");
+	for (size_t i = 0; i < st.n_pages; i++) {
+		const struct set_page *p = &st.pages[i];
+		check(strcmp(p->title, "Other") != 0, "a known key has no page and landed on Other (%s)",
+			  p->n ? p->rows[0]->key : "-");
+		for (size_t j = 0; j < p->n; j++) {
+			const struct set_row *r = p->rows[j];
+			if (r->no_config) continue;
+			check(!r->info.internal, "internal key %s has a row on %s", r->key, p->title);
+			size_t seen = key_count(r->key);
+			check(seen == 1, "%s appears %zu times", r->key, seen);
+			if (!r->dep) continue;
+			const char *home = page_of(r->dep->needs);
+			check(home && strcmp(home, p->title) == 0, "%s is on %s but %s, which controls it, is on %s",
+				  r->key, p->title, r->dep->needs, home ? home : "no page");
+		}
+	}
+	struct set_row *cfg = set_find_row(&st, "~/config/grabit/config.toml");
+	check(cfg && cfg->action && page_of(cfg->key) && strcmp(page_of(cfg->key), "General") == 0,
+		  "General has no row for ~/config/grabit/config.toml with an action");
+	settings_state_close(&st);
+}
+
+static void check_format_deps(void) {
+	open_settings("");
+	check(active("png.level") && active("capture.hdr"), "png settings inactive for png");
+	check(!active("jpeg.quality"), "jpeg.quality active for png");
+	check(!active("webp.lossless") && !active("webp.quality"), "webp settings active for png");
+	struct set_row *q = set_find_row(&st, "webp.quality");
+	const char *why = q ? set_inactive_reason(&st, q) : NULL;
+	check(why && strstr(why, "webp"), "webp.quality greyed for png should name webp, got %s",
+		  why ? why : "nothing");
+	set_apply(&st, set_find_row(&st, "format"), "webp");
+	struct config written;
+	config_load(&written);
+	const char *fmt = config_get(&written, "format");
+	check(fmt && strcmp(fmt, "webp") == 0, "format change not written (read back %s)",
+		  fmt ? fmt : "nothing");
+	config_free(&written);
+	check(!active("png.level") && !active("capture.hdr"), "png settings active for webp");
+	check(active("webp.lossless") && active("webp.quality"), "webp settings inactive for webp");
+	set_apply(&st, set_find_row(&st, "webp.lossless"), "true");
+	check(!active("webp.quality"), "webp.quality active while lossless is on");
+	settings_state_close(&st);
+
+	open_settings("format = \"jpg\"\n");
+	check(active("jpeg.quality"), "jpeg.quality inactive for a hand-written jpg");
+	check(!active("png.level"), "png.level active for a hand-written jpg");
+	settings_state_close(&st);
+}
+
+static void check_filename(void) {
+	open_settings("");
+	check(active("filename_preset"), "filename_preset inactive without a template");
+	set_apply(&st, set_find_row(&st, "filename"), "%Y-%m-%d");
+	check(!active("filename_preset"), "filename_preset active while a template is set");
+	set_apply(&st, set_find_row(&st, "filename"), NULL);
+	check(active("filename_preset"), "filename_preset inactive after clearing the template");
+	settings_state_close(&st);
+
+	open_settings("filename = \"\"\n");
+	check(active("filename_preset"), "an empty filename in config.toml should count as unset");
+	settings_state_close(&st);
+}
+
+static void check_unknown_keys(void) {
+	log_mute(true);
+	open_settings("bogus_key = 1\n");
+	log_mute(false);
+	const char *p = page_of("bogus_key");
+	check(p && strcmp(p, "General") == 0, "unknown key not listed on General (got %s)",
+		  p ? p : "no page");
+	settings_state_close(&st);
+}
+
+static void check_upload_test(void) {
+	static const struct {
+		const char *toml;
+		const char *service;
+		enum upload_test_status want;
+		const char *missing;
+	} CASES[] = {
+		{"", NULL, UPLOAD_TEST_NO_SERVICE, NULL},
+		{"", "nosuch", UPLOAD_TEST_UNKNOWN, NULL},
+		{"", "zipline", UPLOAD_TEST_MISSING, "services.zipline.domain"},
+		{"[services.zipline]\ndomain = \"https://example.invalid/api/upload\"\n", "zipline",
+		 UPLOAD_TEST_MISSING, "services.zipline.auth"},
+		{"[services.zipline]\ndomain = \"https://example.invalid/api/upload\"\nauth = \"t\"\n",
+		 "zipline", UPLOAD_TEST_READY, NULL},
+	};
+	for (size_t i = 0; i < sizeof CASES / sizeof *CASES; i++) {
+		struct config c;
+		const char *missing = NULL;
+		write_config(CASES[i].toml);
+		config_load(&c);
+		enum upload_test_status got = upload_test_check(&c, CASES[i].service, &missing);
+		config_free(&c);
+		const char *svc = CASES[i].service ? CASES[i].service : "no service";
+		check(got == CASES[i].want, "upload check case %zu (%s): status %d, want %d", i, svc, got,
+			  CASES[i].want);
+		if (CASES[i].missing)
+			check(missing && strcmp(missing, CASES[i].missing) == 0,
+				  "upload check case %zu (%s): missing %s, want %s", i, svc,
+				  missing ? missing : "nothing", CASES[i].missing);
+	}
+}
+
+static void check_reserved(void) {
+	check(gapp_name_is_reserved("help"), "plugin name help is not reserved");
+	check(gapp_name_is_reserved("settings"), "plugin name settings is not reserved");
+	check(!gapp_name_is_reserved("my-plugin"), "an ordinary plugin name is reserved");
+}
+
+static void check_overrides(void) {
+	log_mute(true);
+	char dir[600], ten[700], twenty[700], broken[700], env[700];
+	snprintf(dir, sizeof dir, "%s/config.d", paths_config_dir());
+	paths_mkdir_p(dir);
+	snprintf(ten, sizeof ten, "%s/10-work.toml", dir);
+	snprintf(twenty, sizeof twenty, "%s/20-laptop.toml", dir);
+	snprintf(broken, sizeof broken, "%s/15-broken.toml", dir);
+	snprintf(env, sizeof env, "%s/extra.toml", g_root);
+	write_config("format = \"png\"\nnotifications = false\nalso_save = true\n");
+	write_file(ten, "format = \"jpeg\"\nnotifications = true\n");
+	write_file(twenty, "format = \"webp\"\n");
+	write_file(broken, "this is = [not toml\n");
+	write_file(env, "notifications = false\n");
+	setenv("GRABIT_CONFIG", env, 1);
+
+	struct config c;
+	check(config_read(&c) == 0, "config with overrides did not read");
+	const char *fmt = config_get(&c, "format");
+	check(fmt && strcmp(fmt, "webp") == 0, "later config.d file should win, got format=%s",
+		  fmt ? fmt : "nothing");
+	const char *notif = config_get(&c, "notifications");
+	check(notif && strcmp(notif, "false") == 0, "GRABIT_CONFIG should apply last, got %s",
+		  notif ? notif : "nothing");
+	const char *save = config_get(&c, "also_save");
+	check(save && strcmp(save, "true") == 0, "a key only in config.toml should stay");
+	const char *src = config_source(&c, "format");
+	check(src && strstr(src, "20-laptop.toml"), "format should come from 20-laptop.toml, got %s",
+		  src ? src : "config.toml");
+	check(config_source(&c, "also_save") == NULL, "also_save should come from config.toml");
+	config_free(&c);
+
+	open_settings("format = \"png\"\nnotifications = false\nalso_save = true\n");
+	struct set_row *r = set_find_row(&st, "format");
+	check(!set_can_reset(&st, r), "an overridden row should not offer reset");
+	set_apply(&st, r, "png");
+	check(strstr(r->error, "20-laptop.toml") != NULL, "editing an overridden row should name the file, got %s",
+		  r->error);
+	struct config merged;
+	config_load(&merged);
+	check(config_save(&merged) != 0, "a config with overrides must not be saved whole");
+	config_free(&merged);
+	set_apply(&st, set_find_row(&st, "also_save"), "false");
+	char *saved = NULL;
+	size_t len = 0;
+	grabit_read_file(paths_config_file(), 1 << 16, &saved, &len);
+	check(saved && !strstr(saved, "webp") && strstr(saved, "png") && strstr(saved, "also_save = false"),
+		  "config.toml must not receive override values, got %s", saved ? saved : "nothing");
+	free(saved);
+	settings_state_close(&st);
+
+	unsetenv("GRABIT_CONFIG");
+	unlink(ten);
+	unlink(twenty);
+	unlink(broken);
+	unlink(env);
+	rmdir(dir);
+	log_mute(false);
+}
+
+static size_t page_rows_with(const char *title, const char *prefix) {
+	for (size_t i = 0; i < st.n_pages; i++) {
+		if (strcmp(st.pages[i].title, title) != 0) continue;
+		size_t n = 0;
+		for (size_t j = 0; j < st.pages[i].n; j++)
+			n += strncmp(st.pages[i].rows[j]->key, prefix, strlen(prefix)) == 0;
+		return n;
+	}
+	return 0;
+}
+
+static void check_upload_page(void) {
+	open_settings("service = \"zipline\"\n[services.zipline.headers]\n\"x-zipline-max-views\" = \"5\"\n");
+	struct set_row *mv = set_find_row(&st, "upload once services.zipline.headers.x-zipline-max-views");
+	struct set_row *nest = set_find_row(&st, "upload once services.nest.folder");
+	struct set_row *svc = set_find_row(&st, "grabit -f <file> --<service>");
+	struct set_row *file = set_find_row(&st, "grabit -f <file>");
+	check(mv && nest && svc && file, "the Upload page should have its file, service and option rows");
+	if (!mv || !nest || !svc || !file) {
+		settings_state_close(&st);
+		return;
+	}
+	check(strcmp(mv->page, "Upload") == 0 && st.pages[st.upload_page].bottom, "the upload options should sit on the Upload tab");
+	check(strcmp(set_effective(&st, mv), "5") == 0 && !set_is_custom(&st, mv),
+		  "an upload option should start at the saved setting");
+	struct set_row *hdr = set_find_row(&st, "services.zipline.headers.x-zipline-max-views");
+	check(hdr && strcmp(hdr->page, "Uploads") == 0 && strcmp(set_effective(&st, hdr), "5") == 0,
+		  "a zipline header in config.toml should show on the Uploads page");
+	struct set_row *fmt = set_find_row(&st, "services.zipline.headers.x-zipline-format");
+	check(fmt && fmt->info.kind == CFG_KIND_ENUM, "the zipline name format should be a dropdown");
+	set_apply(&st, mv, "10");
+	check(strcmp(set_effective(&st, mv), "10") == 0 && set_is_custom(&st, mv), "an upload option should take a new value");
+	struct config saved = {0};
+	config_load(&saved);
+	const char *kept = config_get(&saved, "services.zipline.headers.x-zipline-max-views");
+	check(kept && strcmp(kept, "5") == 0, "an upload option must not change config.toml");
+	config_free(&saved);
+	log_mute(true);
+	set_apply(&st, mv, "abc");
+	log_mute(false);
+	check(mv->error[0] && strcmp(set_effective(&st, mv), "10") == 0, "a bad upload option should be refused");
+	check(!set_inactive_reason(&st, mv) && set_inactive_reason(&st, nest),
+		  "with zipline picked, the nest folder should be inactive");
+	set_apply(&st, svc, "nest");
+	check(set_inactive_reason(&st, mv) && !set_inactive_reason(&st, nest),
+		  "picking nest for this upload should switch which options apply");
+	check(strcmp(config_get(&st.cfg, "service"), "zipline") == 0, "picking a service for this upload should keep the default");
+	set_apply(&st, svc, "zipline");
+	check(file->custom != NULL && st.pages[st.upload_page].n == 1,
+		  "the Upload page should open with just the drop zone, options folded away");
+	st.page = st.upload_page;
+	st.area = AREA_BODY;
+	st.focus = 0;
+	set_on_key(&win, XKB_KEY_space, 0);
+	set_on_key(&win, XKB_KEY_Menu, 0);
+	check(!st.editing && st.popup == POPUP_NONE, "space and Menu on the drop zone should not start an edit or a menu");
+	upq_set_options(&st, true);
+	check(st.pages[st.upload_page].n == 1 + st.upq->n_opts && upq_changes(st.upq) == 1,
+		  "Options should unfold the option rows and count one change");
+	set_upload_drop(&st, "/no/such/file.png");
+	check(st.upq->n == 0 && strstr(st.toast, "no such file"), "a missing file should be refused");
+	char pic[600], two[1300];
+	snprintf(pic, sizeof pic, "%s/up.txt", g_root);
+	write_file(pic, "hello");
+	snprintf(two, sizeof two, "file://%s\n%s\n", pic, g_root);
+	check(set_upload_drop(&st, two) == 1 && st.upq->n == 1 && strcmp(st.upq->files[0].path, pic) == 0,
+		  "dropping a file and a folder should queue only the file");
+	check(set_upload_drop(&st, pic) == 0 && st.upq->n == 1, "the same file should not queue twice");
+	set_apply(&st, svc, "zipline");
+	struct set_row *orig = set_find_row(&st, "upload once services.zipline.headers.x-zipline-original-name");
+	check(orig && orig->info.kind == CFG_KIND_BOOL && strcmp(set_effective(&st, orig), "false") == 0,
+		  "keep the original name should be a toggle that starts off");
+	if (orig) set_apply(&st, orig, "true");
+	struct set_row *exp = set_find_row(&st, "upload once services.zipline.headers.x-zipline-deletes-at");
+	check(exp && exp->info.kind == CFG_KIND_ENUM && set_dd_count(exp) > 5, "expiry should be a dropdown of presets");
+	if (exp) {
+		set_apply(&st, exp, "1d");
+		check(strcmp(set_dd_label(exp, set_dd_index_of(&st, exp)), "1 day") == 0, "expiry should read 1 day, not 1d");
+		set_apply(&st, exp, NULL);
+	}
+	struct set_row *fname = set_find_row(&st, "upload once services.zipline.headers.x-zipline-filename");
+	if (fname) set_apply(&st, fname, "renamed.txt");
+	char *many = set_upload_overlay(st.upq, 2);
+	if (many && many[0]) {
+		setenv("GRABIT_CONFIG", many, 1);
+		struct config c = {0};
+		config_load(&c);
+		check(!config_get(&c, "services.zipline.headers.x-zipline-filename"), "override file name should be skipped for several files");
+		config_free(&c);
+		unsetenv("GRABIT_CONFIG");
+		unlink(many);
+	}
+	free(many);
+	if (fname) set_apply(&st, fname, NULL);
+	set_apply(&st, mv, "");
+	char *ov = set_upload_overlay(st.upq, 1);
+	check(ov && ov[0], "changed options should be written to an overlay");
+	if (ov && ov[0]) {
+		setenv("GRABIT_CONFIG", ov, 1);
+		struct config c = {0};
+		config_load(&c);
+		const char *v = config_get(&c, "services.zipline.headers.x-zipline-max-views");
+		const char *on = config_get(&c, "services.zipline.headers.x-zipline-original-name");
+		check((!v || !v[0]) && on && strcmp(on, "true") == 0 && strcmp(config_get(&c, "service"), "zipline") == 0,
+			  "the overlay should clear max views and send the original name, got %s", v ? v : "nothing");
+		config_free(&c);
+		unsetenv("GRABIT_CONFIG");
+		unlink(ov);
+	}
+	free(ov);
+	char latin[700], uri[800];
+	snprintf(latin, sizeof latin, "%s/caf\xe9.txt", g_root);
+	write_file(latin, "x");
+	snprintf(uri, sizeof uri, "file://%s/caf%%E9.txt\n", g_root);
+	check(set_upload_drop(&st, uri) == 1, "a file whose name is not utf-8 should still queue");
+	st.page = st.upload_page;
+	cairo_surface_t *up = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *ucr = cairo_create(up);
+	set_draw(&win, ucr, 1000, 720);
+	check(cairo_status(ucr) == CAIRO_STATUS_SUCCESS, "a name that is not utf-8 should not break drawing: %s",
+		  cairo_status_to_string(cairo_status(ucr)));
+	cairo_destroy(ucr);
+	cairo_surface_destroy(up);
+	unlink(latin);
+	ui_text_set(&st.search, "max views");
+	settings_filter(&st);
+	bool leaked = false;
+	for (size_t i = 0; i < st.results.n; i++)
+		leaked |= st.results.rows[i]->scratch;
+	check(!leaked, "search should not list the Upload page's one-off rows");
+	ui_text_set(&st.search, "");
+	settings_filter(&st);
+	st.page = st.upload_page;
+	check(set_page_resettable(&st, &st.pages[st.upload_page]) == 2, "two upload options should be resettable, got %zu",
+		  set_page_resettable(&st, &st.pages[st.upload_page]));
+	set_reset_page_ask(&st);
+	set_toast_run(&st);
+	check(!mv->once_value && (!orig || !orig->once_value), "resetting the Upload page should clear the one-off values");
+	unlink(pic);
+	settings_state_close(&st);
+}
+
+static void check_history(void) {
+	struct config c;
+	write_config("");
+	config_load(&c);
+	history_clear(HISTORY_ALL);
+	char pic[600];
+	snprintf(pic, sizeof pic, "%s/pic.png", g_root);
+	write_file(pic, "x");
+	history_record_file(&c, pic, false);
+	struct upload_result zip = {.url = "https://z.example/u/a.png",
+								.body = "{\"files\":[{\"id\":\"abc\"}]}"};
+	config_set(&c, "services.zipline.domain", "https://z.example");
+	history_record_upload(&c, "zipline", NULL, false, false, &zip);
+	history_record_ocr(&c, "first line\nsecond", "eng", "de");
+
+	struct stat sb;
+	check(stat(history_file(), &sb) == 0 && (sb.st_mode & 0777) == 0600,
+		  "history.jsonl should be mode 0600");
+	struct history_list l;
+	history_load(HISTORY_MEDIA, &l);
+	check(l.n == 2 && l.v[0].kind == HISTORY_UPLOAD && l.v[1].kind == HISTORY_FILE,
+		  "media history should list the upload first, then the file");
+	if (l.n == 2) {
+		check(l.v[0].delete_url && strcmp(l.v[0].delete_url, "https://z.example/api/user/files/abc") == 0 &&
+				  l.v[0].delete_auth,
+			  "a zipline entry should carry its delete URL, got %s",
+			  l.v[0].delete_url ? l.v[0].delete_url : "none");
+		check(history_find(&l, "2") == &l.v[1] && history_find(&l, l.v[0].id) == &l.v[0] &&
+				  history_find(&l, "3") == NULL,
+			  "entries should resolve by number and by id");
+		check(history_has_file(&l.v[1]) && !history_host_keeps(&l.v[0]),
+			  "the file entry should see its file, the zipline one a delete");
+		char sum[600];
+		history_delete_summary(&l.v[1], HISTORY_DELETE_BOTH, sum, sizeof sum);
+		check(strstr(sum, "pic.png") && strstr(sum, "forget it"), "delete summary was %s", sum);
+	}
+	history_list_free(&l);
+
+	struct upload_result sx = {.url = "https://s.example/x", .del_url = "https://s.example/del/x"};
+	history_record_upload(&c, "my-sxcu", NULL, false, false, &sx);
+	struct upload_result nest = {.url = "https://n.example/x"};
+	history_record_upload(&c, "nest", NULL, false, false, &nest);
+	history_load(HISTORY_UPLOAD, &l);
+	check(l.n == 3 && l.v[1].delete_url && !l.v[1].delete_auth && history_host_keeps(&l.v[0]),
+		  "sxcu entries should keep the DeletionURL; nest should have no delete");
+	history_list_free(&l);
+
+	config_set(&c, "history.ocr", "false");
+	history_record_ocr(&c, "skipped", "eng", NULL);
+	config_set(&c, "history.enabled", "false");
+	history_record_file(&c, pic, false);
+	history_load(HISTORY_ALL, &l);
+	check(l.n == 5, "toggles off should record nothing, got %zu entries", l.n);
+	char id[64] = "";
+	if (l.n) snprintf(id, sizeof id, "%s", l.v[l.n - 1].id);
+	history_list_free(&l);
+	config_free(&c);
+
+	char *taken = NULL;
+	check(history_take(id, 0, &taken) == 1 && taken, "take should hand back the removed line");
+	check(history_restore(taken) == 0, "restore should succeed");
+	history_load(HISTORY_ALL, &l);
+	check(l.n == 5 && strcmp(l.v[l.n - 1].id, id) == 0, "a restored entry should go back to its place by time");
+	history_list_free(&l);
+	free(taken);
+	check(history_remove(id) == 0 && history_remove(id) == 1, "remove should drop an entry once");
+	open_settings("");
+	struct set_page *gen = &st.pages[0];
+	bool in_hist = false, broken = false;
+	for (size_t i = 0; i < gen->n; i++) {
+		bool h = gen->rows[i]->section && strcmp(gen->rows[i]->section, "History") == 0;
+		if (in_hist && !h) broken = true;
+		in_hist |= h;
+	}
+	check(in_hist && !broken, "General should end with one unbroken History group");
+	settings_state_close(&st);
+	struct config oc = {0};
+	history_record_ocr(&oc, "alpha line\nsecret second line words", "eng", NULL);
+	open_settings("");
+	ui_text_set(&st.search, "secret");
+	settings_filter(&st);
+	check(st.results.n == 1, "search should find OCR text past the first line, got %zu", st.results.n);
+	ui_text_set(&st.search, "copy");
+	settings_filter(&st);
+	bool ocr_hit = false;
+	for (size_t i = 0; i < st.results.n; i++)
+		ocr_hit |= strncmp(st.results.rows[i]->key, "grabit history copy --ocr", 25) == 0;
+	check(!ocr_hit, "OCR rows should not match on their key");
+	settings_state_close(&st);
+	struct history_list ol;
+	history_load(HISTORY_OCR, &ol);
+	if (ol.n) history_remove(ol.v[0].id);
+	history_list_free(&ol);
+	check(history_clear(HISTORY_OCR) == 1, "clearing OCR should forget one entry");
+	history_load(HISTORY_ALL, &l);
+	check(l.n == 3, "three uploads should remain, got %zu", l.n);
+	history_list_free(&l);
+
+	open_settings("");
+	check(st.hist.n == 3 && set_hist_grid_h(&st) > 100, "the History grid should hold 3 entries, got %zu and h %.0f", st.hist.n, set_hist_grid_h(&st));
+	check(page_rows_with("OCR history", "grabit history copy --ocr ") == 0, "the OCR page should be empty");
+	struct set_row *clear = set_find_row(&st, "grabit history clear");
+	check(clear && clear->button && strstr(clear->hint, "3"), "the clear row should count 3 entries");
+	check(st.history_page + 2 == st.n_pages && st.pages[st.history_page].bottom &&
+			  st.pages[st.ocr_history_page].bottom && !st.pages[0].bottom,
+		  "History and OCR history should be the last two pages, pinned to the bottom");
+	st.view_h = 720;
+	struct set_hist_grid *g = st.grid;
+	check(g && set_hist_grid_h(&st) > 0 && g->n_items == 3 && g->n_heads == 1 &&
+			  strcmp(g->heads[0].label, "Today") == 0,
+		  "the grid should hold 3 entries under one Today header");
+	g->type = GT_SAVED;
+	g->dirty = true;
+	set_hist_grid_h(&st);
+	check(g->n_items == 0, "the Saved filter should hide uploads, got %zu", g->n_items);
+	g->type = GT_ALL;
+	snprintf(g->service, sizeof g->service, "nest");
+	g->dirty = true;
+	set_hist_grid_h(&st);
+	check(g->n_items == 1, "the service filter should keep only nest, got %zu", g->n_items);
+	g->service[0] = '\0';
+	ui_text_set(&g->query, "Z.EXAMPLE");
+	g->dirty = true;
+	set_hist_grid_h(&st);
+	check(g->n_items == 1, "search should match the link case-insensitively, got %zu", g->n_items);
+	ui_text_set(&g->query, "");
+	g->size = GS_SMALL;
+	g->dirty = true;
+	set_hist_grid_h(&st);
+	check(g->n_items == 0, "uploads with no file have no size, got %zu", g->n_items);
+	g->size = GS_ANY;
+	g->dirty = true;
+	check(st.upload_page + 1 == st.history_page && st.pages[st.upload_page].bottom &&
+			  set_side_row_y(&st, st.upload_page) > set_side_row_y(&st, st.upload_page - 1) + 64,
+		  "the bottom pages should sit apart from the rest");
+	settings_state_close(&st);
+
+	history_clear(HISTORY_ALL);
+	char img[600];
+	snprintf(img, sizeof img, "%s/thumb.png", g_root);
+	cairo_surface_t *px = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 64, 48);
+	cairo_surface_write_to_png(px, img);
+	cairo_surface_destroy(px);
+	struct config rc = {0};
+	for (int i = 0; i < 6; i++)
+		history_record_file(&rc, img, false);
+	open_settings("");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	int64_t t0 = grabit_now_ms();
+	for (int i = 0; i < 4; i++)
+		set_refresh_history(&st);
+	int64_t took = grabit_now_ms() - t0;
+	check(took < 500, "refreshing the history with loaders running took %lld ms", (long long)took);
+	struct set_hist_action acts[SET_MAX_ACTIONS];
+	size_t na = st.hist.n ? set_hist_actions(&st.hist.v[0], acts) : 0, up = SET_NONE;
+	for (size_t i = 0; i < na; i++)
+		if (strncmp(acts[i].label, "Upload to", 9) == 0) up = i;
+	check(up != SET_NONE, "a saved file should offer Upload to");
+	if (up != SET_NONE) {
+		acts[up].fn(&st, st.hist.v[0].id);
+		check(st.popup == POPUP_NONE && st.toast[0], "Upload to with no service set up should explain why");
+	}
+	settings_state_close(&st);
+	char sxcu[600];
+	snprintf(sxcu, sizeof sxcu, "%s/uploaders", paths_config_dir());
+	paths_mkdir_p(sxcu);
+	snprintf(sxcu, sizeof sxcu, "%s/uploaders/mock.sxcu", paths_config_dir());
+	write_file(sxcu, "{\"Version\":\"14.0.0\",\"Name\":\"mock\",\"RequestMethod\":\"POST\","
+					 "\"RequestURL\":\"http://127.0.0.1:9/up\",\"Body\":\"MultipartFormData\","
+					 "\"FileFormName\":\"file\",\"URL\":\"{json:url}\"}");
+	open_settings("");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	viewer_show(&st, 0);
+	cairo_surface_t *frame = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *fcr = cairo_create(frame);
+	set_draw(&win, fcr, 1000, 720);
+	g = st.grid;
+	for (size_t i = 0; g && i < g->n_acts; i++)
+		if (strncmp(g->acts[i].label, "Upload to", 9) == 0) {
+			g->view_ran = i;
+			g->acts[i].fn(&st, g->view_id);
+		}
+	check(st.popup == POPUP_ACTIONS && st.popup_act_n == 1 && strcmp(st.popup_acts[0].label, "mock") == 0,
+		  "Upload to in the viewer should list the one ready uploader");
+	cairo_destroy(fcr);
+	cairo_surface_destroy(frame);
+	settings_state_close(&st);
+	unlink(sxcu);
+	unlink(img);
+	history_clear(HISTORY_ALL);
+	for (int i = 0; i < 20; i++) {
+		if (fork() != 0) continue;
+		struct config k = {0};
+		for (int j = 0; j < 10; j++)
+			history_record_ocr(&k, "concurrent text that is long enough to need a few writes", "eng", NULL);
+		_exit(0);
+	}
+	while (wait(NULL) > 0)
+		;
+	history_load(HISTORY_ALL, &l);
+	check(l.n == 200, "20 parallel writers should leave 200 entries, got %zu", l.n);
+	history_list_free(&l);
+	history_clear(HISTORY_ALL);
+	unlink(pic);
+}
+
+static void pump(cairo_t *cr, int ms, bool (*done)(void)) {
+	int64_t end = grabit_now_ms() + ms;
+	while (grabit_now_ms() < end) {
+		set_draw(&win, cr, 1000, 720);
+		set_hist_poll_thumbs(&st);
+		if (done && done()) return;
+		usleep(20000);
+	}
+}
+
+static size_t entry_of(const char *path) {
+	for (size_t i = 0; i < st.hist.n; i++)
+		if (st.hist.v[i].path && strcmp(st.hist.v[i].path, path) == 0) return i;
+	return SET_NONE;
+}
+
+static size_t g_clip, g_gif, g_bad;
+
+static bool thumbs_settled(void) {
+	struct grid_thumbs *t = st.grid ? st.grid->th : NULL;
+	return t && thumbs_get(t, g_clip) && thumbs_get(t, g_gif) && !thumbs_pending(t, g_bad);
+}
+
+static bool have_frame(void) {
+	return st.grid && st.grid->frame;
+}
+
+static bool play_failed(void) {
+	return st.grid && st.grid->play_failed;
+}
+
+static bool ffmpeg_make(const char *args, const char *out) {
+	char cmd[1400];
+	snprintf(cmd, sizeof cmd, "ffmpeg -nostdin -hide_banner -loglevel error -y %s '%s'", args, out);
+	return system(cmd) == 0;
+}
+
+static void check_media(void) {
+	if (!grabit_in_path("ffmpeg")) {
+		printf("skipping the media checks: ffmpeg is not installed\n");
+		return;
+	}
+	char clip[600], gif[600], bad[600], meta[700];
+	snprintf(clip, sizeof clip, "%s/clip.mp4", g_root);
+	snprintf(gif, sizeof gif, "%s/anim.gif", g_root);
+	snprintf(bad, sizeof bad, "%s/broken.mp4", g_root);
+	bool made = ffmpeg_make("-f lavfi -i testsrc=size=320x240:rate=30:duration=2 -c:v mpeg4", clip) &&
+				ffmpeg_make("-f lavfi -i testsrc=size=80x60:rate=10:duration=1", gif);
+	write_file(bad, "this is not a video");
+	check(made, "ffmpeg should make the test clip and gif");
+	if (!made) return;
+	history_clear(HISTORY_ALL);
+	struct config rc = {0};
+	history_record_file(&rc, clip, true);
+	history_record_file(&rc, gif, false);
+	history_record_file(&rc, bad, true);
+	open_settings("");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	g_clip = entry_of(clip);
+	g_gif = entry_of(gif);
+	g_bad = entry_of(bad);
+	check(g_clip != SET_NONE && g_gif != SET_NONE && g_bad != SET_NONE, "the three media entries should load");
+	if (g_clip == SET_NONE || g_gif == SET_NONE || g_bad == SET_NONE) {
+		settings_state_close(&st);
+		return;
+	}
+	cairo_surface_t *frame = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 720);
+	cairo_t *cr = cairo_create(frame);
+	pump(cr, 15000, thumbs_settled);
+	struct set_hist_grid *g = st.grid;
+	check(thumbs_get(g->th, g_clip) != NULL, "a recording should get a thumbnail from its first frame");
+	check(thumbs_secs(g->th, g_clip) == 2, "a 2 second recording should report 2 seconds, got %d",
+		  thumbs_secs(g->th, g_clip));
+	check(thumbs_get(g->th, g_gif) != NULL, "a gif should get a thumbnail");
+	check(media_entry(&st.hist.v[g_gif]) && media_is_gif(&st.hist.v[g_gif]), "a .gif file should count as media");
+	check(!thumbs_get(g->th, g_bad) && !thumbs_pending(g->th, g_bad), "a broken video should settle with no thumbnail");
+	history_thumb_path(st.hist.v[g_bad].id, ".none", meta, sizeof meta);
+	check(access(meta, F_OK) == 0, "a broken video should be marked so it is not retried");
+	history_thumb_path(st.hist.v[g_clip].id, ".meta", meta, sizeof meta);
+	check(access(meta, F_OK) == 0, "the duration should be cached next to the thumbnail");
+
+	viewer_show(&st, g_clip);
+	pump(cr, 8000, have_frame);
+	check(g->frame != NULL, "the viewer should play the recording");
+	if (g->frame) {
+		int w = cairo_image_surface_get_width(g->frame), h = cairo_image_surface_get_height(g->frame);
+		check(w <= 320 && h <= 240 && w > 0 && abs(w * 3 - h * 4) <= 8,
+			  "playback should keep the clip's 4:3 shape without upscaling, got %dx%d", w, h);
+	}
+	check(g->player && player_secs(g->player) == 2, "the viewer should know the clip is 2 seconds");
+	check(set_hist_playing(&st), "a playing clip should keep the window ticking");
+	set_on_key(&win, XKB_KEY_space, 0);
+	check(g->player && player_paused(g->player) && !set_hist_playing(&st), "space should pause playback");
+	pump(cr, 200, NULL);
+	bool moved = false;
+	for (int i = 0; i < 15 && g->player; i++) {
+		usleep(20000);
+		moved |= player_frame(g->player, &g->frame);
+	}
+	check(!moved, "no new frames should arrive while paused");
+	set_on_key(&win, XKB_KEY_space, 0);
+	moved = false;
+	for (int i = 0; i < 50 && g->player && !moved; i++) {
+		usleep(20000);
+		moved = player_frame(g->player, &g->frame);
+	}
+	check(moved, "space should resume playback");
+	set_draw(&win, cr, 1000, 720);
+	check(cairo_status(cr) == CAIRO_STATUS_SUCCESS, "drawing a playing clip should keep cairo healthy");
+
+	viewer_show(&st, g_gif);
+	check(g->frame == NULL && g->player == NULL, "moving to another entry should stop the old player");
+	pump(cr, 8000, have_frame);
+	check(g->frame != NULL, "the viewer should animate a gif");
+
+	viewer_show(&st, g_bad);
+	pump(cr, 8000, play_failed);
+	check(g->play_failed && !g->frame, "a broken video should say it cannot be played");
+	set_draw(&win, cr, 1000, 720);
+
+	struct upq_file f = {.path = strdup(clip)};
+	upq_load_preview(&st, &f);
+	check(f.job && !f.thumb, "a video preview should load off the ui thread");
+	for (int i = 0; i < 400 && f.job && !media_job_take(f.job, &f.thumb); i++)
+		usleep(20000);
+	media_job_end(f.job);
+	check(f.thumb != NULL, "the upload page should preview a video's first frame");
+	if (f.thumb) cairo_surface_destroy(f.thumb);
+	free(f.path);
+	free(f.mime);
+
+	viewer_close(&st);
+	cairo_destroy(cr);
+	cairo_surface_destroy(frame);
+	settings_state_close(&st);
+	int status;
+	check(waitpid(-1, &status, WNOHANG) == -1, "every ffmpeg should be reaped once the window closes");
+
+	open_settings("[recording]\nffmpeg = \"/no/such/ffmpeg\"\n");
+	st.page = st.history_page;
+	st.view_h = 720;
+	set_hist_grid_h(&st);
+	size_t c = entry_of(clip);
+	check(c != SET_NONE && !thumbs_pending(st.grid->th, c) && !thumbs_get(st.grid->th, c),
+		  "without ffmpeg a recording should keep its plain tile");
+	settings_state_close(&st);
+	history_clear(HISTORY_ALL);
+	unlink(clip);
+	unlink(gif);
+	unlink(bad);
+}
+
+int main(void) {
+	setup_env();
+	log_init(true, false);
+	check_pages();
+	check_format_deps();
+	check_filename();
+	check_unknown_keys();
+	check_upload_test();
+	check_reserved();
+	check_overrides();
+	check_upload_page();
+	check_history();
+	check_media();
+	nftw(g_root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
+	if (g_failed) {
+		fprintf(stderr, "settings checks: %d failed, %d passed\n", g_failed, g_passed);
+		return 1;
+	}
+	printf("settings checks passed (%d)\n", g_passed);
+	return 0;
+}

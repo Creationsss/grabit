@@ -5,20 +5,15 @@
 #define GRABIT_REGION_KEYBINDS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <xkbcommon/xkbcommon.h>
 
 #include "region/region.h"
+#include "wl/xkb.h"
 
 struct config;
-
-enum kb_mod {
-	KB_MOD_CTRL = 1u << 0,
-	KB_MOD_SHIFT = 1u << 1,
-	KB_MOD_ALT = 1u << 2,
-	KB_MOD_SUPER = 1u << 3,
-};
 
 enum region_action {
 	KA_CONFIRM = 0,
@@ -51,9 +46,20 @@ struct keybind_list {
 	uint8_t n;
 };
 
+#define REGION_KEYBIND_STR 32
+#define KB_DROPS_MAX 32
+
+struct keybind_drop {
+	uint8_t from;
+	uint8_t to;
+	struct keybind bind;
+};
+
 struct region_keymap {
 	struct keybind_list actions[KA_COUNT];
 	struct keybind_list tools[TOOL_COUNT];
+	struct keybind_drop drops[KB_DROPS_MAX];
+	uint8_t n_drops;
 };
 
 void region_keymap_init(struct region_keymap *km, struct config *cfg);
@@ -66,8 +72,19 @@ bool region_button_action(const struct region_keymap *km, enum region_action act
 						  uint32_t button);
 int32_t region_key_tool(const struct region_keymap *km, xkb_keysym_t sym, uint8_t mods);
 
+struct region_keybind_clash {
+	const char *a;
+	const char *b;
+	char bind[REGION_KEYBIND_STR];
+	bool taken;
+};
+
 bool region_keybind_validate(const char *value);
+size_t region_keymap_clashes(struct config *cfg, struct region_keybind_clash *out, size_t max);
 const char *region_keybind_action_key(enum region_action act);
+const char *region_keybind_tool_key(int tool);
+const char *region_tool_label(int tool);
+const char *region_tool_group_label(int tool);
 const char *region_keybind_default(const char *key);
 void region_keybind_format(const struct keybind *b, char *out, size_t n);
 void region_keybind_first(const struct region_keymap *km, enum region_action act,
@@ -75,12 +92,21 @@ void region_keybind_first(const struct region_keymap *km, enum region_action act
 void region_keybind_first_tool(const struct region_keymap *km, int tool, char *out,
 							   size_t n);
 
-bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
-							   struct xkb_keymap **km, struct xkb_state **state);
-uint8_t region_xkb_mods(struct xkb_state *state);
 uint8_t gkb_mod_from_name(const char *name);
 
 struct grabit_wl_state;
+enum region_capture {
+	REGION_CAPTURE_IGNORED,
+	REGION_CAPTURE_CHANGED,
+	REGION_CAPTURE_SAVE,
+	REGION_CAPTURE_CANCEL,
+};
+
+bool region_keybind_eq(const struct keybind *a, const struct keybind *b);
+bool region_keybind_list_add(struct keybind_list *list, const struct keybind *b);
+void region_keybind_list_join(const struct keybind_list *list, char *out, size_t n);
+enum region_capture region_capture_key(struct keybind_list *list, xkb_keysym_t sym, uint8_t mods);
+
 int region_keybind_watch(struct grabit_wl_state *s, const char *action_key,
 						 char *out, size_t out_size);
 

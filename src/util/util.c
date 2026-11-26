@@ -222,6 +222,16 @@ size_t grabit_edit_distance(const char *a, const char *b) {
 	return prev[lb];
 }
 
+int grabit_cmp_str(const void *a, const void *b) {
+	return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+void grabit_strv_free(char **v, size_t n) {
+	for (size_t i = 0; i < n; i++)
+		free(v[i]);
+	free(v);
+}
+
 size_t grabit_rstrip(char *s, size_t len) {
 	while (len > 0 && (s[len - 1] == ' ' || s[len - 1] == '\t' ||
 					   s[len - 1] == '\r' || s[len - 1] == '\n'))
@@ -234,6 +244,16 @@ int64_t grabit_now_ns(void) {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
+int64_t grabit_file_mtime_ns(const char *path) {
+	struct stat sb;
+	if (!path || stat(path, &sb) != 0) return 0;
+	return (int64_t)sb.st_mtim.tv_sec * 1000000000 + sb.st_mtim.tv_nsec;
+}
+
+int64_t grabit_now_ms(void) {
+	return grabit_now_ns() / 1000000;
 }
 
 void grabit_sleep_secs(int secs) {
@@ -288,6 +308,35 @@ bool grabit_join_appendf(char *out, size_t cap, size_t *off, const char *sep,
 	}
 	*off = at + (size_t)w;
 	return true;
+}
+
+size_t grabit_utf8_prev(const char *s, size_t at) {
+	if (at == 0) return 0;
+	size_t i = at - 1;
+	while (i > 0 && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i--;
+	return i;
+}
+
+size_t grabit_utf8_next(const char *s, size_t len, size_t at) {
+	if (at >= len) return len;
+	size_t i = at + 1;
+	while (i < len && ((unsigned char)s[i] & 0xC0) == 0x80)
+		i++;
+	return i;
+}
+
+size_t grabit_text_one_line(char *s, size_t max) {
+	size_t n = 0;
+	for (size_t i = 0; s[i] && n < max; i++) {
+		if ((unsigned char)s[i] < 0x20) {
+			if (s[i] != '\t') break;
+			s[n++] = ' ';
+			continue;
+		}
+		s[n++] = s[i];
+	}
+	return grabit_utf8_valid_prefix(s, n);
 }
 
 size_t grabit_utf8_valid_prefix(const char *s, size_t n) {
@@ -357,12 +406,40 @@ char *grabit_url_with_path(const char *base, const char *path,
 
 int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms) {
 	for (;;) {
-		int64_t remaining = deadline_ms - grabit_now_ns() / 1000000;
+		int64_t remaining = deadline_ms - grabit_now_ms();
 		if (remaining <= 0) return 0;
 		int pr = poll(fds, (nfds_t)n, (int)remaining);
 		if (pr >= 0) return pr;
 		if (errno != EINTR) return -1;
 	}
+}
+
+int grabit_read_fd_all(int fd, size_t cap, int timeout_ms, char **out) {
+	struct grabit_buf buf = {0};
+	char chunk[4096];
+	int64_t deadline = grabit_now_ms() + timeout_ms;
+	int rc = -1;
+	for (;;) {
+		struct pollfd pfd = {.fd = fd, .events = POLLIN};
+		if (grabit_poll_deadline(&pfd, 1, deadline) <= 0) break;
+		ssize_t n = read(fd, chunk, sizeof chunk);
+		if (n < 0) {
+			if (errno == EINTR || errno == EAGAIN) continue;
+			break;
+		}
+		if (n == 0) {
+			rc = 0;
+			break;
+		}
+		if (buf.len + (size_t)n > cap || grabit_buf_putn(&buf, chunk, (size_t)n) != 0) break;
+	}
+	close(fd);
+	if (rc != 0 || grabit_buf_putn(&buf, "", 1) != 0) {
+		grabit_buf_free(&buf);
+		return -1;
+	}
+	*out = buf.data;
+	return 0;
 }
 
 bool grabit_confirm(bool assume_yes, const char *action) {

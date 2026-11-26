@@ -9,6 +9,7 @@
 #include "region/input_internal.h"
 #include "region/render_internal.h"
 #include "region/ui.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
@@ -72,10 +73,10 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	bx = fmin(fmax(bx, pad), pw - bw - pad);
 	by = fmin(fmax(by, pad), ph - bh - pad);
 
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
 	grabit_cairo_rect_r(cr, bx, by, bw, bh, grabit_ui_radius(GUI_R_TIP) * S);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	cairo_move_to(cr, bx + (bw - ext.width) / 2.0 - ext.x_bearing,
 				  by + (bh - ext.height) / 2.0 - ext.y_bearing);
 	cairo_show_text(cr, info);
@@ -167,7 +168,7 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	uint32_t c = surface_rgb_at(cairo_get_target(cr), (int)(lx + L / 2.0), (int)(ly + L / 2.0));
 
 	cairo_set_line_width(cr, 1.0);
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.20);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.20);
 	for (int i = 0; i <= MAGNIFIER_CELLS; i++) {
 		double gx = lx + i * cell;
 		cairo_move_to(cr, gx, ly);
@@ -182,15 +183,15 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	int ci = (MAGNIFIER_CELLS - 1) / 2;
 	double hx = lx + ci * cell, hy = ly + ci * cell;
 	cairo_set_line_width(cr, 1.0);
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.9);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.9);
 	cairo_rectangle(cr, hx - 1.0, hy - 1.0, cell + 2.0, cell + 2.0);
 	cairo_stroke(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.95);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.95);
 	cairo_rectangle(cr, hx, hy, cell, cell);
 	cairo_stroke(cr);
 
 	cairo_set_line_width(cr, MAGNIFIER_BORDER * S);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.9);
 	grabit_cairo_rect_r(cr, lx, ly, L, L, lr);
 	cairo_stroke(cr);
 
@@ -210,14 +211,14 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	if (by + bh > ph - pad) by = ly - bh - pad;
 	bx = fmin(fmax(bx, pad), pw - bw - pad);
 
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
 	grabit_cairo_rect_r(cr, bx, by, bw, bh, grabit_ui_radius(GUI_R_TIP) * S);
 	cairo_fill(cr);
 	grabit_cairo_set_source_argb(cr, c, 1.0);
 	grabit_cairo_rect_r(cr, bx + MAGNIFIER_SWATCH_INSET * S, by + (bh - sw) / 2.0, sw, sw,
 						grabit_ui_radius(GUI_R_GLYPH) * S);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	cairo_move_to(cr, bx + sw + MAGNIFIER_TEXT_GAP * S,
 				  by + (bh - ext.height) / 2.0 - ext.y_bearing);
 	cairo_show_text(cr, info);

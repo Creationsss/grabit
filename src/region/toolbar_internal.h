@@ -10,14 +10,11 @@
 #include <cairo/cairo.h>
 
 #include "region/wlr_state.h"
+#include "ui_theme.h"
 
 #define TB_BTN_H_OPT 30
 #define TB_ROW_GAP 4
 #define TB_SLIDER_W 110
-
-#define GRABIT_ACCENT_R 1.0
-#define GRABIT_ACCENT_G 0.55
-#define GRABIT_ACCENT_B 0.32
 
 void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 							int32_t *out_x, int32_t *out_y,

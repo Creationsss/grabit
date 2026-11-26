@@ -40,10 +40,14 @@ const char *plugin_dir_path(void);
 const char *plugin_bin_dir_path(void);
 char *plugin_path_for(const char *name, const char *suffix);
 int plugin_foreach_installed(int (*fn)(const char *name, void *ud), void *ud);
+int plugin_list(char ***names_out, size_t *n_out);
+int plugin_check_installed(const char *name);
 
 bool plugin_name_is_valid(const char *name);
-bool plugin_name_is_reserved(const char *name);
 int plugin_resolve(const char *name, char *path_out, size_t cap);
+bool plugin_is_disabled(const char *name);
+void plugin_log_disabled(const char *name);
+int plugin_set_disabled(const char *name, bool disabled);
 
 int plugin_install_git(const char *url);
 char *plugin_build_binary_path(const char *plugin_dir, const struct plugin_manifest *m);
@@ -52,6 +56,8 @@ int plugin_remove(const char *name);
 int plugin_update(const char *name);
 int plugin_update_all(void);
 int plugin_touch_check(const char *plugin_dir);
+int plugin_touch(const char *plugin_dir, const char *file);
+_Noreturn void plugin_exec(const char *sub, const char *arg);
 
 void plugin_maybe_auto_update(const char *name);
 

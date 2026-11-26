@@ -15,6 +15,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 bool grabit_in_path(const char *bin) {
@@ -61,6 +62,9 @@ int grabit_self_exe(char *out, size_t cap) {
 	ssize_t n = readlink("/proc/self/exe", out, cap - 1);
 	if (n <= 0 || (size_t)n >= cap - 1) return -1;
 	out[n] = '\0';
+	static const char gone[] = " (deleted)";
+	size_t g = sizeof gone - 1;
+	if ((size_t)n > g && strcmp(out + n - g, gone) == 0) out[n - g] = '\0';
 	return 0;
 }
 
@@ -79,6 +83,26 @@ int grabit_waitpid_intr(pid_t pid, int *status) {
 		return -1;
 	}
 	return 0;
+}
+
+int grabit_reap_grace(pid_t pid, int *status, int grace_ms) {
+	int64_t deadline = grabit_now_ms() + grace_ms;
+	while (grabit_now_ms() < deadline) {
+		pid_t r = waitpid(pid, status, WNOHANG);
+		if (r == pid) return 0;
+		if (r < 0 && errno != EINTR) return -1;
+		struct timespec ts = {.tv_sec = 0, .tv_nsec = 10 * 1000000};
+		nanosleep(&ts, NULL);
+	}
+	kill(pid, SIGKILL);
+	return grabit_waitpid_intr(pid, status);
+}
+
+void grabit_format_duration(long long secs, char *out, size_t n) {
+	if (secs >= 3600)
+		snprintf(out, n, "%lld:%02lld:%02lld", secs / 3600, secs / 60 % 60, secs % 60);
+	else
+		snprintf(out, n, "%lld:%02lld", secs / 60, secs % 60);
 }
 
 int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop) {
@@ -212,6 +236,25 @@ void grabit_ignore_signal(int sig) {
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
 	sigaction(sig, &sa, NULL);
+}
+
+void grabit_quiet_stdio(void) {
+	int null = open("/dev/null", O_RDWR);
+	if (null < 0) return;
+	for (int fd = STDIN_FILENO; fd <= STDERR_FILENO; fd++)
+		if (fd != null) dup2(null, fd);
+	if (null > STDERR_FILENO) close(null);
+}
+
+int grabit_xdg_open(const char *target) {
+	if (!grabit_in_path("xdg-open")) return -2;
+	int rc = grabit_fork_detached();
+	if (rc == 0) {
+		grabit_quiet_stdio();
+		execlp("xdg-open", "xdg-open", target, (char *)NULL);
+		_exit(127);
+	}
+	return rc < 0 ? -1 : 0;
 }
 
 int grabit_fork_detached(void) {

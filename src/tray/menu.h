@@ -4,6 +4,7 @@
 #ifndef GRABIT_TRAY_MENU_H
 #define GRABIT_TRAY_MENU_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include <dbus/dbus.h>
@@ -16,6 +17,7 @@ struct tray_menu_item {
 	const void *user;
 	const struct tray_menu_item *children;
 	size_t n_children;
+	bool separator;
 };
 
 struct tray_menu {

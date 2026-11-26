@@ -48,9 +48,9 @@ static void print_key_line(const char *key, const char *note) {
 
 static void print_key_with_default(const char *key, const char *def,
 								   const char *cur) {
-	if (cur && cur[0] && def && strcmp(cur, def) != 0)
+	if (cur && def && strcmp(cur, def) != 0)
 		printf("  %-28s = %s  (default: %s)\n", key, cur, def);
-	else if (cur && cur[0])
+	else if (cur)
 		printf("  %-28s = %s\n", key, cur);
 	else
 		printf("  %s\n", key);
@@ -112,7 +112,7 @@ static const char *const G_ENCODER[] = {"png.level", "jpeg.quality", "webp.quali
 static const char *const G_OCR[] = {"ocr.tesseract", "ocr.lang", NULL};
 static const char *const G_CAPTURE[] = {"capture.backend", "capture.cursor",
 										"capture.delay_secs", "capture.hdr", NULL};
-static const char *const G_GUI[] = {"gui.radius", NULL};
+static const char *const G_GUI[] = {"gui.radius", "gui.settings_size", "gui.settings_page", NULL};
 static const char *const G_REGION[] = {"region.window_snap", "region.window_radius",
 									   "region.window_borders",
 									   "region.snap_animation", "region.snap_ignore",
@@ -131,6 +131,13 @@ static const char *const G_TEXT_CARD[] = {
 	"text_card.dismiss_secs",
 	"text_card.position",
 	"text_card.output",
+	NULL,
+};
+static const char *const G_PLUGINS[] = {"plugins.confirm_remove", NULL};
+static const char *const G_HISTORY[] = {
+	"history.enabled",
+	"history.ocr",
+	"history.confirm_delete",
 	NULL,
 };
 static const char *const G_TRAY[] = {
@@ -174,9 +181,17 @@ static const char *const *const KEY_GROUPS[] = {
 	G_TEXT_CARD,
 	G_PREVIEW,
 	G_TRAY,
+	G_PLUGINS,
+	G_HISTORY,
 	G_SERVICES,
 	NULL,
 };
+
+void config_each_key(void (*fn)(const char *key, void *data), void *data) {
+	for (size_t g = 0; KEY_GROUPS[g]; g++)
+		for (size_t i = 0; KEY_GROUPS[g][i]; i++)
+			fn(KEY_GROUPS[g][i], data);
+}
 
 static bool key_namespace_exists(const char *input) {
 	size_t n = strlen(input);
@@ -198,7 +213,6 @@ void cfg_help_report_unknown_key(const char *key) {
 		return;
 	}
 	const char *hint = cfg_help_suggest_key(key);
-	if (hint && strcmp(hint, key) == 0) hint = NULL;
 	if (hint)
 		log_error("unknown config key `%s`; did you mean `%s`?", key, hint);
 	else
@@ -243,8 +257,7 @@ const char *cfg_help_suggest_key(const char *input) {
 		}
 	}
 	for (int t = 0; t < TOOL_COUNT; t++) {
-		char k[64];
-		snprintf(k, sizeof k, "keys.tool.%s", grabit_tool_names[t]);
+		const char *k = region_keybind_tool_key(t);
 		size_t d = grabit_edit_distance(input, k);
 		if (d < best_dist) {
 			best_dist = d;
@@ -255,7 +268,7 @@ const char *cfg_help_suggest_key(const char *input) {
 	if (!best) return NULL;
 	size_t max_allowed = in_len / 3 + 1;
 	if (max_allowed < 2) max_allowed = 2;
-	return best_dist <= max_allowed ? best : NULL;
+	return best_dist <= max_allowed && strcmp(best, input) != 0 ? best : NULL;
 }
 
 void cfg_help_print_all_keys(void) {

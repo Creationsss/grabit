@@ -67,34 +67,7 @@ void clip_pick_select(struct clip_offer_pick *p, const void *offer) {
 }
 
 int clip_read_fd(int fd, char **out) {
-	struct grabit_buf buf = {0};
-	char chunk[4096];
-	int64_t deadline = grabit_now_ns() / 1000000 + CLIP_READY_TIMEOUT_MS;
-	int rc = -1;
-	for (;;) {
-		struct pollfd pfd = {.fd = fd, .events = POLLIN};
-		int pr = grabit_poll_deadline(&pfd, 1, deadline);
-		if (pr <= 0) break;
-		ssize_t n = read(fd, chunk, sizeof chunk);
-		if (n < 0) {
-			if (errno == EINTR || errno == EAGAIN) continue;
-			break;
-		}
-		if (n == 0) {
-			rc = 0;
-			break;
-		}
-		if (buf.len + (size_t)n > CLIP_TEXT_MAX ||
-			grabit_buf_putn(&buf, chunk, (size_t)n) != 0)
-			break;
-	}
-	close(fd);
-	if (rc != 0 || grabit_buf_putn(&buf, "", 1) != 0) {
-		grabit_buf_free(&buf);
-		return -1;
-	}
-	*out = buf.data;
-	return 0;
+	return grabit_read_fd_all(fd, CLIP_TEXT_MAX, CLIP_READY_TIMEOUT_MS, out);
 }
 
 void clip_write_all(int fd, const void *bytes, size_t size) {

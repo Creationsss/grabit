@@ -61,11 +61,16 @@ int plugin_dispatch_pin(const char *name, int argc, char **argv, bool quiet) {
 		return 1;
 	}
 	char path[1024];
-	if (plugin_resolve(name, path, sizeof path) != 0) {
-		if (quiet) return -1;
-		log_error("plugin: %s not installed", name);
+	int found = plugin_resolve(name, path, sizeof path);
+	if (found != 0) {
+		bool off = found == -2;
+		if (quiet && !off) return -1;
+		if (off)
+			plugin_log_disabled(name);
+		else
+			log_error("plugin: %s not installed", name);
 		char body[256];
-		snprintf(body, sizeof body, "%s is not installed", name);
+		snprintf(body, sizeof body, "%s is %s", name, off ? "disabled" : "not installed");
 		notify_send(&(struct notify_opts){
 			.summary = "Plugin failed",
 			.body = body,

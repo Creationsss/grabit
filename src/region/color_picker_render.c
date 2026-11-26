@@ -9,8 +9,8 @@
 #include "region/wlr_state.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
-
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -86,7 +86,7 @@ static void render_grid(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_fill(cr);
 
 	cairo_restore(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.25);
 	cairo_set_line_width(cr, (double)S);
 	grabit_cairo_rect_r_inset(cr, dx, dy, dw, dh, gr, (double)S);
 	cairo_stroke(cr);
@@ -101,13 +101,13 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	double dih = (double)ih * S;
 
 	double br = grabit_ui_radius(GUI_R_BTN) * S;
-	cairo_set_source_rgba(cr, 0.12, 0.12, 0.12, 1);
+	cairo_set_source_rgba(cr, GUI_C_SURFACE, 1);
 	grabit_cairo_rect_r(cr, dix, diy, diw, dih, br);
 	cairo_fill(cr);
 	if (o->st->color_input_active) {
-		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
+		cairo_set_source_rgba(cr, GUI_C_ACCENT, 1);
 	} else {
-		cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
+		cairo_set_source_rgba(cr, GUI_C_INK, 0.25);
 	}
 	cairo_set_line_width(cr, (double)S);
 	grabit_cairo_rect_r_inset(cr, dix, diy, diw, dih, br, (double)S);
@@ -121,7 +121,7 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	double sr = grabit_ui_radius(GUI_R_GLYPH) * S;
 	grabit_cairo_rect_r(cr, sx, sy, sw, sw, sr);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.35);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.35);
 	cairo_set_line_width(cr, (double)S);
 	grabit_cairo_rect_r_inset(cr, sx, sy, sw, sw, sr, (double)S);
 	cairo_stroke(cr);
@@ -139,13 +139,13 @@ static void render_input(cairo_t *cr, const struct ro_output *o, int32_t S) {
 	cairo_text_extents(cr, text, &ext);
 	double text_x = sx + sw + (double)COLOR_PICKER_TEXT_GAP * S;
 	double text_y = diy + dih / 2.0 - ext.height / 2.0 - ext.y_bearing;
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	cairo_move_to(cr, text_x, text_y);
 	cairo_show_text(cr, text);
 
 	if (o->st->color_input_active) {
 		double cx = text_x + ext.x_advance;
-		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
+		cairo_set_source_rgba(cr, GUI_C_ACCENT, 1);
 		cairo_set_line_width(cr, 1.5 * S);
 		cairo_move_to(cr, cx, diy + 4.0 * S);
 		cairo_line_to(cr, cx, diy + dih - 4.0 * S);
@@ -163,17 +163,17 @@ static void render_picker_btn(cairo_t *cr, const struct ro_output *o, int32_t S,
 	double bh = (double)r.h * S;
 	double rr = grabit_ui_radius(GUI_R_BTN) * S;
 	if (accent)
-		cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B,
+		cairo_set_source_rgba(cr, GUI_C_ACCENT,
 							  0.92);
 	else
-		cairo_set_source_rgba(cr, 0.18, 0.18, 0.18, 1);
+		cairo_set_source_rgba(cr, GUI_C_RAISED, 1);
 	grabit_cairo_rect_r(cr, bx, by, bw, bh, rr);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.25);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.25);
 	cairo_set_line_width(cr, (double)S);
 	grabit_cairo_rect_r_inset(cr, bx, by, bw, bh, rr, (double)S);
 	cairo_stroke(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, icon_a);
+	cairo_set_source_rgba(cr, GUI_C_INK, icon_a);
 	icon(cr, bx + bw / 2.0, by + bh / 2.0, bh * 0.7);
 }
 
@@ -215,7 +215,7 @@ void region_color_picker_render(cairo_t *cr, const struct ro_output *o) {
 	double bg_h = dh + (COLOR_PICKER_INPUT_GAP + COLOR_PICKER_INPUT_H +
 						2 * COLOR_PICKER_PAD) *
 						   S;
-	cairo_set_source_rgba(cr, 0.06, 0.06, 0.06, 0.96);
+	cairo_set_source_rgba(cr, GUI_C_POPOVER, 0.96);
 	grabit_cairo_rect_r(cr, bg_x, bg_y, bg_w, bg_h, grabit_ui_radius(GUI_R_PANEL) * S);
 	cairo_fill(cr);
 

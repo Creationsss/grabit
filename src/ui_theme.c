@@ -6,6 +6,7 @@
 
 #include "cairo_util.h"
 #include "config/config.h"
+#include "ui_colors.h"
 #include "wm/wm.h"
 
 #include <string.h>
@@ -43,16 +44,17 @@ double grabit_ui_radius(enum gui_radius token) {
 	return base > 0 ? RADII[token] * base : 0.0;
 }
 
-void grabit_ui_card_bg(cairo_t *cr) {
-	cairo_set_source_rgba(cr, 0.10, 0.11, 0.13, 0.95);
+void grabit_ui_accent(cairo_t *cr, double alpha) {
+	cairo_set_source_rgba(cr, GUI_C_ACCENT, alpha);
 }
 
-void grabit_ui_panel(cairo_t *cr, double x, double y, double w, double h, double s) {
-	double r = grabit_ui_radius(GUI_R_PANEL) * s;
-	cairo_set_source_rgba(cr, 0.08, 0.08, 0.08, 0.94);
-	grabit_cairo_rect_r(cr, x, y, w, h, r);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
+void grabit_ui_card_bg(cairo_t *cr) {
+	cairo_set_source_rgba(cr, GUI_C_CARD, 0.95);
+}
+
+static void panel_border(cairo_t *cr, double x, double y, double w, double h,
+						 double r, double s) {
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.16);
 	cairo_set_line_width(cr, s);
 	grabit_cairo_rect_r_inset(cr, x, y, w, h, r, s);
 	cairo_stroke(cr);
@@ -69,12 +71,99 @@ void grabit_ui_hint_pill(cairo_t *cr, double s, const char *text, double cx,
 	double tx = cx - ext.width / 2.0;
 	if (tx < pad) tx = pad;
 	if (tx + ext.width + pad > max_w) tx = max_w - ext.width - pad;
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.78);
+	cairo_set_source_rgba(cr, GUI_C_SHADE, 0.78);
 	grabit_cairo_rect_r(cr, tx - pad, baseline_y - ext.height - pad,
 						ext.width + pad * 2, ext.height + pad * 2,
 						grabit_ui_radius(GUI_R_TIP) * s);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
 	cairo_move_to(cr, tx, baseline_y);
 	cairo_show_text(cr, text);
+}
+
+void grabit_ui_panel(cairo_t *cr, double x, double y, double w, double h, double s) {
+	double r = grabit_ui_radius(GUI_R_PANEL) * s;
+	cairo_set_source_rgba(cr, GUI_C_PANEL, 0.94);
+	grabit_cairo_rect_r(cr, x, y, w, h, r);
+	cairo_fill(cr);
+	panel_border(cr, x, y, w, h, r, s);
+}
+
+void grabit_ui_window_panel(cairo_t *cr, double w, double h, double s, double radius) {
+	double r = radius * s;
+	cairo_save(cr);
+	grabit_cairo_punch_corners(cr, w, h, r);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgba(cr, GUI_C_PANEL, 1.0);
+	grabit_cairo_rect_r(cr, 0, 0, w, h, r);
+	cairo_fill(cr);
+	cairo_restore(cr);
+	panel_border(cr, 0, 0, w, h, r, s);
+}
+
+void grabit_ui_button_source(cairo_t *cr, const double rgb[3], double alpha, bool hover,
+							 bool pressed) {
+	double c[3] = {rgb[0], rgb[1], rgb[2]};
+	for (int i = 0; i < 3; i++) {
+		if (pressed)
+			c[i] *= 0.72;
+		else if (hover)
+			c[i] += (1.0 - c[i]) * 0.22;
+	}
+	cairo_set_source_rgba(cr, c[0], c[1], c[2], alpha);
+}
+
+void grabit_ui_tooltip(cairo_t *cr, double s, const char *text, double cx, double top,
+					   double bottom, double view_w) {
+	cairo_save(cr);
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 13.0 * s);
+	cairo_text_extents_t ext;
+	cairo_text_extents(cr, text, &ext);
+
+	double pad_x = 9.0 * s, pad_y = 6.0 * s, edge = 4.0 * s;
+	double tip_w = ext.width + pad_x * 2;
+	double tip_h = ext.height + pad_y * 2;
+	double gap = 8.0 * s;
+
+	double tip_x = cx - tip_w / 2.0;
+	double tip_y = top - gap - tip_h;
+	bool below = false;
+	if (tip_y < edge) {
+		tip_y = bottom + gap;
+		below = true;
+	}
+	if (tip_x < edge) tip_x = edge;
+	if (tip_x + tip_w > view_w - edge) tip_x = view_w - tip_w - edge;
+
+	double r = grabit_cairo_clamp_r(tip_w, tip_h, grabit_ui_radius(GUI_R_TOOLTIP) * s);
+	grabit_cairo_rect_r(cr, tip_x, tip_y, tip_w, tip_h, r);
+	cairo_set_source_rgba(cr, GUI_C_TOOLTIP, 0.94);
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.18);
+	cairo_set_line_width(cr, s);
+	cairo_stroke(cr);
+
+	double arrow_h = 5.0 * s;
+	double arrow_w = 9.0 * s;
+	double ax = cx;
+	if (ax < tip_x + r + arrow_w / 2.0) ax = tip_x + r + arrow_w / 2.0;
+	if (ax > tip_x + tip_w - r - arrow_w / 2.0) ax = tip_x + tip_w - r - arrow_w / 2.0;
+	cairo_set_source_rgba(cr, GUI_C_TOOLTIP, 0.94);
+	if (below) {
+		cairo_move_to(cr, ax - arrow_w / 2.0, tip_y);
+		cairo_line_to(cr, ax + arrow_w / 2.0, tip_y);
+		cairo_line_to(cr, ax, tip_y - arrow_h);
+	} else {
+		cairo_move_to(cr, ax - arrow_w / 2.0, tip_y + tip_h);
+		cairo_line_to(cr, ax + arrow_w / 2.0, tip_y + tip_h);
+		cairo_line_to(cr, ax, tip_y + tip_h + arrow_h);
+	}
+	cairo_close_path(cr);
+	cairo_fill(cr);
+
+	cairo_set_source_rgba(cr, GUI_C_INK, 1);
+	cairo_move_to(cr, tip_x + pad_x - ext.x_bearing, tip_y + pad_y - ext.y_bearing);
+	cairo_show_text(cr, text);
+	cairo_restore(cr);
 }

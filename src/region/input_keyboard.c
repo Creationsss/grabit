@@ -12,6 +12,7 @@
 #include "region/wlr_input_state.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wl/xkb.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -32,7 +33,7 @@ static void keyboard_keymap(void *data, struct wl_keyboard *kb,
 		close(fd);
 		return;
 	}
-	region_xkb_keymap_from_fd(st->xkb_ctx, fd, size, &st->xkb_keymap, &st->xkb_state);
+	grabit_xkb_keymap_from_fd(st->xkb_ctx, fd, size, &st->xkb_keymap, &st->xkb_state);
 }
 
 static void keyboard_enter(void *data, struct wl_keyboard *kb, uint32_t serial,
@@ -59,22 +60,6 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 }
 
-static size_t utf8_prev(const char *s, size_t at) {
-	if (at == 0) return 0;
-	size_t i = at - 1;
-	while (i > 0 && ((unsigned char)s[i] & 0xC0) == 0x80)
-		i--;
-	return i;
-}
-
-static size_t utf8_next(const char *s, size_t len, size_t at) {
-	if (at >= len) return len;
-	size_t i = at + 1;
-	while (i < len && ((unsigned char)s[i] & 0xC0) == 0x80)
-		i++;
-	return i;
-}
-
 static void text_erase(struct ro_state *st, size_t from, size_t to) {
 	if (to <= from) return;
 	memmove(st->text_buf + from, st->text_buf + to, st->text_len - to);
@@ -96,17 +81,7 @@ static void text_insert(struct ro_state *st, const char *add, size_t n) {
 static void text_paste(struct ro_state *st) {
 	char *clip = clipboard_get_text();
 	if (!clip) return;
-	size_t room = sizeof st->text_buf - 1 - st->text_len;
-	size_t n = 0;
-	for (size_t i = 0; clip[i] && n < room; i++) {
-		if ((unsigned char)clip[i] < 0x20) {
-			if (clip[i] != '\t') break;
-			clip[n++] = ' ';
-			continue;
-		}
-		clip[n++] = clip[i];
-	}
-	n = grabit_utf8_valid_prefix(clip, n);
+	size_t n = grabit_text_one_line(clip, sizeof st->text_buf - 1 - st->text_len);
 	text_insert(st, clip, n);
 	free(clip);
 }
@@ -114,36 +89,36 @@ static void text_paste(struct ro_state *st) {
 static void handle_text_input(struct ro_state *st, xkb_keysym_t sym, uint32_t key) {
 	if (st->text_caret > st->text_len) st->text_caret = st->text_len;
 	if ((sym == XKB_KEY_v || sym == XKB_KEY_V) &&
-		(region_xkb_mods(st->xkb_state) & KB_MOD_CTRL)) {
+		(grabit_xkb_mods(st->xkb_state) & KB_MOD_CTRL)) {
 		text_paste(st);
 		return;
 	}
 	if (sym == XKB_KEY_BackSpace) {
-		text_erase(st, utf8_prev(st->text_buf, st->text_caret), st->text_caret);
+		text_erase(st, grabit_utf8_prev(st->text_buf, st->text_caret), st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Delete || sym == XKB_KEY_KP_Delete) {
+	if (sym == XKB_KEY_Delete) {
 		text_erase(st, st->text_caret,
-				   utf8_next(st->text_buf, st->text_len, st->text_caret));
+				   grabit_utf8_next(st->text_buf, st->text_len, st->text_caret));
 		return;
 	}
-	if (sym == XKB_KEY_Left || sym == XKB_KEY_KP_Left) {
-		st->text_caret = utf8_prev(st->text_buf, st->text_caret);
+	if (sym == XKB_KEY_Left) {
+		st->text_caret = grabit_utf8_prev(st->text_buf, st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Right || sym == XKB_KEY_KP_Right) {
-		st->text_caret = utf8_next(st->text_buf, st->text_len, st->text_caret);
+	if (sym == XKB_KEY_Right) {
+		st->text_caret = grabit_utf8_next(st->text_buf, st->text_len, st->text_caret);
 		return;
 	}
-	if (sym == XKB_KEY_Home || sym == XKB_KEY_KP_Home) {
+	if (sym == XKB_KEY_Home) {
 		st->text_caret = 0;
 		return;
 	}
-	if (sym == XKB_KEY_End || sym == XKB_KEY_KP_End) {
+	if (sym == XKB_KEY_End) {
 		st->text_caret = st->text_len;
 		return;
 	}
-	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+	if (sym == XKB_KEY_Return) {
 		region_commit_text(st);
 		return;
 	}
@@ -168,7 +143,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	struct ro_state *st = data;
 	if (st->cleanup) return;
 	if (!st->xkb_state) return;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(st->xkb_state, key + 8);
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(st->xkb_state, key + 8));
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
 		if (region_action_matches_sym(&st->keys, KA_UNDO, sym))
 			region_undo_disarm(st);
@@ -198,7 +173,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		if (sym == XKB_KEY_Escape) {
 			st->color_input_active = false;
 			st->color_input_len = 0;
-		} else if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+		} else if (sym == XKB_KEY_Return) {
 			uint32_t parsed = 0;
 			if (grabit_parse_hex_color(st->color_input_buf, &parsed))
 				region_apply_color(st, parsed, true);
@@ -235,7 +210,7 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		return;
 	}
 
-	uint8_t mods = region_xkb_mods(st->xkb_state);
+	uint8_t mods = grabit_xkb_mods(st->xkb_state);
 
 	if (region_key_action(&st->keys, KA_CANCEL, sym, mods)) {
 		if (!ginp_region_abort_active(st)) {

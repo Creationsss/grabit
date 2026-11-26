@@ -98,8 +98,6 @@ static int kv_strcmp_cmp(const void *a, const void *b) {
 	return strcmp(ka->key, kb->key);
 }
 
-static int config_write_to(struct config *c, const char *path);
-
 int config_save(struct config *c) {
 	if (c->unparsed) {
 		log_error("refusing to overwrite %s while it does not parse",
@@ -107,7 +105,7 @@ int config_save(struct config *c) {
 		return -1;
 	}
 	if (c->overlaid) {
-		log_debug("refusing to write state-overlaid config to %s",
+		log_debug("refusing to write overlaid config to %s",
 				  paths_config_file());
 		return -1;
 	}
@@ -123,7 +121,7 @@ int config_state_save(struct config *c) {
 	return config_write_to(c, paths_state_file());
 }
 
-static int config_write_to(struct config *c, const char *path) {
+int config_write_to(struct config *c, const char *path) {
 	if (c->n > 1) qsort(c->kvs, c->n, sizeof *c->kvs, gcfg_cmp_kv);
 
 	struct grabit_buf out = {0};

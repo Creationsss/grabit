@@ -13,10 +13,13 @@
 #include "util/json_path.h"
 #include "util/util.h"
 
+#include <errno.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <curl/curl.h>
@@ -34,14 +37,60 @@ static bool g_progress_shown;
 static curl_off_t g_progress_bytes = -1;
 static int64_t g_progress_ms;
 
+static long long g_span_base;
+static long long g_span_total;
+
+void upload_progress_span(long long base, long long total) {
+	g_span_base = base;
+	g_span_total = total;
+}
+
+static int g_report_fd = -2;
+
+static int progress_fd(void) {
+	if (g_report_fd != -2) return g_report_fd;
+	g_report_fd = -1;
+	const char *env = getenv("GRABIT_PROGRESS_FD");
+	char *end = NULL;
+	long n = env && env[0] ? strtol(env, &end, 10) : -1;
+	struct stat sb;
+	if (end && !*end && n > 2 && n < 1024 && fstat((int)n, &sb) == 0 && S_ISFIFO(sb.st_mode)) {
+		g_report_fd = (int)n;
+		signal(SIGPIPE, SIG_IGN);
+	}
+	unsetenv("GRABIT_PROGRESS_FD");
+	return g_report_fd;
+}
+
+static void report_progress(curl_off_t ulnow, curl_off_t ultotal) {
+	static int64_t last_ms;
+	static long long last_sent = -1;
+	int fd = progress_fd();
+	if (fd < 0 || ultotal <= 0) return;
+	long long sent = g_span_base + (long long)ulnow;
+	long long total = g_span_total > 0 ? g_span_total : (long long)ultotal;
+	int64_t now = grabit_now_ms();
+	if (sent == last_sent || (sent < total && now - last_ms < 100)) return;
+	char line[64];
+	int n = snprintf(line, sizeof line, "%lld %lld\n", sent, total);
+	if (write(fd, line, (size_t)n) < 0 && errno != EAGAIN) {
+		close(fd);
+		g_report_fd = -1;
+		return;
+	}
+	last_ms = now;
+	last_sent = sent;
+}
+
 static int upload_xfer_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
 						  curl_off_t ultotal, curl_off_t ulnow) {
 	(void)clientp;
 	(void)dltotal;
 	(void)dlnow;
+	report_progress(ulnow, ultotal);
 	if (ultotal <= 0 || log_is_silent() || !isatty(STDERR_FILENO)) return 0;
 
-	int64_t now = grabit_now_ns() / 1000000;
+	int64_t now = grabit_now_ms();
 	bool done = ulnow >= ultotal;
 	if (ulnow == g_progress_bytes) return 0;
 	if (!done && g_progress_ms && now - g_progress_ms < 100) return 0;
@@ -153,6 +202,83 @@ struct curl_slist *upload_header_append(struct curl_slist *list, const char *nam
 	free(line);
 	if (!next) *oom = true;
 	return next ? next : list;
+}
+
+const char *upload_missing_setting(struct config *cfg, const char *service) {
+	const struct service *svc = gup_find_service(service);
+	if (!svc) return NULL;
+	if (!svc->url && !config_get(cfg, "services.zipline.domain")) return "services.zipline.domain";
+	if (gup_lookup_auth(cfg, svc->name)) return NULL;
+	static _Thread_local char key[64];
+	snprintf(key, sizeof key, "services.%s.auth", svc->name);
+	return key;
+}
+
+static int send_delete(const char *url, const char *method, struct curl_slist *headers) {
+	CURL *curl = curl_easy_init();
+	if (!curl) return -1;
+	struct grabit_buf body = {0};
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, upload_curl_buf_write);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+	upload_curl_common(curl);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+	CURLcode rc = curl_easy_perform(curl);
+	long http_code = 0;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+	curl_easy_cleanup(curl);
+	grabit_buf_free(&body);
+	if (rc != CURLE_OK) {
+		log_error("%s", curl_easy_strerror(rc));
+		return -1;
+	}
+	if (http_code < 200 || http_code >= 300) {
+		log_error("the host answered HTTP %ld", http_code);
+		return -1;
+	}
+	return 0;
+}
+
+int upload_delete_target(const char *service_name, struct config *cfg,
+						 const struct upload_result *r, char **url, bool *needs_auth) {
+	*url = NULL;
+	*needs_auth = false;
+	const struct service *svc = gup_find_service(service_name);
+	if (!svc) {
+		if (!r->del_url || !r->del_url[0]) return 1;
+		*url = strdup(r->del_url);
+		return *url ? 0 : -1;
+	}
+	if (strcmp(svc->name, "zipline") != 0) return 1;
+	const char *domain = config_get(cfg, "services.zipline.domain");
+	if (!domain) return -1;
+	*url = zipline_delete_url(domain, r->body);
+	*needs_auth = true;
+	return *url ? 0 : 1;
+}
+
+int upload_delete_url(const char *service_name, struct config *cfg, const char *url,
+					  bool needs_auth) {
+	if (!needs_auth) return send_delete(url, "GET", NULL);
+	const struct service *svc = gup_find_service(service_name);
+	const char *auth = svc ? gup_resolve_auth(cfg, svc->name) : NULL;
+	if (!auth) return -1;
+	bool oom = false;
+	struct curl_slist *headers = upload_header_append(NULL, svc->auth_name, auth, &oom);
+	int rc = oom ? -1 : send_delete(url, "DELETE", headers);
+	curl_slist_free_all(headers);
+	return rc;
+}
+
+int upload_delete(const char *service_name, struct config *cfg, const struct upload_result *r) {
+	char *url = NULL;
+	bool needs_auth = false;
+	int rc = upload_delete_target(service_name, cfg, r, &url, &needs_auth);
+	if (rc == 0) rc = upload_delete_url(service_name, cfg, url, needs_auth);
+	free(url);
+	return rc;
 }
 
 int upload_perform(const char *service_name, const char *file_path,

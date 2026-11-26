@@ -37,6 +37,10 @@ static const char *BOOL_KEYS[] = {
 	"edit.eyedropper_edits",
 	"edit.start_with_tool",
 	"preview.enabled",
+	"plugins.confirm_remove",
+	"history.enabled",
+	"history.ocr",
+	"history.confirm_delete",
 	NULL,
 };
 
@@ -47,8 +51,13 @@ static const char *STATE_KEYS[] = {
 	"edit.toolbar_pos",
 	"edit.swatches",
 	"region.last",
+	"gui.settings_size",
+	"gui.settings_page",
 	NULL,
 };
+
+static const char *const INTERNAL_KEYS[] = {"region.last", "edit.toolbar_pos",
+											"gui.settings_size", "gui.settings_page", NULL};
 
 static const char *KNOWN_TOP[] = {
 	"default_action",
@@ -65,7 +74,7 @@ static const char *KNOWN_TOP[] = {
 	NULL,
 };
 
-static const char *KNOWN_SERVICES[] = {
+static const char *const KNOWN_SERVICES[] = {
 	"zipline",
 	"nest",
 	"fakecrime",
@@ -74,6 +83,10 @@ static const char *KNOWN_SERVICES[] = {
 	"pixelvault",
 	NULL,
 };
+
+const char *const *cfg_builtin_services(void) {
+	return KNOWN_SERVICES;
+}
 
 static bool contains_ci(const char *hay, const char *needle) {
 	size_t nl = strlen(needle);
@@ -107,6 +120,10 @@ bool cfg_in_list(const char *needle, const char *const *list) {
 
 bool cfg_is_bool_key(const char *key) {
 	return cfg_in_list(key, BOOL_KEYS);
+}
+
+bool cfg_is_internal_key(const char *key) {
+	return cfg_in_list(key, INTERNAL_KEYS);
 }
 
 bool cfg_is_state_key(const char *key) {
@@ -221,7 +238,8 @@ static bool valid_capture_key(const char *key) {
 
 static bool valid_gui_key(const char *key) {
 	if (strncmp(key, "gui.", 4) != 0) return false;
-	return strcmp(key + 4, "radius") == 0;
+	return strcmp(key + 4, "radius") == 0 || strcmp(key + 4, "settings_size") == 0 ||
+		   strcmp(key + 4, "settings_page") == 0;
 }
 
 static bool valid_region_key(const char *key) {
@@ -235,6 +253,15 @@ static bool valid_region_key(const char *key) {
 		   strcmp(leaf, "show_coords") == 0 || strcmp(leaf, "magnifier_edits") == 0 ||
 		   strcmp(leaf, "repeat_last") == 0 ||
 		   strcmp(leaf, "last") == 0;
+}
+
+static bool valid_plugins_key(const char *key) {
+	return strcmp(key, "plugins.confirm_remove") == 0;
+}
+
+static bool valid_history_key(const char *key) {
+	return strcmp(key, "history.enabled") == 0 || strcmp(key, "history.ocr") == 0 ||
+		   strcmp(key, "history.confirm_delete") == 0;
 }
 
 static bool valid_tray_key(const char *key) {
@@ -265,6 +292,6 @@ bool cfg_key_is_known(const char *key) {
 		   valid_capture_key(key) || valid_region_key(key) ||
 		   valid_gui_key(key) ||
 		   valid_translate_key(key) || valid_text_card_key(key) ||
-		   valid_preview_key(key) || valid_tray_key(key) ||
+		   valid_preview_key(key) || valid_tray_key(key) || valid_plugins_key(key) || valid_history_key(key) ||
 		   valid_keys_key(key);
 }

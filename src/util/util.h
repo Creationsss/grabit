@@ -18,8 +18,11 @@ bool grabit_in_path(const char *bin);
 int grabit_resolve_in_path(const char *bin, char *out, size_t cap);
 
 int64_t grabit_now_ns(void);
+int64_t grabit_now_ms(void);
+int64_t grabit_file_mtime_ns(const char *path);
 struct pollfd;
 int grabit_poll_deadline(struct pollfd *fds, size_t n, int64_t deadline_ms);
+int grabit_read_fd_all(int fd, size_t cap, int timeout_ms, char **out);
 void grabit_sleep_secs(int secs);
 
 const char *grabit_basename(const char *path);
@@ -34,6 +37,8 @@ void grabit_lock_release(int *fd, const char *path);
 pid_t grabit_lock_owner(const char *path);
 
 int grabit_waitpid_intr(pid_t pid, int *status);
+int grabit_reap_grace(pid_t pid, int *status, int grace_ms);
+void grabit_format_duration(long long secs, char *out, size_t n);
 
 #include <stdatomic.h>
 int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
@@ -41,8 +46,13 @@ int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);
 size_t grabit_edit_distance(const char *a, const char *b);
 
 size_t grabit_rstrip(char *s, size_t len);
+int grabit_cmp_str(const void *a, const void *b);
+void grabit_strv_free(char **v, size_t n);
 void grabit_redact_url(const char *url, char *out, size_t cap);
 size_t grabit_utf8_valid_prefix(const char *s, size_t n);
+size_t grabit_utf8_prev(const char *s, size_t at);
+size_t grabit_utf8_next(const char *s, size_t len, size_t at);
+size_t grabit_text_one_line(char *s, size_t max);
 const char *grabit_join_names(const char *const *names);
 bool grabit_confirm(bool assume_yes, const char *action);
 char *grabit_url_with_path(const char *base, const char *path,
@@ -112,5 +122,7 @@ int grabit_spawn_capture(char *const argv[], bool merge_stderr, size_t max_bytes
 void grabit_install_signal_handler(int sig, void (*handler)(int));
 void grabit_ignore_signal(int sig);
 int grabit_fork_detached(void);
+int grabit_xdg_open(const char *target);
+void grabit_quiet_stdio(void);
 
 #endif

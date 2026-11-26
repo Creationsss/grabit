@@ -5,6 +5,7 @@
 #include "record/publish.h"
 
 #include "clipboard/clipboard.h"
+#include "history/history.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "record/ffmpeg.h"
@@ -58,6 +59,7 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 		fflush(stdout);
 	}
 	if (!po->upload_service) {
+		history_record_file(cfg, po->output_path, true);
 		notify_send(&(struct notify_opts){
 			.summary = "Recording saved",
 			.body = po->output_path,
@@ -78,6 +80,8 @@ void record_publish(struct config *cfg, const struct publish_opts *po) {
 							   po->chunked, &ur);
 	if (up_rc == 0 && ur.url) {
 		bool copied = clipboard_set_text(ur.url) == 0;
+		history_record_upload(cfg, po->upload_service, po->keep_locally ? po->output_path : NULL, false,
+							  true, &ur);
 		puts(ur.url);
 		fflush(stdout);
 		notify_send(&(struct notify_opts){

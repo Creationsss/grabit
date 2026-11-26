@@ -28,6 +28,9 @@ static bool g_file_on = true;
 static bool g_file_locked;
 static bool g_no_color;
 static size_t g_file_written;
+static _Thread_local bool g_mute;
+static _Thread_local char *g_capture;
+static _Thread_local size_t g_capture_size;
 
 static const char *C_RED = "";
 static const char *C_YELLOW = "";
@@ -165,6 +168,7 @@ static void emit_file(const char *prefix, const char *msg) {
 
 static void emit(const char *prefix, const char *color, bool bare, const char *fmt,
 				 va_list ap) {
+	if (g_mute) return;
 	char msg[LOG_LINE_MAX];
 	int n = vsnprintf(msg, sizeof msg, fmt, ap);
 	if (n < 0) return;
@@ -201,8 +205,23 @@ void log_warn(const char *fmt, ...) {
 	va_end(ap);
 }
 
+void log_mute(bool on) {
+	g_mute = on;
+}
+
+void log_capture_errors(char *buf, size_t size) {
+	g_capture = size ? buf : NULL;
+	g_capture_size = size;
+	if (g_capture) g_capture[0] = '\0';
+}
+
 void log_error(const char *fmt, ...) {
 	va_list ap;
+	if (g_capture && !g_capture[0]) {
+		va_start(ap, fmt);
+		vsnprintf(g_capture, g_capture_size, fmt, ap);
+		va_end(ap);
+	}
 	va_start(ap, fmt);
 	emit("[error]", C_RED, false, fmt, ap);
 	va_end(ap);

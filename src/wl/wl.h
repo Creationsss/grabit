@@ -13,7 +13,7 @@
 #include "util/rect.h"
 #include "wl/color.h"
 
-#define GRABIT_WL_SEAT_VERSION 3
+#define GRABIT_WL_SEAT_VERSION 4
 _Static_assert(GRABIT_WL_SEAT_VERSION < 5,
 			   "wl_pointer v5 adds frame/axis_source/axis_stop/axis_discrete");
 _Static_assert(GRABIT_WL_SEAT_VERSION < 6, "wl_touch v6 adds shape/orientation");
@@ -22,6 +22,7 @@ struct zwlr_screencopy_manager_v1;
 struct zwlr_data_control_manager_v1;
 struct ext_data_control_manager_v1;
 struct zwlr_layer_shell_v1;
+struct xdg_wm_base;
 struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
 struct ext_image_copy_capture_manager_v1;
@@ -64,6 +65,8 @@ struct grabit_wl_state {
 	struct zwlr_data_control_manager_v1 *data_control_manager;
 	struct ext_data_control_manager_v1 *ext_data_control_manager;
 	struct zwlr_layer_shell_v1 *layer_shell;
+	struct xdg_wm_base *wm_base;
+	struct wl_data_device_manager *data_device_manager;
 	struct zxdg_output_manager_v1 *xdg_output_manager;
 	struct wp_viewporter *viewporter;
 	struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
@@ -85,9 +88,14 @@ struct grabit_wl_state {
 int grabit_wl_init(struct grabit_wl_state *s);
 int grabit_wl_probe(struct grabit_wl_state *s);
 int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms);
+int grabit_wl_pump_fd(struct grabit_wl_state *s, int timeout_ms, int fd, bool *fd_ready);
 void grabit_wl_finish(struct grabit_wl_state *s);
 
 struct zwlr_layer_surface_v1_listener;
+struct zwlr_layer_surface_v1 *grabit_wl_layer(
+	struct grabit_wl_state *s, struct wl_surface *surface, struct wl_output *output,
+	const char *ns, uint32_t anchor, uint32_t w, uint32_t h, uint32_t kb_interactivity,
+	const struct zwlr_layer_surface_v1_listener *listener, void *data);
 struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
 	struct grabit_wl_state *s, struct wl_surface *surface,
 	struct wl_output *output, const char *ns, uint32_t kb_interactivity,

@@ -13,6 +13,7 @@
 #include "args.h"
 #include "capture/freeze.h"
 #include "config/config.h"
+#include "history/history.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -22,6 +23,7 @@
 #include "record/record.h"
 #include "region/edit_persist.h"
 #include "sound/sound.h"
+#include "ui/ui.h"
 #include "upload/upload.h"
 #include "util/util.h"
 
@@ -85,10 +87,42 @@ char *gapp_plugin_capture(const char *name, int argc, char **argv) {
 	return captured;
 }
 
+static const struct {
+	const char *name;
+	gapp_command_fn run;
+} COMMANDS[] = {
+	{"settings", cmd_settings},
+	{"set", cmd_set},
+	{"get", cmd_get},
+	{"unset", cmd_unset},
+	{"sxcu", cmd_sxcu},
+	{"upload", cmd_upload},
+	{"history", cmd_history},
+	{"plugin", cmd_plugin},
+};
+#define N_COMMANDS (sizeof COMMANDS / sizeof *COMMANDS)
+
+void gapp_print_command_names(void) {
+	for (size_t i = 0; i < N_COMMANDS; i++)
+		printf("%s%s", i ? "|" : "", COMMANDS[i].name);
+}
+
+gapp_command_fn gapp_find_command(const char *name) {
+	for (size_t i = 0; i < N_COMMANDS; i++)
+		if (strcmp(COMMANDS[i].name, name) == 0) return COMMANDS[i].run;
+	return NULL;
+}
+
+bool gapp_name_is_reserved(const char *name) {
+	return name && (strcmp(name, "help") == 0 || gapp_find_command(name));
+}
+
 int gapp_try_dispatch_plugin(const char *name, int argc, char **argv) {
 	if (!plugin_name_is_valid(name)) return -1;
 	char path[1024];
-	if (plugin_resolve(name, path, sizeof path) != 0) return -1;
+	int found = plugin_resolve(name, path, sizeof path);
+	if (found == -2) plugin_log_disabled(name);
+	if (found != 0) return found == -2 ? 1 : -1;
 
 	plugin_maybe_auto_update(name);
 	plugin_dispatch_set_env(name);

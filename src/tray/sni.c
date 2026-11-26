@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 creations
 
-#define _XOPEN_SOURCE 700
+#define _GNU_SOURCE
 #include "tray/sni.h"
 #include "tray/internal.h"
 
@@ -9,6 +9,8 @@
 #include "notify/notify.h"
 #include "tray/menu.h"
 
+#include <errno.h>
+#include <poll.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -169,7 +171,7 @@ int sni_run(volatile sig_atomic_t *stop, volatile sig_atomic_t *layout_update,
 			.id = "grabit",
 			.title = "grabit",
 			.status = "Active",
-			.icon_name = cfg->icon_name,
+			.cfg = cfg,
 			.overlay_icon_name = "",
 			.attention_icon_name = "",
 			.tooltip_body = cfg->tooltip_body,
@@ -249,13 +251,42 @@ int sni_run(volatile sig_atomic_t *stop, volatile sig_atomic_t *layout_update,
 	}
 	dbus_error_free(&err);
 
+	int bus_fd = -1;
+	dbus_connection_get_unix_fd(bus, &bus_fd);
+	bool watching = cfg->refresh_icon != NULL;
+	sigset_t block, wait_mask;
+	sigemptyset(&block);
+	sigaddset(&block, SIGTERM);
+	sigaddset(&block, SIGINT);
+	sigaddset(&block, SIGHUP);
+	sigaddset(&block, SIGUSR2);
+	sigprocmask(SIG_BLOCK, &block, &wait_mask);
 	while (!*stop) {
 		if (layout_update && *layout_update) {
 			*layout_update = 0;
 			gmenu_emit_layout_updated(bus);
 		}
-		if (!dbus_connection_read_write_dispatch(bus, 100)) break;
+		while (dbus_connection_dispatch(bus) == DBUS_DISPATCH_DATA_REMAINS)
+			;
+		dbus_connection_flush(bus);
+		struct pollfd fds[2] = {{.fd = bus_fd, .events = POLLIN},
+								{.fd = cfg->watch_fd, .events = POLLIN}};
+		int n = ppoll(fds, watching ? 2 : 1, NULL, &wait_mask);
+		if (n < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
+		if (fds[0].revents & (POLLHUP | POLLERR)) break;
+		if ((fds[0].revents & POLLIN) && !dbus_connection_read_write(bus, 0)) break;
+		if (watching && (fds[1].revents & POLLIN) && cfg->refresh_icon()) {
+			DBusMessage *sig = dbus_message_new_signal(ITEM_PATH, ITEM_IFACE, "NewIcon");
+			if (sig) {
+				dbus_connection_send(bus, sig, NULL);
+				dbus_message_unref(sig);
+			}
+		}
 	}
+	sigprocmask(SIG_SETMASK, &wait_mask, NULL);
 
 	dbus_connection_remove_filter(bus, watcher_filter, name);
 	dbus_connection_close(bus);

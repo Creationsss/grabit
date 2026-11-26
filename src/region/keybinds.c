@@ -5,6 +5,8 @@
 #include "region/keybinds.h"
 
 #include "config/config.h"
+#include "util/util.h"
+#include "wl/xkb.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -34,7 +36,7 @@ static const char *const ACTION_KEYS[KA_COUNT] = {
 };
 
 static const char *const ACTION_DEFAULTS[KA_COUNT] = {
-	[KA_CONFIRM] = "Return, KP_Enter, Ctrl+s",
+	[KA_CONFIRM] = "Enter, Ctrl+s",
 	[KA_CANCEL] = "Escape, Ctrl+w, Ctrl+q, mouse:right",
 	[KA_SELECT_ALL] = "Ctrl+a",
 	[KA_UNDO] = "u, Ctrl+z",
@@ -42,35 +44,35 @@ static const char *const ACTION_DEFAULTS[KA_COUNT] = {
 	[KA_DELETE] = "Delete, BackSpace",
 	[KA_EDIT_MODE] = "s",
 	[KA_REGION_MODE] = "q",
-	[KA_NUDGE_LEFT] = "Left, KP_Left",
-	[KA_NUDGE_RIGHT] = "Right, KP_Right",
-	[KA_NUDGE_UP] = "Up, KP_Up",
-	[KA_NUDGE_DOWN] = "Down, KP_Down",
+	[KA_NUDGE_LEFT] = "Left",
+	[KA_NUDGE_RIGHT] = "Right",
+	[KA_NUDGE_UP] = "Up",
+	[KA_NUDGE_DOWN] = "Down",
 	[KA_MAGNIFIER] = "Alt_L, Alt_R",
 };
 
 static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {
-	[TOOL_PEN] = "p, 1, KP_1",
-	[TOOL_MARKER] = "m, 2, KP_2",
-	[TOOL_LINE] = "l, 3, KP_3",
-	[TOOL_RECT] = "r, 4, KP_4",
+	[TOOL_PEN] = "p, 1",
+	[TOOL_MARKER] = "m, 2",
+	[TOOL_LINE] = "l, 3",
+	[TOOL_RECT] = "r, 4",
 	[TOOL_RRECT] = "",
-	[TOOL_ELLIPSE] = "o, 5, KP_5",
-	[TOOL_ARROW] = "a, 6, KP_6",
+	[TOOL_ELLIPSE] = "o, 5",
+	[TOOL_ARROW] = "a, 6",
 	[TOOL_ARROW_PEN] = "",
-	[TOOL_BLUR] = "b, 7, KP_7",
-	[TOOL_PIXELATE] = "x, 0, KP_0",
+	[TOOL_BLUR] = "b, 7",
+	[TOOL_PIXELATE] = "x, 0",
 	[TOOL_SPOTLIGHT] = "h",
-	[TOOL_TEXT] = "t, 8, KP_8",
+	[TOOL_TEXT] = "t, 8",
 	[TOOL_COUNTER] = "c",
 	[TOOL_CALLOUT] = "k",
-	[TOOL_ERASER] = "e, 9, KP_9",
+	[TOOL_ERASER] = "e, 9",
 };
 
 static bool load(struct config *cfg, const char *key, const char *def,
 				 struct keybind_list *list) {
 	const char *v = cfg ? config_get(cfg, key) : NULL;
-	bool explicit_bind = v && *v;
+	bool explicit_bind = v != NULL;
 	if (!explicit_bind) v = def;
 	gkb_parse_list(v, list);
 	if (list->n == 0) {
@@ -80,18 +82,52 @@ static bool load(struct config *cfg, const char *key, const char *def,
 	return explicit_bind;
 }
 
-static bool bind_eq(const struct keybind *a, const struct keybind *b) {
+bool region_keybind_eq(const struct keybind *a, const struct keybind *b) {
 	if (a->is_button != b->is_button) return false;
 	if (a->is_button) return a->button == b->button;
 	return a->sym == b->sym && a->mods == b->mods;
 }
 
-static void list_drop(struct keybind_list *list, const struct keybind *b) {
+bool region_keybind_list_add(struct keybind_list *list, const struct keybind *b) {
+	for (uint8_t i = 0; i < list->n; i++)
+		if (region_keybind_eq(&list->items[i], b)) return false;
+	if (list->n >= KB_MAX_BINDS) return false;
+	list->items[list->n++] = *b;
+	return true;
+}
+
+void region_keybind_list_join(const struct keybind_list *list, char *out, size_t n) {
+	out[0] = '\0';
+	size_t used = 0;
+	for (uint8_t i = 0; i < list->n; i++) {
+		char one[REGION_KEYBIND_STR * 2];
+		region_keybind_format(&list->items[i], one, sizeof one);
+		if (!grabit_join_appendf(out, n, &used, ", ", "%s", one)) break;
+	}
+}
+
+enum region_capture region_capture_key(struct keybind_list *list, xkb_keysym_t sym, uint8_t mods) {
+	if (sym == XKB_KEY_Escape) return REGION_CAPTURE_CANCEL;
+	if (sym == XKB_KEY_Return) return REGION_CAPTURE_SAVE;
+	if (sym == XKB_KEY_BackSpace) {
+		if (list->n == 0) return REGION_CAPTURE_IGNORED;
+		list->n--;
+		return REGION_CAPTURE_CHANGED;
+	}
+	if (sym == XKB_KEY_NoSymbol || grabit_xkb_is_modifier(sym)) return REGION_CAPTURE_IGNORED;
+	struct keybind b = {.sym = gkb_norm_sym(sym), .mods = mods};
+	return region_keybind_list_add(list, &b) ? REGION_CAPTURE_CHANGED : REGION_CAPTURE_IGNORED;
+}
+
+static void list_drop(struct region_keymap *km, struct keybind_list *list, int from, int to,
+					  const struct keybind *b) {
 	uint8_t w = 0;
 	for (uint8_t i = 0; i < list->n; i++) {
-		if (bind_eq(&list->items[i], b)) continue;
+		if (region_keybind_eq(&list->items[i], b)) continue;
 		list->items[w++] = list->items[i];
 	}
+	if (w != list->n && km->n_drops < KB_DROPS_MAX)
+		km->drops[km->n_drops++] = (struct keybind_drop){(uint8_t)from, (uint8_t)to, *b};
 	list->n = w;
 }
 
@@ -101,22 +137,57 @@ void region_keymap_init(struct region_keymap *km, struct config *cfg) {
 
 	for (int a = 0; a < KA_COUNT; a++)
 		set_a[a] = load(cfg, ACTION_KEYS[a], ACTION_DEFAULTS[a], &km->actions[a]);
-	for (int t = 0; t < TOOL_COUNT; t++) {
-		char key[64];
-		snprintf(key, sizeof key, "keys.tool.%s", grabit_tool_names[t]);
-		set_t[t] = load(cfg, key, TOOL_DEFAULTS[t], &km->tools[t]);
-	}
+	for (int t = 0; t < TOOL_COUNT; t++)
+		set_t[t] = load(cfg, region_keybind_tool_key(t), TOOL_DEFAULTS[t], &km->tools[t]);
 
+	km->n_drops = 0;
 	for (int a = 0; a < KA_COUNT; a++) {
 		if (!set_a[a]) continue;
 		for (uint8_t i = 0; i < km->actions[a].n; i++) {
 			const struct keybind b = km->actions[a].items[i];
 			for (int o = 0; o < KA_COUNT; o++)
-				if (o != a && !set_a[o]) list_drop(&km->actions[o], &b);
+				if (o != a && !set_a[o]) list_drop(km, &km->actions[o], a, o, &b);
 			for (int o = 0; o < TOOL_COUNT; o++)
-				if (!set_t[o]) list_drop(&km->tools[o], &b);
+				if (!set_t[o]) list_drop(km, &km->tools[o], a, KA_COUNT + o, &b);
 		}
 	}
+}
+
+#define KB_SLOTS (KA_COUNT + TOOL_COUNT)
+
+static const char *slot_key(int i) {
+	return i < KA_COUNT ? region_keybind_action_key(i) : region_keybind_tool_key(i - KA_COUNT);
+}
+
+static const struct keybind_list *slot_list(const struct region_keymap *km, int i) {
+	return i < KA_COUNT ? &km->actions[i] : &km->tools[i - KA_COUNT];
+}
+
+static size_t add_clash(struct region_keybind_clash *out, size_t n, size_t max, int a, int b,
+						const struct keybind *bind, bool taken) {
+	if (n >= max) return n;
+	out[n] = (struct region_keybind_clash){.a = slot_key(a), .b = slot_key(b), .taken = taken};
+	region_keybind_format(bind, out[n].bind, sizeof out[n].bind);
+	return n + 1;
+}
+
+size_t region_keymap_clashes(struct config *cfg, struct region_keybind_clash *out, size_t max) {
+	struct region_keymap km;
+	region_keymap_init(&km, cfg);
+	size_t n = 0;
+	for (uint8_t d = 0; d < km.n_drops; d++)
+		n = add_clash(out, n, max, km.drops[d].from, km.drops[d].to, &km.drops[d].bind, true);
+	for (int i = 0; i < KB_SLOTS; i++) {
+		const struct keybind_list *li = slot_list(&km, i);
+		for (int j = i + 1; j < KB_SLOTS; j++) {
+			const struct keybind_list *lj = slot_list(&km, j);
+			for (uint8_t x = 0; x < li->n; x++)
+				for (uint8_t y = 0; y < lj->n; y++)
+					if (region_keybind_eq(&li->items[x], &lj->items[y]))
+						n = add_clash(out, n, max, i, j, &li->items[x], false);
+		}
+	}
+	return n;
 }
 
 static bool list_has_key(const struct keybind_list *list, xkb_keysym_t sym,
@@ -203,6 +274,14 @@ bool region_keybind_validate(const char *value) {
 	return count > 0;
 }
 
+const char *region_keybind_tool_key(int tool) {
+	static char keys[TOOL_COUNT][48];
+	if (tool < 0 || tool >= TOOL_COUNT) return NULL;
+	if (!keys[tool][0])
+		snprintf(keys[tool], sizeof keys[tool], "keys.tool.%s", grabit_tool_names[tool]);
+	return keys[tool];
+}
+
 const char *region_keybind_action_key(enum region_action act) {
 	return act < KA_COUNT ? ACTION_KEYS[act] : NULL;
 }
@@ -217,47 +296,6 @@ const char *region_keybind_default(const char *key) {
 		}
 	}
 	return NULL;
-}
-
-bool region_xkb_keymap_from_fd(struct xkb_context *ctx, int fd, uint32_t size,
-							   struct xkb_keymap **km, struct xkb_state **state) {
-	void *map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-	close(fd);
-	if (map == MAP_FAILED) return false;
-	struct xkb_keymap *nk = xkb_keymap_new_from_buffer(ctx, map, size > 0 ? size - 1 : 0,
-													   XKB_KEYMAP_FORMAT_TEXT_V1,
-													   XKB_KEYMAP_COMPILE_NO_FLAGS);
-	munmap(map, size);
-	if (!nk) return false;
-	struct xkb_state *ns = xkb_state_new(nk);
-	if (!ns) {
-		xkb_keymap_unref(nk);
-		return false;
-	}
-	if (*state) xkb_state_unref(*state);
-	if (*km) xkb_keymap_unref(*km);
-	*km = nk;
-	*state = ns;
-	return true;
-}
-
-uint8_t region_xkb_mods(struct xkb_state *state) {
-	static const struct {
-		const char *name;
-		uint8_t bit;
-	} mods[] = {
-		{XKB_MOD_NAME_CTRL, KB_MOD_CTRL},
-		{XKB_MOD_NAME_SHIFT, KB_MOD_SHIFT},
-		{XKB_MOD_NAME_ALT, KB_MOD_ALT},
-		{XKB_MOD_NAME_LOGO, KB_MOD_SUPER},
-	};
-	if (!state) return 0;
-	uint8_t out = 0;
-	for (size_t i = 0; i < sizeof mods / sizeof mods[0]; i++) {
-		if (xkb_state_mod_name_is_active(state, mods[i].name, XKB_STATE_MODS_EFFECTIVE) > 0)
-			out |= mods[i].bit;
-	}
-	return out;
 }
 
 void region_keybind_format(const struct keybind *b, char *out, size_t n) {
@@ -276,7 +314,11 @@ void region_keybind_format(const struct keybind *b, char *out, size_t n) {
 		return;
 	}
 	char keyname[64];
-	if (xkb_keysym_get_name(b->sym, keyname, sizeof keyname) < 0) keyname[0] = '\0';
+	const char *alias = gkb_alias_name(b->sym);
+	if (alias)
+		snprintf(keyname, sizeof keyname, "%s", alias);
+	else if (xkb_keysym_get_name(b->sym, keyname, sizeof keyname) < 0)
+		keyname[0] = '\0';
 	snprintf(out, n, "%s%s%s%s%s", (b->mods & KB_MOD_CTRL) ? "Ctrl+" : "",
 			 (b->mods & KB_MOD_ALT) ? "Alt+" : "",
 			 (b->mods & KB_MOD_SUPER) ? "Super+" : "",

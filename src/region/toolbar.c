@@ -7,6 +7,7 @@
 
 #include "cairo_util.h"
 #include "region/wlr_input_state.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
@@ -38,33 +39,22 @@ static void paint_button_bg(cairo_t *cr, const struct ro_state *st,
 							double bxi, double byi, double bwi, double bhi) {
 	bool active = button_active(st, act);
 	double pad = 3.0 * S;
-	double rr = 0.18, gg = 0.18, bb = 0.18, aa = 0.94;
+	static const double RAISED[] = {GUI_C_RAISED}, ACTIVE[] = {GUI_C_ACCENT_ACTIVE},
+						SAVE[] = {GUI_C_SUCCESS}, CANCEL[] = {GUI_C_DESTRUCTIVE_MUTED};
+	const double *c = RAISED;
+	double aa = 0.94;
 	if (active) {
-		rr = 1.0;
-		gg = 0.45;
-		bb = 0.28;
+		c = ACTIVE;
 		aa = 0.92;
 	} else if (act == TB_SAVE) {
-		rr = 0.20;
-		gg = 0.58;
-		bb = 0.32;
+		c = SAVE;
 		aa = st->has_selection ? 0.96 : 0.35;
 	} else if (act == TB_CANCEL) {
-		rr = 0.62;
-		gg = 0.22;
-		bb = 0.22;
+		c = CANCEL;
 		aa = 0.96;
 	}
-	if ((int)act == st->pressed_button) {
-		rr *= 0.72;
-		gg *= 0.72;
-		bb *= 0.72;
-	} else if ((int)act == st->hovered_button) {
-		rr += (1.0 - rr) * 0.22;
-		gg += (1.0 - gg) * 0.22;
-		bb += (1.0 - bb) * 0.22;
-	}
-	cairo_set_source_rgba(cr, rr, gg, bb, aa);
+	grabit_ui_button_source(cr, c, aa, (int)act == st->hovered_button,
+							(int)act == st->pressed_button);
 	grabit_cairo_rect_r(cr, bxi + pad, byi + pad, bwi - pad * 2, bhi - pad * 2,
 						grabit_ui_radius(GUI_R_BTN) * S);
 	cairo_fill(cr);
@@ -75,7 +65,7 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	double pad_in = 10.0 * S;
 	double tk_x0 = bxi + pad_in;
 	double tk_x1 = bxi + bwi - pad_in;
-	cairo_set_source_rgba(cr, 0.55, 0.55, 0.55, 1);
+	cairo_set_source_rgba(cr, GUI_C_TRACK, 1);
 	cairo_set_line_width(cr, 2.0 * S);
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 	cairo_move_to(cr, tk_x0, cyi);
@@ -89,10 +79,10 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	double frac = (double)(val - lo) / (double)(hi - lo);
 	double kx = tk_x0 + frac * (tk_x1 - tk_x0);
 	double kr = (3.0 + frac * 6.0) * S;
-	cairo_set_source_rgba(cr, GRABIT_ACCENT_R, GRABIT_ACCENT_G, GRABIT_ACCENT_B, 1);
+	cairo_set_source_rgba(cr, GUI_C_ACCENT, 1);
 	cairo_arc(cr, kx, cyi, kr, 0, 2.0 * M_PI);
 	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.55);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.55);
 	cairo_set_line_width(cr, 1.0 * S);
 	cairo_arc(cr, kx, cyi, kr, 0, 2.0 * M_PI);
 	cairo_stroke(cr);
@@ -189,9 +179,10 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 		}
 
 		double ia = (act == TB_SAVE && !o->st->has_selection) ? 0.45 : 1.0;
-		cairo_set_source_rgba(cr, active ? 1.0 : 0.92,
-							  active ? 1.0 : 0.92,
-							  active ? 1.0 : 0.92, ia);
+		if (active)
+			cairo_set_source_rgba(cr, GUI_C_INK, ia);
+		else
+			cairo_set_source_rgba(cr, GUI_C_TEXT, ia);
 		const struct tool_group *g = toolbar_tool_group(act);
 		if (g) {
 			enum tool_kind gt = o->st->group_tool[toolbar_group_index(g)];

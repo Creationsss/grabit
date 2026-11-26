@@ -77,6 +77,7 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 	}
 	const char *canon = cfg_canonical_key(key);
 	bool is_state = cfg_is_state_key(canon) && cfg_state_enabled(c);
+	const char *over = config_source(c, canon);
 	int rc;
 	const char *stored = NULL;
 	if (is_state) {
@@ -100,6 +101,10 @@ static int cfg_store(struct config *c, const char *key, const char *val) {
 			log_info("set %s (was %s) = %s%s", canon, key, shown, where);
 		else
 			log_info("set %s = %s%s", canon, shown, where);
+		if (over)
+			log_warn("%s is also set in %s, which is applied after config.toml; change it there "
+					 "for this to take effect",
+					 canon, over);
 	}
 	config_free(c);
 	return rc == 0 ? 0 : 1;
@@ -134,7 +139,7 @@ static int cmd_set_watch(const char *key) {
 static void print_keys_row(struct config *c, const char *key) {
 	const char *cur = config_get(c, key);
 	const char *def = region_keybind_default(key);
-	if (cur && *cur)
+	if (cur)
 		printf("  %-28s %s  (custom)\n", key, cur);
 	else
 		printf("  %-28s %s\n", key, def && def[0] ? def : "-");
@@ -146,11 +151,8 @@ static int cmd_set_keys_list(void) {
 	puts("keybinds (see `grabit help set` to change them):");
 	for (int a = 0; a < KA_COUNT; a++)
 		print_keys_row(&c, region_keybind_action_key(a));
-	for (int t = 0; t < TOOL_COUNT; t++) {
-		char key[64];
-		snprintf(key, sizeof key, "keys.tool.%s", grabit_tool_names[t]);
-		print_keys_row(&c, key);
-	}
+	for (int t = 0; t < TOOL_COUNT; t++)
+		print_keys_row(&c, region_keybind_tool_key(t));
 	config_free(&c);
 	return 0;
 }
@@ -335,6 +337,7 @@ int cmd_get(int argc, char **argv) {
 		if (c.n > 1) qsort(c.kvs, c.n, sizeof *c.kvs, gcfg_cmp_kv);
 		bool hid = false;
 		for (size_t i = 0; i < c.n; i++) {
+			if (!c.kvs[i].val[0]) continue;
 			bool hide = !reveal && cfg_key_is_secret(c.kvs[i].key);
 			hid |= hide;
 			printf("%s = %s\n", c.kvs[i].key, hide ? "<hidden>" : c.kvs[i].val);
@@ -356,6 +359,43 @@ int cmd_get(int argc, char **argv) {
 	return rc;
 }
 
+static int cfg_unset_key(const char *key, const char *given, bool known) {
+	struct config c;
+	if (config_load(&c) != 0) return 1;
+	if (!cfg_writable(&c)) {
+		config_free(&c);
+		return 1;
+	}
+
+	int rc = 0;
+	const char *over = config_source(&c, key);
+	bool found = cfg_kv_remove(&c, key, false) > 0;
+	if (cfg_is_state_key(key)) {
+		(void)config_state_clear(&c, key);
+		found = true;
+	}
+	if (!found && !known) {
+		cfg_help_report_unknown_key(given);
+		rc = 2;
+	} else if (!found) {
+		log_info("%s was not set", key);
+	} else if (cfg_persist(&c, key, NULL, false) != 0) {
+		log_error("could not save config");
+		rc = 1;
+	} else if (strcmp(key, given) != 0) {
+		log_info("unset %s (%s)", given, key);
+	} else {
+		log_info("unset %s", key);
+	}
+	if (rc == 0 && over) {
+		log_warn("%s is still set in %s, which is applied after config.toml; remove it there", key,
+				 over);
+		rc = 1;
+	}
+	config_free(&c);
+	return rc;
+}
+
 int cmd_unset(int argc, char **argv) {
 	if (wants_help(argc, argv)) {
 		puts("usage: grabit unset <key>");
@@ -366,34 +406,39 @@ int cmd_unset(int argc, char **argv) {
 		return 2;
 	}
 	const char *key = cfg_canonical_key(argv[0]);
-	if (!cfg_key_is_known(key)) {
-		cfg_help_report_unknown_key(argv[0]);
-		return 2;
-	}
+	bool known = cfg_key_is_known(key);
+	return cfg_unset_key(known ? key : argv[0], argv[0], known);
+}
 
+bool config_key_known(const char *key) {
+	return cfg_key_is_known(cfg_canonical_key(key));
+}
+
+const char *config_suggest_key(const char *key) {
+	return cfg_help_suggest_key(key);
+}
+
+int config_remove_key(const char *key) {
+	const char *canon = cfg_canonical_key(key);
+	bool known = cfg_key_is_known(canon);
+	return cfg_unset_key(known ? canon : key, key, known) == 0 ? 0 : -1;
+}
+
+int config_write_key(const char *key, const char *value) {
+	const char *canon = cfg_canonical_key(key);
+	if (!cfg_key_is_known(canon)) {
+		cfg_help_report_unknown_key(key);
+		return -1;
+	}
 	struct config c;
-	if (config_load(&c) != 0) return 1;
-	if (!cfg_writable(&c)) {
+	if (config_load(&c) != 0) return -1;
+	const char *over = config_source(&c, canon);
+	if (over) {
+		log_error("%s sets this and is applied after config.toml; change it there", over);
 		config_free(&c);
-		return 1;
+		return -1;
 	}
-
-	int rc = 0;
-	bool found = cfg_kv_remove(&c, key, false) > 0;
-	if (cfg_is_state_key(key)) {
-		(void)config_state_clear(&c, key);
-		found = true;
-	}
-	if (!found) {
-		log_info("%s was not set", key);
-	} else if (cfg_persist(&c, key, NULL, false) != 0) {
-		log_error("could not save config");
-		rc = 1;
-	} else if (strcmp(key, argv[0]) != 0) {
-		log_info("unset %s (%s)", argv[0], key);
-	} else {
-		log_info("unset %s", key);
-	}
+	if (value) return cfg_store(&c, canon, value) == 0 ? 0 : -1;
 	config_free(&c);
-	return rc;
+	return cfg_unset_key(canon, key, true) == 0 ? 0 : -1;
 }

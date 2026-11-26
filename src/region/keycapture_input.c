@@ -8,6 +8,7 @@
 #include "log.h"
 #include "util/util.h"
 #include "wl/wl.h"
+#include "wl/xkb.h"
 
 #include <unistd.h>
 
@@ -22,37 +23,15 @@
 
 #include "region/keycapture_internal.h"
 
-static bool is_modifier_sym(xkb_keysym_t s) {
-	return (s >= XKB_KEY_Shift_L && s <= XKB_KEY_Hyper_R) ||
-		   (s >= XKB_KEY_ISO_Lock && s <= XKB_KEY_ISO_Level5_Lock);
-}
-
-void gkc_join(struct kc_state *s, char *out, size_t n) {
-	out[0] = '\0';
-	size_t used = 0;
-	for (size_t i = 0; i < s->n_caps; i++) {
-		char one[80];
-		region_keybind_format(&s->caps[i], one, sizeof one);
-		if (!grabit_join_appendf(out, n, &used, ", ", "%s", one)) break;
-	}
+static void log_added(const struct keybind *b) {
+	char one[REGION_KEYBIND_STR * 2];
+	region_keybind_format(b, one, sizeof one);
+	log_info("  + %s", one);
 }
 
 static void gkc_add(struct kc_state *s, const struct keybind *b) {
-	for (size_t i = 0; i < s->n_caps; i++) {
-		const struct keybind *e = &s->caps[i];
-		if (e->is_button == b->is_button &&
-			(b->is_button ? e->button == b->button
-						  : (e->sym == b->sym && e->mods == b->mods)))
-			return;
-	}
-	if (s->n_caps >= KC_MAX_CAPS) {
-		log_debug("watch: already holding %d bindings", KC_MAX_CAPS);
-		return;
-	}
-	s->caps[s->n_caps++] = *b;
-	char one[80];
-	region_keybind_format(b, one, sizeof one);
-	log_info("  + %s", one);
+	if (!region_keybind_list_add(&s->caps, b)) return;
+	log_added(b);
 	gkc_render(s);
 }
 
@@ -95,7 +74,7 @@ static void kb_keymap(void *data, struct wl_keyboard *kb, uint32_t format,
 		close(fd);
 		return;
 	}
-	region_xkb_keymap_from_fd(s->xkb_ctx, fd, size, &s->xkb_keymap, &s->xkb_state);
+	grabit_xkb_keymap_from_fd(s->xkb_ctx, fd, size, &s->xkb_keymap, &s->xkb_state);
 }
 
 static void kb_enter(void *d, struct wl_keyboard *kb, uint32_t serial,
@@ -122,25 +101,23 @@ static void kb_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	(void)time;
 	struct kc_state *s = data;
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED || !s->xkb_state) return;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(s->xkb_state, key + 8);
-	if (sym == XKB_KEY_Escape) {
+	xkb_keysym_t sym = grabit_xkb_unkeypad(xkb_state_key_get_one_sym(s->xkb_state, key + 8));
+	uint8_t before = s->caps.n;
+	switch (region_capture_key(&s->caps, sym, grabit_xkb_mods(s->xkb_state))) {
+	case REGION_CAPTURE_CANCEL:
 		s->cancelled = true;
 		s->done = true;
-		return;
-	}
-	if (sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter) {
+		break;
+	case REGION_CAPTURE_SAVE:
 		s->done = true;
-		return;
-	}
-	if (sym == XKB_KEY_BackSpace && s->n_caps > 0) {
-		s->n_caps--;
+		break;
+	case REGION_CAPTURE_CHANGED:
+		if (s->caps.n > before) log_added(&s->caps.items[s->caps.n - 1]);
 		gkc_render(s);
-		return;
+		break;
+	case REGION_CAPTURE_IGNORED:
+		break;
 	}
-	if (sym == XKB_KEY_NoSymbol || is_modifier_sym(sym)) return;
-	struct keybind b = {
-		.is_button = false, .sym = sym, .mods = region_xkb_mods(s->xkb_state)};
-	gkc_add(s, &b);
 }
 
 static void kb_modifiers(void *data, struct wl_keyboard *kb, uint32_t serial,

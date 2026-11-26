@@ -353,26 +353,39 @@ void pixels_pack_rgb_row(unsigned char *dst, const uint32_t *line, int w) {
 	}
 }
 
+static void unpremul(uint32_t px, unsigned char out[4]) {
+	unsigned a = (px >> 24) & 0xff;
+	unsigned r = (px >> 16) & 0xff;
+	unsigned g = (px >> 8) & 0xff;
+	unsigned b = px & 0xff;
+	if (a == 0) {
+		r = g = b = 0;
+	} else if (a != 255) {
+		r = (r * 255u + a / 2) / a;
+		g = (g * 255u + a / 2) / a;
+		b = (b * 255u + a / 2) / a;
+		if (r > 255) r = 255;
+		if (g > 255) g = 255;
+		if (b > 255) b = 255;
+	}
+	out[0] = (unsigned char)a;
+	out[1] = (unsigned char)r;
+	out[2] = (unsigned char)g;
+	out[3] = (unsigned char)b;
+}
+
 void pixels_unpremul_rgba_row(unsigned char *dst, const uint32_t *line, int w) {
 	for (int x = 0; x < w; x++) {
-		uint32_t px = line[x];
-		unsigned a = (px >> 24) & 0xff;
-		unsigned r = (px >> 16) & 0xff;
-		unsigned g = (px >> 8) & 0xff;
-		unsigned b = px & 0xff;
-		if (a == 0) {
-			r = g = b = 0;
-		} else if (a != 255) {
-			r = (r * 255u + a / 2) / a;
-			g = (g * 255u + a / 2) / a;
-			b = (b * 255u + a / 2) / a;
-			if (r > 255) r = 255;
-			if (g > 255) g = 255;
-			if (b > 255) b = 255;
-		}
-		dst[x * 4 + 0] = (unsigned char)r;
-		dst[x * 4 + 1] = (unsigned char)g;
-		dst[x * 4 + 2] = (unsigned char)b;
-		dst[x * 4 + 3] = (unsigned char)a;
+		unsigned char argb[4];
+		unpremul(line[x], argb);
+		dst[x * 4 + 0] = argb[1];
+		dst[x * 4 + 1] = argb[2];
+		dst[x * 4 + 2] = argb[3];
+		dst[x * 4 + 3] = argb[0];
 	}
+}
+
+void pixels_unpremul_argb_row(unsigned char *dst, const uint32_t *line, int w) {
+	for (int x = 0; x < w; x++)
+		unpremul(line[x], dst + x * 4);
 }

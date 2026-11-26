@@ -8,6 +8,10 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .RI [ options ]
 .br
 .B grabit
+.B settings
+.RI [ page | search ]
+.br
+.B grabit
 .BR set | get | unset
 .RI [ key "] [" value ]
 .br
@@ -22,8 +26,17 @@ grabit \- screenshot, recording, OCR, and upload for Wayland compositors
 .RI [ arg ]
 .br
 .B grabit
+.B upload test
+.RI [ service ]
+.br
+.B grabit
+.B history
+.RB [ list | copy | open | delete | remove | clear ]
+.RI [ n ]
+.br
+.B grabit
 .B plugin
-.RB { install | list | show | update | remove }
+.RB { install | list | show | update | remove | disable | enable }
 .RI [ arg ]
 .br
 .B grabit
@@ -118,8 +131,8 @@ compositor hold-bind.
 .TP
 .B \-\-tray
 Toggle a persistent tray icon that runs as a background process. Left click
-takes a region screenshot; the context menu offers every action (screenshot,
-record, OCR, pin) as submenus. Run again to stop it. The recording tray icon
+takes a region screenshot; the context menu has screenshot, record, OCR, pin
+and history submenus, plus upload files and settings. Run again to stop it. The recording tray icon
 is separate and appears only while recording (see
 .BR \-\-no\-tray " and " recording.tray ).
 .TP
@@ -494,6 +507,15 @@ Every subcommand below also accepts
 directly, equivalent to
 .BR "grabit help " subcommand .
 .TP
+.BI "settings " "\fR[\fPpage\fR|\fPsearch\fR]\fP"
+Open the settings ui.
+.I page
+opens that section (general, capture, region, editor, recording, uploads,
+plugins, ocr, cards, appearance, keybinds, upload, history); any other word is
+searched. With no page it opens the last one used. Also in the
+.B \-\-tray
+menu and the desktop file's actions.
+.TP
 .BI "set " "key value"
 Write a config key (schema-validated). The
 .BI "set " key = value
@@ -532,14 +554,18 @@ List all settable keys.
 Print one config key, or dump every set key.
 .TP
 .BI "unset " key
-Remove a config key.
+Remove a config key. Also removes a key grabit does not know, such as an
+old or misspelled one, when it is in config.toml.
 .TP
 .BI "help " [topic]
 Print help for a topic:
+.BR settings ,
 .BR set ,
 .BR get ,
 .BR unset ,
 .BR sxcu ,
+.BR upload ,
+.BR history ,
 .BR plugin ,
 .BR filename ,
 .BR env ,
@@ -573,6 +599,56 @@ is given.
 .BI "sxcu remove " name
 Remove an uploader (alias:
 .BR rm ).
+.SS Testing uploads
+.TP
+.BI "upload test " [service]
+Upload a small generated image to
+.I service
+(default: the
+.B service
+setting), print its link, then delete it again.
+Deleting works on zipline v4 and on
+.B .sxcu
+uploaders with a
+.BR DeletionURL ;
+other services keep the image.
+Exits 0 when the upload works.
+.SS History
+grabit remembers each upload, saved screenshot, recording and OCR text in
+.IR ~/.local/state/grabit/history.jsonl .
+Entries are numbered newest first, and
+.I n
+may also be an entry id.
+.TP
+.B history list \fR[\fB\-\-ocr\fR] [\fB\-\-json\fR]
+List uploads and saved files, or OCR text with
+.BR \-\-ocr .
+.TP
+.BI "history copy " n " \fR[\fB\-\-ocr\fR]"
+Copy the link, file path or OCR text again;
+.B \-\-ocr
+numbers the OCR entries instead.
+.TP
+.BI "history open " n
+Open the saved file, or the link when the file is gone.
+.TP
+.BI "history delete " n " \fR[\fB\-y\fR] [\fB\-\-host\-only\fR|\fB\-\-file\-only\fR]"
+Delete the upload from its host (zipline and
+.B .sxcu
+uploaders with a
+.BR DeletionURL )
+and the saved file, then forget the entry.
+Asks first unless
+.B \-y
+is given or
+.B history.confirm_delete
+is false.
+.TP
+.BI "history remove " n " \fR[\fB\-\-ocr\fR]"
+Forget an entry, leaving the upload and file alone.
+.TP
+.B history clear \fR[\fB\-\-ocr\fR|\fB\-\-all\fR] [\fB\-y\fR]
+Forget every entry.
 .SS Plugins
 .TP
 .BI "plugin install " git\-url
@@ -592,6 +668,15 @@ Update one plugin, or all of them.
 .BI "plugin remove " name
 Uninstall a plugin (alias:
 .BR rm ).
+.TP
+.BI "plugin disable " name
+Keep a plugin installed but stop
+.BI "grabit " name
+from running it.
+.TP
+.BI "plugin enable " name
+Undo
+.BR "plugin disable" .
 .TP
 .BI name " ..."
 Run the installed plugin
@@ -669,6 +754,7 @@ The config lives at
 (else
 .IR ~/.config/grabit/config.toml ),
 written with mode 0600. Manage it with
+.BR "grabit settings" ,
 .B grabit set/get/unset
 or edit the TOML directly. Per-service auth tokens go under
 .BI services. name .auth
@@ -719,6 +805,13 @@ Test hook: artificially delay every encoder write by this many microseconds to
 reproduce a slow encoder and exercise the frame-drop path. Not a tuning knob;
 setting it makes recording worse.
 .TP
+.B GRABIT_CONFIG
+Colon-separated config files applied after
+.I config.toml
+and
+.IR config.d ;
+a later file wins.
+.TP
 .B GRABIT_CAPTURE_BACKEND
 Force the capture backend:
 .BR auto ,
@@ -762,9 +855,16 @@ fallbacks.
 .TP
 .B XDG_STATE_HOME
 Base for
-.IR grabit/state.toml ,
+.I grabit/state.toml
+and
+.IR grabit/history.jsonl ,
 default
 .IR ~/.local/state .
+.TP
+.B XDG_CACHE_HOME
+Base for history thumbnails and plugin caches,
+default
+.IR ~/.cache .
 .TP
 .B HYPRLAND_INSTANCE_SIGNATURE
 Set by Hyprland; with
@@ -836,9 +936,22 @@ config key.
 If set to any value, disable ANSI color in log output.
 .SH FILES
 .TP
+.I ~/.cache/grabit/history/
+Thumbnails of uploaded images, fetched once from their links for the settings History tab.
+.TP
+.I ~/.local/state/grabit/history.jsonl
+Upload, saved file and OCR history, mode 0600
+.RB ( $XDG_STATE_HOME/grabit/history.jsonl ).
+See
+.BR history.enabled .
+.TP
+.I ~/.config/grabit/config.d/*.toml
+Overrides read after config.toml in name order; a later file wins. Never written by grabit.
+.TP
 .I ~/.config/grabit/config.toml
-User configuration (TOML), mode 0600. Only ever written by
-.BR "grabit set" / unset .
+User configuration (TOML), mode 0600. Only written by
+.BR "grabit set" / unset
+and the settings window.
 It may hold upload tokens under
 .BR services. \fIname\fB .auth ,
 so use the
@@ -851,7 +964,11 @@ Machine-local state grabit writes on its own: the last-used
 the editor color swatches
 .RB ( edit.swatches ),
 the editor toolbar position
-.RB ( edit.toolbar_pos )
+.RB ( edit.toolbar_pos ),
+the settings window size
+.RB ( gui.settings_size ),
+the settings page it was last on
+.RB ( gui.settings_page )
 and the last captured region
 .RB ( region.last ,
 used by

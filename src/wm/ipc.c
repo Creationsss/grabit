@@ -24,7 +24,7 @@
 #define WM_IPC_MAX_LINE_BYTES (5 << 20)
 
 int64_t gwm_ipc_deadline(int ms) {
-	return grabit_now_ns() / 1000000 + ms;
+	return grabit_now_ms() + ms;
 }
 
 int gwm_ipc_open(const char *path) {

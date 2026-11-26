@@ -3,8 +3,10 @@
 
 #define _XOPEN_SOURCE 700
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "args.h"
@@ -12,6 +14,7 @@
 #include "capture/freeze.h"
 #include "capture/save.h"
 #include "config/config.h"
+#include "exit.h"
 #include "log.h"
 #include "notify/notify.h"
 #include "paths.h"
@@ -38,10 +41,45 @@ int gapp_print_version(void) {
 	return 0;
 }
 
+static const struct {
+	const char *names;
+	const char *summary;
+	int (*print)(void);
+} TOPICS[] = {
+	{"settings", "the settings ui", NULL},
+	{"set|get|unset", "configuration commands", NULL},
+	{"sxcu", "ShareX (.sxcu) uploaders", NULL},
+	{"upload", "test the upload service", NULL},
+	{"history", "upload, saved file and OCR history", NULL},
+	{"plugin", "plugin management", NULL},
+	{"filename", "filename template tokens", gapp_print_help_filename},
+	{"env", "environment variables", gapp_print_help_env},
+	{"ocr", "ocr and translation", gapp_print_help_ocr},
+	{"examples", "common invocations", gapp_print_help_examples},
+};
+#define N_TOPICS (sizeof TOPICS / sizeof *TOPICS)
+
+static bool topic_has(const char *names, const char *name) {
+	size_t n = strlen(name);
+	for (const char *p = names;;) {
+		const char *e = strchr(p, '|');
+		size_t len = e ? (size_t)(e - p) : strlen(p);
+		if (len == n && strncmp(p, name, n) == 0) return true;
+		if (!e) return false;
+		p = e + 1;
+	}
+}
+
+static void print_topic_names(void) {
+	for (size_t i = 0; i < N_TOPICS; i++)
+		printf("%s%s", i ? "|" : "", TOPICS[i].names);
+}
+
 int gapp_print_help(void) {
+	fputs("Usage: grabit [options]\n       grabit <", stdout);
+	gapp_print_command_names();
+	fputs("> ...\n", stdout);
 	fputs(
-		"Usage: grabit [options]\n"
-		"       grabit <set|get|unset|sxcu|plugin> ...\n"
 		"       grabit help <topic>\n"
 		"\n"
 		"Actions:\n"
@@ -82,32 +120,54 @@ int gapp_print_help(void) {
 		"  -h, --help          print this help\n"
 		"\n"
 		"Subcommands:\n"
+		"  settings [<page>]   open the settings ui\n"
 		"  set, get, unset     configuration\n"
 		"  sxcu                ShareX uploaders\n"
-		"  plugin install <git-url>   install a plugin (also: list/show/update/remove)\n"
+		"  upload test [<svc>] upload a test image, then delete it where the service allows\n"
+		"  history             past uploads, saved files and OCR text (copy/open/delete)\n"
+		"  plugin install <git-url>   install a plugin (also: list/show/update/remove/disable/enable)\n"
 		"  <name> ...          run an installed plugin (-p pins its output)\n"
 		"\n"
-		"Topics: grabit help <set|get|unset|sxcu|plugin|filename|env|examples|ocr>\n"
+		"Topics: grabit help <",
+		stdout);
+	print_topic_names();
+	fputs(
+		">\n"
 		"Full documentation: man grabit\n",
 		stdout);
 	return 0;
 }
 
 int gapp_print_help_topics(void) {
-	fputs(
-		"Usage: grabit help <topic>\n"
-		"\n"
-		"  set, get, unset   configuration commands\n"
-		"  sxcu              ShareX (.sxcu) uploaders\n"
-		"  plugin            plugin management\n"
-		"  filename          filename template tokens\n"
-		"  env               environment variables\n"
-		"  ocr               ocr and translation\n"
-		"  examples          common invocations\n"
-		"\n"
-		"grabit --help lists every flag; man grabit is the full reference.\n",
-		stdout);
+	fputs("Usage: grabit help <topic>\n\n", stdout);
+	for (size_t i = 0; i < N_TOPICS; i++) {
+		char label[64];
+		size_t n = 0;
+		for (const char *p = TOPICS[i].names; *p && n + 3 < sizeof label; p++) {
+			if (*p == '|')
+				label[n++] = ',', label[n++] = ' ';
+			else
+				label[n++] = *p;
+		}
+		label[n] = '\0';
+		printf("  %-17s %s\n", label, TOPICS[i].summary);
+	}
+	fputs("\ngrabit --help lists every flag; man grabit is the full reference.\n", stdout);
 	return 0;
+}
+
+int gapp_help_topic(const char *name) {
+	if (strcmp(name, "tesseract") == 0) name = "ocr";
+	for (size_t i = 0; i < N_TOPICS; i++) {
+		if (!topic_has(TOPICS[i].names, name)) continue;
+		if (TOPICS[i].print) return TOPICS[i].print();
+		static char *help_argv[] = {(char *)"--help", NULL};
+		gapp_command_fn cmd = gapp_find_command(name);
+		return cmd ? cmd(1, help_argv) : 1;
+	}
+	log_error("no help topic for `%s`", name);
+	gapp_print_help_topics();
+	return GRABIT_EXIT_USAGE;
 }
 
 int gapp_print_help_filename(void) {
@@ -156,6 +216,7 @@ int gapp_print_help_env(void) {
 		"Environment:\n"
 		"\n"
 		"  GRABIT_DEBUG=1            same as -d\n"
+		"  GRABIT_CONFIG=a:b         extra config files applied after config.d, last wins\n"
 		"  GRABIT_<SERVICE>_AUTH     auth token, overrides config. <SERVICE> is one of\n"
 		"                            ZIPLINE, NEST, FAKECRIME, EZ, GUNS, PIXELVAULT.\n"
 		"  GRABIT_TRANSLATE_KEY      api key for the deepl/libretranslate backends\n"
@@ -165,8 +226,9 @@ int gapp_print_help_env(void) {
 		"  GRABIT_BIN                set by plugin dispatch; absolute path to grabit\n"
 		"  NO_COLOR                  disable color in logs\n"
 		"\n"
-		"XDG_CONFIG_HOME and XDG_STATE_HOME choose where config.toml and state.toml\n"
-		"live. man grabit lists the rest.\n",
+		"XDG_CONFIG_HOME and XDG_STATE_HOME choose where config.toml, state.toml and\n"
+		"history.jsonl live; XDG_CACHE_HOME holds history thumbnails. man grabit lists\n"
+		"the rest.\n",
 		stdout);
 	return 0;
 }

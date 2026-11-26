@@ -5,7 +5,9 @@
 #include "record/controls_internal.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
+#include "util/util.h"
 #include "wl/wl.h"
 
 #include <math.h>
@@ -51,27 +53,21 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 	double cy = CB_H / 2.0;
 	double dot_cx = CB_PAD + CB_DOT_W / 2.0;
 	if (c->paused) {
-		cairo_set_source_rgba(cr, 1.0, 0.55, 0.32, 1.0);
+		cairo_set_source_rgba(cr, GUI_C_ACCENT, 1.0);
 	} else {
-		cairo_set_source_rgba(cr, 0.85, 0.1, 0.1, 1.0);
+		cairo_set_source_rgba(cr, GUI_C_RECORD, 1.0);
 	}
 	cairo_arc(cr, dot_cx, cy, CB_DOT_W / 2.0 - 2.0, 0, 2.0 * M_PI);
 	cairo_fill(cr);
 
 	char tbuf[32];
-	long long hrs = (long long)(c->secs / 3600);
-	long long mins = (long long)((c->secs / 60) % 60);
-	long long secs = (long long)(c->secs % 60);
-	if (hrs > 0)
-		snprintf(tbuf, sizeof tbuf, "%lld:%02lld:%02lld", hrs, mins, secs);
-	else
-		snprintf(tbuf, sizeof tbuf, "%lld:%02lld", mins, secs);
+	grabit_format_duration((long long)c->secs, tbuf, sizeof tbuf);
 	cairo_select_font_face(cr, "sans-serif",
 						   CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 14.0);
 	cairo_text_extents_t ext;
 	cairo_text_extents(cr, tbuf, &ext);
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.92);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.92);
 	cairo_move_to(cr, CB_PAD + CB_DOT_W + 4, cy - ext.height / 2.0 - ext.y_bearing);
 	cairo_show_text(cr, tbuf);
 
@@ -84,20 +80,20 @@ static void draw_bar(cairo_t *cr, const struct rec_controls *c) {
 		double pad = 3.0;
 		double aa = enabled ? 0.96 : 0.35;
 		if (btn == CB_BTN_START) {
-			cairo_set_source_rgba(cr, 0.20, 0.58, 0.32, aa);
+			cairo_set_source_rgba(cr, GUI_C_SUCCESS, aa);
 		} else if (btn == CB_BTN_PAUSE) {
-			cairo_set_source_rgba(cr, 0.18, 0.18, 0.18, enabled ? 0.94 : 0.35);
+			cairo_set_source_rgba(cr, GUI_C_RAISED, enabled ? 0.94 : 0.35);
 		} else if (btn == CB_BTN_ABORT) {
-			cairo_set_source_rgba(cr, 0.72, 0.15, 0.15, aa);
+			cairo_set_source_rgba(cr, GUI_C_DESTRUCTIVE, aa);
 		} else {
-			cairo_set_source_rgba(cr, 0.62, 0.22, 0.22, aa);
+			cairo_set_source_rgba(cr, GUI_C_DESTRUCTIVE_MUTED, aa);
 		}
 		grabit_cairo_rect_r(cr, bx + pad, by + pad, bw - pad * 2, bh - pad * 2,
 							grabit_ui_radius(GUI_R_BTN));
 		cairo_fill(cr);
 
 		double ia = enabled ? 0.92 : 0.45;
-		cairo_set_source_rgba(cr, 0.92, 0.92, 0.92, ia);
+		cairo_set_source_rgba(cr, GUI_C_TEXT, ia);
 		double bcx = bx + bw / 2.0;
 		double bcy = by + bh / 2.0;
 		double s = bh * 0.6 * 0.36;

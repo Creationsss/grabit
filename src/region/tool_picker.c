@@ -6,6 +6,7 @@
 #include "region/wlr_state.h"
 
 #include "cairo_util.h"
+#include "ui_colors.h"
 #include "ui_theme.h"
 #include "wl/wl.h"
 
@@ -51,6 +52,29 @@ const struct tool_group *toolbar_tool_group(enum tb_action btn) {
 	for (int i = 0; i < TB_TOOL_GROUP_COUNT; i++)
 		if (GROUPS[i].btn == btn) return &GROUPS[i];
 	return NULL;
+}
+
+const char *region_tool_label(int tool) {
+	const struct tool_group *g = toolbar_group_of_tool((enum tool_kind)tool);
+	for (int j = 0; g && j < g->n; j++)
+		if ((int)g->tools[j] == tool) return g->labels[j];
+	switch (tool) {
+	case TOOL_TEXT:
+		return "Text";
+	case TOOL_COUNTER:
+		return "Counter";
+	case TOOL_CALLOUT:
+		return "Callout";
+	case TOOL_ERASER:
+		return "Eraser";
+	default:
+		return NULL;
+	}
+}
+
+const char *region_tool_group_label(int tool) {
+	const struct tool_group *g = toolbar_group_of_tool((enum tool_kind)tool);
+	return g ? g->label : NULL;
 }
 
 const struct tool_group *toolbar_group_of_tool(enum tool_kind t) {
@@ -136,11 +160,13 @@ static void picker_row(cairo_t *cr, double x0, double w, double ry,
 	if (sel) {
 		grabit_cairo_rect_r(cr, x0 + 3.0 * S, ry + 1.0 * S, w - 6.0 * S, rh - 2.0 * S,
 							grabit_ui_radius(GUI_R_BTN) * S);
-		cairo_set_source_rgba(cr, 1.0, 0.55, 0.32, 0.22);
+		cairo_set_source_rgba(cr, GUI_C_ACCENT, 0.22);
 		cairo_fill(cr);
 	}
-	cairo_set_source_rgba(cr, sel ? 1.0 : 0.86, sel ? 1.0 : 0.86,
-						  sel ? 1.0 : 0.86, 1.0);
+	if (sel)
+		cairo_set_source_rgba(cr, GUI_C_INK, 1.0);
+	else
+		cairo_set_source_rgba(cr, GUI_C_TEXT_MUTED, 1.0);
 	cairo_text_extents_t ext;
 	cairo_text_extents(cr, label, &ext);
 	cairo_move_to(cr, x0 + TP_ROW_H * S * 1.25,
@@ -182,7 +208,7 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 		double ry = top + i * TP_ROW_H * S;
 		bool sel = tool_active && st->current_tool == g->tools[i];
 		picker_row(cr, x0, w, ry, S, sel, g->labels[i]);
-		cairo_set_source_rgba(cr, 0.92, 0.92, 0.92, 1.0);
+		cairo_set_source_rgba(cr, GUI_C_TEXT, 1.0);
 		toolbar_icon_for_tool(cr, g->tools[i], icon_x,
 							  ry + TP_ROW_H * S / 2.0, icon_s);
 	}
@@ -193,7 +219,7 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 	}
 
 	double div_y = top + g->n * TP_ROW_H * S + TP_DIVIDER_H * S / 2.0;
-	cairo_set_source_rgba(cr, 1, 1, 1, 0.12);
+	cairo_set_source_rgba(cr, GUI_C_INK, 0.12);
 	cairo_set_line_width(cr, (double)S);
 	cairo_move_to(cr, x0 + 8.0 * S, div_y);
 	cairo_line_to(cr, x0 + w - 8.0 * S, div_y);
@@ -207,7 +233,7 @@ void region_tool_picker_render(cairo_t *cr, const struct ro_output *o) {
 		snprintf(label, sizeof label, "%s", grabit_line_style_names[i]);
 		if (label[0] >= 'a' && label[0] <= 'z') label[0] -= 'a' - 'A';
 		picker_row(cr, x0, w, ry, S, sel, label);
-		cairo_set_source_rgba(cr, 0.92, 0.92, 0.92, 1.0);
+		cairo_set_source_rgba(cr, GUI_C_TEXT, 1.0);
 		toolbar_icon_line_style(cr, icon_x, ry + TP_ROW_H * S / 2.0, icon_s,
 								(enum stroke_style)i);
 	}

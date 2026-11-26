@@ -14,6 +14,7 @@ struct keybind;
 struct keybind_list;
 
 xkb_keysym_t gkb_norm_sym(xkb_keysym_t s);
+const char *gkb_alias_name(xkb_keysym_t sym);
 bool gkb_mods_match(uint8_t want, uint8_t have);
 bool gkb_parse_bind(const char *tok, size_t len, struct keybind *out);
 void gkb_parse_list(const char *value, struct keybind_list *list);

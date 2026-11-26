@@ -31,6 +31,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
+#include "xdg-shell-client-protocol.h"
 
 int grabit_wl_init(struct grabit_wl_state *s) {
 	memset(s, 0, sizeof *s);
@@ -120,6 +121,8 @@ void grabit_wl_finish(struct grabit_wl_state *s) {
 	if (s->color_manager) wp_color_manager_v1_destroy(s->color_manager);
 	if (s->xdg_output_manager) zxdg_output_manager_v1_destroy(s->xdg_output_manager);
 	if (s->layer_shell) zwlr_layer_shell_v1_destroy(s->layer_shell);
+	if (s->wm_base) xdg_wm_base_destroy(s->wm_base);
+	if (s->data_device_manager) wl_data_device_manager_destroy(s->data_device_manager);
 	if (s->data_control_manager) zwlr_data_control_manager_v1_destroy(s->data_control_manager);
 	if (s->ext_data_control_manager) ext_data_control_manager_v1_destroy(s->ext_data_control_manager);
 	if (s->screencopy_manager) zwlr_screencopy_manager_v1_destroy(s->screencopy_manager);
@@ -154,27 +157,35 @@ void grabit_wl_callback_drop(struct wl_callback **cb) {
 	*cb = NULL;
 }
 
-struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
-	struct grabit_wl_state *s, struct wl_surface *surface,
-	struct wl_output *output, const char *ns, uint32_t kb_interactivity,
+struct zwlr_layer_surface_v1 *grabit_wl_layer(
+	struct grabit_wl_state *s, struct wl_surface *surface, struct wl_output *output,
+	const char *ns, uint32_t anchor, uint32_t w, uint32_t h, uint32_t kb_interactivity,
 	const struct zwlr_layer_surface_v1_listener *listener, void *data) {
 	struct zwlr_layer_surface_v1 *ls = zwlr_layer_shell_v1_get_layer_surface(
-		s->layer_shell, surface, output,
-		ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ns);
+		s->layer_shell, surface, output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ns);
 	if (!ls) return NULL;
 	if (listener) zwlr_layer_surface_v1_add_listener(ls, listener, data);
-	zwlr_layer_surface_v1_set_anchor(ls,
-									 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-										 ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-	zwlr_layer_surface_v1_set_size(ls, 0, 0);
-	zwlr_layer_surface_v1_set_exclusive_zone(ls, -1);
+	zwlr_layer_surface_v1_set_anchor(ls, anchor);
+	zwlr_layer_surface_v1_set_size(ls, w, h);
 	zwlr_layer_surface_v1_set_keyboard_interactivity(ls, kb_interactivity);
 	return ls;
 }
 
-int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
+struct zwlr_layer_surface_v1 *grabit_wl_layer_fullscreen(
+	struct grabit_wl_state *s, struct wl_surface *surface,
+	struct wl_output *output, const char *ns, uint32_t kb_interactivity,
+	const struct zwlr_layer_surface_v1_listener *listener, void *data) {
+	struct zwlr_layer_surface_v1 *ls = grabit_wl_layer(
+		s, surface, output, ns,
+		ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
+		0, 0, kb_interactivity, listener, data);
+	if (ls) zwlr_layer_surface_v1_set_exclusive_zone(ls, -1);
+	return ls;
+}
+
+int grabit_wl_pump_fd(struct grabit_wl_state *s, int timeout_ms, int fd, bool *fd_ready) {
+	if (fd_ready) *fd_ready = false;
 	while (wl_display_prepare_read(s->display) != 0) {
 		if (wl_display_dispatch_pending(s->display) < 0) return -1;
 	}
@@ -182,12 +193,19 @@ int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
 		wl_display_cancel_read(s->display);
 		return -1;
 	}
-	struct pollfd pfd = {.fd = wl_display_get_fd(s->display), .events = POLLIN};
-	int pr = poll(&pfd, 1, timeout_ms);
-	if (pr > 0 && (pfd.revents & POLLIN)) {
+	struct pollfd pfd[2] = {{.fd = wl_display_get_fd(s->display), .events = POLLIN},
+							{.fd = fd, .events = POLLIN}};
+	int pr = poll(pfd, fd >= 0 ? 2 : 1, timeout_ms);
+	if (pr > 0 && fd >= 0 && fd_ready) *fd_ready = (pfd[1].revents & POLLIN) != 0;
+	if (pr > 0 && (pfd[0].revents & POLLIN)) {
 		if (wl_display_read_events(s->display) < 0) return -1;
 	} else {
 		wl_display_cancel_read(s->display);
+		if (pr > 0 && (pfd[0].revents & (POLLERR | POLLHUP | POLLNVAL))) return -1;
 	}
 	return wl_display_dispatch_pending(s->display) < 0 ? -1 : 0;
+}
+
+int grabit_wl_pump(struct grabit_wl_state *s, int timeout_ms) {
+	return grabit_wl_pump_fd(s, timeout_ms, -1, NULL);
 }

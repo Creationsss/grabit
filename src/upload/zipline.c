@@ -31,7 +31,7 @@ struct curl_slist *zipline_option_headers(struct config *cfg,
 		if (strncmp(k, prefix, pl) != 0) continue;
 		const char *header_name = k + pl;
 		const char *val = cfg->kvs[i].val;
-		if (strcmp(header_name, "x-zipline-format") == 0) has_format = true;
+		if (strcmp(header_name, "x-zipline-format") == 0 && val && val[0]) has_format = true;
 		if (val && val[0]) headers = upload_header_append(headers, header_name, val, oom);
 	}
 	if (!has_format) {
@@ -40,10 +40,28 @@ struct curl_slist *zipline_option_headers(struct config *cfg,
 	return headers;
 }
 
+char *zipline_delete_url(const char *upload_url, const char *body) {
+	struct json_object *root = body ? json_tokener_parse(body) : NULL;
+	char *id = root ? grabit_json_path_string(root, "files[0].id") : NULL;
+	if (root) json_object_put(root);
+	if (!id) return NULL;
+	char *enc = curl_easy_escape(NULL, id, 0);
+	free(id);
+	if (!enc) return NULL;
+	size_t base = strlen(upload_url);
+	const char *tail = "/upload";
+	if (base >= strlen(tail) && strcmp(upload_url + base - strlen(tail), tail) == 0)
+		base -= strlen(tail);
+	char *url = NULL;
+	grabit_xasprintf(&url, "%.*s/user/files/%s", (int)base, upload_url, enc);
+	curl_free(enc);
+	return url;
+}
+
 static long long zipline_chunk_bytes(struct config *cfg) {
 	const char *v = config_get(cfg, "services.zipline.chunk_size");
 	long long mb = 25;
-	if (v && v[0]) {
+	if (v) {
 		char *end = NULL;
 		long n = strtol(v, &end, 10);
 		if (end && *end == '\0' && n >= 1 && n <= 95) mb = n;
@@ -142,7 +160,9 @@ int zipline_upload_partial(const char *base_url, const char *auth,
 			char safe_url[512];
 			grabit_redact_url(purl, safe_url, sizeof safe_url);
 			log_debug("POST %s (offset %lld, %zu bytes)", safe_url, start, send);
+			upload_progress_span(start, total);
 			CURLcode rc = oom ? CURLE_OUT_OF_MEMORY : curl_easy_perform(c);
+			upload_progress_span(0, 0);
 			upload_progress_finish();
 			long http_code = 0;
 			curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &http_code);

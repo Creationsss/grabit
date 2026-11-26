@@ -37,6 +37,8 @@ void grabit_lock_release(int *fd, const char *path);
 pid_t grabit_lock_owner(const char *path);
 
 int grabit_waitpid_intr(pid_t pid, int *status);
+int grabit_reap_grace(pid_t pid, int *status, int grace_ms);
+void grabit_format_duration(long long secs, char *out, size_t n);
 
 #include <stdatomic.h>
 int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop);

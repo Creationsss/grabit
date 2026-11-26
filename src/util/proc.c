@@ -15,6 +15,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 bool grabit_in_path(const char *bin) {
@@ -82,6 +83,26 @@ int grabit_waitpid_intr(pid_t pid, int *status) {
 		return -1;
 	}
 	return 0;
+}
+
+int grabit_reap_grace(pid_t pid, int *status, int grace_ms) {
+	int64_t deadline = grabit_now_ms() + grace_ms;
+	while (grabit_now_ms() < deadline) {
+		pid_t r = waitpid(pid, status, WNOHANG);
+		if (r == pid) return 0;
+		if (r < 0 && errno != EINTR) return -1;
+		struct timespec ts = {.tv_sec = 0, .tv_nsec = 10 * 1000000};
+		nanosleep(&ts, NULL);
+	}
+	kill(pid, SIGKILL);
+	return grabit_waitpid_intr(pid, status);
+}
+
+void grabit_format_duration(long long secs, char *out, size_t n) {
+	if (secs >= 3600)
+		snprintf(out, n, "%lld:%02lld:%02lld", secs / 3600, secs / 60 % 60, secs % 60);
+	else
+		snprintf(out, n, "%lld:%02lld", secs / 60, secs % 60);
 }
 
 int grabit_waitpid_intr_stop(pid_t pid, int *status, atomic_int *stop) {

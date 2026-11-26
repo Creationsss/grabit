@@ -36,19 +36,6 @@ static void strip_ansi(char *s) {
 	*w = '\0';
 }
 
-static int reap_with_grace(pid_t pid, int *status) {
-	int64_t deadline = grabit_now_ms() + 2000;
-	while (grabit_now_ms() < deadline) {
-		pid_t r = waitpid(pid, status, WNOHANG);
-		if (r == pid) return 0;
-		if (r < 0 && errno != EINTR) return -1;
-		struct timespec ts = {.tv_sec = 0, .tv_nsec = 50 * 1000000};
-		nanosleep(&ts, NULL);
-	}
-	kill(pid, SIGKILL);
-	return grabit_waitpid_intr(pid, status);
-}
-
 static char *grabit_translate_trans(const char *text, const char *target) {
 	if (!text || !target || !target[0]) return NULL;
 	if (!grabit_in_path(TRANS_BIN)) {
@@ -156,7 +143,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 			if (in_fd >= 0) close(in_fd);
 			close(out_p[0]);
 			kill(pid, SIGTERM);
-			(void)reap_with_grace(pid, NULL);
+			(void)grabit_reap_grace(pid, NULL, 2000);
 			sigaction(SIGPIPE, &prev_pipe, NULL);
 			log_error("translate: output too large or oom");
 			return NULL;
@@ -169,7 +156,7 @@ static char *grabit_translate_trans(const char *text, const char *target) {
 		log_error("translate: timed out after %ds; killing `%s`",
 				  TRANSLATE_TIMEOUT_MS / 1000, TRANS_BIN);
 		kill(pid, SIGTERM);
-		(void)reap_with_grace(pid, &status);
+		(void)grabit_reap_grace(pid, &status, 2000);
 	} else if (grabit_waitpid_intr(pid, &status) != 0) {
 		grabit_buf_free(&buf);
 		sigaction(SIGPIPE, &prev_pipe, NULL);

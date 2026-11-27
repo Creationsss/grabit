@@ -353,12 +353,19 @@ tools, by key: `q` region, `s` move/resize, `p` pen, `m` marker, `l` line, `r` r
 - **text**: Enter or a click elsewhere commits, Esc discards, Ctrl+V pastes
 - **undo**: undo and redo cover annotations, moves and region changes. hold Alt for a magnifier; touch works as a pointer
 
+### editor window
+
+`--edit-window` (or `edit.mode = window`) picks the region on the overlay as usual, then opens the editor in a normal window instead of keeping the screen frozen. the window can be moved, resized, tiled and left in the background while you use other apps, and it stays open until you save or cancel. `--edit-overlay` forces the overlay for one run.
+
+the image starts fitted to the window. Ctrl+wheel zooms at the pointer and a middle-button drag pans. the selection handles crop the image. with annotations on the canvas, cancel asks to be pressed a second time before it throws them away. the same window opens for `-e -f <file>`.
+
 | key | default | notes |
 |---|---|---|
 | `edit.color` | `#ff3030` | `#rrggbb`, `#rgb`, or red/yellow/green/blue/black/white |
 | `edit.width` | `4` | 1-20 |
 | `edit.tool` | `pen` | `pen`, `marker`, `line`, `rect`, `rounded_rect`, `ellipse`, `arrow`, `arrow_pen`, `blur`, `pixelate`, `spotlight`, `text`, `counter`, `callout`, `eraser` |
 | `edit.always` | `false` | open the editor for every copy, upload, save and pin. old name: `edit.default` |
+| `edit.mode` | `overlay` | `overlay` edits on the frozen screen, `window` in a normal window (see editor window above); `--edit-window`/`--edit-overlay` per run |
 | `edit.instant_capture` | `false` | capture as soon as the region is picked (also for snap clicks and `ctrl+a`); `region.confirm` wins |
 | `edit.start_with_tool` | `false` | open in the last `edit.tool` instead of region select |
 | `edit.smooth` | `false` | smooth pen, marker and eraser strokes |

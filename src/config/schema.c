@@ -79,6 +79,7 @@ static int validate_int_in_range(const char *key, const char *value, long lo, lo
 static const char *VALS_capture_backend[] = {"auto", "wlr", "ext", "kwin", NULL};
 
 static const char *VALS_toolbar_placement[] = {"top", "attach", NULL};
+static const char *VALS_edit_mode[] = {"overlay", "window", NULL};
 
 static const char *VALS_show_position[] = {
 	"top-left",
@@ -102,6 +103,7 @@ static const struct cfg_enum_key ENUM_KEYS[] = {
 	{"format", VALS_format, false, ALIAS_format},
 	{"capture.backend", VALS_capture_backend, false, NULL},
 	{"edit.toolbar_placement", VALS_toolbar_placement, false, NULL},
+	{"edit.mode", VALS_edit_mode, false, NULL},
 	{"preview.position", VALS_show_position, false, NULL},
 	{"text_card.position", VALS_show_position, false, NULL},
 	{"recording.preset", VALS_x264_preset, false, NULL},

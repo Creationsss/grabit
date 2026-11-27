@@ -25,6 +25,8 @@ struct args {
 	enum action action;
 	bool silent;
 	bool edit;
+	bool edit_window;
+	bool edit_overlay;
 	bool no_tray;
 	bool no_upload;
 	bool translate;

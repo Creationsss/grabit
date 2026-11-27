@@ -95,6 +95,7 @@ static const char *const G_EDIT[] = {
 	"edit.width",
 	"edit.tool",
 	"edit.always",
+	"edit.mode",
 	"edit.instant_capture",
 	"edit.start_with_tool",
 	"edit.multi_select",

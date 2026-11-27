@@ -13,6 +13,7 @@ struct rect;
 
 int gapp_edit_image_file(struct config *cfg, const char *src_path,
 						 const struct grabit_save_opts *opts, const char *out_path,
+						 bool in_window,
 						 uint32_t *inout_color, int32_t *inout_width,
 						 int32_t *inout_tool, bool *out_choices_dirty,
 						 struct rect *out_rect);

@@ -292,6 +292,21 @@ and region changes alike. Redo is
 or
 .BR Ctrl+Shift+z .
 Last-used color, width, tool and swatch row persist across runs.
+.TP
+.B \-\-edit\-window
+Like
+.BR \-e ,
+but after the region is picked the editor opens in a normal window instead of
+on the frozen screen, so other windows stay usable while you annotate. Set
+.B edit.mode
+to
+.B window
+to make this the default, and use
+.B \-\-edit\-overlay
+to force the overlay for one run. The image starts fitted to the
+window; Ctrl+wheel zooms at the pointer and a middle-button drag pans.
+The selection handles crop. With annotations present, cancel must be pressed
+twice before they are discarded.
 .SH NOTES
 .SS Touchscreen
 The region selector, the recording control bar and pinned captures all accept

@@ -69,6 +69,7 @@ static int fill_output_canvas(struct image *dst, const struct grabit_output *o,
 
 int gapp_edit_image_file(struct config *cfg, const char *src_path,
 						 const struct grabit_save_opts *opts, const char *out_path,
+						 bool in_window,
 						 uint32_t *inout_color, int32_t *inout_width,
 						 int32_t *inout_tool, bool *out_choices_dirty,
 						 struct rect *out_rect) {
@@ -107,34 +108,60 @@ int gapp_edit_image_file(struct config *cfg, const char *src_path,
 
 	int32_t logical_w = (int32_t)lround(img_w / host_ratio);
 	int32_t logical_h = (int32_t)lround(img_h / host_ratio);
+	if (logical_w < 1) logical_w = 1;
+	if (logical_h < 1) logical_h = 1;
 	int32_t img_x = host->x + (host->logical_width - logical_w) / 2;
 	int32_t img_y = host->y + (host->logical_height - logical_h) / 2;
-
-	if (logical_w > host->logical_width || logical_h > host->logical_height)
-		log_warn("edit: %dx%d image is larger than %s (%dx%d); "
-				 "the parts past the edge cannot be reached",
-				 img_w, img_h, host->name ? host->name : "the output",
-				 host->logical_width, host->logical_height);
-
-	frozen = calloc(s.n_outputs, sizeof *frozen);
-	if (!frozen) {
-		log_error("edit: out of memory");
-		goto cleanup;
-	}
-	n_frozen = s.n_outputs;
-	for (size_t i = 0; i < s.n_outputs; i++) {
-		if (s.outputs[i] != host) continue;
-		if (fill_output_canvas(&frozen[i], host, img, img_x, img_y) != 0) goto cleanup;
-	}
-
 	struct rect preset = {img_x, img_y, logical_w, logical_h};
-	struct rect got = {0};
-	int sel = region_select(&s, cfg, frozen, true, &got, &annos, inout_color,
+	struct rect got = preset;
+
+	int sel = 0;
+	if (!in_window) {
+		if (logical_w > host->logical_width || logical_h > host->logical_height)
+			log_warn("edit: %dx%d image is larger than %s (%dx%d); "
+					 "the parts past the edge cannot be reached",
+					 img_w, img_h, host->name ? host->name : "the output",
+					 host->logical_width, host->logical_height);
+
+		frozen = calloc(s.n_outputs, sizeof *frozen);
+		if (!frozen) {
+			log_error("edit: out of memory");
+			goto cleanup;
+		}
+		n_frozen = s.n_outputs;
+		for (size_t i = 0; i < s.n_outputs; i++) {
+			if (s.outputs[i] != host) continue;
+			if (fill_output_canvas(&frozen[i], host, img, img_x, img_y) != 0) goto cleanup;
+		}
+
+		sel = region_select(&s, cfg, frozen, true, &got, &annos, inout_color,
 							inout_width, inout_tool, out_choices_dirty, NULL,
 							&preset, NULL, 0);
+		free_frozen(frozen, n_frozen);
+		frozen = NULL;
+	}
 
-	free_frozen(frozen, n_frozen);
-	frozen = NULL;
+	out = grabit_cairo_promote_argb32(img);
+	if (!out) {
+		log_error("edit: surface %dx%d failed", img_w, img_h);
+		goto cleanup;
+	}
+
+	bool windowed = in_window;
+	if (windowed) {
+		cairo_surface_flush(out);
+		struct image im = {
+			.width = img_w,
+			.height = img_h,
+			.stride = cairo_image_surface_get_stride(out),
+			.format = WL_SHM_FORMAT_ARGB8888,
+			.bytes = cairo_image_surface_get_data(out),
+		};
+		struct region_window_req req = {&im, preset, grabit_basename(src_path)};
+		sel = region_edit_window(&s, cfg, &req, &got, &annos, inout_color, inout_width,
+								 inout_tool, out_choices_dirty);
+	}
+
 	grabit_wl_finish(&s);
 	wl_up = false;
 
@@ -143,9 +170,9 @@ int gapp_edit_image_file(struct config *cfg, const char *src_path,
 		goto cleanup;
 	}
 
-	out = grabit_cairo_promote_argb32(img);
-	if (!out) {
-		log_error("edit: surface %dx%d failed", img_w, img_h);
+	if (windowed) {
+		rc = grabit_save_cropped_annotated(out, &preset, &got, &annos, opts, out_path);
+		if (rc == 0 && out_rect) *out_rect = got;
 		goto cleanup;
 	}
 

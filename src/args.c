@@ -26,6 +26,8 @@ static const char *const RESERVED_FLAGS[] = {
 	"debug",
 	"delay",
 	"edit",
+	"edit-overlay",
+	"edit-window",
 	"file",
 	"filename",
 	"format",
@@ -217,6 +219,16 @@ int args_parse(int argc, char **argv, struct args *out) {
 			out->edit = true;
 			continue;
 		}
+		if (strcmp(arg, "--edit-window") == 0) {
+			out->edit = true;
+			out->edit_window = true;
+			continue;
+		}
+		if (strcmp(arg, "--edit-overlay") == 0) {
+			out->edit = true;
+			out->edit_overlay = true;
+			continue;
+		}
 		if (strcmp(arg, "--cursor") == 0) {
 			out->cursor = true;
 			continue;
@@ -395,6 +407,7 @@ int args_parse(int argc, char **argv, struct args *out) {
 		{out->window, out->file, "--window", "-f"},
 		{out->window, out->fullscreen, "--window", "--fullscreen"},
 		{out->window, recording, "--window", "--record"},
+		{out->edit_window, out->edit_overlay, "--edit-window", "--edit-overlay"},
 	};
 	for (size_t i = 0; i < sizeof CLASH / sizeof CLASH[0]; i++) {
 		if (!CLASH[i].a || !CLASH[i].b) continue;

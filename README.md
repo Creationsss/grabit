@@ -48,7 +48,7 @@ runtime: `ffmpeg` for `--record`, `tesseract` for `--tesseract`; see [OPTIONS.md
 - region selector on a frozen screen: drag, click a window to snap to it, or adjust before capturing
 - **`-F`** a whole monitor or all of them, **`-w`** the active window, **`-L`** the last region, **`--delay`** to open a menu first
 - hdr outputs tone mapped to srgb, or kept as 16-bit png with `capture.hdr`
-- **`-e`** annotator: pens, shapes, arrows, blur, pixelate, spotlight, text, counters, callouts, an eraser and a color picker; also on an existing file with `-f`
+- **`-e`** annotator: pens, shapes, arrows, blur, pixelate, spotlight, text, counters, callouts, an eraser and a color picker; also on an existing file with `-f`. `--edit-window` (or `edit.mode = window`) annotates in a normal, zoomable window instead of on the frozen screen
 - **`--record`** region recording to mp4, webm or gif, with pause ([demo](https://atums.world/u/7598183f-c502-4c4e-9c51-6f167473a8fb.mp4))
 - **`--pin`** pins captures to the desktop
 - **`--tesseract`** OCR to the clipboard, with **`--translate`**

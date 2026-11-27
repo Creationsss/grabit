@@ -158,6 +158,11 @@ int gcfg_help_example_grouped(const char *key, const char **example_out,
 			*def_out = edit_swatches_default_text();
 			return 0;
 		}
+		if (strcmp(leaf, "mode") == 0) {
+			*example_out = "overlay|window";
+			*def_out = "overlay";
+			return 0;
+		}
 		if (strcmp(leaf, "toolbar_placement") == 0) {
 			*example_out = "top|attach";
 			*def_out = "top";

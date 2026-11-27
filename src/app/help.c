@@ -98,6 +98,7 @@ int gapp_print_help(void) {
 		"\n"
 		"Modifiers:\n"
 		"  -e, --edit          annotate before the action\n"
+		"  --edit-window       annotate in a normal window (--edit-overlay forces the overlay)\n"
 		"  -F, --fullscreen[=<n|name|all>]  capture a whole monitor\n"
 		"  -w, --window        capture the active window\n"
 		"  -L, --last          reuse the last region instead of selecting one\n"

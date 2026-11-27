@@ -201,6 +201,13 @@ static void load_edit_choices(struct config *cfg, uint32_t *color, int32_t *widt
 	*tool = edit_tool_from_str(config_get(cfg, "edit.tool"));
 }
 
+static bool want_edit_window(const struct args *a, struct config *cfg) {
+	if (a->edit_window) return true;
+	if (a->edit_overlay) return false;
+	const char *m = config_get(cfg, "edit.mode");
+	return m && strcmp(m, "window") == 0;
+}
+
 static char *build_capture_path(const struct args *a, struct config *cfg,
 								enum action eff, bool *is_temp, bool *existed,
 								const struct grabit_save_opts *opts,
@@ -340,7 +347,8 @@ static char *capture_to_file(const struct args *a, struct config *cfg, enum acti
 	char *path = NULL;
 	struct path_builder pb = {a, cfg, eff, is_temp, &opts, name, false};
 	struct freeze_dest dest = {build_selected_path, &pb};
-	int rc = grabit_freeze_capture(&s, cfg, &dest, &path, &opts, &got, a->edit, cursor,
+	int rc = grabit_freeze_capture(&s, cfg, &dest, &path, &opts, &got, a->edit,
+								   a->edit && want_edit_window(a, cfg), cursor,
 								   a->edit ? &edit_color : NULL,
 								   a->edit ? &edit_width : NULL,
 								   a->edit ? &edit_tool : NULL,
@@ -403,7 +411,8 @@ char *gapp_acquire_source(const struct args *a, struct config *cfg,
 		int32_t edit_width, edit_tool;
 		load_edit_choices(cfg, &edit_color, &edit_width, &edit_tool);
 		bool edit_dirty = false;
-		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, &edit_color,
+		int rc = gapp_edit_image_file(cfg, a->file, &opts, path, want_edit_window(a, cfg),
+									  &edit_color,
 									  &edit_width, &edit_tool, &edit_dirty, out_rect);
 		struct edit_choices ec = {edit_color, edit_width, edit_tool};
 		persist_capture_state(cfg, edit_dirty ? &ec : NULL, NULL);

@@ -389,6 +389,10 @@ static const struct action_def ACTIONS[] = {
 	{KA_NUDGE_RIGHT, "Nudge right", "Nudge"},
 	{KA_NUDGE_UP, "Nudge up", "Nudge"},
 	{KA_NUDGE_DOWN, "Nudge down", "Nudge"},
+	{KA_ZOOM_IN, "Zoom in", "Window"},
+	{KA_ZOOM_OUT, "Zoom out", "Window"},
+	{KA_ZOOM_FIT, "Fit to window", "Window"},
+	{KA_ZOOM_ACTUAL, "Actual size", "Window"},
 };
 
 static int push_bind(struct settings_state *st, struct set_page *p, const char *key,

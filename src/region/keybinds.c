@@ -33,6 +33,10 @@ static const char *const ACTION_KEYS[KA_COUNT] = {
 	[KA_NUDGE_UP] = "keys.nudge_up",
 	[KA_NUDGE_DOWN] = "keys.nudge_down",
 	[KA_MAGNIFIER] = "keys.magnifier",
+	[KA_ZOOM_IN] = "keys.zoom_in",
+	[KA_ZOOM_OUT] = "keys.zoom_out",
+	[KA_ZOOM_FIT] = "keys.zoom_fit",
+	[KA_ZOOM_ACTUAL] = "keys.zoom_actual",
 };
 
 static const char *const ACTION_DEFAULTS[KA_COUNT] = {
@@ -49,6 +53,10 @@ static const char *const ACTION_DEFAULTS[KA_COUNT] = {
 	[KA_NUDGE_UP] = "Up",
 	[KA_NUDGE_DOWN] = "Down",
 	[KA_MAGNIFIER] = "Alt_L, Alt_R",
+	[KA_ZOOM_IN] = "Ctrl+plus, Ctrl+equal",
+	[KA_ZOOM_OUT] = "Ctrl+minus",
+	[KA_ZOOM_FIT] = "Ctrl+0",
+	[KA_ZOOM_ACTUAL] = "Ctrl+1",
 };
 
 static const char *const TOOL_DEFAULTS[TOOL_COUNT] = {

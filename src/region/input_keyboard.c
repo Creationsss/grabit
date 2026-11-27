@@ -225,6 +225,25 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 		region_render_request_redraw_all(st);
 	}
 
+	if (st->win) {
+		double z = region_view_zoom(st);
+		if (region_key_action(&st->keys, KA_ZOOM_IN, sym, mods)) {
+			region_window_zoom_to(st, z * RWIN_ZOOM_STEP, st->ui_x, st->ui_y);
+			return;
+		}
+		if (region_key_action(&st->keys, KA_ZOOM_OUT, sym, mods)) {
+			region_window_zoom_to(st, z / RWIN_ZOOM_STEP, st->ui_x, st->ui_y);
+			return;
+		}
+		if (region_key_action(&st->keys, KA_ZOOM_FIT, sym, mods)) {
+			region_window_fit(st);
+			return;
+		}
+		if (region_key_action(&st->keys, KA_ZOOM_ACTUAL, sym, mods)) {
+			region_window_zoom_to(st, 1.0, st->ui_x, st->ui_y);
+			return;
+		}
+	}
 	if (region_key_action(&st->keys, KA_CONFIRM, sym, mods)) {
 		if (region_drag_active(st)) return;
 		ginp_region_do_confirm(st);

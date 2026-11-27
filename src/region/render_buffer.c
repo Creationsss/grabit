@@ -14,6 +14,7 @@
 #include <wayland-client.h>
 
 #include "region/render_internal.h"
+#include "region/window_internal.h"
 
 void gren_overlay_view(struct ro_output *o) {
 	o->area = (struct rect){o->go->x, o->go->y, o->width, o->height};
@@ -26,7 +27,10 @@ void gren_output_configure(struct ro_output *o) {
 	o->scale = o->go->scale > 0 ? o->go->scale : 1;
 	o->pixel_width = o->width * o->scale;
 	o->pixel_height = o->height * o->scale;
-	gren_overlay_view(o);
+	if (o->st->win)
+		region_window_view(o);
+	else
+		gren_overlay_view(o);
 
 	if (o->cairo_frozen_pat) {
 		cairo_pattern_destroy(o->cairo_frozen_pat);
@@ -70,6 +74,14 @@ void gren_output_configure(struct ro_output *o) {
 
 void region_render_free_buffer(struct ro_output *o) {
 	grabit_wl_callback_drop(&o->frame_cb);
+	if (o->view_cache) {
+		cairo_surface_destroy(o->view_cache);
+		o->view_cache = NULL;
+	}
+	if (o->view_annos) {
+		cairo_surface_destroy(o->view_annos);
+		o->view_annos = NULL;
+	}
 	if (o->anno_cache) {
 		cairo_surface_destroy(o->anno_cache);
 		o->anno_cache = NULL;

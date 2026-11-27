@@ -20,6 +20,7 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #include "region/render_internal.h"
+#include "region/window_internal.h"
 #include "ui_colors.h"
 
 static uint64_t spotlight_mix(uint64_t h, const struct annotation *a) {
@@ -36,6 +37,12 @@ static uint64_t spotlight_sig(const struct annotation_list *l,
 	size_t n = l ? l->n : 0;
 	for (size_t i = 0; i < n; i++)
 		h = spotlight_mix(h, &l->items[i]);
+	if (live && !tool_is_layer(live->tool)) {
+		int32_t v[5] = {live->x0, live->y0, live->x1, live->y1, live->width};
+		for (int k = 0; k < 5; k++)
+			h = (h ^ (uint64_t)(uint32_t)v[k]) * 1099511628211ULL;
+		return h ^ 0x9e3779b97f4a7c15ULL;
+	}
 	return spotlight_mix(h, live);
 }
 
@@ -53,16 +60,25 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
 		}
 	}
 	struct rect sel = {0};
-	if (samples_backdrop) {
+	if (samples_backdrop && !o->st->win) {
 		sel.x = o->st->sel_x;
 		sel.y = o->st->sel_y;
 		sel.w = o->st->sel_w;
 		sel.h = o->st->sel_h;
 	}
 
+	int32_t cw = o->pixel_width, ch = o->pixel_height;
+	double rx = 0, ry = 0;
+	if (o->st->win) {
+		if (!o->cairo_frozen || o->area.w <= 0 || o->area.h <= 0) return;
+		cw = cairo_image_surface_get_width(o->cairo_frozen);
+		ch = cairo_image_surface_get_height(o->cairo_frozen);
+		rx = (double)cw / o->area.w;
+		ry = (double)ch / o->area.h;
+	}
 	if (o->anno_cache &&
-		(cairo_image_surface_get_width(o->anno_cache) != o->pixel_width ||
-		 cairo_image_surface_get_height(o->anno_cache) != o->pixel_height)) {
+		(cairo_image_surface_get_width(o->anno_cache) != cw ||
+		 cairo_image_surface_get_height(o->anno_cache) != ch)) {
 		cairo_surface_destroy(o->anno_cache);
 		o->anno_cache = NULL;
 	}
@@ -72,8 +88,7 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
 		memcmp(&o->anno_cache_sel, &sel, sizeof sel) == 0)
 		return;
 	if (!o->anno_cache) {
-		o->anno_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-												   o->pixel_width, o->pixel_height);
+		o->anno_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, cw, ch);
 		if (cairo_surface_status(o->anno_cache) != CAIRO_STATUS_SUCCESS) {
 			cairo_surface_destroy(o->anno_cache);
 			o->anno_cache = NULL;
@@ -84,26 +99,47 @@ void gren_anno_cache_ensure(struct ro_output *o, cairo_surface_t *dst,
 	cairo_set_operator(cc, CAIRO_OPERATOR_CLEAR);
 	cairo_paint(cc);
 	cairo_set_operator(cc, CAIRO_OPERATOR_OVER);
-	cairo_translate(cc, -o->go->x * S, -o->go->y * S);
-	cairo_scale(cc, S, S);
+	if (o->st->win) {
+		cairo_scale(cc, rx, ry);
+		cairo_translate(cc, -o->area.x, -o->area.y);
+	} else {
+		cairo_translate(cc, -o->go->x * S, -o->go->y * S);
+		cairo_scale(cc, S, S);
+	}
 	ganno_paint_spotlights(cc, annos, live);
 	for (size_t i = 0; i < annos->n; i++)
 		if (!(dragging && annos->items[i].selected))
 			annotation_paint_backdrop(cc, &annos->items[i], 1.0, dst);
+	if (live && !tool_is_layer(live->tool)) annotation_paint_backdrop(cc, live, 1.0, dst);
 	cairo_destroy(cc);
 	cairo_surface_flush(o->anno_cache);
 	o->anno_cache_gen = annos->gen;
 	o->anno_cache_sel = sel;
 	o->anno_cache_skip = dragging;
 	o->anno_cache_spot = spot;
+	o->anno_ver++;
 }
 
-static void anno_cache_paint(cairo_t *cr, const struct ro_output *o) {
+void gren_anno_cache_paint(cairo_t *cr, const struct ro_output *o) {
 	cairo_save(cr);
-	cairo_translate(cr, o->go->x, o->go->y);
-	cairo_scale(cr, 1.0 / o->scale, 1.0 / o->scale);
-	cairo_set_source_surface(cr, o->anno_cache, 0, 0);
-	cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+	if (o->st->win) {
+		double rx = (double)cairo_image_surface_get_width(o->anno_cache) / o->area.w;
+		double ry = (double)cairo_image_surface_get_height(o->anno_cache) / o->area.h;
+		cairo_rectangle(cr, o->area.x, o->area.y, o->area.w, o->area.h);
+		cairo_clip(cr);
+		cairo_translate(cr, o->area.x, o->area.y);
+		cairo_scale(cr, 1.0 / rx, 1.0 / ry);
+		cairo_set_source_surface(cr, o->anno_cache, 0, 0);
+		cairo_matrix_t m;
+		cairo_get_matrix(cr, &m);
+		cairo_pattern_set_filter(cairo_get_source(cr),
+								 m.xx >= 1.0 ? CAIRO_FILTER_NEAREST : CAIRO_FILTER_GOOD);
+	} else {
+		cairo_translate(cr, o->go->x, o->go->y);
+		cairo_scale(cr, 1.0 / o->scale, 1.0 / o->scale);
+		cairo_set_source_surface(cr, o->anno_cache, 0, 0);
+		cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+	}
 	cairo_paint(cr);
 	cairo_restore(cr);
 }
@@ -111,13 +147,13 @@ static void anno_cache_paint(cairo_t *cr, const struct ro_output *o) {
 void gren_paint_annos(cairo_t *cr, const struct ro_output *o, const struct annotation *live) {
 	bool anno_drag = region_anno_dragging(o->st);
 	if (o->anno_cache && !live && !anno_drag) {
-		anno_cache_paint(cr, o);
+		gren_anno_cache_paint(cr, o);
 		return;
 	}
 	const struct annotation_list *annos = o->st->out_annos;
 	cairo_push_group(cr);
 	if (o->anno_cache) {
-		anno_cache_paint(cr, o);
+		gren_anno_cache_paint(cr, o);
 	} else {
 		for (size_t i = 0; i < annos->n; i++)
 			if (!(anno_drag && annos->items[i].selected))
@@ -169,15 +205,16 @@ void gren_render_bottom_hint(cairo_t *cr, const struct ro_output *o, const char 
 
 void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 	if (!st->out_annos) return;
-	double sel_dash[2] = {4.0, 4.0};
+	double u = 1.0 / region_view_zoom(st);
+	double sel_dash[2] = {4.0 * u, 4.0 * u};
 	cairo_set_source_rgba(cr, GUI_C_INK, 0.9);
-	cairo_set_line_width(cr, 1.2);
+	cairo_set_line_width(cr, 1.2 * u);
 	cairo_set_dash(cr, sel_dash, 2, 0);
 	for (size_t i = 0; i < st->out_annos->n; i++) {
 		const struct annotation *sa = &st->out_annos->items[i];
 		if (!sa->selected) continue;
-		cairo_rectangle(cr, sa->bbox.x - 2, sa->bbox.y - 2,
-						sa->bbox.w + 4, sa->bbox.h + 4);
+		cairo_rectangle(cr, sa->bbox.x - 2 * u, sa->bbox.y - 2 * u,
+						sa->bbox.w + 4 * u, sa->bbox.h + 4 * u);
 		cairo_stroke(cr);
 	}
 	cairo_set_dash(cr, NULL, 0, 0);
@@ -189,11 +226,11 @@ void gren_paint_anno_selection(cairo_t *cr, const struct ro_state *st) {
 		if (!(mask & (1 << c))) continue;
 		double hx = annotation_corner_x(a, c);
 		double hy = annotation_corner_y(a, c);
-		grabit_cairo_rect_r(cr, hx - 4, hy - 4, 8, 8, hr);
+		grabit_cairo_rect_r(cr, hx - 4 * u, hy - 4 * u, 8 * u, 8 * u, hr * u);
 		cairo_set_source_rgba(cr, GUI_C_INK, 0.95);
 		cairo_fill_preserve(cr);
 		cairo_set_source_rgba(cr, GUI_C_SHADE, 0.85);
-		cairo_set_line_width(cr, 1.0);
+		cairo_set_line_width(cr, 1.0 * u);
 		cairo_stroke(cr);
 	}
 }
@@ -218,6 +255,10 @@ static void output_request_redraw(struct ro_output *o) {
 }
 
 void region_render_request_redraw_rect(struct ro_state *st, struct rect r) {
+	if (st->win) {
+		region_render_request_redraw_all(st);
+		return;
+	}
 	for (size_t i = 0; i < st->n_outs; i++)
 		if (grabit_output_overlaps(st->outs[i].go, r))
 			output_request_redraw(&st->outs[i]);

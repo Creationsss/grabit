@@ -118,6 +118,13 @@ void region_update_selection(struct ro_state *st) {
 	}
 	int32_t x0 = st->drag_x0, y0 = st->drag_y0;
 	int32_t x1 = st->cursor_x, y1 = st->cursor_y;
+	if (st->win) {
+		const struct rect *b = &st->bounds;
+		x0 = i32min(i32max(x0, b->x), b->x + b->w);
+		y0 = i32min(i32max(y0, b->y), b->y + b->h);
+		x1 = i32min(i32max(x1, b->x), b->x + b->w);
+		y1 = i32min(i32max(y1, b->y), b->y + b->h);
+	}
 	int32_t l = x0 < x1 ? x0 : x1;
 	int32_t t = y0 < y1 ? y0 : y1;
 	int32_t r = x0 > x1 ? x0 : x1;

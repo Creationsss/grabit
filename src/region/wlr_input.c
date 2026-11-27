@@ -22,6 +22,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 
 #include "region/input_internal.h"
+#include "region/window_internal.h"
 
 bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_t *fx,
 					int32_t *fy) {
@@ -29,15 +30,21 @@ bool ginp_frozen_px(const struct ro_state *st, const struct ro_output *o, int32_
 	const struct image *img = &st->frozen[o->idx];
 	if (!img->bytes || img->stride <= 0 || o->area.w <= 0 || o->area.h <= 0)
 		return false;
-	*fx = (int32_t)floor((double)(st->cursor_x - o->area.x) * img->width / o->area.w);
-	*fy = (int32_t)floor((double)(st->cursor_y - o->area.y) * img->height / o->area.h);
+	double gx = st->cursor_x, gy = st->cursor_y;
+	if (st->win && o->vs > 0) {
+		gx = o->vx + st->ui_fx * o->scale / o->vs;
+		gy = o->vy + st->ui_fy * o->scale / o->vs;
+	}
+	*fx = (int32_t)floor((gx - o->area.x) * img->width / o->area.w);
+	*fy = (int32_t)floor((gy - o->area.y) * img->height / o->area.h);
 	return *fx >= 0 && *fy >= 0 && *fx < img->width && *fy < img->height;
 }
 
 int ginp_anno_hit_index(const struct ro_state *st, int32_t x, int32_t y) {
 	if (!st->out_annos) return -1;
+	int32_t slack = (int32_t)ceil(6.0 / region_view_zoom(st));
 	for (size_t i = st->out_annos->n; i > 0; i--) {
-		if (annotation_hit(&st->out_annos->items[i - 1], x, y, 6))
+		if (annotation_hit(&st->out_annos->items[i - 1], x, y, slack))
 			return (int)(i - 1);
 	}
 	return -1;
@@ -47,11 +54,12 @@ int ginp_anno_corner_at(const struct ro_state *st, int32_t x, int32_t y) {
 	const struct annotation *a = region_anno_selected(st);
 	if (!a) return -1;
 	int mask = annotation_corner_mask(a);
+	double r = HANDLE_RADIUS / region_view_zoom(st);
 	for (int c = 0; c < 4; c++) {
 		if (!(mask & (1 << c))) continue;
-		int32_t dx = x - annotation_corner_x(a, c);
-		int32_t dy = y - annotation_corner_y(a, c);
-		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return c;
+		double dx = x - annotation_corner_x(a, c);
+		double dy = y - annotation_corner_y(a, c);
+		if (dx * dx + dy * dy <= r * r) return c;
 	}
 	return -1;
 }
@@ -95,6 +103,8 @@ void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t) {
 int ginp_pick_cursor(const struct ro_state *st) {
 	int32_t abs_x = st->cursor_x, abs_y = st->cursor_y;
 	int32_t ux = st->ui_x, uy = st->ui_y;
+	int wk = region_window_cursor(st);
+	if (wk >= 0) return wk;
 	if (st->tb_dragging) return RCUR_MOVE;
 	if (st->picker_group != TB_NONE) {
 		int val;
@@ -164,7 +174,7 @@ void ginp_refresh_cursor(struct ro_state *st) {
 
 void ginp_lock_or_finish(struct ro_state *st) {
 	bool keep = st->confirm_mode ||
-				(region_editing(st) && !st->edit_instant);
+				(region_editing(st) && (!st->edit_instant || st->win));
 	if (keep) {
 		st->region_locked = true;
 		ginp_refresh_cursor(st);

@@ -17,6 +17,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "region/input_internal.h"
+#include "region/window_internal.h"
 
 bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED && st->undo_held)
@@ -94,8 +95,7 @@ bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 	} else if (act == TB_SAVE) {
 		if (st->has_selection) st->finished = true;
 	} else if (act == TB_CANCEL) {
-		st->cancelled = true;
-		st->finished = true;
+		ginp_request_cancel(st);
 	}
 	region_render_request_redraw_all(st);
 	return true;
@@ -126,6 +126,16 @@ void ginp_region_do_confirm(struct ro_state *st) {
 		st->cancelled = true;
 		st->finished = true;
 	}
+}
+
+void ginp_request_cancel(struct ro_state *st) {
+	bool has_edits = st->out_annos && st->out_annos->n > 0;
+	if (st->win && has_edits && !st->discard_armed) {
+		st->discard_armed = true;
+		return;
+	}
+	st->cancelled = true;
+	st->finished = true;
 }
 
 uint32_t ginp_region_nudge_for_key(struct ro_state *st, xkb_keysym_t sym,

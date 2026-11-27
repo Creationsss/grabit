@@ -140,4 +140,16 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 				  const struct rect *preset,
 				  const struct rect *snap_rects, size_t n_snap_rects);
 
+struct region_window_req {
+	const struct image *image;
+	struct rect area;
+	const char *title;
+};
+
+int region_edit_window(struct grabit_wl_state *s, struct config *cfg,
+					   const struct region_window_req *req, struct rect *inout_sel,
+					   struct annotation_list *annos,
+					   uint32_t *inout_color, int32_t *inout_width,
+					   int32_t *inout_tool, bool *out_choices_dirty);
+
 #endif

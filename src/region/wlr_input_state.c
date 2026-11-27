@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 700
 #include "region/wlr_input_state.h"
 
+#include "region/window_internal.h"
 #include "region/wlr_state.h"
 
 #include <stdint.h>
@@ -36,9 +37,10 @@ int region_handle_at(const struct ro_state *st, int32_t x, int32_t y) {
 	if (!st->region_locked || !st->has_selection) return HANDLE_NONE;
 	int32_t hx[8], hy[8];
 	region_handle_points(st, hx, hy);
+	double r = HANDLE_RADIUS / region_view_zoom(st);
 	for (int i = 0; i < 8; i++) {
-		int32_t dx = x - hx[i], dy = y - hy[i];
-		if (dx * dx + dy * dy <= HANDLE_RADIUS * HANDLE_RADIUS) return i;
+		double dx = x - hx[i], dy = y - hy[i];
+		if (dx * dx + dy * dy <= r * r) return i;
 	}
 	return HANDLE_NONE;
 }

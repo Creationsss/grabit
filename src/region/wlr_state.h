@@ -37,6 +37,7 @@ struct wp_cursor_shape_device_v1;
 struct zwlr_layer_surface_v1;
 
 struct ro_state;
+struct ro_window;
 
 struct ro_output {
 	struct ro_state *st;
@@ -62,6 +63,17 @@ struct ro_output {
 
 	cairo_surface_t *cairo_frozen;
 	cairo_pattern_t *cairo_frozen_pat;
+
+	cairo_surface_t *view_cache;
+	cairo_surface_t *view_annos;
+	double va_vx;
+	double va_vy;
+	double va_vs;
+	double vc_vx;
+	double vc_vy;
+	double vc_vs;
+	uint64_t vc_anno_ver;
+	uint64_t anno_ver;
 
 	cairo_surface_t *anno_cache;
 	size_t anno_cache_gen;
@@ -154,9 +166,13 @@ struct ro_state {
 	int32_t cursor_y;
 	int32_t ui_x;
 	int32_t ui_y;
+	double ui_fx;
+	double ui_fy;
 	bool cursor_seen;
 
+	struct ro_window *win;
 	struct rect ui_bounds;
+	bool discard_armed;
 
 	bool dragging;
 	int32_t drag_x0;

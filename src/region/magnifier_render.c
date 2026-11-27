@@ -33,7 +33,13 @@
 
 static bool output_has_cursor(const struct ro_output *o) {
 	if (!o->st->cursor_seen) return false;
+	if (o->st->win && o->st->cursor_on != o) return false;
 	return rect_contains(o->area, o->st->cursor_x, o->st->cursor_y);
+}
+
+static void info_coords(const struct ro_output *o, int32_t *x, int32_t *y) {
+	*x = o->st->cursor_x - (o->st->win ? o->area.x : 0);
+	*y = o->st->cursor_y - (o->st->win ? o->area.y : 0);
 }
 
 bool region_magnifier_active(const struct ro_output *o) {
@@ -53,8 +59,10 @@ void region_coords_render(cairo_t *cr, const struct ro_output *o) {
 	double cx = (o->st->ui_x - o->go->x) * S;
 	double cy = (o->st->ui_y - o->go->y) * S;
 
+	int32_t ix, iy;
+	info_coords(o, &ix, &iy);
 	char info[32];
-	snprintf(info, sizeof info, "%d, %d", o->st->cursor_x, o->st->cursor_y);
+	snprintf(info, sizeof info, "%d, %d", ix, iy);
 
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 						   CAIRO_FONT_WEIGHT_BOLD);
@@ -193,8 +201,10 @@ void region_magnifier_render(cairo_t *cr, const struct ro_output *o,
 	grabit_cairo_rect_r(cr, lx, ly, L, L, lr);
 	cairo_stroke(cr);
 
+	int32_t ix, iy;
+	info_coords(o, &ix, &iy);
 	char info[48];
-	snprintf(info, sizeof info, "#%06X  %d, %d", c, o->st->cursor_x, o->st->cursor_y);
+	snprintf(info, sizeof info, "#%06X  %d, %d", c, ix, iy);
 
 	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 						   CAIRO_FONT_WEIGHT_BOLD);

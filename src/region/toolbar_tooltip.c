@@ -95,5 +95,10 @@ void region_toolbar_tooltip_render(cairo_t *cr, const struct ro_output *o) {
 	double btn_top = by0 + (double)by_local * S;
 	double btn_bot = btn_top + (double)bh_local * S;
 
-	grabit_ui_tooltip(cr, (double)S, text, btn_cx, btn_top, btn_bot, (double)o->pixel_width);
+	double off = st->win ? (double)(st->ui_bounds.y - o->go->y) * S : 0.0;
+	cairo_save(cr);
+	cairo_translate(cr, 0, off);
+	grabit_ui_tooltip(cr, (double)S, text, btn_cx, btn_top - off, btn_bot - off,
+					  (double)o->pixel_width);
+	cairo_restore(cr);
 }

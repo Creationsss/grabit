@@ -24,6 +24,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "region/input_internal.h"
+#include "region/window_internal.h"
 
 static void keyboard_keymap(void *data, struct wl_keyboard *kb,
 							uint32_t format, int32_t fd, uint32_t size) {
@@ -52,6 +53,8 @@ static void keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
 	(void)surface;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
+	st->ctrl_held = false;
+	st->shift_held = false;
 	region_nudge_disarm(st);
 	region_undo_disarm(st);
 	if (st->magnifier_held) {
@@ -213,12 +216,15 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	uint8_t mods = grabit_xkb_mods(st->xkb_state);
 
 	if (region_key_action(&st->keys, KA_CANCEL, sym, mods)) {
-		if (!ginp_region_abort_active(st)) {
-			st->cancelled = true;
-			st->finished = true;
-		}
+		if (!ginp_region_abort_active(st)) ginp_request_cancel(st);
+		region_render_request_redraw_all(st);
 		return;
 	}
+	if (st->discard_armed && !grabit_xkb_is_modifier(sym)) {
+		st->discard_armed = false;
+		region_render_request_redraw_all(st);
+	}
+
 	if (region_key_action(&st->keys, KA_CONFIRM, sym, mods)) {
 		if (region_drag_active(st)) return;
 		ginp_region_do_confirm(st);
@@ -226,8 +232,9 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 	}
 	if (region_key_action(&st->keys, KA_SELECT_ALL, sym, mods)) {
 		if (region_drag_active(st) || st->n_outs == 0) return;
-		struct rect mon;
-		grabit_output_rect(st->cursor_on ? st->cursor_on->go : st->outs[0].go, &mon);
+		struct rect mon = st->bounds;
+		if (!st->win)
+			grabit_output_rect(st->cursor_on ? st->cursor_on->go : st->outs[0].go, &mon);
 		region_undo_begin(st);
 		st->sel_x = mon.x;
 		st->sel_y = mon.y;

@@ -30,15 +30,21 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button,
 	if (button != BTN_LEFT) {
 		if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
 		if (region_button_action(&st->keys, KA_CANCEL, button)) {
-			if (!ginp_region_abort_active(st)) {
-				st->cancelled = true;
-				st->finished = true;
-			}
+			if (!ginp_region_abort_active(st)) ginp_request_cancel(st);
+			region_render_request_redraw_all(st);
 		} else if (region_button_action(&st->keys, KA_CONFIRM, button)) {
+			st->discard_armed = false;
 			if (!region_drag_active(st) && !st->text_input_active)
 				ginp_region_do_confirm(st);
 		}
 		return;
+	}
+
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED && st->discard_armed &&
+		!(ginp_toolbar_reachable(st) &&
+		  region_toolbar_hit(st, st->ui_x, st->ui_y) == TB_CANCEL)) {
+		st->discard_armed = false;
+		region_render_request_redraw_all(st);
 	}
 
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED && st->tb_dragging) {

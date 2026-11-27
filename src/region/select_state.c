@@ -8,6 +8,7 @@
 #include "config/config.h"
 #include "log.h"
 #include "region/edit_persist.h"
+#include "region/window_internal.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "util/rect.h"
@@ -69,6 +70,7 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 						 EDIT_SWATCH_COUNT);
 		}
 		v = config_get(cfg, "edit.toolbar_placement");
+		if (st->win) annotate_mode = false;
 		if (annotate_mode && v && strcmp(v, "attach") == 0)
 			st->tb_place = TB_PLACE_ATTACH;
 		v = config_get(cfg, "edit.toolbar_output");
@@ -103,7 +105,7 @@ void gregion_apply_config(struct ro_state *st, struct config *cfg, bool annotate
 				st->snap_windows[i].r = snap_rects[i];
 			st->n_snap_windows = n_snap_rects;
 		}
-	} else if (snap_enabled) {
+	} else if (snap_enabled && !st->win) {
 		struct wm_window *wins = NULL;
 		size_t n = 0;
 		if (grabit_wm_windows(cfg ? config_get(cfg, "region.snap_ignore") : NULL, &wins,
@@ -179,6 +181,7 @@ void gregion_select_teardown(struct ro_state *st, struct grabit_wl_state *s) {
 		struct ro_output *o = &st->outs[i];
 		region_render_free_buffer(o);
 		if (o->layer_surface) zwlr_layer_surface_v1_destroy(o->layer_surface);
+		if (i == 0) region_window_destroy(st);
 		if (o->surface) wl_surface_destroy(o->surface);
 	}
 	free(st->outs);

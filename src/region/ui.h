@@ -60,6 +60,7 @@ enum tb_placement {
 #define TB_PAD 6
 #define TB_GAP 12
 
+void region_toolbar_size(int32_t *w, int32_t *h);
 void region_toolbar_rect(const struct ro_state *st,
 						 const struct grabit_output **out_o,
 						 int32_t *x, int32_t *y, int32_t *w, int32_t *h);

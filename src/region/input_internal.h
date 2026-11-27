@@ -33,6 +33,7 @@ void ginp_mode_select_tool(struct ro_state *st, enum tool_kind t);
 void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button, uint32_t state);
 void ginp_refresh_cursor(struct ro_state *st);
 void ginp_region_do_confirm(struct ro_state *st);
+void ginp_request_cancel(struct ro_state *st);
 void ginp_slider_set_width_from_cursor(struct ro_state *st, bool record);
 
 #endif

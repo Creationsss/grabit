@@ -5,6 +5,7 @@
 #include "region/toolbar_internal.h"
 
 #include "region/wlr_input_state.h"
+#include "ui/window.h"
 #include "wl/wl.h"
 
 #include <stdbool.h>
@@ -79,6 +80,11 @@ static int32_t tb_total_h(void) {
 	return TB_PAD + TB_BTN_H + TB_ROW_GAP + TB_BTN_H_OPT + TB_PAD;
 }
 
+void region_toolbar_size(int32_t *w, int32_t *h) {
+	*w = tb_total_w();
+	*h = tb_total_h();
+}
+
 void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 							int32_t *out_x, int32_t *out_y,
 							int32_t *out_w, int32_t *out_h) {
@@ -92,11 +98,12 @@ void toolbar_btn_rect_local(enum tb_action act, int32_t tw,
 }
 
 static bool tb_attaching(const struct ro_state *st) {
-	return st->tb_place == TB_PLACE_ATTACH && st->has_selection && !st->tb_out &&
+	return !st->win && st->tb_place == TB_PLACE_ATTACH && st->has_selection && !st->tb_out &&
 		   !st->dragging && !st->moving_region && st->handle_dragging == HANDLE_NONE;
 }
 
 bool region_toolbar_visible(const struct ro_state *st) {
+	if (st->win) return true;
 	if (st->tb_place != TB_PLACE_ATTACH) return true;
 	if (st->tb_out || st->tb_moved) return true;
 	if (st->has_selection) return tb_attaching(st);
@@ -104,6 +111,7 @@ bool region_toolbar_visible(const struct ro_state *st) {
 }
 
 static const struct grabit_output *toolbar_output(const struct ro_state *st) {
+	if (st->win && st->n_outs > 0) return st->outs[0].go;
 	if (st->tb_out) return st->tb_out;
 	if (tb_attaching(st)) {
 		const struct grabit_output *o =
@@ -130,7 +138,7 @@ void region_toolbar_rect(const struct ro_state *st,
 
 	if (st->tb_moved) {
 		struct rect b = st->ui_bounds;
-		if (st->tb_lock) grabit_output_rect(st->tb_lock, &b);
+		if (st->tb_lock && !st->win) grabit_output_rect(st->tb_lock, &b);
 		struct rect r = rect_clamp_into((struct rect){st->tb_x, st->tb_y, tw, th}, b);
 		*x = r.x;
 		*y = r.y;
@@ -151,7 +159,7 @@ void region_toolbar_rect(const struct ro_state *st,
 	}
 
 	*x = o->x + (o->logical_width - tw) / 2;
-	*y = o->y + TB_GAP;
+	*y = o->y + (st->win ? UI_TITLE_H : 0) + TB_GAP;
 }
 
 bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
@@ -166,7 +174,7 @@ bool region_toolbar_popup_pos(const struct ro_state *st, enum tb_action anchor,
 	int32_t btn_cx = tx + bx + bw / 2;
 	int32_t want_x = btn_cx - pw / 2;
 	struct rect b = st->ui_bounds;
-	if (st->tb_lock)
+	if (st->tb_lock && !st->win)
 		grabit_output_rect(st->tb_lock, &b);
 	else if (tb_attaching(st))
 		grabit_output_rect(o, &b);

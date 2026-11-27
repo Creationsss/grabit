@@ -9,6 +9,7 @@
 #include "log.h"
 #include "region/edit_persist.h"
 #include "region/toolbar_internal.h"
+#include "region/window_internal.h"
 #include "region/wlr_input_state.h"
 #include "region/wlr_state.h"
 #include "wl/wl.h"
@@ -27,16 +28,17 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-int region_select(struct grabit_wl_state *s, struct config *cfg,
-				  const struct image *frozen,
-				  bool annotate_mode, struct rect *out,
-				  struct annotation_list *out_annos,
-				  uint32_t *inout_color, int32_t *inout_width,
-				  int32_t *inout_tool,
-				  bool *out_choices_dirty, struct region_snap *out_snap,
-				  const struct rect *preset,
-				  const struct rect *snap_rects, size_t n_snap_rects) {
-	if (!s->layer_shell) {
+static int region_run(struct grabit_wl_state *s, struct config *cfg,
+					  const struct image *frozen,
+					  bool annotate_mode, struct rect *out,
+					  struct annotation_list *out_annos,
+					  uint32_t *inout_color, int32_t *inout_width,
+					  int32_t *inout_tool,
+					  bool *out_choices_dirty, struct region_snap *out_snap,
+					  const struct rect *preset,
+					  const struct rect *snap_rects, size_t n_snap_rects,
+					  const struct region_window_req *win) {
+	if (!win && !s->layer_shell) {
 		log_error("region: compositor lacks zwlr_layer_shell_v1; pick the area up "
 				  "front with -F/--fullscreen[=<monitor>] or -L/--last");
 		return -1;
@@ -71,12 +73,22 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.pressed_button = -1;
 	st.sel_anno = -1;
 	st.anno_drag = ANNO_DRAG_NONE;
-	st.outs = calloc(s->n_outputs, sizeof *st.outs);
+	st.n_outs = win ? 1 : s->n_outputs;
+	st.outs = calloc(st.n_outs, sizeof *st.outs);
 	if (!st.outs) return -1;
-	st.n_outs = s->n_outputs;
 
-	grabit_wl_outputs_bbox(s, &st.bounds);
-	st.ui_bounds = st.bounds;
+	if (win) {
+		st.bounds = win->area;
+		if (region_window_create(&st, s, win) != 0) {
+			region_window_destroy(&st);
+			if (st.outs[0].surface) wl_surface_destroy(st.outs[0].surface);
+			free(st.outs);
+			return -1;
+		}
+	} else {
+		grabit_wl_outputs_bbox(s, &st.bounds);
+		st.ui_bounds = st.bounds;
+	}
 
 	st.snap_hover = -1;
 	st.snap_picked = -1;
@@ -86,6 +98,10 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 	st.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!st.xkb_ctx) {
 		log_error("xkb_context_new failed");
+		if (st.win) {
+			region_window_destroy(&st);
+			wl_surface_destroy(st.outs[0].surface);
+		}
 		free(st.outs);
 		grabit_wm_windows_free(st.snap_windows, st.n_snap_windows);
 		return -1;
@@ -165,7 +181,7 @@ int region_select(struct grabit_wl_state *s, struct config *cfg,
 			st.cursor_surface = wl_compositor_create_surface(s->compositor);
 	}
 
-	gregion_create_surfaces(&st, s);
+	if (!st.win) gregion_create_surfaces(&st, s);
 
 	if (preset && preset->w > 0 && preset->h > 0) {
 		st.sel_x = preset->x;
@@ -281,7 +297,7 @@ loop_done:;
 	if (inout_color) *inout_color = st.current_color;
 	if (inout_width) *inout_width = st.current_width;
 	if (inout_tool) *inout_tool = (int32_t)st.current_tool;
-	if (out_choices_dirty) *out_choices_dirty = st.edit_choices_dirty;
+	if (out_choices_dirty) *out_choices_dirty = *out_choices_dirty || st.edit_choices_dirty;
 	if (out_snap) {
 		*out_snap = (struct region_snap){0};
 		struct rect sel = {st.sel_x, st.sel_y, st.sel_w, st.sel_h};
@@ -295,7 +311,7 @@ loop_done:;
 
 	if (annotate_mode && cfg && st.swatches_dirty) persist_swatches(cfg, st.swatches);
 
-	if (annotate_mode && cfg && st.tb_moved && st.tb_place == TB_PLACE_TOP) {
+	if (annotate_mode && cfg && !st.win && st.tb_moved && st.tb_place == TB_PLACE_TOP) {
 		int32_t tx, ty, tw, th;
 		const struct grabit_output *to;
 		region_toolbar_rect(&st, &to, &tx, &ty, &tw, &th);
@@ -308,6 +324,33 @@ loop_done:;
 	gregion_select_teardown(&st, s);
 
 	return rc;
+}
+
+int region_select(struct grabit_wl_state *s, struct config *cfg,
+				  const struct image *frozen,
+				  bool annotate_mode, struct rect *out,
+				  struct annotation_list *out_annos,
+				  uint32_t *inout_color, int32_t *inout_width,
+				  int32_t *inout_tool,
+				  bool *out_choices_dirty, struct region_snap *out_snap,
+				  const struct rect *preset,
+				  const struct rect *snap_rects, size_t n_snap_rects) {
+	return region_run(s, cfg, frozen, annotate_mode, out, out_annos, inout_color,
+					  inout_width, inout_tool, out_choices_dirty, out_snap, preset,
+					  snap_rects, n_snap_rects, NULL);
+}
+
+int region_edit_window(struct grabit_wl_state *s, struct config *cfg,
+					   const struct region_window_req *req, struct rect *inout_sel,
+					   struct annotation_list *annos,
+					   uint32_t *inout_color, int32_t *inout_width,
+					   int32_t *inout_tool, bool *out_choices_dirty) {
+	if (!req || !req->image || !inout_sel || !annos || req->area.w <= 0 || req->area.h <= 0)
+		return -1;
+	struct rect preset = rect_intersect(*inout_sel, req->area);
+	if (preset.w <= 0 || preset.h <= 0) preset = req->area;
+	return region_run(s, cfg, req->image, true, inout_sel, annos, inout_color, inout_width,
+					  inout_tool, out_choices_dirty, NULL, &preset, NULL, 0, req);
 }
 
 void region_snap_free(struct region_snap *snap) {

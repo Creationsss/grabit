@@ -235,6 +235,7 @@ GRABIT_SRCS := \
 	src/region/render_frame.c \
 	src/region/render_buffer.c \
 	src/region/wlr_input_state.c \
+	src/region/window.c \
 	src/record/record.c \
 	src/record/setup.c \
 	src/record/loop.c \

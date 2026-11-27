@@ -20,15 +20,21 @@
 
 #include "region/input_internal.h"
 #include "region/render_internal.h"
+#include "region/window_internal.h"
+
+#include <math.h>
 
 static bool enter_output(struct ro_state *st, struct wl_surface *surface,
 						 wl_fixed_t sx, wl_fixed_t sy) {
 	struct ro_output *o = region_render_find_by_surface(st, surface);
 	if (!o) return false;
 	st->cursor_on = o;
-	gren_overlay_view(o);
+	if (!st->win) gren_overlay_view(o);
 	st->ui_x = st->cursor_x = o->go->x + wl_fixed_to_int(sx);
 	st->ui_y = st->cursor_y = o->go->y + wl_fixed_to_int(sy);
+	st->ui_fx = o->go->x + wl_fixed_to_double(sx);
+	st->ui_fy = o->go->y + wl_fixed_to_double(sy);
+	region_window_cursor_from_ui(st);
 	st->cursor_seen = true;
 	return true;
 }
@@ -51,11 +57,19 @@ static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial,
 	(void)surface;
 	struct ro_state *st = data;
 	if (st->cleanup) return;
+	if (st->win && st->win->panning) {
+		st->win->panning = false;
+		st->current_cursor_kind = -1;
+	}
 	if (st->dragging || st->tb_dragging || st->slider_dragging ||
 		st->color_picker_dragging || st->moving_region ||
 		st->handle_dragging != HANDLE_NONE || region_anno_dragging(st) ||
 		st->drawing)
 		return;
+	if (st->win) {
+		st->win->frame.hover = UI_HIT_NONE;
+		st->win->frame.close_armed = false;
+	}
 	st->cursor_on = NULL;
 	st->pressed_button = -1;
 	region_set_hover(st, -1);
@@ -67,7 +81,16 @@ static void motion_event(struct ro_state *st, wl_fixed_t sx, wl_fixed_t sy) {
 	if (!st->cursor_on) return;
 	st->ui_x = st->cursor_x = st->cursor_on->go->x + wl_fixed_to_int(sx);
 	st->ui_y = st->cursor_y = st->cursor_on->go->y + wl_fixed_to_int(sy);
+	st->ui_fx = st->cursor_on->go->x + wl_fixed_to_double(sx);
+	st->ui_fy = st->cursor_on->go->y + wl_fixed_to_double(sy);
+	region_window_cursor_from_ui(st);
 	st->cursor_seen = true;
+
+	if (region_window_motion(st)) {
+		ginp_refresh_cursor(st);
+		region_render_request_redraw_all(st);
+		return;
+	}
 
 	if (st->tb_dragging) {
 		if (!st->tb_lock) st->tb_out = st->cursor_on->go;
@@ -145,6 +168,12 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t time,
 	if (n == 0) return;
 	st->scroll_accum -= n * 10.0;
 
+	if (st->win && st->ctrl_held) {
+		region_window_zoom_at(st, pow(RWIN_ZOOM_STEP, -n), st->ui_x, st->ui_y);
+		ginp_refresh_cursor(st);
+		return;
+	}
+
 	if (st->anno_edit_mode && region_has_selection(st) && st->out_annos) {
 		if (!st->resizing_anno) {
 			region_undo_record_selected_sizes(st, -1);
@@ -188,19 +217,29 @@ static void pointer_motion(void *data, struct wl_pointer *p, uint32_t time,
 static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial,
 						   uint32_t time, uint32_t button, uint32_t state) {
 	(void)p;
-	(void)serial;
-	ginp_button_event(data, time, button, state);
+	struct ro_state *st = data;
+	if (st->cleanup) return;
+	if (region_window_button(st, serial, time, button, state)) {
+		region_render_request_redraw_all(st);
+		return;
+	}
+	ginp_button_event(st, time, button, state);
 }
 
 static void touch_down(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
 					   struct wl_surface *surface, int32_t id, wl_fixed_t sx,
 					   wl_fixed_t sy) {
 	(void)t;
-	(void)serial;
 	struct ro_state *st = data;
 	if (st->cleanup || !gtouch_claim(&st->touch_slot, id)) return;
 	if (!enter_output(st, surface, sx, sy)) {
 		gtouch_clear(&st->touch_slot);
+		return;
+	}
+	if (st->win) st->win->grabbed = false;
+	if (region_window_button(st, serial, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED)) {
+		if (st->win->grabbed) gtouch_clear(&st->touch_slot);
+		region_render_request_redraw_all(st);
 		return;
 	}
 	ginp_button_event(st, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED);
@@ -209,9 +248,12 @@ static void touch_down(void *data, struct wl_touch *t, uint32_t serial, uint32_t
 static void touch_up(void *data, struct wl_touch *t, uint32_t serial, uint32_t time,
 					 int32_t id) {
 	(void)t;
-	(void)serial;
 	struct ro_state *st = data;
 	if (st->cleanup || !gtouch_release(&st->touch_slot, id)) return;
+	if (region_window_button(st, serial, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED)) {
+		region_render_request_redraw_all(st);
+		return;
+	}
 	ginp_button_event(st, time, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
 }
 

@@ -121,6 +121,7 @@ struct annotation_list {
 void annotation_list_free(struct annotation_list *list);
 
 #define REGION_SELECT_CANCELLED (-2)
+#define REGION_SELECT_POPOUT (-3)
 
 struct region_snap {
 	bool snapped;

@@ -41,6 +41,7 @@ enum tb_action {
 	TB_WIDTH_SLIDER,
 	TB_UNDO,
 	TB_REDO,
+	TB_POPOUT,
 	TB_SAVE,
 	TB_CANCEL,
 	TB_BTN_COUNT,

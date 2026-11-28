@@ -172,6 +172,7 @@ struct ro_state {
 
 	struct ro_window *win;
 	struct rect ui_bounds;
+	bool popout;
 	bool discard_armed;
 
 	bool dragging;

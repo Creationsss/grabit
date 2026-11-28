@@ -130,6 +130,10 @@ int grabit_freeze_capture(struct grabit_wl_state *s, struct config *cfg,
 								overlay_edit ? out_choices_dirty : NULL, &snap,
 								overlay_edit ? forced_region : NULL, snap_rects,
 								n_snap_rects);
+		if (sel == REGION_SELECT_POPOUT) {
+			in_window = true;
+			sel = 0;
+		}
 		if (sel != 0) {
 			if (sel == REGION_SELECT_CANCELLED) {
 				log_debug("region selection cancelled");

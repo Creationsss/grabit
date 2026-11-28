@@ -379,6 +379,7 @@ static const struct action_def ACTIONS[] = {
 	{KA_CONFIRM, "Confirm", "General"},
 	{KA_CANCEL, "Cancel", "General"},
 	{KA_MAGNIFIER, "Magnifier", "General"},
+	{KA_POP_OUT, "Edit in a window", "General"},
 	{KA_SELECT_ALL, "Select all", "Selection"},
 	{KA_REGION_MODE, "Select region", "Selection"},
 	{KA_EDIT_MODE, "Move/resize annotations", "Selection"},

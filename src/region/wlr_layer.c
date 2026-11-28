@@ -292,7 +292,7 @@ loop_done:;
 		out->y = st.sel_y;
 		out->w = st.sel_w;
 		out->h = st.sel_h;
-		rc = 0;
+		rc = st.popout ? REGION_SELECT_POPOUT : 0;
 	}
 	if (inout_color) *inout_color = st.current_color;
 	if (inout_width) *inout_width = st.current_width;

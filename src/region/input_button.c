@@ -92,6 +92,8 @@ bool ginp_toolbar_button_event(struct ro_state *st, uint32_t state) {
 		region_undo_arm(st);
 	} else if (act == TB_REDO) {
 		region_redo_pop(st);
+	} else if (act == TB_POPOUT) {
+		ginp_popout(st);
 	} else if (act == TB_SAVE) {
 		if (st->has_selection) st->finished = true;
 	} else if (act == TB_CANCEL) {
@@ -135,6 +137,27 @@ void ginp_request_cancel(struct ro_state *st) {
 		return;
 	}
 	st->cancelled = true;
+	st->finished = true;
+}
+
+void ginp_popout(struct ro_state *st) {
+	if (st->win) {
+		region_window_fit(st);
+		return;
+	}
+	if (!region_editing(st) || st->dragging) return;
+	if (st->text_input_active) region_commit_text(st);
+	region_clear_selection(st);
+	st->anno_edit_mode = false;
+	if (!st->has_selection && st->bounds.w > 0 && st->bounds.h > 0) {
+		st->sel_x = st->bounds.x;
+		st->sel_y = st->bounds.y;
+		st->sel_w = st->bounds.w;
+		st->sel_h = st->bounds.h;
+		st->has_selection = true;
+	}
+	if (!st->has_selection) return;
+	st->popout = true;
 	st->finished = true;
 }
 

@@ -12,9 +12,13 @@
 
 #include <cairo/cairo.h>
 
-static const char *plain_label(enum tb_action act, enum region_action *out_action) {
+static const char *plain_label(const struct ro_state *st, enum tb_action act,
+							   enum region_action *out_action) {
 	*out_action = KA_COUNT;
 	switch (act) {
+	case TB_POPOUT:
+		*out_action = st->win ? KA_ZOOM_FIT : KA_POP_OUT;
+		return st->win ? "Fit to window" : "Edit in a window";
 	case TB_REGION:
 		*out_action = KA_REGION_MODE;
 		return "Select region";
@@ -59,7 +63,7 @@ static const char *tooltip_text(const struct ro_state *st, enum tb_action act,
 	}
 
 	enum region_action ra;
-	const char *label = plain_label(act, &ra);
+	const char *label = plain_label(st, act, &ra);
 	if (!label) return NULL;
 	if (ra != KA_COUNT) {
 		region_keybind_first(&st->keys, ra, key, sizeof key);

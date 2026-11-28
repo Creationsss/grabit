@@ -179,6 +179,7 @@ every selector and editor action is rebindable under `keys.*`. a value is a comm
 | `keys.redo` | `Ctrl+y, Ctrl+Shift+z` | redo |
 | `keys.delete` | `Delete, BackSpace` | delete the selected annotations |
 | `keys.magnifier` | `Alt_L, Alt_R` | hold for a pixel loupe |
+| `keys.pop_out` | `w` | move the overlay edit into a window |
 | `keys.zoom_in` / `keys.zoom_out` | `Ctrl+plus, Ctrl+equal` / `Ctrl+minus` | editor window zoom |
 | `keys.zoom_fit` / `keys.zoom_actual` | `Ctrl+0` / `Ctrl+1` | fit the image to the editor window, or show it at 100% |
 | `keys.edit_mode` | `s` | move/resize tool |
@@ -357,9 +358,9 @@ tools, by key: `q` region, `s` move/resize, `p` pen, `m` marker, `l` line, `r` r
 
 ### editor window
 
-`--edit-window` (or `edit.mode = window`) picks the region on the overlay as usual, then opens the editor in a normal window instead of keeping the screen frozen. the window can be moved, resized, tiled and left in the background while you use other apps, and it stays open until you save or cancel. `--edit-overlay` forces the overlay for one run.
+`--edit-window` (or `edit.mode = window`) picks the region on the overlay as usual, then opens the editor in a normal window instead of keeping the screen frozen. the window can be moved, resized, tiled and left in the background while you use other apps, and it stays open until you save or cancel. `--edit-overlay` forces the overlay for one run. the pop-out button in the overlay toolbar (`w`) moves an edit that is already in progress, annotations and all, into a window.
 
-the image starts fitted to the window. Ctrl+wheel zooms at the pointer, a middle-button drag pans, and `Ctrl+plus`/`Ctrl+minus`/`Ctrl+0`/`Ctrl+1` zoom in, zoom out, fit and show actual size. the selection handles crop the image. with annotations on the canvas, cancel asks to be pressed a second time before it throws them away. the same window opens for `-e -f <file>`.
+the image starts fitted to the window. Ctrl+wheel zooms at the pointer, a middle-button drag pans, and `Ctrl+plus`/`Ctrl+minus`/`Ctrl+0`/`Ctrl+1` zoom in, zoom out, fit and show actual size; the pop-out button turns into fit-to-window. the selection handles crop the image. with annotations on the canvas, cancel asks to be pressed a second time before it throws them away. the same window opens for `-e -f <file>`.
 
 | key | default | notes |
 |---|---|---|

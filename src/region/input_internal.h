@@ -34,6 +34,7 @@ void ginp_button_event(struct ro_state *st, uint32_t time, uint32_t button, uint
 void ginp_refresh_cursor(struct ro_state *st);
 void ginp_region_do_confirm(struct ro_state *st);
 void ginp_request_cancel(struct ro_state *st);
+void ginp_popout(struct ro_state *st);
 void ginp_slider_set_width_from_cursor(struct ro_state *st, bool record);
 
 #endif

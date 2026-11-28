@@ -243,6 +243,11 @@ static void keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
 			region_window_zoom_to(st, 1.0, st->ui_x, st->ui_y);
 			return;
 		}
+	} else if (region_editing(st) && !region_drag_active(st) &&
+			   region_key_action(&st->keys, KA_POP_OUT, sym, mods) &&
+			   region_key_tool(&st->keys, sym, mods) < 0) {
+		ginp_popout(st);
+		return;
 	}
 	if (region_key_action(&st->keys, KA_CONFIRM, sym, mods)) {
 		if (region_drag_active(st)) return;

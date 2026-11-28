@@ -115,7 +115,7 @@ int gapp_edit_image_file(struct config *cfg, const char *src_path,
 	struct rect preset = {img_x, img_y, logical_w, logical_h};
 	struct rect got = preset;
 
-	int sel = 0;
+	int sel = REGION_SELECT_POPOUT;
 	if (!in_window) {
 		if (logical_w > host->logical_width || logical_h > host->logical_height)
 			log_warn("edit: %dx%d image is larger than %s (%dx%d); "
@@ -147,7 +147,7 @@ int gapp_edit_image_file(struct config *cfg, const char *src_path,
 		goto cleanup;
 	}
 
-	bool windowed = in_window;
+	bool windowed = sel == REGION_SELECT_POPOUT;
 	if (windowed) {
 		cairo_surface_flush(out);
 		struct image im = {

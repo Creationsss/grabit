@@ -389,6 +389,47 @@ void toolbar_icon_cancel(cairo_t *cr, double cx, double cy, double s) {
 	cairo_stroke(cr);
 }
 
+void toolbar_icon_popout(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.4 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+	double h = s * 0.34;
+	double gap = s * 0.14;
+	cairo_move_to(cr, cx - gap, cy - h);
+	cairo_line_to(cr, cx - h, cy - h);
+	cairo_line_to(cr, cx - h, cy + h);
+	cairo_line_to(cr, cx + h, cy + h);
+	cairo_line_to(cr, cx + h, cy + gap);
+	cairo_stroke(cr);
+	double t = s * 0.40;
+	cairo_move_to(cr, cx, cy);
+	cairo_line_to(cr, cx + t, cy - t);
+	cairo_move_to(cr, cx + t * 0.35, cy - t);
+	cairo_line_to(cr, cx + t, cy - t);
+	cairo_line_to(cr, cx + t, cy - t * 0.35);
+	cairo_stroke(cr);
+}
+
+void toolbar_icon_fit(cairo_t *cr, double cx, double cy, double s) {
+	double w = 2.4 * (s / 24.0);
+	cairo_set_line_width(cr, w);
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+	double h = s * 0.36;
+	double arm = s * 0.16;
+	for (int i = 0; i < 4; i++) {
+		double sx = (i & 1) ? 1.0 : -1.0;
+		double sy = (i & 2) ? 1.0 : -1.0;
+		cairo_move_to(cr, cx + sx * h, cy + sy * (h - arm));
+		cairo_line_to(cr, cx + sx * h, cy + sy * h);
+		cairo_line_to(cr, cx + sx * (h - arm), cy + sy * h);
+	}
+	cairo_stroke(cr);
+	cairo_rectangle(cr, cx - h * 0.45, cy - h * 0.45, h * 0.9, h * 0.9);
+	cairo_fill(cr);
+}
+
 void toolbar_icon_color_picker(cairo_t *cr, double cx, double cy, double s) {
 	double w = 2.0 * (s / 24.0);
 	cairo_set_line_width(cr, w);

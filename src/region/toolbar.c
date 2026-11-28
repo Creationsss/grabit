@@ -88,8 +88,15 @@ static void paint_slider(cairo_t *cr, struct ro_state *st, int32_t S,
 	cairo_stroke(cr);
 }
 
-static void paint_tool_icon(cairo_t *cr, enum tb_action act, double cxi, double cyi, double s_icon) {
+static void paint_tool_icon(cairo_t *cr, const struct ro_state *st, enum tb_action act,
+							double cxi, double cyi, double s_icon) {
 	switch (act) {
+	case TB_POPOUT:
+		if (st->win)
+			toolbar_icon_fit(cr, cxi, cyi, s_icon);
+		else
+			toolbar_icon_popout(cr, cxi, cyi, s_icon);
+		break;
 	case TB_REGION:
 		toolbar_icon_region(cr, cxi, cyi, s_icon);
 		break;
@@ -189,7 +196,7 @@ void region_toolbar_render(cairo_t *cr, const struct ro_output *o) {
 			toolbar_icon_for_tool(cr, gt, cxi, cyi, s_icon);
 			continue;
 		}
-		paint_tool_icon(cr, act, cxi, cyi, s_icon);
+		paint_tool_icon(cr, o->st, act, cxi, cyi, s_icon);
 	}
 
 	cairo_restore(cr);

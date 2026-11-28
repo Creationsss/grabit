@@ -29,6 +29,7 @@ enum region_action {
 	KA_NUDGE_UP,
 	KA_NUDGE_DOWN,
 	KA_MAGNIFIER,
+	KA_POP_OUT,
 	KA_ZOOM_IN,
 	KA_ZOOM_OUT,
 	KA_ZOOM_FIT,
